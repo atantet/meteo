@@ -113,8 +113,8 @@ email:
   # Lien depuis chaque indicateur vers sa "fiche indice" sur Pages
   # (publiée plus tard). Aligne avec le principe #5 transparence.
   inclure_lien_fiches_indices: true
-  # URL de base des fiches indices, à remplir quand Pages sera publié.
-  url_fiches_indices: ""
+  # URL de base des fiches indices (rapport Climato Quarto sur Pages).
+  url_fiches_indices: "https://atantet.github.io/meteo/"
 
 # ----- Diffusion (secrets via .env / GH Actions, pas ici) -----
 #
