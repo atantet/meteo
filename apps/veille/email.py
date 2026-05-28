@@ -5,6 +5,11 @@ des indicateurs et alertes calculés.
 
 Le ton reste informationnel (cf. principe n°1). L'utilisateur garde
 son jugement empirique pour décider.
+
+Chaque indicateur est annoté de sa **fenêtre temporelle** (entre
+crochets, gris discret) et le footer du mail rappelle la **source des
+données** + la **méthode de calcul ETP** + la programmation du cron
+(principe n°5 transparence).
 """
 
 from __future__ import annotations
@@ -26,6 +31,16 @@ class EmailComposed:
     html: str
 
 
+# Source explicite — adapté à la config par défaut de l'App 1 Veille
+# (cf. config/veille.yaml ``source_meteo.modeles``).
+SOURCE_DEFAUT = (
+    "Open-Meteo best_match (AROME France HD 0-2 j · ICON-EU/ARPEGE 2-4 j · ECMWF IFS 4-7 j)"
+)
+METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle, cf. ADR-0004)"
+CRON_EXPLAIN = "30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été"
+SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
+
+
 def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
     """Formate le sujet selon template config.
 
@@ -44,6 +59,10 @@ def composer_texte(
     alertes: list[Alerte],
     maintenant: datetime,
     url_fiches: str = "",
+    source: str = SOURCE_DEFAUT,
+    methode_etp: str = METHODE_ETP,
+    cron: str = CRON_EXPLAIN,
+    site: str = SITE_EXPLAIN,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     lignes: list[str] = []
@@ -61,26 +80,34 @@ def composer_texte(
         lignes.append("Aucune alerte seuil franchi sur les prochaines 24 h.")
         lignes.append("")
 
-    lignes.append("INDICATEURS 24 h :")
-    lignes.append(f"  T° min prévue   : {ind.temperature_min_24h_celsius:>6.1f} °C")
-    lignes.append(f"  T° max prévue   : {ind.temperature_max_24h_celsius:>6.1f} °C")
-    lignes.append(f"  Pluie cumulée   : {ind.cumul_pluie_24h_mm:>6.1f} mm")
-    lignes.append(f"  Vent max        : {ind.vent_max_24h_kmh:>6.0f} km/h")
-    lignes.append(f"  Rafales max     : {ind.rafales_max_24h_kmh:>6.0f} km/h")
-    lignes.append(f"  ETP du jour     : {ind.etp_jour_mm:>6.1f} mm")
-    lignes.append("")
-    lignes.append("BILAN HYDRIQUE :")
-    lignes.append(f"  Cumul pluie 48 h  : {ind.cumul_pluie_48h_mm:>6.1f} mm")
-    lignes.append(f"  Cumul pluie 72 h  : {ind.cumul_pluie_72h_mm:>6.1f} mm")
-    lignes.append(f"  Bilan P-ETP 7 j   : {ind.bilan_eau_7j_mm:>6.1f} mm")
+    def fmt(label: str, val: str, win: str) -> str:
+        return f"  {label:<22}: {val:>10}   [{win}]"
+
+    lignes.append("INDICATEURS :")
+    lignes.append(fmt("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
+    lignes.append(fmt("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
+    lignes.append(fmt("Cumul pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h"))
+    lignes.append(fmt("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h"))
+    lignes.append(fmt("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm", "0-72 h"))
+    lignes.append(fmt("Proba. pluie 24 h", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire"))
+    lignes.append(fmt("Proba. pluie 72 h", f"{ind.prob_pluie_max_72h_pct:.0f} %", "max horaire"))
+    lignes.append(fmt("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h"))
+    lignes.append(fmt("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h"))
+    lignes.append(fmt("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h, FAO socle"))
+    lignes.append(fmt("Bilan P-ETP 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "0-7 j"))
     flag = "OUI" if ind.tension_irrigation else "non"
-    lignes.append(f"  Tension irrigation : {flag}")
+    lignes.append(fmt("Tension irrigation", flag, "heuristique config"))
     lignes.append("")
-    lignes.append("--")
-    lignes.append("Ce mail est un signal informationnel — vous gardez la")
-    lignes.append("décision (cf. principe #1 du projet).")
+    lignes.append("-" * 60)
+    lignes.append("Ce mail est un signal informationnel — vous gardez la décision")
+    lignes.append("(cf. principe #1 du projet).")
+    lignes.append("")
+    lignes.append(f"Source : {source}")
+    lignes.append(f"ETP    : {methode_etp}")
+    lignes.append(f"Cron   : {cron}")
+    lignes.append(f"Site   : {site}")
     if url_fiches:
-        lignes.append(f"Détails et sources : {url_fiches}")
+        lignes.append(f"Fiches : {url_fiches}")
     return "\n".join(lignes)
 
 
@@ -89,6 +116,10 @@ def composer_html(
     alertes: list[Alerte],
     maintenant: datetime,
     url_fiches: str = "",
+    source: str = SOURCE_DEFAUT,
+    methode_etp: str = METHODE_ETP,
+    cron: str = CRON_EXPLAIN,
+    site: str = SITE_EXPLAIN,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     couleur_niveau = {"critique": "#c0392b", "warning": "#e67e22"}
@@ -115,39 +146,56 @@ def composer_html(
             "</div>"
         )
 
-    def row(label: str, valeur: str) -> str:
+    def row(label: str, valeur: str, fenetre: str) -> str:
         return (
-            f'<tr><td style="padding:4px 8px;color:#555;">{label}</td>'
+            "<tr>"
+            f'<td style="padding:4px 8px;color:#555;">{label}'
+            f'<span style="font-size:0.75em;color:#aaa;margin-left:6px;">[{fenetre}]</span>'
+            "</td>"
             f'<td style="padding:4px 8px;text-align:right;'
-            f'font-variant-numeric:tabular-nums;font-weight:600;">{valeur}</td></tr>'
+            f'font-variant-numeric:tabular-nums;font-weight:600;">{valeur}</td>'
+            "</tr>"
         )
 
     table_ind = (
         '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
-        + row("T° min prévue", f"{ind.temperature_min_24h_celsius:.1f} °C")
-        + row("T° max prévue", f"{ind.temperature_max_24h_celsius:.1f} °C")
-        + row("Pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm")
-        + row("Vent max", f"{ind.vent_max_24h_kmh:.0f} km/h")
-        + row("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h")
-        + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm")
+        + row("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h")
+        + row("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h")
+        + row("Pluie cumulée", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h")
+        + row("Proba. pluie max", f"{ind.prob_pluie_max_24h_pct:.0f} %", "proba horaire max 0-24 h")
+        + row("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h")
+        + row("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h")
+        + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h · FAO P-M socle")
         + "</table>"
     )
 
     flag = "OUI" if ind.tension_irrigation else "non"
     table_bilan = (
         '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
-        + row("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm")
-        + row("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm")
-        + row("Bilan P-ETP 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm")
-        + row("Tension irrigation", flag)
+        + row("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h")
+        + row("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm", "0-72 h")
+        + row("Proba. pluie max", f"{ind.prob_pluie_max_72h_pct:.0f} %", "proba horaire max 0-72 h")
+        + row("Bilan P-ETP 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "0-7 j")
+        + row("Tension irrigation", flag, "heuristique config")
         + "</table>"
     )
 
     lien_fiches = (
-        f'<p style="font-size:13px;color:#888;">'
-        f'Détails et sources : <a href="{url_fiches}">{url_fiches}</a></p>'
+        f'<p style="margin:6px 0;font-size:12px;color:#888;">'
+        f'Fiches indices : <a href="{url_fiches}" style="color:#888;">{url_fiches}</a></p>'
         if url_fiches
         else ""
+    )
+
+    footer = (
+        '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #eee;'
+        'font-size:11px;color:#888;line-height:1.5;">'
+        f'<div><strong style="color:#555;">Source</strong> : {source}</div>'
+        f'<div><strong style="color:#555;">ETP</strong> : {methode_etp}</div>'
+        f'<div><strong style="color:#555;">Cron</strong> : {cron}</div>'
+        f'<div><strong style="color:#555;">Site</strong> : {site}</div>'
+        f"{lien_fiches}"
+        "</div>"
     )
 
     return f"""<!DOCTYPE html>
@@ -165,13 +213,13 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bandeau}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Indicateurs 24 h</h3>
   {table_ind}
-  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Bilan hydrique</h3>
+  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Bilan hydrique &amp; horizon</h3>
   {table_bilan}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
     Les seuils sont des défauts opérationnels, ajustables dans la config.
   </p>
-  {lien_fiches}
+  {footer}
 </div>
 </body></html>"""
 

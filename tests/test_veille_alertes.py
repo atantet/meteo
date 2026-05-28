@@ -32,6 +32,9 @@ def _ind(**kwargs):
         rafales_max_24h_kmh=20.0,
         etp_jour_mm=2.0,
         bilan_eau_7j_mm=0.0,
+        prob_pluie_max_24h_pct=0.0,
+        prob_pluie_max_48h_pct=0.0,
+        prob_pluie_max_72h_pct=0.0,
         tension_irrigation=False,
     )
     defaults.update(kwargs)

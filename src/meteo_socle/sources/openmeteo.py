@@ -48,6 +48,7 @@ HOURLY_VARIABLES_DEFAUT: list[str] = [
     "temperature_2m",  # °C → K
     "relative_humidity_2m",  # % → fraction
     "precipitation",  # mm
+    "precipitation_probability",  # % (0-100, gardé tel quel)
     "wind_speed_10m",  # m/s (via wind_speed_unit=ms)
     "wind_gusts_10m",  # m/s
     "shortwave_radiation",  # W/m² → J/m²/h
@@ -61,6 +62,7 @@ RENAME_VERS_SOCLE: dict[str, str] = {
     "temperature_2m": "temperature_2m",
     "relative_humidity_2m": "humidite_relative",
     "precipitation": "precipitation",
+    "precipitation_probability": "probabilite_pluie_pct",
     "wind_speed_10m": "vitesse_vent_10m",
     "wind_gusts_10m": "rafales_vent_10m",
     "shortwave_radiation": "rayonnement_global",

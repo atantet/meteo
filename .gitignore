@@ -21,6 +21,9 @@ venv/
 .idea/
 *.swp
 *.swo
+# Backup files créés par les éditeurs (vim, gedit, etc.)
+*~
+*.bak
 
 # OS
 .DS_Store

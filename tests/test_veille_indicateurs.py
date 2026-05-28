@@ -37,6 +37,7 @@ def _prevision_synthetique(
     rafales_ms: float = 9.0,
     humidite: float = 0.7,
     rayonnement_jh: float = 0.0,
+    proba_pluie_pct: float = 0.0,
 ) -> pd.DataFrame:
     """Construit une prévision horaire homogène pour tests."""
     index = pd.date_range("2024-06-15 00:00:00+00:00", periods=duree_h, freq="h", tz="UTC")
@@ -48,6 +49,7 @@ def _prevision_synthetique(
             "rafales_vent_10m": np.full(duree_h, rafales_ms),
             "rayonnement_global": np.full(duree_h, rayonnement_jh),
             "precipitation": np.full(duree_h, pluie_horaire_mm),
+            "probabilite_pluie_pct": np.full(duree_h, proba_pluie_pct),
         },
         index=index,
     )
@@ -79,6 +81,37 @@ def test_calculer_indicateurs_basique() -> None:
     # ETP mockée : 0.1 mm/h × 24 = 2.4 mm/j ; × 168 = 16.8 mm sur 7j.
     assert ind.etp_jour_mm == pytest.approx(2.4)
     assert ind.bilan_eau_7j_mm == pytest.approx(-16.8)
+    # Probabilité par défaut : 0 % partout.
+    assert ind.prob_pluie_max_24h_pct == pytest.approx(0.0)
+    assert ind.prob_pluie_max_72h_pct == pytest.approx(0.0)
+
+
+def test_calculer_indicateurs_proba_pluie() -> None:
+    """Probabilité de pluie variable → max calculé correctement par fenêtre."""
+    from apps.veille.indicateurs import calculer_indicateurs
+
+    prevision = _prevision_synthetique()
+    # 0-24h : max à 30% ; 24-48h : max à 60% ; 48-72h : max à 10%.
+    prevision.loc[prevision.index[:24], "probabilite_pluie_pct"] = 30.0
+    prevision.loc[prevision.index[24:48], "probabilite_pluie_pct"] = 60.0
+    prevision.loc[prevision.index[48:72], "probabilite_pluie_pct"] = 10.0
+    now = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    with _patch_etp(0.1):
+        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
+    assert ind.prob_pluie_max_24h_pct == pytest.approx(30.0)
+    assert ind.prob_pluie_max_48h_pct == pytest.approx(60.0)
+    assert ind.prob_pluie_max_72h_pct == pytest.approx(60.0)
+
+
+def test_calculer_indicateurs_proba_pluie_colonne_absente() -> None:
+    """Si la colonne probabilite_pluie_pct est absente → 0 par défaut."""
+    from apps.veille.indicateurs import calculer_indicateurs
+
+    prevision = _prevision_synthetique().drop(columns=["probabilite_pluie_pct"])
+    now = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    with _patch_etp(0.1):
+        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
+    assert ind.prob_pluie_max_24h_pct == 0.0
 
 
 def test_calculer_indicateurs_alerte_gel_canicule() -> None:

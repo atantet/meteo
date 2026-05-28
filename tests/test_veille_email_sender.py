@@ -37,6 +37,9 @@ def _ind(**kwargs):
         rafales_max_24h_kmh=35.0,
         etp_jour_mm=3.2,
         bilan_eau_7j_mm=-5.0,
+        prob_pluie_max_24h_pct=15.0,
+        prob_pluie_max_48h_pct=30.0,
+        prob_pluie_max_72h_pct=45.0,
         tension_irrigation=False,
     )
     defaults.update(kwargs)
@@ -75,10 +78,13 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "ALERTES" in txt
     assert "Gel" in txt
     assert "INDICATEURS" in txt
-    assert "BILAN HYDRIQUE" in txt
+    assert "Bilan P-ETP" in txt or "Bilan" in txt
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
     assert "informationnel" in txt.lower()
+    # Footer source visible.
+    assert "Open-Meteo" in txt
+    assert "FAO" in txt
 
 
 def test_composer_texte_aucune_alerte() -> None:
@@ -95,7 +101,10 @@ def test_composer_html_structure() -> None:
     assert "<!DOCTYPE html>" in html
     assert 'name="viewport"' in html  # responsive mobile
     assert "Gel" in html
-    assert "T° min prévue" in html
+    assert "T° min nuit" in html
+    # Footer source + ETP discret.
+    assert "Open-Meteo" in html
+    assert "FAO" in html
 
 
 def test_composer_email_bundle() -> None:

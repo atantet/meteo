@@ -20,8 +20,10 @@ Exit code :
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -48,6 +50,7 @@ def executer_veille(
     secrets: dict[str, Any] | None,
     source: OpenMeteoForecast | None = None,
     now_utc: pd.Timestamp | None = None,
+    preview_path: str | Path | None = None,
 ) -> int:
     """Exécute le pipeline Veille de bout en bout.
 
@@ -56,18 +59,21 @@ def executer_veille(
     config :
         Configuration Veille (cf. ``config.load_config``).
     secrets :
-        Secrets SMTP (cf. ``config.load_smtp_secrets``). Peut être
-        ``None`` si dry-run.
+        Secrets SMTP. Peut être ``None`` si dry-run ou preview.
     source :
-        Source météo injectable (pour tests). Si ``None``, un
+        Source météo injectable (tests). Si ``None``, un
         ``OpenMeteoForecast`` est créé avec le 1er modèle de la config.
     now_utc :
         Référence temporelle. Si ``None``, ``pd.Timestamp.now(tz='UTC')``.
+    preview_path :
+        Si fourni, force l'envoi en mode preview : écrit le HTML
+        composé dans ce chemin et n'envoie rien par SMTP. Utile pour
+        prévisualiser le rendu sans bombarder son inbox.
 
     Returns
     -------
     int
-        Code de retour (0 succès).
+        Code de retour (0 succès, 2 HTTP source, 3 SMTP / écriture).
     """
     if source is None:
         modele = config["source_meteo"]["modeles"][0]
@@ -99,6 +105,17 @@ def executer_veille(
 
     email = composer_email(ind, alertes, config, now_utc.to_pydatetime())
 
+    if preview_path is not None:
+        try:
+            p = Path(preview_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(email.html, encoding="utf-8")
+            logger.info("Preview HTML écrit : %s", p)
+        except OSError as e:
+            logger.error("Erreur écriture preview : %s", e)
+            return 3
+        return 0
+
     envoi_reel = config["diffusion"]["envoi_reel"]
     try:
         envoyer(email, secrets=secrets, envoi_reel=envoi_reel)
@@ -108,8 +125,28 @@ def executer_veille(
     return 0
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="python -m apps.veille",
+        description="Veille météo matinale — pipeline App 1.",
+    )
+    parser.add_argument(
+        "--preview",
+        type=str,
+        metavar="PATH",
+        default=None,
+        help=(
+            "Écrit le HTML composé dans PATH au lieu d'envoyer par SMTP. "
+            "Aucun secret SMTP requis. Ouvrir ensuite le fichier dans un "
+            "navigateur pour prévisualiser."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
     """Entry point CLI : charge config + secrets puis exécute le pipeline."""
+    args = _parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     load_dotenv_if_present()
     try:
@@ -119,14 +156,15 @@ def main() -> int:
         return 1
 
     secrets: dict[str, Any] | None = None
-    if config["diffusion"]["envoi_reel"]:
+    # En mode --preview, aucun secret SMTP n'est requis.
+    if args.preview is None and config["diffusion"]["envoi_reel"]:
         try:
             secrets = load_smtp_secrets()
         except ConfigError as e:
             logger.error("Secret SMTP manquant : %s", e)
             return 1
 
-    return executer_veille(config, secrets)
+    return executer_veille(config, secrets, preview_path=args.preview)
 
 
 if __name__ == "__main__":

@@ -68,6 +68,10 @@ class IndicateursVeille:
     etp_jour_mm: float
     bilan_eau_7j_mm: float
 
+    prob_pluie_max_24h_pct: float
+    prob_pluie_max_48h_pct: float
+    prob_pluie_max_72h_pct: float
+
     tension_irrigation: bool
 
 
@@ -138,6 +142,13 @@ def calculer_indicateurs(
         and bilan_7j < tension_cfg["seuil_deficit_7j_mm"]
     )
 
+    # Probabilité de pluie : colonne optionnelle (selon les variables
+    # demandées dans le fetch). On donne 0 si absente.
+    def _prob_max(window: pd.DataFrame) -> float:
+        if "probabilite_pluie_pct" not in window.columns:
+            return 0.0
+        return float(window["probabilite_pluie_pct"].max())
+
     return IndicateursVeille(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
@@ -148,5 +159,8 @@ def calculer_indicateurs(
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
         etp_jour_mm=etp_24h,
         bilan_eau_7j_mm=bilan_7j,
+        prob_pluie_max_24h_pct=_prob_max(h24),
+        prob_pluie_max_48h_pct=_prob_max(h48),
+        prob_pluie_max_72h_pct=_prob_max(h72),
         tension_irrigation=bool(tension),
     )
