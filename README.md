@@ -151,9 +151,9 @@ quarto render apps/climato/report.qmd --to html
 
 **Déploiement GitHub Pages** : le workflow
 `.github/workflows/climato-publish.yml` construit le rapport et le
-publie sur Pages à chaque modif du code climato + tous les 1ers du mois.
-À l'activation, dans *Settings → Pages*, choisir source = **GitHub
-Actions**.
+publie sur <https://atantet.github.io/meteo/> à chaque modif du code
+climato + tous les 1ers du mois. (Pages activé via
+`gh api -X POST /repos/atantet/meteo/pages -f build_type=workflow`.)
 
 ## Tests
 
