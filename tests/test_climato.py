@@ -175,7 +175,14 @@ def test_fetch_historique_decoupe_lots_annuels() -> None:
 
     fake_source.obtenir_historique.side_effect = fake_obtenir
 
-    df = fetch_historique(48.5, -1.6, annee_debut=2018, annee_fin=2020, source=fake_source)
+    df = fetch_historique(
+        48.5,
+        -1.6,
+        annee_debut=2018,
+        annee_fin=2020,
+        source=fake_source,
+        delai_entre_lots_s=0,
+    )
     # 3 ans → 3 appels.
     assert fake_source.obtenir_historique.call_count == 3
     assert len(df) == 3

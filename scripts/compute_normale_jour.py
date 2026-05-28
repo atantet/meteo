@@ -1,11 +1,15 @@
 """Pré-calcul de la normale climatologique journalière pour le site Veille.
 
-Récupère 10 ans d'ERA5 via Open-Meteo Archive, agrège en quotidien
-(T_min, T_max, T_moy), puis moyenne par jour-de-l'année → 366 valeurs.
+Récupère la **normale OMM standard 1991-2020 (30 ans)** d'ERA5 via
+Open-Meteo Archive, agrège en quotidien (T_min, T_max, T_moy), puis
+moyenne par jour-de-l'année → 366 valeurs.
 
 Sauve le CSV de référence ``data/climato/normale_jour_lapetiteclaye.csv``
 versionné dans le repo et utilisé en overlay par
 ``apps.veille.charts.graphique_72h_base64``.
+
+Les bornes sont lues dans ``config/climato.yaml`` :
+``periodes.normale_debut`` / ``periodes.normale_fin``.
 
 USAGE
 =====
@@ -14,7 +18,7 @@ USAGE
 
     ~/.conda/envs/meteo/bin/python scripts/compute_normale_jour.py
 
-Coût : ~30-60 s (10 requêtes Open-Meteo annuelles).
+Coût : ~3-5 min pour 30 ans (1 requête Open-Meteo par an).
 """
 
 from __future__ import annotations
@@ -38,18 +42,20 @@ OUTPUT_CSV = REPO_ROOT / "data" / "climato" / "normale_jour_lapetiteclaye.csv"
 def main() -> None:
     config = load_config()
     site = config["site"]
-    periode = config["rapport"]["periode_donnees"]
+    # Normale OMM standard (30 ans) — pas la fenêtre démo du rapport.
+    debut = config["periodes"]["normale_debut"]
+    fin = config["periodes"]["normale_fin"]
     modele = config["source_meteo"]["modele"]
 
     print(
-        f"Fetch ERA5 ({modele}) {periode['debut']}-{periode['fin']} "
+        f"Fetch ERA5 ({modele}) {debut}-{fin} (normale OMM, {fin - debut + 1} ans) "
         f"pour ({site['latitude']}, {site['longitude']})…"
     )
     horaire = fetch_historique(
         latitude=site["latitude"],
         longitude=site["longitude"],
-        annee_debut=periode["debut"],
-        annee_fin=periode["fin"],
+        annee_debut=debut,
+        annee_fin=fin,
         modele=modele,
     )
     print(f"  {len(horaire):,} heures récupérées.")

@@ -110,7 +110,7 @@ def graphique_72h_base64(
             color="#7f8c8d",
             linestyle="--",
             linewidth=1.2,
-            label="Normale 2015-2024",
+            label="Normale OMM 1991-2020",
         )
         ax_t.legend(loc="best", fontsize=7, frameon=False)
 

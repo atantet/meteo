@@ -12,6 +12,8 @@ lents.
 
 from __future__ import annotations
 
+import time
+
 import pandas as pd
 
 from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
@@ -24,11 +26,13 @@ def fetch_historique(
     annee_fin: int,
     modele: str = "era5_land",
     source: OpenMeteoArchive | None = None,
+    delai_entre_lots_s: float = 1.0,
 ) -> pd.DataFrame:
     """Récupère l'historique horaire entre ``annee_debut`` et ``annee_fin`` (inclus).
 
     Découpé en lots annuels pour limiter la taille de chaque réponse
-    HTTP (~3 Mo / an).
+    HTTP (~3 Mo / an). Un délai entre lots évite les rate-limits 429
+    sur de longues fenêtres (30 ans normale OMM par ex.).
 
     Parameters
     ----------
@@ -40,6 +44,9 @@ def fetch_historique(
         Modèle Open-Meteo archive (``"era5_land"`` par défaut).
     source :
         Client à utiliser. Injectable pour tests (mock).
+    delai_entre_lots_s :
+        Délai en secondes inséré entre chaque appel annuel. Mettre à 0
+        pour les tests.
 
     Returns
     -------
@@ -49,7 +56,8 @@ def fetch_historique(
     if source is None:
         source = OpenMeteoArchive(modele=modele)
     lots = []
-    for annee in range(annee_debut, annee_fin + 1):
+    annees = list(range(annee_debut, annee_fin + 1))
+    for i, annee in enumerate(annees):
         df = source.obtenir_historique(
             latitude=latitude,
             longitude=longitude,
@@ -57,4 +65,7 @@ def fetch_historique(
             end_date=f"{annee}-12-31",
         )
         lots.append(df)
+        # Pause entre lots sauf après le dernier.
+        if delai_entre_lots_s > 0 and i < len(annees) - 1:
+            time.sleep(delai_entre_lots_s)
     return pd.concat(lots).sort_index()
