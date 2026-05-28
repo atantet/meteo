@@ -22,6 +22,12 @@ dependencies:
   # UI app opérationnelle
   - streamlit
   - altair
+  # App 3 Climato : Jupyter pour exécution des chunks Python dans le
+  # rapport Quarto, matplotlib pour les figures. Quarto lui-même est
+  # un binaire séparé (le package conda-forge est cassé en 2026-05) :
+  # installer via le tarball officiel ou apt — voir README.
+  - jupyter
+  - matplotlib
   # Outils de dev
   - pytest
   - ruff

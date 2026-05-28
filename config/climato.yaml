@@ -11,11 +11,12 @@ site:
 
 # ----- Source historique -----
 source_meteo:
-  # Placeholder v0 : ERA5-Land via Open-Meteo (~10 km). ADR-0002
-  # planifie SAFRAN MF (~8 km) en v1 pour mieux capter le gradient
-  # côtier breton. Cette substitution est signalée dans le rapport.
+  # Placeholder v0 : ERA5 via Open-Meteo (~25 km). ADR-0002 planifie
+  # SAFRAN MF (~8 km) en v1 pour mieux capter le gradient côtier
+  # breton. Note : ERA5-Land (~10 km) ne fournit pas shortwave_radiation
+  # nécessaire au calcul d'ETP socle — on retombe sur ERA5.
   archive: openmeteo
-  modele: era5_land
+  modele: era5
 
 # ----- Périodes climatologiques -----
 periodes:
@@ -39,5 +40,11 @@ indicateurs:
 rapport:
   titre: "Climatologie locale — La Petite Claye, Pleine-Fougères"
   auteur: "Alexis Tantet"
-  # Sous-titre affiché.
   sous_titre: "Synthèse 1991-2020 (normale OMM) avec comparaison année courante"
+  # Fenêtre de données effectivement utilisée dans le rapport v0 —
+  # plus courte que la normale OMM pour limiter le temps de build
+  # (~30 s / an via Open-Meteo). Plan v1 : passer à la normale complète
+  # 1991-2020 + DRIAS projections.
+  periode_donnees:
+    debut: 2015
+    fin: 2024

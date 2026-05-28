@@ -51,3 +51,6 @@ _site/
 
 # Claude Code per-user
 .claude/settings.local.json
+apps/climato/report.html
+apps/climato/report_files/
+apps/climato/.quarto/

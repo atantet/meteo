@@ -1,0 +1,229 @@
+---
+title: "Climatologie locale — La Petite Claye, Pleine-Fougères"
+subtitle: "Synthèse pluriannuelle ERA5 (v0)"
+author: "Alexis Tantet"
+date: today
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+  pdf:
+    toc: true
+    documentclass: scrreprt
+jupyter: python3
+execute:
+  echo: true
+  warning: false
+  cache: false
+---
+
+```{python}
+#| label: setup
+#| include: false
+
+import sys
+from pathlib import Path
+
+# Remonte depuis le cwd jusqu'à trouver `src/` du projet.
+REPO_ROOT = Path.cwd().resolve()
+while REPO_ROOT != REPO_ROOT.parent and not (REPO_ROOT / "src").exists():
+    REPO_ROOT = REPO_ROOT.parent
+
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+import matplotlib.pyplot as plt
+import pandas as pd  # noqa: F401 — utilisé dans des cellules ultérieures
+```
+
+# Introduction
+
+Ce rapport présente une **synthèse climatologique locale** pour le site
+de *La Petite Claye, 35610 Pleine-Fougères* (48.5420°N, 1.6155°W,
+altitude 30 m), à destination des décisions stratégiques de
+l'exploitation maraîchère : choix variétal, calendrier cultural,
+investissements en abris et irrigation.
+
+::: {.callout-warning}
+**v0 — source placeholder**
+
+L'ADR-0002 du projet prévoit l'utilisation des données SAFRAN de
+Météo-France (ré-analyse 8 km, depuis 1958) comme source historique
+de référence pour cette climato locale. Dans la v0 actuelle, faute
+d'accès SAFRAN intégré, c'est **ERA5** (ré-analyse ECMWF ~25 km,
+servie par Open-Meteo) qui est utilisée. ERA5-Land (~10 km) aurait
+été préférable mais ne fournit pas `shortwave_radiation` nécessaire
+au calcul d'ETP socle. SAFRAN sera substitué en v1.
+:::
+
+## Source des données et méthode
+
+| Élément | Choix v0 | Justification |
+|---|---|---|
+| **Source historique** | ERA5 via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~25 km de résolution |
+| **Fenêtre temporelle** | 2015-2024 (10 ans) | Compromis entre représentativité statistique et durée de build (~5 min) |
+| **Calcul ETP** | FAO Penman-Monteith horaire via `meteo_socle.indices.etp_fao` | Cohérence inter-apps (cf. principe transverse #4) |
+| **Seuils d'analyse** | gel 0 °C, canicule 30 °C, pluie marquante 10 mm/24 h | Cf. `config/climato.yaml` |
+
+```{python}
+#| label: fetch
+#| cache: false
+
+from apps.climato.config import load_config
+from apps.climato.donnees import fetch_historique
+from apps.climato.climatologie import (
+    agreger_quotidien,
+    agreger_mensuel,
+    normale_mensuelle,
+    jours_caracteristiques_par_annee,
+    dates_gel_par_annee,
+)
+
+config = load_config()
+site = config["site"]
+periode = config["rapport"]["periode_donnees"]
+seuils = config["indicateurs"]
+
+# Fetch lots annuels (~10 s/an).
+horaire = fetch_historique(
+    latitude=site["latitude"],
+    longitude=site["longitude"],
+    annee_debut=periode["debut"],
+    annee_fin=periode["fin"],
+    modele=config["source_meteo"]["modele"],
+)
+print(f"Données : {len(horaire):,} heures sur {periode['debut']}-{periode['fin']}.")
+
+quotidien = agreger_quotidien(horaire, site["latitude"], site["longitude"], site["altitude"])
+mensuel = agreger_mensuel(quotidien)
+norm = normale_mensuelle(mensuel, periode=(periode["debut"], periode["fin"]))
+jours = jours_caracteristiques_par_annee(
+    quotidien,
+    seuil_gel=seuils["seuil_gel_celsius"],
+    seuil_canicule=seuils["seuil_canicule_celsius"],
+    seuil_jour_pluvieux=seuils["seuil_jour_pluvieux_mm"],
+)
+dgel = dates_gel_par_annee(quotidien, seuil_gel=seuils["seuil_gel_celsius"])
+```
+
+# Régime thermique
+
+```{python}
+#| label: fig-temperatures
+#| fig-cap: "Température moyenne mensuelle (moyenne 2015-2024 ERA5-Land). T° min et max moyennes sur 24 h, t° moy sur l'ensemble."
+
+mois_labels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.fill_between(norm.index, norm["t_min"], norm["t_max"], alpha=0.25, color="#2c3e50", label="T° min – max moy.")
+ax.plot(norm.index, norm["t_moy"], color="#c0392b", marker="o", label="T° moyenne")
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(mois_labels)
+ax.set_ylabel("Température (°C)")
+ax.set_title("Cycle annuel de température (normale 2015-2024)")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper left")
+plt.tight_layout()
+plt.show()
+```
+
+# Régime pluviométrique
+
+```{python}
+#| label: fig-pluie
+#| fig-cap: "Cumul de pluie mensuel moyen (2015-2024) et ETP mensuelle moyenne calculée par le socle FAO Penman-Monteith. La différence P − ETP indique le déficit / excédent hydrique théorique."
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.bar(norm.index - 0.18, norm["pluie"], width=0.35, color="#3498db", label="Pluie (mm)")
+ax.bar(norm.index + 0.18, norm["etp"], width=0.35, color="#e67e22", label="ETP (mm)")
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(mois_labels)
+ax.set_ylabel("Cumul mensuel (mm)")
+ax.set_title("Pluie vs ETP — cycle annuel moyen")
+ax.grid(True, alpha=0.3, axis="y")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-bilan-eau
+#| fig-cap: "Bilan hydrique moyen mensuel (P − ETP). Mois positifs = excédent, mois négatifs = déficit cumulé."
+
+bilan = (norm["pluie"] - norm["etp"]).round(1)
+fig, ax = plt.subplots(figsize=(9, 3.5))
+couleurs = ["#27ae60" if v >= 0 else "#c0392b" for v in bilan.values]
+ax.bar(bilan.index, bilan.values, color=couleurs)
+ax.axhline(0, color="black", linewidth=0.7)
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(mois_labels)
+ax.set_ylabel("P − ETP (mm)")
+ax.set_title("Bilan hydrique mensuel moyen (vert = excédent, rouge = déficit)")
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
+```
+
+# Dates de gel et jours caractéristiques
+
+```{python}
+#| label: tbl-dates-gel
+#| tbl-cap: "Pour chaque année : dernier gel printanier, premier gel automnal, durée de saison sans gel (en jours)."
+
+import pandas as pd
+table_gel = dgel.copy()
+table_gel["dernier_gel_printemps"] = pd.to_datetime(table_gel["dernier_gel_printemps"]).dt.strftime("%d %b")
+table_gel["premier_gel_automne"] = pd.to_datetime(table_gel["premier_gel_automne"]).dt.strftime("%d %b")
+table_gel.columns = ["Dernier gel printemps", "Premier gel automne", "Saison sans gel (j)"]
+table_gel
+```
+
+```{python}
+#| label: fig-jours-caracteristiques
+#| fig-cap: "Nombre annuel de jours caractéristiques (gel < 0 °C, canicule > 30 °C, pluvieux > 10 mm/24 h)."
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+x = jours.index
+width = 0.27
+ax.bar(x - width, jours["jours_gel"], width=width, color="#2980b9", label="Gel")
+ax.bar(x,         jours["jours_canicule"], width=width, color="#c0392b", label="Canicule")
+ax.bar(x + width, jours["jours_pluvieux"], width=width, color="#16a085", label="Pluvieux > 10 mm")
+ax.set_xticks(x)
+ax.set_xlabel("Année")
+ax.set_ylabel("Nombre de jours")
+ax.set_title("Jours caractéristiques par année")
+ax.grid(True, alpha=0.3, axis="y")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+# Sources et méthodes (transparence — principe #5)
+
+Ce rapport applique le principe transverse #5 de transparence totale.
+Tout ce qui suit est cliquable / reproductible.
+
+- **Données brutes** : ERA5-Land via Open-Meteo Archive
+  (`https://archive-api.open-meteo.com/v1/archive`). Modèle ECMWF
+  Copernicus, résolution native ~25 km, mise à jour ~quotidienne.
+- **Calcul ETP** : `meteo_socle.indices.etp_fao.calcul_etp`,
+  implémentation FAO Bulletin 56 Penman-Monteith horaire avec
+  adaptation Vannier & Braud (2012) pour les inputs SAFRAN-like, soit :
+  - Allen, R.G. et al., 1998. *Crop Evapotranspiration*. FAO Bulletin
+    56. <https://www.fao.org/4/X0490E/x0490e00.htm>
+  - Vannier, O., Braud, I., 2012. *Calcul d'une évapotranspiration de
+    référence spatialisée pour la modélisation hydrologique à partir
+    des données de la réanalyse SAFRAN*. Rapport HAL hal-02593413.
+- **Convention d'unités** : alignée socle (T en K, HR en fraction,
+  rayonnement en J m⁻² h⁻¹, vent en m s⁻¹, pluie et ETP en mm).
+- **Code** : `apps/climato/{climatologie,donnees}.py`, tests dans
+  `tests/test_climato.py`.
+
+::: {.callout-note}
+**v1 prévue** : substitution ERA5-Land → SAFRAN MF 8 km, intégration des
+projections DRIAS 2030/2050/2100, ajout d'un bilan saison N annuel
+généré automatiquement en fin d'octobre.
+:::
