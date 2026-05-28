@@ -64,7 +64,8 @@ au calcul d'ETP socle. SAFRAN sera substitué en v1.
 
 | Élément | Choix v0 | Justification |
 |---|---|---|
-| **Source historique** | ERA5 via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~25 km de résolution |
+| **Source historique** | ERA5 via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~25 km de résolution native |
+| **Interpolation au site** | Open-Meteo accepte des coordonnées arbitraires (ici 48.5420 N, 1.6155 W) et renvoie les valeurs de la maille ERA5 la plus proche (~25 km de côté). La méthode exacte (nearest-neighbor vs bilinéaire) n'est pas explicitement documentée côté Open-Meteo ; on traite donc le résultat comme représentatif de la maille englobante, pas du point lui-même. | Le gradient côtier breton (variation T° / pluie / vent côte → intérieur sur 10-20 km) est **lissé** par la maille 25 km. SAFRAN 8 km (v1) capterait mieux ce gradient |
 | **Fenêtre temporelle** | 1991-2020 (30 ans, normale OMM standard) | Standard climatologique international |
 | **Calcul ETP** | FAO Penman-Monteith horaire via `meteo_socle.indices.etp_fao` | Cohérence inter-apps (cf. principe transverse #4) |
 | **Seuils d'analyse** | gel 0 °C, canicule 30 °C, pluie marquante 10 mm/24 h | Cf. `config/climato.yaml` |
@@ -197,6 +198,10 @@ ax.set_ylabel("Nombre de jours")
 ax.set_title("Jours caractéristiques par année")
 ax.grid(True, alpha=0.3, axis="y")
 ax.legend()
+# Rotation 45° + alignement à droite : avec 30 ans (1991-2020) les ticks
+# se chevauchent à l'horizontale. Pour ≤ 10 ans, la rotation est inutile
+# mais ne nuit pas.
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 plt.tight_layout()
 plt.show()
 ```
@@ -206,9 +211,18 @@ plt.show()
 Ce rapport applique le principe transverse #5 de transparence totale.
 Tout ce qui suit est cliquable / reproductible.
 
-- **Données brutes** : ERA5-Land via Open-Meteo Archive
+- **Données brutes** : ERA5 via Open-Meteo Archive
   (`https://archive-api.open-meteo.com/v1/archive`). Modèle ECMWF
   Copernicus, résolution native ~25 km, mise à jour ~quotidienne.
+- **Localisation effective** : Open-Meteo accepte le couple
+  (latitude, longitude) demandé mais renvoie en pratique la maille
+  ERA5 la plus proche du point. Pour Pleine-Fougères, cette maille
+  englobe une zone d'environ 25 × 25 km. Le résultat est donc une
+  **moyenne régionale**, pas une valeur ponctuelle au site. La méthode
+  d'extraction exacte (nearest vs bilinéaire) n'est pas explicitement
+  documentée par Open-Meteo ; on considère ici que les valeurs
+  représentent la maille englobante. Le gradient côtier breton est
+  lissé — SAFRAN 8 km (v1) capterait mieux ce gradient.
 - **Calcul ETP** : `meteo_socle.indices.etp_fao.calcul_etp`,
   implémentation FAO Bulletin 56 Penman-Monteith horaire avec
   adaptation Vannier & Braud (2012) pour les inputs SAFRAN-like, soit :
