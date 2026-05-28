@@ -41,6 +41,18 @@ CRON_EXPLAIN = "30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
 
 
+def _bloc_chart(chart_base64: str) -> str:
+    """Bloc HTML pour le graphique 72 h embarqué (vide si non fourni)."""
+    if not chart_base64:
+        return ""
+    return (
+        '<div style="margin:12px 0;text-align:center;">'
+        f'<img src="{chart_base64}" alt="Prévision 72 h" '
+        'style="max-width:100%;height:auto;border-radius:4px;">'
+        "</div>"
+    )
+
+
 def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
     """Formate le sujet selon template config.
 
@@ -120,6 +132,7 @@ def composer_html(
     methode_etp: str = METHODE_ETP,
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
+    chart_72h_base64: str = "",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     couleur_niveau = {"critique": "#c0392b", "warning": "#e67e22"}
@@ -211,6 +224,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     {maintenant.strftime("%A %d %B %Y, %H:%M %Z")} — La Petite Claye, Pleine-Fougères
   </p>
   {bandeau}
+  {_bloc_chart(chart_72h_base64)}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Indicateurs 24 h</h3>
   {table_ind}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Bilan hydrique &amp; horizon</h3>
@@ -229,11 +243,18 @@ def composer_email(
     alertes: list[Alerte],
     config: dict[str, Any],
     maintenant: datetime,
+    chart_72h_base64: str = "",
 ) -> EmailComposed:
-    """Compose sujet + texte + HTML à partir des indicateurs et de la config."""
+    """Compose sujet + texte + HTML à partir des indicateurs et de la config.
+
+    ``chart_72h_base64`` (optionnel) sera embarqué dans le HTML comme image
+    inline. Si vide, aucun graphique n'est rendu.
+    """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"])
     texte = composer_texte(ind, alertes, maintenant, url_fiches=url_fiches)
-    html = composer_html(ind, alertes, maintenant, url_fiches=url_fiches)
+    html = composer_html(
+        ind, alertes, maintenant, url_fiches=url_fiches, chart_72h_base64=chart_72h_base64
+    )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
