@@ -1,6 +1,6 @@
 ---
 title: "Climatologie locale — La Petite Claye, Pleine-Fougères"
-subtitle: "Synthèse pluriannuelle ERA5 (v0)"
+subtitle: "Normale OMM 1991-2020 — ERA5 (v0)"
 author: "Alexis Tantet"
 date: today
 format:
@@ -65,7 +65,7 @@ au calcul d'ETP socle. SAFRAN sera substitué en v1.
 | Élément | Choix v0 | Justification |
 |---|---|---|
 | **Source historique** | ERA5 via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~25 km de résolution |
-| **Fenêtre temporelle** | 2015-2024 (10 ans) | Compromis entre représentativité statistique et durée de build (~5 min) |
+| **Fenêtre temporelle** | 1991-2020 (30 ans, normale OMM standard) | Standard climatologique international |
 | **Calcul ETP** | FAO Penman-Monteith horaire via `meteo_socle.indices.etp_fao` | Cohérence inter-apps (cf. principe transverse #4) |
 | **Seuils d'analyse** | gel 0 °C, canicule 30 °C, pluie marquante 10 mm/24 h | Cf. `config/climato.yaml` |
 

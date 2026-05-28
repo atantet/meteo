@@ -41,10 +41,10 @@ rapport:
   titre: "Climatologie locale — La Petite Claye, Pleine-Fougères"
   auteur: "Alexis Tantet"
   sous_titre: "Synthèse 1991-2020 (normale OMM) avec comparaison année courante"
-  # Fenêtre de données effectivement utilisée dans le rapport v0 —
-  # plus courte que la normale OMM pour limiter le temps de build
-  # (~30 s / an via Open-Meteo). Plan v1 : passer à la normale complète
-  # 1991-2020 + DRIAS projections.
+  # Fenêtre de données effectivement utilisée dans le rapport. Par
+  # défaut alignée sur la normale OMM 1991-2020 ; override possible en
+  # config/climato.local.yaml pour un build plus rapide en dev (ex.
+  # 2015-2024 = ~3-5 min vs ~7-10 min pour 30 ans).
   periode_donnees:
-    debut: 2015
-    fin: 2024
+    debut: 1991
+    fin: 2020

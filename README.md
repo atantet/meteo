@@ -76,9 +76,13 @@ cp .env.example .env
 ### App 1 Veille (email matinal)
 
 ```bash
-# Mode dry-run pour tester sans envoyer (ajouter dans config/veille.local.yaml :
-#   diffusion: {envoi_reel: false})
+# Envoi réel via SMTP configuré dans .env :
 python -m apps.veille
+
+# Mode preview — écrit le HTML dans /tmp/veille.html sans toucher au
+# SMTP. Pratique pour valider le rendu sans bombarder son inbox :
+python -m apps.veille --preview /tmp/veille.html
+xdg-open /tmp/veille.html
 ```
 
 Le workflow `.github/workflows/veille.yml` exécute le même pipeline en
@@ -104,6 +108,23 @@ Ouvre un navigateur sur <http://localhost:8501>.
 5. Pas de Secret nécessaire — la config par défaut suffit.
 
 URL résultante typique : `https://meteo-op-<random>.streamlit.app`.
+
+### Climatologie pré-calculée
+
+Une normale journalière (T_min/T_max/T_moy par jour de l'année) sur
+1991-2020 OMM (ERA5) est versionnée dans
+`data/climato/normale_jour_lapetiteclaye.csv` et utilisée par :
+
+- la courbe T° du mail Veille (overlay en pointillés gris),
+- la table Opérationnelle (colonnes Normale T° + Écart normale).
+
+Pour régénérer (rare, après changement de site ou de période OMM) :
+
+```bash
+python scripts/compute_normale_jour.py
+```
+
+Coût ~7-10 min (30 requêtes annuelles Open-Meteo Archive).
 
 ### App 3 Climato (rapport Quarto)
 
