@@ -20,7 +20,7 @@ Un **socle Python** partagé + trois apps utilisateur :
 |---|---|---|
 | `socle` (lib `meteo_socle`) | — | code Python importable |
 | App **veille & alertes** | 0-72 h | GitHub Actions + email matinal |
-| App **opérationnelle** | 3-15 j (prév. plafonnée à 7 j) | Streamlit Community Cloud |
+| App **opérationnelle** | 3-15 j (prév. plafonnée à 14 j) | Streamlit Community Cloud |
 | App **climato & stratégie** | saison → projections | Quarto + GitHub Pages |
 
 ## Principes de conception
@@ -60,7 +60,7 @@ Repo **public** sous discipline stricte (cf. [ADR-0001](docs/decisions/0001-publ
 secrets jamais en clair, données opérationnelles ignorées par défaut,
 géolocalisation au grain commune, pas de données personnelles tierces.
 
-## Lancer l'App 1 Veille (dev local)
+## Lancer les apps en dev local
 
 ```bash
 # Une fois : créer l'env conda
@@ -69,19 +69,41 @@ conda env create -f environment.yml
 # À chaque session : activer
 conda activate meteo
 
-# Copier le template d'env et remplir SMTP + destinataire
+# Copier le template d'env et remplir SMTP + destinataire (App 1)
 cp .env.example .env
-# (éditer .env avec votre App Password SMTP et destinataire)
+```
 
-# Test en mode dry-run (ajouter dans config/veille.local.yaml :
+### App 1 Veille (email matinal)
+
+```bash
+# Mode dry-run pour tester sans envoyer (ajouter dans config/veille.local.yaml :
 #   diffusion: {envoi_reel: false})
 python -m apps.veille
 ```
 
-Le workflow GitHub Actions `.github/workflows/veille.yml` exécute le
-même pipeline en cron quotidien à 06:30 UTC. Pour l'activer en
-production, ajouter les Secrets `VEILLE_SMTP_*`, `VEILLE_EMAIL_*` dans
+Le workflow `.github/workflows/veille.yml` exécute le même pipeline en
+cron quotidien à 06:30 UTC. Pour l'activer en production, ajouter les
+Secrets `VEILLE_SMTP_*`, `VEILLE_EMAIL_*` dans
 *Settings → Secrets and variables → Actions*.
+
+### App 2 Opérationnelle (dashboard Streamlit)
+
+```bash
+streamlit run apps/operationnelle/streamlit_app.py
+```
+
+Ouvre un navigateur sur <http://localhost:8501>.
+
+**Déploiement Streamlit Community Cloud** :
+
+1. Sur <https://share.streamlit.io>, *New app*.
+2. Connecter le repo GitHub `meteo` (public).
+3. *Main file path* : `apps/operationnelle/streamlit_app.py`.
+4. *Python version* : 3.12 (Streamlit Cloud détecte `environment.yml`
+   automatiquement et installe via conda).
+5. Pas de Secret nécessaire — la config par défaut suffit.
+
+URL résultante typique : `https://meteo-op-<random>.streamlit.app`.
 
 ## Tests
 

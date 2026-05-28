@@ -1,0 +1,16 @@
+# Configuration partagée Streamlit (theme + server) — App 2 Opérationnelle.
+# Override personnel possible via .streamlit/config.local.toml (à mettre
+# en .gitignore si pertinent).
+
+[server]
+# Pas de gather d'analytics — alignement principe #5 transparence.
+gatherUsageStats = false
+
+[theme]
+# Thème léger, mobile-friendly (principe #3).
+base = "light"
+primaryColor = "#2c3e50"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f4f4"
+textColor = "#2c3e50"
+font = "sans serif"
