@@ -16,6 +16,9 @@ dependencies:
   - scikit-learn
   # HTTP
   - requests
+  # Config / secrets (App 1 Veille)
+  - pyyaml
+  - python-dotenv
   # UI app opérationnelle
   - streamlit
   - altair
