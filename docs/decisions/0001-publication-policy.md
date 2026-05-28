@@ -22,7 +22,7 @@ Cinq règles s'appliquent à tout commit poussé sur la branche publique du dép
 
 2. **Données opérationnelles ignorées par défaut.** Les chemins `data/raw/`, `data/observations/`, `data/sensors/` sont listés dans `.gitignore`. Seules les données publiques (climatologie SAFRAN, jeux Open-Meteo génériques, jeux de référence pour tests) sont versionnées.
 
-3. **Géolocalisation au grain commune.** Le code de démonstration et les exemples utilisent le centroïde de Pleine-Fougères ou un parcellaire générique. Les coordonnées exactes des parcelles restent locales, ou paramétrées dans des fichiers de configuration ignorés.
+3. **Géolocalisation calibrée par usage.** Le **site de référence** des apps est *La Petite Claye, 35610 Pleine-Fougères* (48.5420 N, -1.6155 W, altitude ~30 m). Adresse publiquement disponible (cadastre, OSM), donc inscrite en clair dans le code et la configuration par défaut afin que les apps fonctionnent dès le clone. En revanche, les coordonnées **exactes des parcelles** (polygones cultivés à l'échelle décamétrique), de bâtis tiers ou d'éléments sensibles restent locales ou paramétrées dans des fichiers de configuration ignorés (`.env`).
 
 4. **Pas de données personnelles tierces.** Aucune information identifiante de voisins, clients, employés futurs, ou tout tiers n'apparaît dans le repo, ni dans le code, ni dans les commentaires, ni dans les logs versionnés.
 

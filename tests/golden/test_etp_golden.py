@@ -21,8 +21,10 @@ import pytest
 
 GOLDEN_CSV = Path(__file__).parent / "data" / "etp_fao_24h_lapetiteclaye_2024-06-15.csv"
 
-SITE_LAT = 48.50
-SITE_LON = -1.55
+# Site de référence cf. ADR-0001 règle 3 (mêmes coords que le script de
+# génération du golden).
+SITE_LAT = 48.5420
+SITE_LON = -1.6155
 SITE_ALT = 30.0
 
 INPUT_COLUMNS = [

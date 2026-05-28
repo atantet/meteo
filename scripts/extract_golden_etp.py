@@ -2,9 +2,10 @@
 
 Importe `etp.calcul_etp` depuis le dépôt antérieur `app-bilan-hydrique`
 (cf. ADR-0003 characterization testing) et l'applique à 24 h
-d'observations horaires interpolées DPClim multi-stations sur le site
-de La Petite Claye des Champs (Pleine-Fougères 35), en respectant les
-conventions d'unités `meteofrance.VARIABLES_CONVERSION_UNITES['DPClim']`.
+d'observations horaires interpolées DPClim multi-stations au site de
+référence La Petite Claye des Champs (8 La Petite Claye, 35610
+Pleine-Fougères — cf. ADR-0001 règle 3), en respectant les conventions
+d'unités `meteofrance.VARIABLES_CONVERSION_UNITES['DPClim']`.
 
 Sauve (input horaire converti en unités SI, output ETP horaire) en CSV
 sous `tests/golden/data/` pour servir de **golden de migration**.
@@ -49,9 +50,10 @@ sys.path.insert(0, str(SRC_DIR))
 
 import etp  # noqa: E402  (import après modification de sys.path)
 
-# Site de référence La Petite Claye des Champs (Pleine-Fougères 35).
-SITE_LAT = 48.50
-SITE_LON = -1.55
+# Site de référence : 8 La Petite Claye, 35610 Pleine-Fougères
+# (géocodage Nominatim OSM). Inscrit en clair cf. ADR-0001 règle 3.
+SITE_LAT = 48.5420
+SITE_LON = -1.6155
 SITE_ALT = 30.0
 
 # Fenêtre d'entrée : 24 h en été (15 juin 2024).
