@@ -45,9 +45,14 @@ Sept principes transverses contraignent toutes les décisions du projet
   **GitHub Actions** (veille & alertes)
 - **Ruff** (format + check), **pytest**, **mypy**, **pre-commit**
 
+## Cahier des charges
+
+[`docs/panorama.md`](docs/panorama.md) — vue d'ensemble des 4 briques
+(socle + 3 apps), décisions éclairées, indicateurs, vues, phasage.
+
 ## Décisions structurantes (ADRs)
 
-Voir [`docs/decisions/`](docs/decisions/README.md).
+[`docs/decisions/`](docs/decisions/README.md) — index des ADRs.
 
 ## Données et confidentialité
 
