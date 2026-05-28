@@ -33,11 +33,34 @@ select = [
 [tool.ruff.format]
 quote-style = "double"
 
+[tool.ruff.lint.per-file-ignores]
+# meteofrance.py contient encore du code verbatim hérité de
+# app-bilan-hydrique (cf. ADR-0003). Les warnings B/E/UP correspondants
+# seront purgés lors de l'enrichissement des fonctions IO et helpers en
+# Phase B step 3+.
+"src/meteo_socle/sources/meteofrance.py" = [
+  "B006",   # mutable-argument-default
+  "B007",   # unused-loop-control-variable
+  "B028",   # no-explicit-stacklevel
+  "E731",   # lambda-assignment
+  "UP031",  # printf-string-formatting
+  "RET504", # unnecessary assignment before return (verbatim helpers)
+  "N806",   # variable naming repJson (verbatim, à corriger Phase B step 3)
+]
+# Les notebooks et scripts one-shot ont des règles relâchées.
+"scripts/*.py" = ["E402"]  # imports après sys.path modification
+"tests/**/*.py" = ["B008"]  # appel fonction dans defaults (fixtures pytest)
+
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
 warn_unused_configs = true
-# Strict progressif : on activera --strict module par module sur le socle.
+# Strict progressif : warn_return_any et autres règles s'activeront
+# module par module via [[tool.mypy.overrides]] au fur et à mesure des
+# Phase B step 3+ enrichissements.
+
+[[tool.mypy.overrides]]
+module = ["pytz", "pvlib.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

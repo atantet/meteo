@@ -163,9 +163,7 @@ def calcul_reserve_facilement_utilisable(
     return ru_remplie * ru_vers_rfu
 
 
-def calcul_etm_culture(
-    culture: str, stade: str, df_meteo: pd.DataFrame
-) -> pd.Series:
+def calcul_etm_culture(culture: str, stade: str, df_meteo: pd.DataFrame | pd.Series) -> pd.Series:
     """Évapotranspiration maximale culturale ETM = Kc · ET₀ (FAO 56 Eq. 56).
 
     Parameters
@@ -248,17 +246,13 @@ def calcul_bilan(
     # précipitations positives.
     df["etp"] = -df_meteo["etp"]
 
-    cru = calcul_reserve_utile(
-        texture, fraction_cailloux, culture, fraction_ru_remplie
-    )
+    cru = calcul_reserve_utile(texture, fraction_cailloux, culture, fraction_ru_remplie)
     df["profondeur_enracinement"] = cru[0]
     df["profondeur_terrefine"] = cru[1]
     df["ru"] = cru[2]
     ru_remplie = cru[3]
     df["rfu"] = calcul_reserve_facilement_utilisable(df["ru"], ru_vers_rfu)
-    df["rfu_deficit"] = (
-        calcul_reserve_facilement_utilisable(ru_remplie, ru_vers_rfu) - df["rfu"]
-    )
+    df["rfu_deficit"] = calcul_reserve_facilement_utilisable(ru_remplie, ru_vers_rfu) - df["rfu"]
 
     df["precipitation"] = df_meteo["precipitation"]
     df["etm_culture"] = -calcul_etm_culture(culture, stade, df_meteo)

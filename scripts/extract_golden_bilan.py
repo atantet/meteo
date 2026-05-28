@@ -43,9 +43,7 @@ df_input = pd.DataFrame(
         "etp": [3.5, 4.0, 4.2],
         "precipitation": [0.0, 0.0, 6.0],
     },
-    index=pd.to_datetime(
-        ["2024-06-15", "2024-06-16", "2024-06-17"], utc=True
-    ),
+    index=pd.to_datetime(["2024-06-15", "2024-06-16", "2024-06-17"], utc=True),
 )
 
 PARAMS = dict(

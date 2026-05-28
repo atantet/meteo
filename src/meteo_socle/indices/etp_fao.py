@@ -158,12 +158,7 @@ def calcul_rayonnement_net_ondes_longues(
     clarete = clarete.where(is_day_short).ffill(axis="index").bfill(axis="index")
 
     # Rayonnement net aux ondes longues (Eq. 39 FAO 56).
-    r_nl = (
-        SIGMA
-        * df["temperature_2m"] ** 4
-        * (0.34 - 0.14 * np.sqrt(ee))
-        * (1.35 * clarete - 0.35)
-    )
+    r_nl = SIGMA * df["temperature_2m"] ** 4 * (0.34 - 0.14 * np.sqrt(ee)) * (1.35 * clarete - 0.35)
 
     return r_nl, zenith
 
@@ -202,14 +197,13 @@ def calcul_etp(
     pd.Series
         ET₀ horaire (mm h⁻¹), même index que ``df``.
     """
-    tz = pytz.country_timezones("FR")[0]
+    # `country_timezones` est un mapping {pays: [fuseaux]} ; on prend le
+    # premier fuseau pour la France métropolitaine ('Europe/Paris').
+    tz = pytz.country_timezones["FR"][0]
     site = location.Location(latitude, longitude, altitude=altitude, tz=tz)
 
     # Pression de vapeur saturante (kPa) — Eq. 11 FAO 56 / Eq. 6 V&B 2012.
-    es = (
-        0.6108
-        * np.exp(17.27 * (df["temperature_2m"] - 273.15) / (df["temperature_2m"] - 35.85))
-    )
+    es = 0.6108 * np.exp(17.27 * (df["temperature_2m"] - 273.15) / (df["temperature_2m"] - 35.85))
 
     # Pente Δ de la courbe de pression de vapeur (kPa K⁻¹) — Eq. 13 FAO 56.
     delta = 4098.0 * es / (df["temperature_2m"] - 35.85) ** 2
@@ -240,7 +234,5 @@ def calcul_etp(
     # radiative + aérodynamique pour clamp ≥ 0.
     denominateur = delta + gamma * (1.0 + 0.34 * u2)
     etp1 = np.maximum(0, delta * (r_n - g_sol) / LAMBDA / denominateur)
-    etp2 = np.maximum(
-        0, gamma * 37.0 / df["temperature_2m"] * u2 * (es - ee) / denominateur
-    )
+    etp2 = np.maximum(0, gamma * 37.0 / df["temperature_2m"] * u2 * (es - ee) / denominateur)
     return etp1 + etp2

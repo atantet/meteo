@@ -18,8 +18,7 @@ def _socle_or_skip():
         from meteo_socle.sources import meteofrance as mf
     except ImportError:
         pytest.skip(
-            "meteo_socle.sources.meteofrance non encore implémenté "
-            "(Phase B à venir, cf. ADR-0003)"
+            "meteo_socle.sources.meteofrance non encore implémenté (Phase B à venir, cf. ADR-0003)"
         )
     return mf
 
@@ -67,25 +66,17 @@ def test_convertir_unites_dpclim() -> None:
     )
     result = mf.convertir_unites(client, df)
     # T : °C → K (+ 273.15)
-    np.testing.assert_array_almost_equal(
-        result["temperature_2m"].to_numpy(), [283.15, 293.15]
-    )
+    np.testing.assert_array_almost_equal(result["temperature_2m"].to_numpy(), [283.15, 293.15])
     # HR : % → fraction (/ 100)
-    np.testing.assert_array_almost_equal(
-        result["humidite_relative"].to_numpy(), [0.5, 0.8]
-    )
+    np.testing.assert_array_almost_equal(result["humidite_relative"].to_numpy(), [0.5, 0.8])
     # Vent : identité
-    np.testing.assert_array_almost_equal(
-        result["vitesse_vent_10m"].to_numpy(), [3.0, 5.0]
-    )
+    np.testing.assert_array_almost_equal(result["vitesse_vent_10m"].to_numpy(), [3.0, 5.0])
     # Rayonnement : J/cm²/h → J/m²/h (× 1e4)
     np.testing.assert_array_almost_equal(
         result["rayonnement_global"].to_numpy(), [500000.0, 1000000.0]
     )
     # Pluie et ETP : identité
-    np.testing.assert_array_almost_equal(
-        result["precipitation"].to_numpy(), [0.0, 1.5]
-    )
+    np.testing.assert_array_almost_equal(result["precipitation"].to_numpy(), [0.0, 1.5])
 
 
 def test_convertir_unites_dpobs() -> None:
@@ -113,9 +104,7 @@ def test_renommer_variables_dpclim_horaire() -> None:
     """Le renommage transforme les codes MF (GLO, T, U, FF, RR1) en noms standards."""
     mf = _socle_or_skip()
     client = mf.Client("DPClim")
-    df = pd.DataFrame(
-        {"GLO": [100.0], "T": [10.0], "U": [80.0], "FF": [3.0], "RR1": [0.0]}
-    )
+    df = pd.DataFrame({"GLO": [100.0], "T": [10.0], "U": [80.0], "FF": [3.0], "RR1": [0.0]})
     result = mf.renommer_variables(client, df, "horaire")
     assert "rayonnement_global" in result.columns
     assert "temperature_2m" in result.columns
@@ -127,11 +116,7 @@ def test_renommer_variables_dpclim_horaire() -> None:
 def test_liste_id_stations_vers_liste_id_departements() -> None:
     """Le département est le quotient entier ID // 1_000_000."""
     mf = _socle_or_skip()
-    df = pd.DataFrame(
-        index=pd.Index(
-            [35228001, 35110003, 50410003, 35044001, 22372001], name="id"
-        )
-    )
+    df = pd.DataFrame(index=pd.Index([35228001, 35110003, 50410003, 35044001, 22372001], name="id"))
     result = mf.liste_id_stations_vers_liste_id_departements(df)
     # Unique trié : 22, 35, 50
     np.testing.assert_array_equal(result, [22, 35, 50])

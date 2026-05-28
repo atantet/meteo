@@ -90,12 +90,8 @@ def test_interpolation_inverse_distance_carre_golden(
     )
 
     # Reconstruction du même MultiIndex synthétique que dans le script.
-    times = pd.to_datetime(
-        ["2024-06-15 06:00:00+00:00", "2024-06-15 12:00:00+00:00"], utc=True
-    )
-    multiindex = pd.MultiIndex.from_product(
-        [nearest.index, times], names=["station", "time"]
-    )
+    times = pd.to_datetime(["2024-06-15 06:00:00+00:00", "2024-06-15 12:00:00+00:00"], utc=True)
+    multiindex = pd.MultiIndex.from_product([nearest.index, times], names=["station", "time"])
     np.random.seed(0)
     values = pd.DataFrame(
         np.random.uniform(low=[10, 60, 2], high=[20, 90, 8], size=(6, 3)),

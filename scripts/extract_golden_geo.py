@@ -66,38 +66,27 @@ def main() -> None:
 
     # Sélection des 3 plus proches.
     ref_latlon = np.array([SITE_LAT, SITE_LON])
-    nearest = geo.selection_stations_plus_proches(
-        STATIONS, ref_latlon, LATLON_LABELS, nombre=3
-    )
+    nearest = geo.selection_stations_plus_proches(STATIONS, ref_latlon, LATLON_LABELS, nombre=3)
     nearest.to_csv(NEAREST_GOLDEN)
 
     # Interpolation inverse-distance² d'une série météo synthétique.
     # Trois variables × deux pas de temps × trois stations.
-    times = pd.to_datetime(
-        ["2024-06-15 06:00:00+00:00", "2024-06-15 12:00:00+00:00"], utc=True
-    )
-    multiindex = pd.MultiIndex.from_product(
-        [nearest.index, times], names=["station", "time"]
-    )
+    times = pd.to_datetime(["2024-06-15 06:00:00+00:00", "2024-06-15 12:00:00+00:00"], utc=True)
+    multiindex = pd.MultiIndex.from_product([nearest.index, times], names=["station", "time"])
     np.random.seed(0)  # déterminisme du golden
     values = pd.DataFrame(
         np.random.uniform(low=[10, 60, 2], high=[20, 90, 8], size=(6, 3)),
         index=multiindex,
         columns=["temperature_2m", "humidite_relative", "vitesse_vent_10m"],
     )
-    interpolated = geo.interpolation_inverse_distance_carre(
-        values, nearest["distance"]
-    )
+    interpolated = geo.interpolation_inverse_distance_carre(values, nearest["distance"])
     interpolated.to_csv(INTERPOLATED_GOLDEN)
 
     print(f"Stations input  : {STATIONS_GOLDEN.relative_to(REPO_ROOT)}")
     print(f"Nearest 3       : {NEAREST_GOLDEN.relative_to(REPO_ROOT)}")
-    print(
-        f"  IDs={list(nearest.index)} "
-        f"distances={list(nearest['distance'].astype(int))} km"
-    )
+    print(f"  IDs={list(nearest.index)} distances={list(nearest['distance'].astype(int))} km")
     print(f"Interpolated    : {INTERPOLATED_GOLDEN.relative_to(REPO_ROOT)}")
-    print(f"  valeurs interpolées au site de référence :")
+    print("  valeurs interpolées au site de référence :")
     for col in interpolated.columns:
         for t, v in interpolated[col].items():
             print(f"    {col} @ {t} = {v:.4f}")

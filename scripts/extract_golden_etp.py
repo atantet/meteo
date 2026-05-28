@@ -57,10 +57,8 @@ SITE_LON = -1.6155
 SITE_ALT = 30.0
 
 # Fenêtre d'entrée : 24 h en été (15 juin 2024).
-INPUT_CSV = (
-    SRC_DIR
-    / "data/DPClim/donnees_DPClim_horaire_lapetiteclaye_nn9_20240101T000000Z_20241231T235959Z_ref.csv"
-)
+_INPUT_FNAME = "donnees_DPClim_horaire_lapetiteclaye_nn9_20240101T000000Z_20241231T235959Z_ref.csv"
+INPUT_CSV = SRC_DIR / "data/DPClim" / _INPUT_FNAME
 START = "2024-06-15 00:00:00+00:00"
 END = "2024-06-15 23:00:00+00:00"
 

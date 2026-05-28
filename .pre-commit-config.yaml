@@ -1,0 +1,34 @@
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Aligné sur la version installée dans l'env conda meteo. Mettre à
+    # jour ici quand la version env évolue.
+    rev: v0.15.14
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.2
+    hooks:
+      - id: mypy
+        files: ^src/
+        additional_dependencies:
+          - numpy
+          - pandas-stubs
+          - types-requests
+          - types-pytz

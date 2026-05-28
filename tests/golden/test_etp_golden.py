@@ -51,8 +51,7 @@ def test_calcul_etp_golden_2024_06_15(
         from meteo_socle.indices.etp_fao import calcul_etp
     except ImportError:
         pytest.skip(
-            "meteo_socle.indices.etp_fao non encore implémenté "
-            "(Phase B à venir, cf. ADR-0003)"
+            "meteo_socle.indices.etp_fao non encore implémenté (Phase B à venir, cf. ADR-0003)"
         )
 
     input_df, expected = golden_data

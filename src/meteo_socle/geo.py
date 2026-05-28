@@ -49,9 +49,7 @@ def conversion_latlon_rad(
     return df_latlon_rad
 
 
-def calcul_arbre(
-    df_liste_stations: pd.DataFrame, latlon_labels: list[str]
-) -> BallTree:
+def calcul_arbre(df_liste_stations: pd.DataFrame, latlon_labels: list[str]) -> BallTree:
     """Construit un `BallTree` haversine pour requêtes spatiales rapides."""
     df_latlon_rad = conversion_latlon_rad(df_liste_stations, latlon_labels)
     return BallTree(df_latlon_rad, metric="haversine")
@@ -123,9 +121,7 @@ def selection_stations_plus_proches(
     return df_liste_stations_nn
 
 
-def interpolation_inverse_distance_carre(
-    df: pd.DataFrame, s_dist_km: pd.Series
-) -> pd.DataFrame:
+def interpolation_inverse_distance_carre(df: pd.DataFrame, s_dist_km: pd.Series) -> pd.DataFrame:
     """Interpolation inverse-distance² des valeurs aux stations vers le site.
 
     Implémente l'IDW² de Shepard (1968). Les poids sont 1/d² (distance
@@ -162,8 +158,4 @@ def interpolation_inverse_distance_carre(
 
     # Moyenne pondérée IDW². `axis=0` explicite cf. Pandas 4.0 (sum
     # devient keyword-only).
-    return (
-        ((df_piv * poids_piv).sum(axis=0) / poids_piv.sum(axis=0))
-        .unstack()
-        .transpose()
-    )
+    return ((df_piv * poids_piv).sum(axis=0) / poids_piv.sum(axis=0)).unstack().transpose()
