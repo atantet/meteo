@@ -12,6 +12,7 @@
       "Bash(git checkout -b:*)",
       "Bash(git switch -c:*)",
       "Bash(git branch:*)",
+      "Bash(git push:*)",
       "Bash(conda env:*)",
       "Bash(conda list:*)",
       "Bash(conda info:*)",
