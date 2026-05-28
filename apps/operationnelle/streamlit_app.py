@@ -39,7 +39,7 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     preparer_table_affichage,
     styler_ligne,
 )
-from apps.veille.email import format_horodatage_fr  # noqa: E402  (helper réutilisé)
+from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
 from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
 
 

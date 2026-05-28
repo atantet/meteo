@@ -14,52 +14,36 @@ données** + la **méthode de calcul ETP** + la programmation du cron
 
 from __future__ import annotations
 
-import zoneinfo
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-import pandas as pd
+# Helpers FR partagés avec App 2 Opérationnelle, cf. apps/shared/dates_fr.py.
+from apps.shared.dates_fr import (
+    JOURS_FR,
+    MOIS_FR,
+    format_date_fr,
+    format_horodatage_fr,
+    format_t0_court,
+)
 
 from .alertes import Alerte, resume_alertes
 from .indicateurs import IndicateursVeille
 
-# Date et heure en français sans dépendre de la locale système.
-JOURS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
-MOIS_FR = [
-    "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-]  # fmt: skip
-
-
-def format_date_fr(dt: datetime, capitalize_jour: bool = True) -> str:
-    """Formate une date en français : ``Jeudi 28 mai 2026``."""
-    j = JOURS_FR[dt.weekday()]
-    if capitalize_jour:
-        j = j.capitalize()
-    return f"{j} {dt.day} {MOIS_FR[dt.month - 1]} {dt.year}"
-
-
-def format_horodatage_fr(dt_utc: datetime, tz_locale: str = "Europe/Paris") -> str:
-    """Formate l'horodatage : ``Jeudi 28 mai 2026, 21:23 UTC (23:23 heure locale)``."""
-    if dt_utc.tzinfo is None:
-        dt_utc = dt_utc.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
-    dt_loc = dt_utc.astimezone(zoneinfo.ZoneInfo(tz_locale))
-    return (
-        f"{format_date_fr(dt_utc)}, "
-        f"{dt_utc.strftime('%H:%M')} UTC "
-        f"({dt_loc.strftime('%H:%M')} heure locale)"
-    )
-
-
-def format_t0_court(t0_utc: pd.Timestamp | None, tz_locale: str = "Europe/Paris") -> str:
-    """``22:00 UTC (00:00 heure locale)`` pour le 1er pas de prévision."""
-    if t0_utc is None:
-        return "—"
-    if t0_utc.tzinfo is None:
-        t0_utc = t0_utc.tz_localize("UTC")
-    t0_loc = t0_utc.tz_convert(tz_locale)
-    return f"{t0_utc.strftime('%H:%M')} UTC ({t0_loc.strftime('%H:%M')} heure locale)"
+__all__ = [
+    # Re-exports pour rétro-compat (les tests historiques importaient
+    # depuis apps.veille.email).
+    "JOURS_FR",
+    "MOIS_FR",
+    "format_date_fr",
+    "format_horodatage_fr",
+    "format_t0_court",
+    "EmailComposed",
+    "composer_sujet",
+    "composer_texte",
+    "composer_html",
+    "composer_email",
+]
 
 
 @dataclass
