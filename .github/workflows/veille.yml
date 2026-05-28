@@ -1,0 +1,56 @@
+name: Veille email matinal
+
+# Cron 30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été.
+# Justification : ECMWF IFS 00 UTC est diffusé Open-Meteo vers 06:30 UTC,
+# garantit une prévision 7 j fraîche toute l'année.
+# Cf. config/veille.yaml et le commit doc des décisions de cron.
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  # Permet déclenchement manuel pour tests.
+  workflow_dispatch:
+
+# Permissions minimales : juste lire le code (pas de push, pas d'issue
+# write). Limite la surface d'attaque si un secret SMTP fuit.
+permissions:
+  contents: read
+
+jobs:
+  veille:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        # Active l'env conda dans tous les `run:` du job.
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda + env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment.yml
+          auto-activate-base: false
+          # Cache l'env pour les exécutions suivantes (~10 s vs ~2 min).
+          use-mamba: true
+
+      - name: Vérifier la version Python et les dépendances clés
+        run: |
+          python --version
+          python -c "import pandas, requests, yaml, dotenv; print('deps OK')"
+
+      - name: Exécuter la veille
+        env:
+          # Tous les secrets injectés depuis Settings → Secrets and
+          # variables → Actions. Aucun secret en clair dans ce fichier.
+          VEILLE_SMTP_HOST: ${{ secrets.VEILLE_SMTP_HOST }}
+          VEILLE_SMTP_PORT: ${{ secrets.VEILLE_SMTP_PORT }}
+          VEILLE_SMTP_USER: ${{ secrets.VEILLE_SMTP_USER }}
+          VEILLE_SMTP_PASSWORD: ${{ secrets.VEILLE_SMTP_PASSWORD }}
+          VEILLE_EMAIL_FROM: ${{ secrets.VEILLE_EMAIL_FROM }}
+          VEILLE_EMAIL_TO: ${{ secrets.VEILLE_EMAIL_TO }}
+        run: python -m apps.veille
