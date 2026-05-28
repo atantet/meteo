@@ -1,0 +1,130 @@
+# Configuration App 1 — Veille email matinal
+#
+# Défauts publics versionnés. Pour surcharger localement, copier en
+# `config/veille.local.yaml` (gitignored) — chaque clé présente dans le
+# local écrase le défaut.
+#
+# Pour les secrets (SMTP, destinataires), utiliser `.env` ou GitHub
+# Actions Secrets, jamais ce fichier (cf. ADR-0001 règle 1).
+
+# ----- Site de référence (cf. ADR-0001 règle 3) -----
+site:
+  # 8 La Petite Claye, 35610 Pleine-Fougères. Géocodage Nominatim OSM.
+  latitude: 48.5420
+  longitude: -1.6155
+  altitude: 30
+  # Fuseau horaire affiché dans le mail et utilisé pour les bornes
+  # journalières (nuit = 18h → 8h heure locale).
+  tz: Europe/Paris
+
+# ----- Planification -----
+planification:
+  # Cron en UTC (GitHub Actions n'accepte que UTC).
+  # 06:30 UTC = 07:30 Paris hiver / 08:30 Paris été.
+  # Justification : à 06:30 UTC, le run ECMWF IFS 00 UTC est
+  # disponible avec marge (terminé ~06:00 UTC, diffusé Open-Meteo
+  # ~06:30 UTC). Garantit toujours une prévision 7 j fraîche. Coût :
+  # mail un peu tardif en été (8h30) ; envisager double-cron
+  # DST-conscious si gênant à l'usage.
+  cron_utc: "30 6 * * *"
+  # Désactivable temporairement (vacances, période sans activité).
+  actif: true
+
+# ----- Source météo -----
+source_meteo:
+  # En v0 : Open-Meteo (gratuit, pas d'auth, passerelle multi-modèles
+  # incluant AROME France HD et ECMWF IFS). Voir ADR-0002.
+  prevision: openmeteo
+  # Modèles utilisés selon l'horizon :
+  # - 0–3 j : AROME France HD 1.3 km (modèle français haute résolution)
+  # - 3–7 j : ECMWF IFS 9 km (référence mondiale)
+  # Open-Meteo les compose automatiquement quand on passe plusieurs
+  # noms de modèles.
+  modeles:
+    - meteofrance_arome_france_hd
+    - ecmwf_ifs025
+  # Plafond explicite — au-delà la prévision déterministe perd trop en
+  # fiabilité pour servir l'opérationnel.
+  horizon_max_jours: 7
+
+# ----- Alertes seuils -----
+#
+# Auto-critique : ces seuils sont des *valeurs opérationnelles
+# couramment citées* (fiches GRAB, CIVAM bio, CTIFL, INRAE, doctrine
+# Météo-France vigilance), PAS un consensus scientifique. Ils sont
+# justifiés ordre de grandeur mais le seuil pertinent pour VOTRE
+# exploitation est à raffiner après une saison de retour terrain.
+alertes:
+  gel:
+    actif: true
+    # Seuil sur T° min nuit (°C). −2 °C couvre la plage où le voile P17
+    # protège encore ; cultures sensibles (tomate, basilic) gèlent dès
+    # 0 °C, rustiques (épinard, chou) tolèrent −5 °C.
+    # Sources : fiches GRAB, CIVAM bio, CTIFL protections antigel.
+    seuil_celsius: -2.0
+
+  canicule:
+    actif: true
+    # Seuil sur T° max jour (°C). 32 °C bloque la floraison tomate et
+    # la pommaison salades ; seuil opérationnel courant pour aération
+    # serres. Sources : fiches CTIFL, INRAE.
+    seuil_celsius: 32.0
+
+  pluie_intense:
+    actif: true
+    # Seuil sur cumul 24 h (mm). 20 mm/24h commence à lessiver
+    # cuivre/soufre et rend les travaux de sol impossibles. Pas de
+    # source consensuelle, doctrine opérationnelle.
+    seuil_mm_24h: 20.0
+
+  vent_fort:
+    actif: true
+    # Seuil sur vent max prévu (km/h). 60 km/h fait voler bâches et
+    # voiles ; vigilance MF "fort vent intérieur" >70 km/h. Doctrine
+    # opérationnelle.
+    seuil_kmh: 60.0
+
+# ----- Indicateurs envoyés (info, pas alerte forte) -----
+indicateurs:
+  # Bilan eau du jour et tendance 7 j (P − ETP cumulé, sans Kc culture).
+  bilan_eau:
+    actif: true
+    # Heuristique "tension irrigation aujourd'hui" — affiche un flag si
+    # les 3 conditions sont remplies. Pas dépendant d'une climato
+    # locale (qui nécessiterait SAFRAN, différé v1) ; seuils fixes
+    # simples à calibrer après une saison.
+    #
+    # tension_irrigation = (ETP_24h > seuil_etp_seche)
+    #                       AND (pluie_24h < seuil_pluie_compense)
+    #                       AND (bilan_P_ETP_7j < seuil_deficit_7j)
+    tension_irrigation:
+      seuil_etp_seche_mm: 5.0       # ETP > 5 mm/jour = journée séchante
+      seuil_pluie_compense_mm: 2.0  # Pluie < 2 mm = ne compense pas l'ETP
+      seuil_deficit_7j_mm: -15.0    # Cumul P−ETP < −15 mm/7j = sec installé
+
+# ----- Format email -----
+email:
+  # html_mobile : table compacte responsive ; alt: texte_simple
+  format: html_mobile
+  # Template du sujet, variables : {date}, {alertes_count}, {alertes_resume}
+  sujet_template: "Veille {date} — {alertes_resume}"
+  # Lien depuis chaque indicateur vers sa "fiche indice" sur Pages
+  # (publiée plus tard). Aligne avec le principe #5 transparence.
+  inclure_lien_fiches_indices: true
+  # URL de base des fiches indices, à remplir quand Pages sera publié.
+  url_fiches_indices: ""
+
+# ----- Diffusion (secrets via .env / GH Actions, pas ici) -----
+#
+# Variables d'environnement requises (provider Posteo par défaut) :
+#   - VEILLE_SMTP_HOST        smtp.posteo.de
+#   - VEILLE_SMTP_PORT        587 (STARTTLS)
+#   - VEILLE_SMTP_USER        votre adresse Posteo complète
+#   - VEILLE_SMTP_PASSWORD    mot de passe principal Posteo (pas d'App
+#                             Password chez Posteo ; 2FA web reste actif)
+#   - VEILLE_EMAIL_FROM       même que SMTP_USER pour Posteo
+#   - VEILLE_EMAIL_TO         destinataire(s), séparés par virgule
+diffusion:
+  # Si false, le mail est généré et imprimé en log GH Actions sans
+  # envoi (mode test). Utile pour valider la mise en page sans bombarder.
+  envoi_reel: true
