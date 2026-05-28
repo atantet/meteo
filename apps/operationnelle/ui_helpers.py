@@ -14,8 +14,12 @@ import pandas as pd
 LIBELLES_COLONNES: dict[str, str] = {
     "t_min_celsius": "T° min (°C)",
     "t_max_celsius": "T° max (°C)",
+    "t_moy_celsius": "T° moy (°C)",
+    "t_moy_normale_celsius": "Normale T° (°C)",
+    "ecart_normale_celsius": "Écart normale (°C)",
     "pluie_24h_mm": "Pluie 24 h (mm)",
     "rafales_max_kmh": "Rafales (km/h)",
+    "direction_vent_cardinal": "Vent dom.",
     "etp_mm": "ETP (mm)",
     "bilan_eau_cumul_mm": "Bilan eau cumulé (mm)",
 }
@@ -24,6 +28,9 @@ LIBELLES_COLONNES: dict[str, str] = {
 PRECISION: dict[str, int] = {
     "t_min_celsius": 1,
     "t_max_celsius": 1,
+    "t_moy_celsius": 1,
+    "t_moy_normale_celsius": 1,
+    "ecart_normale_celsius": 1,
     "pluie_24h_mm": 1,
     "rafales_max_kmh": 0,
     "etp_mm": 1,
@@ -86,8 +93,24 @@ def styler_ligne(row: pd.Series, alertes_cfg: dict[str, Any]) -> list[str]:
 
 
 def preparer_table_affichage(quotidien: pd.DataFrame, tz: str = "Europe/Paris") -> pd.DataFrame:
-    """Renomme colonnes + arrondit selon PRECISION + reformate index."""
+    """Renomme colonnes + arrondit selon PRECISION + reformate index.
+
+    Si ``direction_vent_cardinal`` et ``direction_vent_deg`` sont présents,
+    affiche ``NO (315°)`` dans la colonne renommée.
+    """
     out = quotidien.copy()
+    # Compose direction "NO (315°)" si les 2 colonnes sont présentes.
+    if "direction_vent_cardinal" in out.columns and "direction_vent_deg" in out.columns:
+        out["direction_vent_cardinal"] = out.apply(
+            lambda r: (
+                f"{r['direction_vent_cardinal']} ({r['direction_vent_deg']:.0f}°)"
+                if isinstance(r["direction_vent_cardinal"], str) and r["direction_vent_cardinal"]
+                else ""
+            ),
+            axis=1,
+        )
+        # On masque la colonne degrés brute après composition.
+        out = out.drop(columns=["direction_vent_deg"])
     for col, prec in PRECISION.items():
         if col in out.columns:
             out[col] = out[col].round(prec)

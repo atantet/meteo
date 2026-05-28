@@ -56,14 +56,19 @@ def test_quotidien_colonnes_et_index() -> None:
     prev = _prevision()
     with _patch_etp(0.1):
         q = calculer_indicateurs_quotidiens(prev, CONFIG_TEST)
-    assert list(q.columns) == [
+    # Vérif présence des colonnes principales (autres colonnes
+    # optionnelles : direction_vent_*, t_moy_normale_celsius,
+    # ecart_normale_celsius ; selon la dispo des fixtures climato).
+    for col in (
         "t_min_celsius",
         "t_max_celsius",
+        "t_moy_celsius",
         "pluie_24h_mm",
         "rafales_max_kmh",
         "etp_mm",
         "bilan_eau_cumul_mm",
-    ]
+    ):
+        assert col in q.columns
     # Index = date (sans heure).
     assert q.index.name == "date"
     # 7 jours de prévision → 8 dates côté locale (split nuit Paris).

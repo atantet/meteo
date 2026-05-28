@@ -22,8 +22,10 @@ reprise du champ ``etp_open_meteo`` du fournisseur.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
@@ -39,6 +41,45 @@ _INPUTS_ETP = [
     "vitesse_vent_10m",
     "rayonnement_global",
 ]
+
+# Référence climato (cf. apps/veille/charts.py — même fichier réutilisé).
+NORMALE_JOUR_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "climato" / "normale_jour_lapetiteclaye.csv"
+)
+
+# Conversion direction (degrés) → secteur cardinal (cf. apps.veille.indicateurs).
+CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
+
+
+def _degrees_to_cardinal(deg: float) -> str:
+    if np.isnan(deg):
+        return ""
+    idx = int(round((deg % 360) / 45)) % 8
+    return CARDINAUX[idx]
+
+
+def _direction_dominante_vecteur(group: pd.DataFrame) -> float:
+    """Moyenne vectorielle pondérée vitesse pour un groupe (1 jour)."""
+    if "direction_vent_deg" not in group.columns:
+        return float("nan")
+    s = group["direction_vent_deg"].dropna()
+    if s.empty:
+        return float("nan")
+    rad = np.deg2rad(s)
+    poids = group.loc[s.index, "vitesse_vent_10m"] if "vitesse_vent_10m" in group else 1.0
+    u = -poids * np.sin(rad)
+    v = -poids * np.cos(rad)
+    return float(np.rad2deg(np.arctan2(-u.mean(), -v.mean())) % 360)
+
+
+def _charger_normale_t_moy() -> pd.Series | None:
+    if not NORMALE_JOUR_PATH.exists():
+        return None
+    try:
+        df = pd.read_csv(NORMALE_JOUR_PATH)
+        return df.set_index("day_of_year")["t_moy_celsius"]
+    except (OSError, KeyError):
+        return None
 
 
 def calculer_indicateurs_quotidiens(
@@ -87,18 +128,44 @@ def calculer_indicateurs_quotidiens(
     travail["rafales_kmh"] = df["rafales_vent_10m"] * MS_TO_KMH
     travail["etp_mm"] = etp_horaire
 
+    # Stocke aussi vitesse + direction pour la direction dominante
+    # journalière calculée plus bas.
+    travail["vitesse_vent_10m"] = df["vitesse_vent_10m"]
+    if "direction_vent_deg" in df.columns:
+        travail["direction_vent_deg"] = df["direction_vent_deg"]
+
     travail.index = travail.index.tz_convert(tz_locale)
     travail["date_locale"] = travail.index.date
 
     quotidien = travail.groupby("date_locale").agg(
         t_min_celsius=("t_celsius", "min"),
         t_max_celsius=("t_celsius", "max"),
+        t_moy_celsius=("t_celsius", "mean"),
         pluie_24h_mm=("pluie_mm", "sum"),
         rafales_max_kmh=("rafales_kmh", "max"),
         etp_mm=("etp_mm", "sum"),
     )
 
+    # Direction dominante par jour (vector mean pondéré vitesse).
+    if "direction_vent_deg" in travail.columns:
+        dirs_jour = travail.groupby("date_locale").apply(
+            _direction_dominante_vecteur, include_groups=False
+        )
+        quotidien["direction_vent_deg"] = dirs_jour.reindex(quotidien.index).values
+        quotidien["direction_vent_cardinal"] = quotidien["direction_vent_deg"].map(
+            _degrees_to_cardinal
+        )
+
     quotidien["bilan_eau_cumul_mm"] = (quotidien["pluie_24h_mm"] - quotidien["etp_mm"]).cumsum()
+
+    # Climato T_moy normale OMM 1991-2020 (cf. data/climato/normale_jour_*.csv).
+    normale = _charger_normale_t_moy()
+    if normale is not None:
+        doy = pd.to_datetime(quotidien.index).dayofyear
+        quotidien["t_moy_normale_celsius"] = normale.reindex(doy).values
+        quotidien["ecart_normale_celsius"] = (
+            quotidien["t_moy_celsius"] - quotidien["t_moy_normale_celsius"]
+        )
 
     quotidien.index = pd.to_datetime(quotidien.index)
     quotidien.index.name = "date"

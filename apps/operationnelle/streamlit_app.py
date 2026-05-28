@@ -39,6 +39,7 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     preparer_table_affichage,
     styler_ligne,
 )
+from apps.veille.email import format_horodatage_fr  # noqa: E402  (helper réutilisé)
 from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
 
 
@@ -62,9 +63,10 @@ def main() -> None:
         layout="wide",
     )
     st.title(ui_cfg["titre"])
+    maintenant = pd.Timestamp.now(tz="UTC").to_pydatetime()
     st.caption(
-        f"Site : {site['latitude']:.4f} N, {site['longitude']:.4f} W · "
-        f"alt {site['altitude']} m · fuseau {site['tz']}"
+        f"{format_horodatage_fr(maintenant, site.get('tz', 'Europe/Paris'))} · "
+        f"site {site['latitude']:.4f} N, {site['longitude']:.4f} W, alt {site['altitude']} m"
     )
 
     horizon = config["source_meteo"]["horizon_max_jours"]
@@ -80,6 +82,15 @@ def main() -> None:
     now_utc = pd.Timestamp.now(tz="UTC")
     quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc)
     quotidien = jours_complets_seulement(quotidien, prevision)
+
+    # Premier pas de prévision (T+0) affiché explicitement.
+    if not prevision.empty:
+        t0 = prevision.index[prevision.index >= now_utc][0]
+        t0_loc = t0.tz_convert(site.get("tz", "Europe/Paris"))
+        st.caption(
+            f"Premier pas de prévision (T+0) : "
+            f"**{t0.strftime('%H:%M')} UTC** ({t0_loc.strftime('%H:%M')} heure locale)"
+        )
 
     # ----- Vue Semaine -----
     st.subheader("Vue Semaine")
@@ -111,6 +122,12 @@ def main() -> None:
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec
   les autres apps.
+- **Normale T° (1991-2020 OMM)** : extraite de
+  ``data/climato/normale_jour_lapetiteclaye.csv`` (ERA5 30 ans —
+  voir `scripts/compute_normale_jour.py`). Colonne "Écart normale"
+  = T° moy du jour − normale T° pour ce jour-de-l'année.
+- **Direction dominante** : moyenne vectorielle horaire pondérée
+  par la vitesse.
 - **Site** : {site["latitude"]:.4f}°N, {site["longitude"]:.4f}°W,
   altitude {site["altitude"]} m, fuseau {site["tz"]}.
 - **Cache** : 1 h sur la requête. Rafraîchir = recharger la page.
