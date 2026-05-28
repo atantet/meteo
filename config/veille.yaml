@@ -116,13 +116,17 @@ email:
 
 # ----- Diffusion (secrets via .env / GH Actions, pas ici) -----
 #
-# Variables d'environnement requises (provider Posteo par défaut) :
-#   - VEILLE_SMTP_HOST        smtp.posteo.de
-#   - VEILLE_SMTP_PORT        587 (STARTTLS)
-#   - VEILLE_SMTP_USER        votre adresse Posteo complète
-#   - VEILLE_SMTP_PASSWORD    mot de passe principal Posteo (pas d'App
-#                             Password chez Posteo ; 2FA web reste actif)
-#   - VEILLE_EMAIL_FROM       même que SMTP_USER pour Posteo
+# Le code SMTP est provider-agnostic — voir .env.example pour les
+# exemples Gmail (défaut v0), Posteo, OVH. Migration prévue vers compte
+# pro 2027-01-01 (provider non décidé), trivialisée par cette
+# abstraction.
+#
+# Variables d'environnement requises :
+#   - VEILLE_SMTP_HOST
+#   - VEILLE_SMTP_PORT        587 (STARTTLS) typiquement
+#   - VEILLE_SMTP_USER        adresse email complète
+#   - VEILLE_SMTP_PASSWORD    App Password (Gmail) ou mot de passe (Posteo)
+#   - VEILLE_EMAIL_FROM       habituellement = SMTP_USER
 #   - VEILLE_EMAIL_TO         destinataire(s), séparés par virgule
 diffusion:
   # Si false, le mail est généré et imprimé en log GH Actions sans
