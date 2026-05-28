@@ -1,0 +1,43 @@
+# Configuration App 3 — Climato & stratégie (Quarto + Pages)
+#
+# Défauts publics versionnés. Override local : config/climato.local.yaml.
+
+# ----- Site de référence (ADR-0001 règle 3) -----
+site:
+  latitude: 48.5420
+  longitude: -1.6155
+  altitude: 30
+  tz: Europe/Paris
+
+# ----- Source historique -----
+source_meteo:
+  # Placeholder v0 : ERA5-Land via Open-Meteo (~10 km). ADR-0002
+  # planifie SAFRAN MF (~8 km) en v1 pour mieux capter le gradient
+  # côtier breton. Cette substitution est signalée dans le rapport.
+  archive: openmeteo
+  modele: era5_land
+
+# ----- Périodes climatologiques -----
+periodes:
+  # Normale OMM standard.
+  normale_debut: 1991
+  normale_fin: 2020
+  # Année courante de référence (à comparer aux normales). En MVP
+  # statique, on prend 2024 (dernière année complète disponible).
+  annee_courante: 2024
+
+# ----- Indicateurs et seuils d'analyse -----
+indicateurs:
+  # Seuil "jour de gel" (T° min < seuil).
+  seuil_gel_celsius: 0.0
+  # Seuil "jour de canicule" (T° max > seuil).
+  seuil_canicule_celsius: 30.0
+  # Seuil "jour pluvieux marquant" (cumul 24 h > seuil).
+  seuil_jour_pluvieux_mm: 10.0
+
+# ----- Rapport Quarto -----
+rapport:
+  titre: "Climatologie locale — La Petite Claye, Pleine-Fougères"
+  auteur: "Alexis Tantet"
+  # Sous-titre affiché.
+  sous_titre: "Synthèse 1991-2020 (normale OMM) avec comparaison année courante"
