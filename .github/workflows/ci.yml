@@ -47,5 +47,7 @@ jobs:
       - name: Ruff lint
         run: ruff check .
 
-      - name: Mypy on src/
-        run: mypy src/
+      # Note : mypy non lancé en CI (pas de pandas-stubs dans
+      # environment.yml). Le pre-commit hook (.pre-commit-config.yaml)
+      # le déclenche localement avec les stubs corrects, suffisant pour
+      # bloquer les erreurs de typage avant push.
