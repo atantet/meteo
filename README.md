@@ -3,8 +3,12 @@
 Outils d'aide à la décision météo-climatique pour l'exploitation maraîchère bio
 **La Petite Claye des Champs** (Pleine-Fougères, 35).
 
-> **Statut** — cadrage en cours, code à venir. Voir `docs/decisions/` pour les
-> décisions structurantes.
+> **Statut** — v0 en production. Voir `docs/decisions/` pour les décisions
+> structurantes et `docs/panorama.md` pour la vue d'ensemble.
+>
+> - Veille email — cron quotidien GitHub Actions (06:30 UTC).
+> - Opérationnelle — Streamlit Community Cloud (en cours de mise en ligne).
+> - Climato — rapport Quarto publié sur <https://atantet.github.io/meteo/>.
 
 ## Périmètre
 

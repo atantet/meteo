@@ -115,7 +115,7 @@ dgel = dates_gel_par_annee(quotidien, seuil_gel=seuils["seuil_gel_celsius"])
 
 ```{python}
 #| label: fig-temperatures
-#| fig-cap: "Température moyenne mensuelle (moyenne 2015-2024 ERA5-Land). T° min et max moyennes sur 24 h, t° moy sur l'ensemble."
+#| fig-cap: "Température mensuelle (normale 1991-2020 OMM, ERA5 ~25 km). T° min et max moyennes sur 24 h, t° moy sur l'ensemble."
 
 mois_labels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
 fig, ax = plt.subplots(figsize=(9, 4.5))
@@ -237,7 +237,7 @@ Tout ce qui suit est cliquable / reproductible.
   `tests/test_climato.py`.
 
 ::: {.callout-note}
-**v1 prévue** : substitution ERA5-Land → SAFRAN MF 8 km, intégration des
+**v1 prévue** : substitution ERA5 ~25 km → SAFRAN MF 8 km, intégration des
 projections DRIAS 2030/2050/2100, ajout d'un bilan saison N annuel
 généré automatiquement en fin d'octobre.
 :::
