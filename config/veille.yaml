@@ -35,14 +35,16 @@ source_meteo:
   # En v0 : Open-Meteo (gratuit, pas d'auth, passerelle multi-modèles
   # incluant AROME France HD et ECMWF IFS). Voir ADR-0002.
   prevision: openmeteo
-  # Modèles utilisés selon l'horizon :
-  # - 0–3 j : AROME France HD 1.3 km (modèle français haute résolution)
-  # - 3–7 j : ECMWF IFS 9 km (référence mondiale)
-  # Open-Meteo les compose automatiquement quand on passe plusieurs
-  # noms de modèles.
+  # "best_match" compose automatiquement :
+  # - 0–2 j : AROME France HD 1.3 km (modèle français haute résolution)
+  # - 2–4 j : ICON-EU ou ARPEGE
+  # - 4–7 j : ECMWF IFS 9 km (référence mondiale)
+  # AVANTAGE : c'est le seul mode qui retourne et0_fao_evapotranspiration
+  # nativement (les modèles individuels comme AROME ne fournissent pas
+  # l'ETP). Pour un usage plus fin (multi-modèles séparés), prévoir un
+  # OpenMeteoForecast étendu en v1.
   modeles:
-    - meteofrance_arome_france_hd
-    - ecmwf_ifs025
+    - best_match
   # Plafond explicite — au-delà la prévision déterministe perd trop en
   # fiabilité pour servir l'opérationnel.
   horizon_max_jours: 7

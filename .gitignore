@@ -42,6 +42,9 @@ data/sensors/*
 # Streamlit
 .streamlit/secrets.toml
 
+# Overrides locaux de config (cf. apps/veille/config.py)
+config/*.local.yaml
+
 # Quarto
 _site/
 .quarto/

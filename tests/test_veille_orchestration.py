@@ -48,14 +48,22 @@ def _config_test() -> dict:
 
 
 def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
-    """168 h de prévision homogène (1 semaine)."""
+    """168 h de prévision homogène (1 semaine).
+
+    Inclut les colonnes nécessaires au calcul ETP socle (T, HR, vent,
+    rayonnement). rayonnement_global=0 ⇒ ETP socle ~ aérodynamique
+    seul, suffisant pour des tests d'orchestration où l'ETP exacte
+    n'est pas le sujet.
+    """
     index = pd.date_range("2024-06-15 00:00:00+00:00", periods=168, freq="h", tz="UTC")
     return pd.DataFrame(
         {
             "temperature_2m": np.full(168, t_celsius + 273.15),
+            "humidite_relative": np.full(168, 0.7),
             "precipitation": np.full(168, 0.0),
             "vitesse_vent_10m": np.full(168, 5.0),
             "rafales_vent_10m": np.full(168, 9.0),
+            "rayonnement_global": np.full(168, 0.0),
             "etp_open_meteo": np.full(168, 0.1),
             "cloud_cover": np.full(168, 0.5),
         },

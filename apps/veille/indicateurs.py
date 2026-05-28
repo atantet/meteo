@@ -11,6 +11,15 @@ indicateurs envoyés dans l'email matinal :
 - Bilan eau (P − ETP) cumulé 7 jours
 - Flag "tension irrigation" si l'heuristique config est déclenchée
 
+**Cohérence inter-apps (cf. principe #4 rigueur scientifique)** :
+l'ETP est calculée par ``meteo_socle.indices.etp_fao.calcul_etp``
+(FAO Penman-Monteith horaire, ADR-0004), **pas** reprise du champ
+``etp_open_meteo`` du fournisseur. Cela garantit la même méthode dans
+toutes les apps (Veille, Opérationnelle, Climato) et nous donne la
+maîtrise des hypothèses (R_so via pvlib, clearness, G jour/nuit).
+``etp_open_meteo`` reste un cross-check possible mais n'est pas utilisé
+en production.
+
 Les seuils de la tension irrigation viennent de
 ``config["indicateurs"]["bilan_eau"]["tension_irrigation"]``.
 
@@ -27,9 +36,19 @@ from typing import Any
 
 import pandas as pd
 
+from meteo_socle.indices.etp_fao import calcul_etp
+
 # Conversions vers unités de présentation utilisateur.
 KELVIN_OFFSET: float = 273.15
 MS_TO_KMH: float = 3.6
+
+# Colonnes d'entrée nécessaires au calcul d'ETP socle.
+_INPUTS_ETP = [
+    "temperature_2m",
+    "humidite_relative",
+    "vitesse_vent_10m",
+    "rayonnement_global",
+]
 
 
 @dataclass
@@ -98,9 +117,17 @@ def calculer_indicateurs(
 
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
 
-    etp_24h = float(h24["etp_open_meteo"].sum())
+    # ETP via le socle FAO Penman-Monteith (cohérence inter-apps).
+    site = config["site"]
+    etp_horaire_24h = calcul_etp(
+        h24[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
+    )
+    etp_horaire_7j = calcul_etp(
+        h168[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
+    )
+    etp_24h = float(etp_horaire_24h.sum())
     pluie_24h = float(h24["precipitation"].sum())
-    etp_7j = float(h168["etp_open_meteo"].sum())
+    etp_7j = float(etp_horaire_7j.sum())
     pluie_7j = float(h168["precipitation"].sum())
     bilan_7j = pluie_7j - etp_7j
 
