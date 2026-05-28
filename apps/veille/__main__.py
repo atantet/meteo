@@ -32,7 +32,7 @@ import requests
 from meteo_socle.sources.openmeteo import OpenMeteoForecast
 
 from .alertes import evaluer_alertes
-from .charts import graphique_72h_base64
+from .charts import carte_synoptique_dwd_base64, graphique_72h_base64
 from .config import (
     ConfigError,
     load_config,
@@ -106,7 +106,15 @@ def executer_veille(
 
     tz_locale = config["site"].get("tz", "Europe/Paris")
     chart = graphique_72h_base64(prevision, now_utc, tz_locale=tz_locale)
-    email = composer_email(ind, alertes, config, now_utc.to_pydatetime(), chart_72h_base64=chart)
+    carte = carte_synoptique_dwd_base64()  # vide silencieusement si DWD down
+    email = composer_email(
+        ind,
+        alertes,
+        config,
+        now_utc.to_pydatetime(),
+        chart_72h_base64=chart,
+        carte_synoptique_base64=carte,
+    )
 
     if preview_path is not None:
         try:

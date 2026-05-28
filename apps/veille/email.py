@@ -53,6 +53,25 @@ def _bloc_chart(chart_base64: str) -> str:
     )
 
 
+def _bloc_carte_synoptique(carte_base64: str) -> str:
+    """Bloc HTML pour la carte synoptique DWD (vide si non fournie)."""
+    if not carte_base64:
+        return ""
+    return (
+        '<div style="margin:18px 0 6px 0;">'
+        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+        "Situation synoptique</h3>"
+        '<div style="text-align:center;">'
+        f'<img src="{carte_base64}" alt="Analyse de surface DWD" '
+        'style="max-width:100%;height:auto;border-radius:4px;border:1px solid #eee;">'
+        "</div>"
+        '<p style="margin:4px 0 0 0;font-size:11px;color:#888;text-align:center;">'
+        "Analyse de surface — Deutscher Wetterdienst (mise à jour 4×/jour)"
+        "</p>"
+        "</div>"
+    )
+
+
 def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
     """Formate le sujet selon template config.
 
@@ -133,6 +152,7 @@ def composer_html(
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     chart_72h_base64: str = "",
+    carte_synoptique_base64: str = "",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     couleur_niveau = {"critique": "#c0392b", "warning": "#e67e22"}
@@ -229,6 +249,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {table_ind}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Bilan hydrique &amp; horizon</h3>
   {table_bilan}
+  {_bloc_carte_synoptique(carte_synoptique_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
     Les seuils sont des défauts opérationnels, ajustables dans la config.
@@ -244,17 +265,25 @@ def composer_email(
     config: dict[str, Any],
     maintenant: datetime,
     chart_72h_base64: str = "",
+    carte_synoptique_base64: str = "",
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
     ``chart_72h_base64`` (optionnel) sera embarqué dans le HTML comme image
-    inline. Si vide, aucun graphique n'est rendu.
+    inline. ``carte_synoptique_base64`` (optionnel) sera embarquée comme
+    illustration de la situation synoptique productive. Si vides, aucune
+    image n'est rendue.
     """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"])
     texte = composer_texte(ind, alertes, maintenant, url_fiches=url_fiches)
     html = composer_html(
-        ind, alertes, maintenant, url_fiches=url_fiches, chart_72h_base64=chart_72h_base64
+        ind,
+        alertes,
+        maintenant,
+        url_fiches=url_fiches,
+        chart_72h_base64=chart_72h_base64,
+        carte_synoptique_base64=carte_synoptique_base64,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

@@ -56,3 +56,46 @@ def test_graphique_72h_pas_de_proba_si_colonne_absente() -> None:
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
     data_uri = graphique_72h_base64(prev, now)
     assert data_uri.startswith("data:image/png;base64,")
+
+
+# ---------- Carte synoptique DWD ----------
+
+
+def _png_de_test(width: int = 1000, height: int = 600) -> bytes:
+    """Petit PNG synthétique pour mocker DWD."""
+    import io as _io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (width, height), (200, 220, 255))
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_carte_synoptique_redimensionne_et_encode() -> None:
+    from unittest.mock import MagicMock
+
+    from apps.veille.charts import carte_synoptique_dwd_base64
+
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = _png_de_test(width=2000, height=1200)
+    mock_session.get.return_value = mock_response
+
+    data_uri = carte_synoptique_dwd_base64(session=mock_session, largeur_max_px=800)
+    assert data_uri.startswith("data:image/jpeg;base64,")
+    assert len(data_uri) > 100
+
+
+def test_carte_synoptique_robuste_si_dwd_down() -> None:
+    """Si DWD est inaccessible, retourne chaîne vide (ne casse pas le mail)."""
+    from unittest.mock import MagicMock
+
+    import requests
+
+    from apps.veille.charts import carte_synoptique_dwd_base64
+
+    mock_session = MagicMock()
+    mock_session.get.side_effect = requests.ConnectionError("DWD down")
+    assert carte_synoptique_dwd_base64(session=mock_session) == ""

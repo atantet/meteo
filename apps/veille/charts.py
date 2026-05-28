@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 
 import matplotlib
 
@@ -18,6 +19,17 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
+import requests  # noqa: E402
+from PIL import Image  # noqa: E402
+
+logger = logging.getLogger(__name__)
+
+# Analyse de surface DWD pour l'Atlantique nord / Europe — couvre la
+# situation synoptique productive de la météo locale Bretagne. Image
+# mise à jour 4 fois/jour (~00, 06, 12, 18 UTC).
+DWD_SYNOPTIC_URL = (
+    "https://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png"
+)
 
 # Conversion socle vers présentation.
 KELVIN_OFFSET: float = 273.15
@@ -107,3 +119,61 @@ def graphique_72h_base64(
     plt.close(fig)
     buf.seek(0)
     return "data:image/png;base64," + base64.b64encode(buf.read()).decode("ascii")
+
+
+def carte_synoptique_dwd_base64(
+    url: str = DWD_SYNOPTIC_URL,
+    largeur_max_px: int = 800,
+    timeout: float = 10.0,
+    session: requests.Session | None = None,
+) -> str:
+    """Récupère la dernière carte d'analyse synoptique DWD et la prépare pour mail.
+
+    Télécharge l'image PNG (~5 MB), la redimensionne à ``largeur_max_px`` et
+    la ré-encode en JPEG qualité 75 pour limiter la taille du mail à ~100-300 KB.
+
+    Parameters
+    ----------
+    url :
+        URL de l'image DWD. Par défaut, la *Bodendruckkarte* d'analyse
+        pour l'Atlantique nord / Europe.
+    largeur_max_px :
+        Largeur cible en pixels (la hauteur suit le ratio d'origine).
+    timeout :
+        Délai max pour la requête HTTP (secondes).
+    session :
+        Session HTTP injectable pour tests (mock).
+
+    Returns
+    -------
+    str
+        ``data:image/jpeg;base64,...`` à insérer dans ``<img src=...>``.
+        Chaîne vide en cas d'échec (réseau, image invalide). L'absence
+        de carte ne doit pas casser l'envoi du mail.
+    """
+    sess = session or requests.Session()
+    try:
+        resp = sess.get(url, timeout=timeout)
+        resp.raise_for_status()
+        img = Image.open(io.BytesIO(resp.content))
+    except (requests.RequestException, OSError) as e:
+        logger.warning("Carte synoptique DWD indisponible : %s", e)
+        return ""
+
+    # Aplatit éventuelle transparence RGBA → RGB pour JPEG.
+    if img.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[-1])
+        img = background
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # Redimensionnement proportionnel.
+    if img.width > largeur_max_px:
+        hauteur = int(img.height * largeur_max_px / img.width)
+        img = img.resize((largeur_max_px, hauteur), Image.Resampling.LANCZOS)
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=75, optimize=True)
+    buf.seek(0)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii")
