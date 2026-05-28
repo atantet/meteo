@@ -129,14 +129,15 @@ def test_obtenir_prevision_query_params(fake_payload: dict) -> None:
 
 
 def test_obtenir_prevision_http_error(fake_payload: dict) -> None:
-    """En cas de réponse non-200, raise_for_status doit propager."""
+    """En cas d'erreur HTTP non-retryable (ex. 400), raise_for_status propage."""
     import requests
 
     from meteo_socle.sources.openmeteo import OpenMeteoForecast
 
     mock_session = MagicMock()
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = requests.HTTPError("500")
+    mock_response.status_code = 400
+    mock_response.raise_for_status.side_effect = requests.HTTPError("400")
     mock_session.get.return_value = mock_response
 
     client = OpenMeteoForecast(session=mock_session)

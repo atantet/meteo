@@ -92,7 +92,7 @@ def test_obtenir_historique_http_error_non_retryable(fake_payload: dict) -> None
 
 def test_obtenir_historique_retry_429(fake_payload: dict, monkeypatch) -> None:
     """Sur 429, retry jusqu'à 4 fois avec backoff (time.sleep mocké)."""
-    from meteo_socle.sources import openmeteo_archive
+    from meteo_socle.sources import _http_retry
     from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
 
     # 3 fois 429, puis succès.
@@ -107,7 +107,7 @@ def test_obtenir_historique_retry_429(fake_payload: dict, monkeypatch) -> None:
     mock_session.get.side_effect = [resp_429, resp_429, resp_429, resp_ok]
 
     attentes: list[float] = []
-    monkeypatch.setattr(openmeteo_archive.time, "sleep", attentes.append)
+    monkeypatch.setattr(_http_retry.time, "sleep", attentes.append)
 
     client = OpenMeteoArchive(session=mock_session)
     df = client.obtenir_historique(
@@ -123,7 +123,7 @@ def test_obtenir_historique_retry_epuise(fake_payload: dict, monkeypatch) -> Non
     """Si les 4 tentatives sont toutes 429, on lève HTTPError."""
     import requests
 
-    from meteo_socle.sources import openmeteo_archive
+    from meteo_socle.sources import _http_retry
     from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
 
     resp_429 = MagicMock()
@@ -134,7 +134,7 @@ def test_obtenir_historique_retry_epuise(fake_payload: dict, monkeypatch) -> Non
     mock_session = MagicMock()
     mock_session.get.return_value = resp_429
 
-    monkeypatch.setattr(openmeteo_archive.time, "sleep", lambda _: None)
+    monkeypatch.setattr(_http_retry.time, "sleep", lambda _: None)
 
     client = OpenMeteoArchive(session=mock_session)
     with pytest.raises(requests.HTTPError):

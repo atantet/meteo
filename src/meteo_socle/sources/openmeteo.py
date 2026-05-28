@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 import pandas as pd
 import requests
 
+from ._http_retry import get_avec_retry
+
 API_URL = "https://api.open-meteo.com/v1/forecast"
 
 # Variables horaires demandées par défaut. Open-Meteo accepte ces noms
@@ -126,8 +128,7 @@ class OpenMeteoForecast:
             En cas de réponse non-200.
         """
         params = self._build_params(latitude, longitude, horizon_jours, variables)
-        response = self.session.get(API_URL, params=params, timeout=30)
-        response.raise_for_status()
+        response = get_avec_retry(self.session, API_URL, params=params, timeout=30)
         return self._parse(response.json())
 
     def _build_params(
