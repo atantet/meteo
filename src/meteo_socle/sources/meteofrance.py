@@ -1,11 +1,45 @@
-from io import StringIO
-import json
-import numpy as np
-import pandas as pd
-from pathlib import Path
-import requests
+"""Client Météo-France pour les APIs publiques DPObs, DPPaquetObs et DPClim.
+
+Wrapper minimaliste autour de l'authentification OAuth2 token Météo-France
+(portail-api.meteofrance.fr) et de l'ingestion des données stations
+horaires et quotidiennes, avec conversions d'unités et renommage des
+variables vers les noms standards du socle.
+
+Trois APIs supportées :
+
+- **DPObs** (Données Publiques Observations) — 24 h glissantes, format
+  CSV.
+- **DPPaquetObs** — paquet d'observations 24 h.
+- **DPClim** — climatologie consolidée historique, format CSV.
+
+L'usage requiert un compte sur portail-api.meteofrance.fr et un token
+d'application (souscription gratuite). Voir
+<https://portail-api.meteofrance.fr/web/fr/dashboard>.
+
+Les conversions d'unités sont alignées sur les conventions du socle :
+température en K, humidité relative en fraction (0-1), rayonnement
+global en J m⁻² h⁻¹, vent en m s⁻¹, précipitation et ETP en mm.
+
+Note
+----
+
+Ce module est en partie issu de l'héritage `app-bilan-hydrique`
+(cf. ADR-0003 characterization testing). Phase B step 2 enrichit la
+classe Client et les fonctions pures testées ; les fonctions IO
+réseau (`demande`, `compiler_*`) seront enrichies au moment de leur
+intégration applicative.
+"""
+
+from __future__ import annotations
+
 import time
 import warnings
+from io import StringIO
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import requests
 
 # Host
 HOST = 'https://public-api.meteofrance.fr'
@@ -145,13 +179,38 @@ TZ = 'UTC'
 # Dossier des données
 DATA_DIR = Path('data')
 
-class Client(object):
-    def __init__(self, api, application_id=None):
+class Client:
+    """Client HTTP authentifié pour une API Météo-France donnée.
+
+    Gère l'authentification OAuth2 (token Application ID), le rafraîchissement
+    automatique en cas d'expiration, et expose les étiquettes spécifiques à
+    l'API (noms des colonnes, conversions d'unités) pour permettre une
+    ingestion uniforme côté socle.
+
+    Parameters
+    ----------
+    api :
+        Une des APIs supportées : ``"DPObs"``, ``"DPPaquetObs"``,
+        ``"DPClim"``.
+    application_id :
+        Application ID (token Bearer) obtenu sur portail-api.meteofrance.fr.
+        Peut être renseigné après construction via la propriété
+        ``application_id``.
+
+    Raises
+    ------
+    ValueError
+        Si ``api`` n'est pas dans ``AVAILABLE_APIS``.
+    """
+
+    def __init__(self, api: str, application_id: str | None = None) -> None:
         self.session = requests.Session()
         self._application_id = application_id
         if api not in AVAILABLE_APIS:
-            raise ValueError(f"Choix invalide: {api}. "
-                             f"Les choix possibles sont: {AVAILABLE_APIS}")
+            raise ValueError(
+                f"Choix invalide: {api}. "
+                f"Les choix possibles sont: {AVAILABLE_APIS}"
+            )
         self.api = api
         self.latlon_labels = LATLON_LABELS[self.api]
         self.station_name_label = STATION_NAME_LABEL[self.api]
@@ -245,7 +304,15 @@ def demande(client, section, params=None, frequence=None, verify=False):
 
     return response
 
-def liste_id_stations_vers_liste_id_departements(df_liste_stations):
+def liste_id_stations_vers_liste_id_departements(
+    df_liste_stations: pd.DataFrame,
+) -> np.ndarray:
+    """Dérive la liste unique des départements à partir des IDs stations.
+
+    Convention Météo-France : les 2 premiers chiffres d'un ID station
+    (sur 8) sont le code département INSEE. Concrètement,
+    département = ID // 1_000_000.
+    """
     return np.unique([_ // 1000000 for _ in df_liste_stations.index])
 
 def get_filepath_liste_stations(client, frequence=None, id_departement=None):
@@ -370,8 +437,7 @@ def compiler_telechargement_des_stations_periode(
             # Check if the status code matches
             if response.status_code == desired_status_code:
                 break
-            else:
-                print(f"Received status code {response.status_code}. Retrying...")
+            print(f"Received status code {response.status_code}. Retrying...")
         
             # Check if the timeout has been reached
             if time.time() - start_time > timeout:
@@ -445,11 +511,26 @@ def filtrer_stations_valides(client, df_brute):
 
     return df
 
-def renommer_variables(client, df, frequence):
-    labels_variables = {v: k for k, v in client.variables_labels[frequence].items()}
-    df = df.rename(columns=labels_variables)
+def renommer_variables(
+    client: Client, df: pd.DataFrame, frequence: str
+) -> pd.DataFrame:
+    """Renomme les colonnes du DataFrame depuis les codes MF vers les noms standards.
 
-    return df
+    Exemple DPClim horaire : ``GLO`` → ``rayonnement_global``, ``T`` →
+    ``temperature_2m``, ``U`` → ``humidite_relative``, ``FF`` →
+    ``vitesse_vent_10m``, ``RR1`` → ``precipitation``.
+
+    Parameters
+    ----------
+    client :
+        Instance Client (porte ``variables_labels`` indexé par API).
+    df :
+        DataFrame avec colonnes nommées selon la convention MF brute.
+    frequence :
+        ``"horaire"`` ou ``"quotidienne"``.
+    """
+    labels_variables = {v: k for k, v in client.variables_labels[frequence].items()}
+    return df.rename(columns=labels_variables)
 
 def inserer_noms_stations(client, df, df_liste_stations):
     ''' Insertion des noms des stations.'''
@@ -473,10 +554,18 @@ def localisation_temps(df, tz=TZ):
              pd.DatetimeIndex(df.index.levels[1], tz=TZ)]
     df.index = df.index.set_levels(index)
 
-def convertir_unites(client, df):
+def convertir_unites(client: Client, df: pd.DataFrame) -> pd.DataFrame:
+    """Applique les conversions d'unités SI sur les colonnes de ``df``.
+
+    Mutate ``df`` en place et le retourne. Les conversions varient selon
+    l'API (`client.api`) et sont définies dans
+    ``VARIABLES_CONVERSION_UNITES``.
+
+    Pour ``DPClim`` typiquement : T (°C → K), HR (% → fraction),
+    rayonnement (J/cm²/h → J/m²/h).
+    """
     for variable, s in df.items():
         df.loc[:, variable] = client.variables_conversion_unites[variable](s)
-    
     return df
 
     
