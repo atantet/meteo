@@ -1,0 +1,30 @@
+name: meteo
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  # Core data
+  - numpy
+  - pandas
+  - pyarrow
+  - duckdb
+  # Géosciences
+  - pvlib
+  # ML utils (BallTree pour sélection multi-stations, cf. geo.py)
+  - scikit-learn
+  # HTTP
+  - requests
+  # UI app opérationnelle
+  - streamlit
+  - altair
+  # Outils de dev
+  - pytest
+  - ruff
+  - mypy
+  - pre-commit
+  # Pip pour deps PyPI-only (à compléter au besoin)
+  - pip
+  # Note: cfgrib / eccodes seront ajoutés en v1 si bascule AROME directe (cf. ADR-0002).
+  # Note: climetlab pour SAFRAN à ajouter quand on attaque l'app climato (cf. ADR-0002).

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meteo_socle"
+version = "0.0.1"
+description = "Socle Python pour les apps météo de La Petite Claye des Champs"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{name = "Alexis Tantet"}]
+# License à décider — cf. README et ADR à venir.
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # bugbear
+  "UP",  # pyupgrade
+  "N",   # pep8-naming
+  "RET", # return statements
+  "SIM", # simplification
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+# Strict progressif : on activera --strict module par module sur le socle.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+  "golden: characterization tests fixant le comportement migré (cf. ADR-0003)",
+]

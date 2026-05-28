@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Conda / venv
+.conda/
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets et données opérationnelles (cf. ADR-0001)
+.env
+.env.local
+.env.*.local
+data/raw/*
+!data/raw/.gitkeep
+data/observations/*
+!data/observations/.gitkeep
+data/sensors/*
+!data/sensors/.gitkeep
+*.duckdb
+*.duckdb-wal
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Quarto
+_site/
+.quarto/
+
+# Claude Code per-user
+.claude/settings.local.json
