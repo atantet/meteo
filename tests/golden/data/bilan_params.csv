@@ -1,0 +1,9 @@
+,value
+texture,Terres limono-sablo-argileuses
+fraction_cailloux,0.05
+culture,Tomate
+stade,De la floraison du 3ème bouquet à la mi-récolte
+fraction_ru_remplie,0.8
+ru_vers_rfu,0.6
+seuil_irrigation,5.0
+hauteur_vers_duree_irrigation,2.0

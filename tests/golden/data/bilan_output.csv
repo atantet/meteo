@@ -1,0 +1,4 @@
+,etp,profondeur_enracinement,profondeur_terrefine,ru,rfu,rfu_deficit,precipitation,etm_culture,besoin_irrigation,rfu_cible,irrigation,duree_irrigation
+2024-06-15 00:00:00+00:00,-3.5,30,28.5,47.025,28.215,-5.643,0,-3.15,8.793,28.215,True,17.586
+2024-06-16 00:00:00+00:00,-4,30,28.5,47.025,28.215,-5.643,0,-3.6,9.243,28.215,True,18.486
+2024-06-17 00:00:00+00:00,-4.2,30,28.5,47.025,28.215,-5.643,6,-3.78,3.423,28.215,False,0
