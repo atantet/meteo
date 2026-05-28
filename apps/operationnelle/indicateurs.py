@@ -122,6 +122,10 @@ def jours_complets_seulement(df: pd.DataFrame, prevision: pd.DataFrame) -> pd.Da
     if df.empty:
         return df
     tz = df.index.tz if df.index.tz is not None else "UTC"
-    couverture = prevision.tz_convert(tz).groupby(prevision.tz_convert(tz).index.date).size()
+    prev_local = prevision.tz_convert(tz)
+    couverture = prev_local.groupby(prev_local.index.date).size()
     couverture.index = pd.to_datetime(couverture.index)
+    # Aligne sur l'index `df` (re-index avec fill_value=0 sur les
+    # dates absentes de la couverture, puis filtre booléen).
+    couverture = couverture.reindex(df.index, fill_value=0)
     return df.loc[couverture >= 23]
