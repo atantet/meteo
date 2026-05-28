@@ -1,0 +1,52 @@
+# Configuration App 2 — Opérationnelle (dashboard Streamlit)
+#
+# Défauts publics versionnés. Pour surcharger localement, copier en
+# `config/operationnelle.local.yaml` (gitignored — cf. .gitignore).
+
+# ----- Site de référence (cf. ADR-0001 règle 3) -----
+site:
+  # 8 La Petite Claye, 35610 Pleine-Fougères (Nominatim OSM).
+  latitude: 48.5420
+  longitude: -1.6155
+  altitude: 30
+  tz: Europe/Paris
+
+# ----- Source météo prévision -----
+source_meteo:
+  prevision: openmeteo
+  # "best_match" compose AROME France HD 1.3 km (0-2 j) + ICON-EU /
+  # ARPEGE (2-4 j) + ECMWF IFS 9 km (4-15 j). Cohérence App 1 (cf.
+  # config/veille.yaml).
+  modeles:
+    - best_match
+  # Horizon plus long que la Veille : panorama prévoit 3-15 j pour
+  # l'opérationnel. Open-Meteo plafond pratique ~14 j sur ECMWF.
+  horizon_max_jours: 14
+
+# ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
+#
+# Auto-critique : ces seuils sont des valeurs opérationnelles
+# couramment citées (cf. config/veille.yaml pour détail des sources),
+# pas un consensus scientifique. Ajustables par retour terrain.
+alertes:
+  gel:
+    actif: true
+    seuil_celsius: -2.0
+  canicule:
+    actif: true
+    seuil_celsius: 32.0
+  pluie_intense:
+    actif: true
+    seuil_mm_24h: 20.0
+  vent_fort:
+    actif: true
+    seuil_kmh: 60.0
+
+# ----- Présentation -----
+ui:
+  # Titre affiché en haut du dashboard.
+  titre: "Opérationnelle — La Petite Claye"
+  # Pour expand "vérifier la source" sur chaque indicateur.
+  inclure_sources_brutes: true
+  # URL des fiches indices détaillées (Pages, à venir).
+  url_fiches_indices: ""
