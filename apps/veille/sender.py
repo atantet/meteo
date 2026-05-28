@@ -30,7 +30,7 @@ def construire_message(email: EmailComposed, email_from: str, email_to: list[str
     return msg
 
 
-def envoyer_smtp(email: EmailComposed, secrets: dict[str, Any], smtp_class=smtplib.SMTP) -> None:
+def envoyer_smtp(email: EmailComposed, secrets: dict[str, Any], smtp_class=None) -> None:
     """Envoie le message via SMTP STARTTLS.
 
     Parameters
@@ -42,8 +42,11 @@ def envoyer_smtp(email: EmailComposed, secrets: dict[str, Any], smtp_class=smtpl
         password, email_from, email_to).
     smtp_class :
         Classe SMTP — injectable pour les tests (par ex.
-        ``unittest.mock.MagicMock``).
+        ``unittest.mock.MagicMock``). Résolu à la volée pour permettre
+        ``patch("apps.veille.sender.smtplib.SMTP")``.
     """
+    if smtp_class is None:
+        smtp_class = smtplib.SMTP
     msg = construire_message(email, secrets["email_from"], secrets["email_to"])
     with smtp_class(secrets["host"], secrets["port"]) as server:
         server.ehlo()
@@ -66,7 +69,7 @@ def envoyer(
     email: EmailComposed,
     secrets: dict[str, Any] | None,
     envoi_reel: bool,
-    smtp_class=smtplib.SMTP,
+    smtp_class=None,
     stream=None,
 ) -> None:
     """Dispatch : envoi réel ou dry-run selon flag config."""
