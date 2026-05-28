@@ -1,0 +1,111 @@
+{
+    "Ail": {
+	"De la fin de la levée à la formation du bulbe": 0.5,
+	"De la formation du bulbe au grossissement maxi": 0.9,
+	"Du grossissement maxi à 20 jours avant la récolte": 0.6
+    },
+    "Artichaut": {
+	"De plantation/reprise à 2 mois après": 0.5,
+	"De 2 mois après la plantation/reprise à la montée des capitules": 0.6,
+	"De la montée des capitules à 15 jours avant la 1ère récolte": 0.8,
+	"De 15 jours avant la 1ère récolte à la fin de la 1ère récolte": 1.1,
+	"De la fin de la 1ère récolte à la fin de la 2ème récolte": 1.2
+    },
+    "Asperge": {
+	"De la fin de la récolte au débuttage": 0.5,
+	"Du débuttage à 1 mois après": 0.9,
+	"De 1 mois après le débuttage à 2 mois après": 0.7,
+	"De 2 mois après le débuttage à 2 mois après": 0.5
+    },
+    "Aubergine": {
+	"De la plantation au début de la floraison": 0.5,
+	"Du début de la floraison à la croissance du 3ème étage": 0.6,
+	"De la croissance du 3ème étage à la mi-récolte": 0.9,
+	"De la mi-récolte à la fin de la culture": 0.6
+    },
+    "Betterave": {
+	"Du semis à 30 jours après le semis": 0.5,
+	"De 30 jours après le semis au début de la tubérisation": 0.7,
+	"Du début de la tubérisation à la récolte": 1.0
+    },
+    "Carotte": {
+	"Du semis à 30 jours après": 0.5,
+	"De 30 jours après le semis à la récolte": 1.0
+    },
+    "Chou fleur": {
+	"De la plantation aux 1ères inflorescences": 0.5,
+	"Des 1ères inflorescences au début de la formation du chou": 1.0,
+	"Du début de la formation du chou à la récolte": 1.3
+    },
+    "Courgette": {
+	"De la plantation à la floraison": 0.5,
+	"De la floraison à la mi-récolte": 1.0,
+	"De la mi-récolte à la fin de la récolte": 0.7
+    },
+    "Fraisier": {
+	"Du départ de la végétation au début de la floraison": 0.4,
+	"Du début de la floraison à la floraison": 0.6,
+	"De la floraison au grossissement des fruits": 0.9,
+	"Du grossissement des fruits à la récolte": 0.7
+    },
+    "Haricot": {
+	"De 30 jours après la levée à la floraison": 0.6,
+	"De la floraison à la formation des gousses": 0.8,
+	"De la formation des gousses à la récolte": 1.0
+    },
+    "Melon": {
+	"De la plantation au début de la floraison": 0.4,
+	"Du début de la floraison à la nouaison": 0.6,
+	"De la nouaison au grossissement des fruits": 1.0,
+	"Du grossissement des fruits au cours de la récolte": 0.6
+    },
+    "Oignon": {
+	"De la levée à 30 jours après": 0.6,
+	"De 30 jours après la levée à 60 jours après": 0.8,
+	"De 60 jours après la levée au début de la maturité": 1.0,
+	"Du début de la maturité à 20 jours avant la récolte": 1.1,
+	"De 20 jours avant la récolte à la récolte": 0.5
+    },
+    "Poireau": {
+	"De la reprise à la récolte": 0.7
+    },
+    "Pois": {
+	"De la levée à 5 feuilles": 0.5,
+	"De 5 feuilles à 7 feuilles": 0.7,
+	"De 7 feuilles à 9 feuilles": 0.9,
+	"De 9 feuilles au début de la floraison": 1.0,
+	"Du début de la floraison à la maturité": 1.2
+    },
+    "Poivrons": {
+	"De la plantation au début de la floraison": 0.5,
+	"Du début de la floraison à la croissance du 3ème étage": 0.6,
+	"De la croissance du 3ème étage à la mi-récolte": 0.7,
+	"De la mi-récolte à la fin de la récolte": 0.6
+    },
+    "Pomme de terre": {
+        "De la levée à la croissance (20 jours après)": 0.5,
+	"De la croissance (20 jours après) à la fin de la tubérisation": 1.1,
+	"De la fin de la tubérisation à 20 jours avant la récolte": 0.8
+    },
+    "Salade": {
+	"De la plantation au début de la croissance active": 0.4,
+	"Du début de la croissance active à la récolte": 0.7
+    },
+    "Soja": {
+	"De la croissance à la fin de la floraison": 0.5,
+	"De la fin de la floraison au grossissement des graines": 0.8
+    },
+    "Tomate de conserve": {
+	"De la plantation au 3ème bouquet apparent": 0.4,
+	"Du 3ème bouquet apparent à 2 bouquets noués": 0.7,
+	"De 2 bouquets noués au premier fruit mûr": 1.2,
+	"Du 1er fruit mûr à 25% de maturité": 0.8,
+	"De 25% de maturité à 50% de maturité": 0.5
+    },
+    "Tomate": {
+        "De la plantation à la reprise": 0.2,
+        "De la reprise à la floraison du 3ème bouquet": 0.6,
+        "De la floraison du 3ème bouquet à la mi-récolte": 0.9,
+        "De la mi-récolte à la fin de la culture": 0.7
+    }
+}
