@@ -1,0 +1,77 @@
+name: Publier rapport Climato (Quarto → Pages)
+
+# Déclencheurs : changement du code climato, manuel, et tous les 1ers
+# du mois (rafraîchir avec la donnée la plus récente).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/climato/**"
+      - "src/meteo_socle/**"
+      - "config/climato.yaml"
+      - "environment.yml"
+      - ".github/workflows/climato-publish.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 1 * *"
+
+# Permissions minimales pour le deploy GitHub Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule exécution Pages en cours à la fois — annule les jobs
+# antérieurs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  render-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment.yml
+          auto-activate-base: false
+          use-mamba: true
+
+      - name: Setup Quarto (binaire officiel)
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.6.42"
+
+      - name: Render report.qmd → HTML
+        run: |
+          # Quarto exécute les chunks Python via l'env conda meteo.
+          quarto render apps/climato/report.qmd --to html
+
+      - name: Préparer le contenu Pages (site/)
+        run: |
+          mkdir -p site
+          cp apps/climato/report.html site/index.html
+          # Si Quarto produit un dossier _files/, le copier aussi.
+          if [ -d apps/climato/report_files ]; then
+            cp -r apps/climato/report_files site/
+          fi
+
+      - name: Upload artifact Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

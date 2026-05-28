@@ -105,6 +105,35 @@ Ouvre un navigateur sur <http://localhost:8501>.
 
 URL résultante typique : `https://meteo-op-<random>.streamlit.app`.
 
+### App 3 Climato (rapport Quarto)
+
+Quarto n'est pas un paquet Python — installer le binaire séparément :
+
+```bash
+# Linux (tarball officiel, recommandé)
+QV=1.6.42
+curl -LO "https://github.com/quarto-dev/quarto-cli/releases/download/v${QV}/quarto-${QV}-linux-amd64.tar.gz"
+mkdir -p ~/.local/quarto
+tar xzf quarto-${QV}-linux-amd64.tar.gz -C ~/.local/quarto --strip-components=1
+echo 'export PATH="$HOME/.local/quarto/bin:$PATH"' >> ~/.bashrc
+
+# Ou via apt sur Ubuntu (peut être plus ancien) :
+#   sudo apt install quarto
+```
+
+Puis :
+
+```bash
+quarto render apps/climato/report.qmd --to html
+# → produit apps/climato/report.html
+```
+
+**Déploiement GitHub Pages** : le workflow
+`.github/workflows/climato-publish.yml` construit le rapport et le
+publie sur Pages à chaque modif du code climato + tous les 1ers du mois.
+À l'activation, dans *Settings → Pages*, choisir source = **GitHub
+Actions**.
+
 ## Tests
 
 ```bash
