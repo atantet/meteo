@@ -38,6 +38,7 @@ def _prevision_synthetique(
     humidite: float = 0.7,
     rayonnement_jh: float = 0.0,
     proba_pluie_pct: float = 0.0,
+    direction_deg: float = 270.0,  # vent d'ouest par défaut
 ) -> pd.DataFrame:
     """Construit une prévision horaire homogène pour tests."""
     index = pd.date_range("2024-06-15 00:00:00+00:00", periods=duree_h, freq="h", tz="UTC")
@@ -47,6 +48,7 @@ def _prevision_synthetique(
             "humidite_relative": np.full(duree_h, humidite),
             "vitesse_vent_10m": np.full(duree_h, vent_ms),
             "rafales_vent_10m": np.full(duree_h, rafales_ms),
+            "direction_vent_deg": np.full(duree_h, direction_deg),
             "rayonnement_global": np.full(duree_h, rayonnement_jh),
             "precipitation": np.full(duree_h, pluie_horaire_mm),
             "probabilite_pluie_pct": np.full(duree_h, proba_pluie_pct),
@@ -101,6 +103,32 @@ def test_calculer_indicateurs_proba_pluie() -> None:
     assert ind.prob_pluie_max_24h_pct == pytest.approx(30.0)
     assert ind.prob_pluie_max_48h_pct == pytest.approx(60.0)
     assert ind.prob_pluie_max_72h_pct == pytest.approx(60.0)
+
+
+def test_calculer_indicateurs_direction_dominante() -> None:
+    """Direction constante (270°) → cardinal O ; T+0 = 1ère heure ≥ now."""
+    from apps.veille.indicateurs import calculer_indicateurs
+
+    prevision = _prevision_synthetique(direction_deg=270.0)
+    now = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    with _patch_etp(0.1):
+        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
+    assert ind.direction_vent_dominante_cardinal == "O"
+    assert ind.direction_vent_dominante_deg == pytest.approx(270.0)
+    assert ind.prevision_t0_utc == now
+
+
+def test_degrees_to_cardinal() -> None:
+    from apps.veille.indicateurs import degrees_to_cardinal
+
+    assert degrees_to_cardinal(0) == "N"
+    assert degrees_to_cardinal(90) == "E"
+    assert degrees_to_cardinal(180) == "S"
+    assert degrees_to_cardinal(270) == "O"
+    assert degrees_to_cardinal(45) == "NE"
+    assert degrees_to_cardinal(315) == "NO"
+    # Wrap-around.
+    assert degrees_to_cardinal(360) == "N"
 
 
 def test_calculer_indicateurs_proba_pluie_colonne_absente() -> None:

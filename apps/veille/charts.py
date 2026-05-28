@@ -95,6 +95,10 @@ def graphique_72h_base64(
         )
         ax_p.set_ylabel("Pluie (mm/h)", color=COULEUR_PLUIE)
         ax_p.tick_params(axis="y", labelcolor=COULEUR_PLUIE)
+        # La pluie est toujours ≥ 0 — borne basse à 0 pour éviter le
+        # padding négatif de matplotlib.
+        max_pluie = float(df["precipitation"].max()) if not df["precipitation"].empty else 0
+        ax_p.set_ylim(bottom=0, top=max(max_pluie * 1.15, 1.0))
     if "probabilite_pluie_pct" in df.columns:
         ax_p2 = ax_p.twinx()
         ax_p2.plot(
@@ -107,9 +111,10 @@ def graphique_72h_base64(
         ax_p2.tick_params(axis="y", labelcolor=COULEUR_PROBA)
         ax_p2.set_ylim(0, 100)
 
+    # Ticks rotation 30° pour éviter le chevauchement, alignés à droite.
     ax_p.xaxis.set_major_formatter(mdates.DateFormatter("%a %Hh", tz=df.index.tz))
     ax_p.xaxis.set_major_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
-    plt.setp(ax_p.xaxis.get_majorticklabels(), rotation=0, ha="center", fontsize=8)
+    plt.setp(ax_p.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=8)
     ax_p.grid(True, alpha=0.3)
     ax_p.set_xlabel("")
 

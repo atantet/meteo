@@ -14,12 +14,52 @@ données** + la **méthode de calcul ETP** + la programmation du cron
 
 from __future__ import annotations
 
+import zoneinfo
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+import pandas as pd
+
 from .alertes import Alerte, resume_alertes
 from .indicateurs import IndicateursVeille
+
+# Date et heure en français sans dépendre de la locale système.
+JOURS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+MOIS_FR = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]  # fmt: skip
+
+
+def format_date_fr(dt: datetime, capitalize_jour: bool = True) -> str:
+    """Formate une date en français : ``Jeudi 28 mai 2026``."""
+    j = JOURS_FR[dt.weekday()]
+    if capitalize_jour:
+        j = j.capitalize()
+    return f"{j} {dt.day} {MOIS_FR[dt.month - 1]} {dt.year}"
+
+
+def format_horodatage_fr(dt_utc: datetime, tz_locale: str = "Europe/Paris") -> str:
+    """Formate l'horodatage : ``Jeudi 28 mai 2026, 21:23 UTC (23:23 heure locale)``."""
+    if dt_utc.tzinfo is None:
+        dt_utc = dt_utc.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+    dt_loc = dt_utc.astimezone(zoneinfo.ZoneInfo(tz_locale))
+    return (
+        f"{format_date_fr(dt_utc)}, "
+        f"{dt_utc.strftime('%H:%M')} UTC "
+        f"({dt_loc.strftime('%H:%M')} heure locale)"
+    )
+
+
+def format_t0_court(t0_utc: pd.Timestamp | None, tz_locale: str = "Europe/Paris") -> str:
+    """``22:00 UTC (00:00 heure locale)`` pour le 1er pas de prévision."""
+    if t0_utc is None:
+        return "—"
+    if t0_utc.tzinfo is None:
+        t0_utc = t0_utc.tz_localize("UTC")
+    t0_loc = t0_utc.tz_convert(tz_locale)
+    return f"{t0_utc.strftime('%H:%M')} UTC ({t0_loc.strftime('%H:%M')} heure locale)"
 
 
 @dataclass
@@ -94,11 +134,15 @@ def composer_texte(
     methode_etp: str = METHODE_ETP,
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
+    tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     lignes: list[str] = []
-    lignes.append(f"Veille météo — {maintenant.strftime('%A %d %B %Y, %H:%M %Z')}")
-    lignes.append("=" * 60)
+    lignes.append(f"Veille météo — {format_horodatage_fr(maintenant, tz_locale)}")
+    lignes.append("=" * 70)
+    t0 = format_t0_court(ind.prevision_t0_utc, tz_locale)
+    lignes.append(f"Premier pas de prévision (T+0h) : {t0}")
+    lignes.append("Toutes les fenêtres ci-dessous sont relatives à T+0h.")
     lignes.append("")
 
     if alertes:
@@ -112,7 +156,9 @@ def composer_texte(
         lignes.append("")
 
     def fmt(label: str, val: str, win: str) -> str:
-        return f"  {label:<22}: {val:>10}   [{win}]"
+        return f"  {label:<22}: {val:>12}   [{win}]"
+
+    direction = ind.direction_vent_dominante_cardinal or "—"
 
     lignes.append("INDICATEURS :")
     lignes.append(fmt("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
@@ -124,12 +170,16 @@ def composer_texte(
     lignes.append(fmt("Proba. pluie 72 h", f"{ind.prob_pluie_max_72h_pct:.0f} %", "max horaire"))
     lignes.append(fmt("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h"))
     lignes.append(fmt("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h"))
+    lignes.append(
+        fmt(
+            "Vent direction dom.",
+            f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
+            "0-24 h, pondéré vitesse",
+        )
+    )
     lignes.append(fmt("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h, FAO socle"))
-    lignes.append(fmt("Bilan P-ETP 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "0-7 j"))
-    flag = "OUI" if ind.tension_irrigation else "non"
-    lignes.append(fmt("Tension irrigation", flag, "heuristique config"))
     lignes.append("")
-    lignes.append("-" * 60)
+    lignes.append("-" * 70)
     lignes.append("Ce mail est un signal informationnel — vous gardez la décision")
     lignes.append("(cf. principe #1 du projet).")
     lignes.append("")
@@ -153,6 +203,7 @@ def composer_html(
     site: str = SITE_EXPLAIN,
     chart_72h_base64: str = "",
     carte_synoptique_base64: str = "",
+    tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     couleur_niveau = {"critique": "#c0392b", "warning": "#e67e22"}
@@ -190,26 +241,29 @@ def composer_html(
             "</tr>"
         )
 
+    direction = ind.direction_vent_dominante_cardinal or "—"
     table_ind = (
         '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
         + row("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h")
         + row("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h")
         + row("Pluie cumulée", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h")
-        + row("Proba. pluie max", f"{ind.prob_pluie_max_24h_pct:.0f} %", "proba horaire max 0-24 h")
+        + row("Proba. pluie max", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire 0-24 h")
         + row("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h")
         + row("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h")
+        + row(
+            "Vent direction dom.",
+            f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
+            "0-24 h · pondéré vitesse",
+        )
         + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h · FAO P-M socle")
         + "</table>"
     )
 
-    flag = "OUI" if ind.tension_irrigation else "non"
-    table_bilan = (
+    table_horizon = (
         '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
         + row("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h")
         + row("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm", "0-72 h")
-        + row("Proba. pluie max", f"{ind.prob_pluie_max_72h_pct:.0f} %", "proba horaire max 0-72 h")
-        + row("Bilan P-ETP 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "0-7 j")
-        + row("Tension irrigation", flag, "heuristique config")
+        + row("Proba. pluie max", f"{ind.prob_pluie_max_72h_pct:.0f} %", "max horaire 0-72 h")
         + "</table>"
     )
 
@@ -231,6 +285,9 @@ def composer_html(
         "</div>"
     )
 
+    horodatage = format_horodatage_fr(maintenant, tz_locale)
+    t0_str = format_t0_court(ind.prevision_t0_utc, tz_locale)
+
     return f"""<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -240,15 +297,19 @@ def composer_html(
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
   <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">Veille météo</h2>
-  <p style="margin:0 0 16px 0;font-size:13px;color:#888;">
-    {maintenant.strftime("%A %d %B %Y, %H:%M %Z")} — La Petite Claye, Pleine-Fougères
+  <p style="margin:0 0 4px 0;font-size:13px;color:#888;">
+    {horodatage} — La Petite Claye, Pleine-Fougères
+  </p>
+  <p style="margin:0 0 12px 0;font-size:12px;color:#888;">
+    Premier pas de prévision (T+0h) : <strong style="color:#555;">{t0_str}</strong> ·
+    fenêtres ci-dessous relatives à T+0h.
   </p>
   {bandeau}
   {_bloc_chart(chart_72h_base64)}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Indicateurs 24 h</h3>
   {table_ind}
-  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Bilan hydrique &amp; horizon</h3>
-  {table_bilan}
+  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Horizon pluie 48-72 h</h3>
+  {table_horizon}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.

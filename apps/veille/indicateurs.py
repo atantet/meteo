@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
@@ -50,6 +51,35 @@ _INPUTS_ETP = [
     "rayonnement_global",
 ]
 
+# Conversion direction (degrés) → secteur cardinal court.
+CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
+
+
+def degrees_to_cardinal(deg: float) -> str:
+    """Convertit une direction (degrés, 0=N, 90=E) en secteur cardinal."""
+    idx = int(round((deg % 360) / 45)) % 8
+    return CARDINAUX[idx]
+
+
+def direction_dominante_vecteur(
+    df: pd.DataFrame,
+    col_dir_deg: str = "direction_vent_deg",
+    col_vitesse: str | None = "vitesse_vent_10m",
+) -> float:
+    """Direction dominante en degrés, par moyenne vectorielle pondérée vitesse.
+
+    Si ``col_vitesse`` est ``None`` ou absente, pondération uniforme.
+    Retourne ``float("nan")`` si la colonne direction est absente.
+    """
+    if col_dir_deg not in df.columns or df[col_dir_deg].dropna().empty:
+        return float("nan")
+    rad = np.deg2rad(df[col_dir_deg])
+    poids = df[col_vitesse] if (col_vitesse and col_vitesse in df.columns) else 1.0
+    u = -poids * np.sin(rad)
+    v = -poids * np.cos(rad)
+    # Direction = angle "d'où vient le vent" — convention météo.
+    return float(np.rad2deg(np.arctan2(-u.mean(), -v.mean())) % 360)
+
 
 @dataclass
 class IndicateursVeille:
@@ -64,6 +94,8 @@ class IndicateursVeille:
 
     vent_max_24h_kmh: float
     rafales_max_24h_kmh: float
+    direction_vent_dominante_deg: float
+    direction_vent_dominante_cardinal: str
 
     etp_jour_mm: float
     bilan_eau_7j_mm: float
@@ -73,6 +105,10 @@ class IndicateursVeille:
     prob_pluie_max_72h_pct: float
 
     tension_irrigation: bool
+
+    # Métadonnées prévision : 1er pas horaire effectivement utilisé après
+    # filtrage ``now_utc`` (proxy "T+0" pour le mail).
+    prevision_t0_utc: pd.Timestamp | None = None
 
 
 def calculer_indicateurs(
@@ -149,6 +185,10 @@ def calculer_indicateurs(
             return 0.0
         return float(window["probabilite_pluie_pct"].max())
 
+    # Direction dominante sur 24h, pondérée par la vitesse.
+    dir_deg = direction_dominante_vecteur(h24)
+    dir_card = degrees_to_cardinal(dir_deg) if not np.isnan(dir_deg) else ""
+
     return IndicateursVeille(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
@@ -157,10 +197,13 @@ def calculer_indicateurs(
         cumul_pluie_72h_mm=float(h72["precipitation"].sum()),
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
+        direction_vent_dominante_deg=dir_deg if not np.isnan(dir_deg) else 0.0,
+        direction_vent_dominante_cardinal=dir_card,
         etp_jour_mm=etp_24h,
         bilan_eau_7j_mm=bilan_7j,
         prob_pluie_max_24h_pct=_prob_max(h24),
         prob_pluie_max_48h_pct=_prob_max(h48),
         prob_pluie_max_72h_pct=_prob_max(h72),
         tension_irrigation=bool(tension),
+        prevision_t0_utc=df.index[0],
     )

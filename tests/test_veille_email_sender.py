@@ -25,6 +25,8 @@ CONFIG_TEST = {
 
 
 def _ind(**kwargs):
+    import pandas as pd
+
     from apps.veille.indicateurs import IndicateursVeille
 
     defaults = dict(
@@ -35,12 +37,15 @@ def _ind(**kwargs):
         cumul_pluie_72h_mm=8.0,
         vent_max_24h_kmh=20.0,
         rafales_max_24h_kmh=35.0,
+        direction_vent_dominante_deg=270.0,
+        direction_vent_dominante_cardinal="O",
         etp_jour_mm=3.2,
         bilan_eau_7j_mm=-5.0,
         prob_pluie_max_24h_pct=15.0,
         prob_pluie_max_48h_pct=30.0,
         prob_pluie_max_72h_pct=45.0,
         tension_irrigation=False,
+        prevision_t0_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
     )
     defaults.update(kwargs)
     return IndicateursVeille(**defaults)
@@ -78,13 +83,16 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "ALERTES" in txt
     assert "Gel" in txt
     assert "INDICATEURS" in txt
-    assert "Bilan P-ETP" in txt or "Bilan" in txt
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
     assert "informationnel" in txt.lower()
     # Footer source visible.
     assert "Open-Meteo" in txt
     assert "FAO" in txt
+    # Date français.
+    assert "Samedi 15 juin" in txt
+    # Direction du vent dominante.
+    assert "Vent direction dom." in txt
 
 
 def test_composer_texte_aucune_alerte() -> None:

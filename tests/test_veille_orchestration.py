@@ -64,6 +64,7 @@ def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
             "probabilite_pluie_pct": np.full(168, 0.0),
             "vitesse_vent_10m": np.full(168, 5.0),
             "rafales_vent_10m": np.full(168, 9.0),
+            "direction_vent_deg": np.full(168, 270.0),
             "rayonnement_global": np.full(168, 0.0),
             "etp_open_meteo": np.full(168, 0.1),
             "cloud_cover": np.full(168, 0.5),

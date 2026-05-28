@@ -51,6 +51,7 @@ HOURLY_VARIABLES_DEFAUT: list[str] = [
     "precipitation_probability",  # % (0-100, gardé tel quel)
     "wind_speed_10m",  # m/s (via wind_speed_unit=ms)
     "wind_gusts_10m",  # m/s
+    "wind_direction_10m",  # degrés (0=N, 90=E, 180=S, 270=W)
     "shortwave_radiation",  # W/m² → J/m²/h
     "et0_fao_evapotranspiration",  # mm/h
     "cloud_cover",  # % → fraction
@@ -65,6 +66,7 @@ RENAME_VERS_SOCLE: dict[str, str] = {
     "precipitation_probability": "probabilite_pluie_pct",
     "wind_speed_10m": "vitesse_vent_10m",
     "wind_gusts_10m": "rafales_vent_10m",
+    "wind_direction_10m": "direction_vent_deg",
     "shortwave_radiation": "rayonnement_global",
     "et0_fao_evapotranspiration": "etp_open_meteo",
     "cloud_cover": "cloud_cover",
