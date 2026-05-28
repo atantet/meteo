@@ -69,14 +69,16 @@ def test_obtenir_historique_params(fake_payload: dict) -> None:
     assert "temperature_2m" in p["hourly"]
 
 
-def test_obtenir_historique_http_error(fake_payload: dict) -> None:
+def test_obtenir_historique_http_error_non_retryable(fake_payload: dict) -> None:
+    """Erreur HTTP non-retryable (ex. 400) propage immédiatement."""
     import requests
 
     from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
 
     mock_session = MagicMock()
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = requests.HTTPError("500")
+    mock_response.status_code = 400
+    mock_response.raise_for_status.side_effect = requests.HTTPError("400")
     mock_session.get.return_value = mock_response
 
     client = OpenMeteoArchive(session=mock_session)
@@ -84,3 +86,59 @@ def test_obtenir_historique_http_error(fake_payload: dict) -> None:
         client.obtenir_historique(
             latitude=0, longitude=0, start_date="2020-01-01", end_date="2020-01-02"
         )
+    # Une seule tentative pour non-retryable.
+    assert mock_session.get.call_count == 1
+
+
+def test_obtenir_historique_retry_429(fake_payload: dict, monkeypatch) -> None:
+    """Sur 429, retry jusqu'à 4 fois avec backoff (time.sleep mocké)."""
+    from meteo_socle.sources import openmeteo_archive
+    from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
+
+    # 3 fois 429, puis succès.
+    resp_429 = MagicMock()
+    resp_429.status_code = 429
+    resp_429.headers = {}
+    resp_ok = MagicMock()
+    resp_ok.status_code = 200
+    resp_ok.json.return_value = fake_payload
+
+    mock_session = MagicMock()
+    mock_session.get.side_effect = [resp_429, resp_429, resp_429, resp_ok]
+
+    attentes: list[float] = []
+    monkeypatch.setattr(openmeteo_archive.time, "sleep", attentes.append)
+
+    client = OpenMeteoArchive(session=mock_session)
+    df = client.obtenir_historique(
+        latitude=0, longitude=0, start_date="2020-01-01", end_date="2020-01-02"
+    )
+    assert len(df) == 3
+    assert mock_session.get.call_count == 4
+    # Backoff exponentiel : 5, 10, 20 s.
+    assert attentes == [5.0, 10.0, 20.0]
+
+
+def test_obtenir_historique_retry_epuise(fake_payload: dict, monkeypatch) -> None:
+    """Si les 4 tentatives sont toutes 429, on lève HTTPError."""
+    import requests
+
+    from meteo_socle.sources import openmeteo_archive
+    from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
+
+    resp_429 = MagicMock()
+    resp_429.status_code = 429
+    resp_429.headers = {}
+    resp_429.raise_for_status.side_effect = requests.HTTPError("429")
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = resp_429
+
+    monkeypatch.setattr(openmeteo_archive.time, "sleep", lambda _: None)
+
+    client = OpenMeteoArchive(session=mock_session)
+    with pytest.raises(requests.HTTPError):
+        client.obtenir_historique(
+            latitude=0, longitude=0, start_date="2020-01-01", end_date="2020-01-02"
+        )
+    assert mock_session.get.call_count == 4

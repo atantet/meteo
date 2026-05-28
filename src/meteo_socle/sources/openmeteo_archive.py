@@ -17,6 +17,7 @@ Référence API : https://open-meteo.com/en/docs/historical-weather-api
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -25,6 +26,14 @@ import requests
 from .openmeteo import HOURLY_VARIABLES_DEFAUT, RENAME_VERS_SOCLE
 
 API_URL = "https://archive-api.open-meteo.com/v1/archive"
+
+# Open-Meteo applique des quotas par IP (free tier ≈ 5000 req/h,
+# 600/min). En CI on tape la borne plus vite qu'il n'y paraît : un
+# build climato = 30 requêtes annuelles et plusieurs builds consécutifs
+# (pushs rapides successifs) suffisent à déclencher un 429.
+_RETRY_STATUSES = {429, 500, 502, 503, 504}
+_MAX_TENTATIVES = 4
+_BACKOFF_BASE_S = 5.0
 
 
 @dataclass
@@ -87,9 +96,31 @@ class OpenMeteoArchive:
             "wind_speed_unit": "ms",
             "precipitation_unit": "mm",
         }
-        response = self.session.get(API_URL, params=params, timeout=120)
-        response.raise_for_status()
+        response = self._get_avec_retry(params)
         return self._parse(response.json())
+
+    def _get_avec_retry(self, params: dict[str, str]) -> requests.Response:
+        """GET avec retry/backoff exponentiel sur 429 et 5xx.
+
+        Respecte ``Retry-After`` si présent (Open-Meteo le renvoie sur
+        certains 429). Sinon backoff exponentiel avec base 5 s.
+        """
+        for tentative in range(1, _MAX_TENTATIVES + 1):
+            response = self.session.get(API_URL, params=params, timeout=120)
+            if response.status_code not in _RETRY_STATUSES:
+                response.raise_for_status()
+                return response
+            if tentative == _MAX_TENTATIVES:
+                response.raise_for_status()
+            retry_after = response.headers.get("Retry-After")
+            attente = (
+                float(retry_after)
+                if retry_after and retry_after.isdigit()
+                else _BACKOFF_BASE_S * (2 ** (tentative - 1))
+            )
+            time.sleep(attente)
+        # Inatteignable (la boucle raise ou return) — pour mypy.
+        raise RuntimeError("retry loop exhausted")
 
     @staticmethod
     def _parse(payload: dict) -> pd.DataFrame:
