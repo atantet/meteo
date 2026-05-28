@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+from pathlib import Path
 
 import matplotlib
 
@@ -23,6 +24,25 @@ import requests  # noqa: E402
 from PIL import Image  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+# Référence climato (normale 2015-2024) — voir scripts/compute_normale_jour.py.
+NORMALE_JOUR_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "climato" / "normale_jour_lapetiteclaye.csv"
+)
+
+
+def _charger_normale_t_moy() -> pd.Series | None:
+    """Charge la normale T_moy par jour-de-l'année (1-366). ``None`` si absent."""
+    if not NORMALE_JOUR_PATH.exists():
+        logger.warning("Normale climato absente : %s", NORMALE_JOUR_PATH)
+        return None
+    try:
+        df = pd.read_csv(NORMALE_JOUR_PATH)
+        return df.set_index("day_of_year")["t_moy_celsius"]
+    except (OSError, KeyError) as e:
+        logger.warning("Normale climato illisible : %s", e)
+        return None
+
 
 # Analyse de surface DWD pour l'Atlantique nord / Europe — couvre la
 # situation synoptique productive de la météo locale Bretagne. Image
@@ -76,8 +96,24 @@ def graphique_72h_base64(
 
     # Bandeau T°.
     t_c = df["temperature_2m"] - KELVIN_OFFSET
-    ax_t.plot(df.index, t_c, color=COULEUR_T, linewidth=1.6)
+    ax_t.plot(df.index, t_c, color=COULEUR_T, linewidth=1.6, label="Prévision")
     ax_t.fill_between(df.index, t_c, color=COULEUR_T, alpha=0.15)
+
+    # Overlay climato T_moy par jour de l'année si disponible.
+    normale = _charger_normale_t_moy()
+    if normale is not None and not df.empty:
+        doy = df.index.dayofyear
+        normale_vals = normale.reindex(doy).values
+        ax_t.plot(
+            df.index,
+            normale_vals,
+            color="#7f8c8d",
+            linestyle="--",
+            linewidth=1.2,
+            label="Normale 2015-2024",
+        )
+        ax_t.legend(loc="best", fontsize=7, frameon=False)
+
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
     ax_t.grid(True, alpha=0.3)
