@@ -126,6 +126,57 @@ def test_quotidien_vide_raise() -> None:
         calculer_indicateurs_quotidiens(prev, CONFIG_TEST, now_utc=now)
 
 
+def test_mildiou_smith_active_ajoute_colonnes() -> None:
+    """Avec config mildiou_smith actif → colonnes h HR haute + Smith période."""
+    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
+
+    config = {
+        **CONFIG_TEST,
+        "indicateurs": {
+            "mildiou_smith": {
+                "actif": True,
+                "t_min_celsius": 10.0,
+                "hr_seuil": 0.90,
+                "heures_min": 11,
+            }
+        },
+    }
+    # HR à 0.95 24h/24 → critère humidité largement validé.
+    prev = _prevision(t_celsius=15.0, humidite=0.95)
+    with _patch_etp(0.1):
+        q = calculer_indicateurs_quotidiens(prev, config)
+    assert "mildiou_heures_hr_haute" in q.columns
+    assert "mildiou_smith_period" in q.columns
+    # Tous les jours qualifient (HR 95 %, T_min 15 °C).
+    assert q["mildiou_heures_hr_haute"].max() >= 11
+    # Au moins un jour Smith détecté (à partir du 2e jour qui satisfait).
+    assert q["mildiou_smith_period"].any()
+
+
+def test_mildiou_smith_inactif_pas_de_colonnes() -> None:
+    """Sans section mildiou_smith dans config → aucune colonne ajoutée."""
+    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
+
+    prev = _prevision(humidite=0.95)
+    with _patch_etp(0.1):
+        q = calculer_indicateurs_quotidiens(prev, CONFIG_TEST)
+    assert "mildiou_heures_hr_haute" not in q.columns
+    assert "mildiou_smith_period" not in q.columns
+
+
+def test_normales_t_min_et_t_max_jointees_si_csv_present() -> None:
+    """Quand la CSV normale_jour est dispo, t_min/t_max/t_moy normales jointées."""
+    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
+
+    prev = _prevision()
+    with _patch_etp(0.1):
+        q = calculer_indicateurs_quotidiens(prev, CONFIG_TEST)
+    # La CSV normale_jour est commitée dans le repo, donc les 3 colonnes
+    # devraient apparaître. Si absente, ce test détectera la régression.
+    for col in ("t_min_normale_celsius", "t_max_normale_celsius", "t_moy_normale_celsius"):
+        assert col in q.columns, f"Colonne normale manquante : {col}"
+
+
 def test_jours_complets_filtre_partiels() -> None:
     """``jours_complets_seulement`` enlève les jours avec couverture < 23 h."""
     from apps.operationnelle.indicateurs import (
