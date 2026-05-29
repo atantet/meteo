@@ -4,17 +4,24 @@ Implémentation **Smith periods** (Smith 1956) pour la tomate sous abri
 en climat tempéré humide océanique. Cf. ADR-0007 pour la justification
 du choix de modèle et les hypothèses.
 
-Définition opérationnelle (rappel ADR-0007) : une période de Smith est
-détectée sur deux jours calendaires locaux *A* et *B* consécutifs si
-**les deux** satisfont :
+Définition opérationnelle (mise à jour 2026-05-29 — substitution proxy
+humectation HR → LWD Gleason 1994 — cf. ADR-0005 et ADR-0007 *Mise à
+jour* à venir) : une période de Smith est détectée sur deux jours
+calendaires locaux *A* et *B* consécutifs si **les deux** satisfont :
 
 - T_min ≥ 10 °C
-- nb heures HR ≥ 90 % ≥ 11 h
+- nb heures de **LWD CART Gleason** ≥ 11 h
+
+L'entrée humectation n'est plus le simple compteur HR ≥ 90 % mais la
+sortie du modèle CART Gleason 1994 (DPD, vent, HR, override pluie),
+plus discriminant en climat océanique où l'HR nocturne est saturée
+sans condensation effective.
 
 Étiquette portée par le jour *B* (clôture).
 
-Référence : Smith, L.P., 1956. *Potato blight forecasting by 90 per
-cent humidity criteria*. Plant Pathology 5, 83-87.
+Références : Smith, L.P., 1956. *Potato blight forecasting by 90 per
+cent humidity criteria*. Plant Pathology 5, 83-87 (modèle Smith) ;
+Gleason, M.L. et al., 1994. Plant Disease 78, 1011-1016 (proxy LWD).
 """
 
 from __future__ import annotations
@@ -23,10 +30,11 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from meteo_socle.indices.lwd_gleason import heures_lwd_par_jour
+
 # Défauts Smith historiques (cf. ADR-0007). Paramétrables côté config
 # pour réétalonnage local sans toucher au code.
 SMITH_T_MIN_CELSIUS = 10.0
-SMITH_HR_SEUIL = 0.90  # fraction (HR socle en 0-1)
 SMITH_HEURES_MIN = 11
 
 
@@ -40,52 +48,56 @@ class CritereJournalierSmith:
 
     date: pd.Timestamp  # date locale (jour calendaire)
     t_min_celsius: float
-    heures_hr_haute: int
-    qualifie: bool  # T_min ≥ seuil ET heures_hr_haute ≥ h_min
+    heures_humectation: int  # heures LWD CART Gleason
+    qualifie: bool  # T_min ≥ seuil ET heures_humectation ≥ h_min
 
 
 def agreger_critere_journalier(
     horaire: pd.DataFrame,
     tz_locale: str = "Europe/Paris",
-    hr_seuil: float = SMITH_HR_SEUIL,
 ) -> pd.DataFrame:
     """Agrège l'horaire en critère journalier Smith par jour local.
+
+    L'humectation est désormais calculée par le modèle **CART Gleason
+    1994** (cf. ``meteo_socle.indices.lwd_gleason``) à la place du
+    simple compteur HR ≥ 90 %. Cohérent avec la décision LWD de
+    l'ADR-0005.
 
     Parameters
     ----------
     horaire :
         DataFrame indexé UTC (conventions socle). Doit contenir
-        ``temperature_2m`` (K) et ``humidite_relative`` (fraction 0-1).
+        ``temperature_2m`` (K), ``humidite_relative`` (fraction 0-1),
+        ``vitesse_vent_10m`` (m/s) et ``precipitation`` (mm, optionnel).
     tz_locale :
         Fuseau pour découper les jours calendaires (défaut Europe/Paris).
-    hr_seuil :
-        Seuil HR fraction (défaut 0.90).
 
     Returns
     -------
     pd.DataFrame
         Indexé par date locale (sans tz), colonnes :
-        ``t_min_celsius``, ``heures_hr_haute``.
+        ``t_min_celsius`` et ``heures_humectation`` (LWD Gleason).
     """
     if horaire.empty:
-        return pd.DataFrame(columns=["t_min_celsius", "heures_hr_haute"])
+        return pd.DataFrame(columns=["t_min_celsius", "heures_humectation"])
 
+    # Agrégation LWD horaire → heures par jour local.
+    lwd_quot = heures_lwd_par_jour(horaire, tz_locale=tz_locale)
+
+    # T° min par jour local.
     horaire_loc = horaire.copy()
     idx_utc = pd.DatetimeIndex(horaire_loc.index)
     horaire_loc.index = idx_utc.tz_convert(tz_locale)
-
     t_celsius = horaire_loc["temperature_2m"] - 273.15
-    hr = horaire_loc["humidite_relative"]
-    hr_haute = (hr >= hr_seuil).astype(int)
+    t_min_quot = t_celsius.resample("D").min()
+    t_min_quot.index = pd.DatetimeIndex(t_min_quot.index).tz_localize(None)
 
     quotidien = pd.DataFrame(
         {
-            "t_min_celsius": t_celsius.resample("D").min(),
-            "heures_hr_haute": hr_haute.resample("D").sum(),
+            "t_min_celsius": t_min_quot,
+            "heures_humectation": lwd_quot["heures_lwd"].reindex(t_min_quot.index, fill_value=0),
         }
     )
-    # Index sans tz pour un usage commode (date pure).
-    quotidien.index = pd.DatetimeIndex(quotidien.index).tz_localize(None)
     quotidien.index.name = "date"
     return quotidien
 
@@ -101,11 +113,12 @@ def smith_periods(
     ----------
     quotidien_critere :
         DataFrame issu de ``agreger_critere_journalier`` (colonnes
-        ``t_min_celsius`` et ``heures_hr_haute``).
+        ``t_min_celsius`` et ``heures_humectation``).
     t_min_celsius :
         Seuil T_min en °C (défaut 10.0).
     heures_min :
-        Nb minimum d'heures HR ≥ seuil (défaut 11).
+        Nb minimum d'heures d'humectation par jour (défaut 11 — seuil
+        Smith historique, ré-utilisé sur l'input LWD Gleason).
 
     Returns
     -------
@@ -115,7 +128,7 @@ def smith_periods(
         jour (sans veille observable) est toujours False.
     """
     qualifie = (quotidien_critere["t_min_celsius"] >= t_min_celsius) & (
-        quotidien_critere["heures_hr_haute"] >= heures_min
+        quotidien_critere["heures_humectation"] >= heures_min
     )
     veille_qualifie = qualifie.shift(1, fill_value=False)
     smith = qualifie & veille_qualifie

@@ -29,7 +29,6 @@ import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
-from meteo_socle.indices.lwd_gleason import heures_lwd_par_jour
 from meteo_socle.indices.mildiou import agreger_critere_journalier, smith_periods
 
 # Conversions vers unités de présentation utilisateur.
@@ -175,11 +174,7 @@ def calculer_indicateurs_quotidiens(
     # avec découpe TZ locale, puis greffé sur le tableau quotidien.
     mildiou_cfg = config.get("indicateurs", {}).get("mildiou_smith")
     if mildiou_cfg and mildiou_cfg.get("actif", False):
-        critere = agreger_critere_journalier(
-            df,
-            tz_locale=tz_locale,
-            hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
-        )
+        critere = agreger_critere_journalier(df, tz_locale=tz_locale)
         smith = smith_periods(
             critere,
             t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
@@ -187,20 +182,12 @@ def calculer_indicateurs_quotidiens(
         )
         # Alignement sur l'index quotidien (DatetimeIndex de dates).
         # critere.index est tz-naive en date locale.
-        quotidien["mildiou_heures_hr_haute"] = (
-            critere["heures_hr_haute"].reindex(quotidien.index, fill_value=0).astype(int)
+        quotidien["mildiou_heures_humectation"] = (
+            critere["heures_humectation"].reindex(quotidien.index, fill_value=0).astype(int)
         )
         quotidien["mildiou_smith_period"] = smith.reindex(quotidien.index, fill_value=False).astype(
             bool
         )
-
-        # Cross-check : heures LWD CART Gleason 1994 (cf. ADR-0005).
-        # Indicateur additif au proxy Smith HR ≥ 90 % pour comparer.
-        lwd_quot = heures_lwd_par_jour(df, tz_locale=tz_locale)
-        if "heures_lwd" in lwd_quot.columns:
-            quotidien["lwd_heures_gleason"] = (
-                lwd_quot["heures_lwd"].reindex(quotidien.index, fill_value=0).astype(int)
-            )
 
     # Climato T° normales OMM 1991-2020 (cf. data/climato/normale_jour_*.csv).
     normales = _charger_normales_journalieres()

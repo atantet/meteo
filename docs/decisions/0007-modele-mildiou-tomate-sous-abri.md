@@ -3,6 +3,13 @@
 ## Statut
 
 Accepté — 2026-05-29
+*Mise à jour 2026-05-29 (même jour) : l'input « heures HR ≥ 90 % » est
+substitué par les « heures LWD CART Gleason 1994 » (cf. ADR-0005). Le
+seuil 11 h et la fenêtre 2 jours consécutifs restent inchangés ; seul
+le proxy d'humectation est remplacé. Plus discriminant en climat
+océanique humide nocturne. Le code de la v0 utilise désormais le LWD
+Gleason par défaut.*
+
 *Note : v0 indicative ; à recalibrer après une saison de retour terrain
 sur les périodes effectivement déclenchées vs symptômes observés.*
 
@@ -56,15 +63,18 @@ L'indicateur sortant est binaire (`smith_period: bool`) horodaté à la
 journée locale, plus un compteur cumulé `nb_smith_periods` sur la
 fenêtre d'analyse (7 j pour Op, 72 h pour Veille, 30 ans pour Climato).
 
-### Convention HR
+### Convention humectation (proxy LWD)
 
-Open-Meteo et ERA5 fournissent l'HR en pourcentage, le socle l'expose
-en fraction 0-1 (cf. conventions `meteo_socle.sources`). Le seuil 90 %
-devient donc `HR ≥ 0.90` dans le code.
+L'humectation horaire est calculée par le modèle **CART Gleason 1994**
+(cf. ADR-0005, module `meteo_socle.indices.lwd_gleason`). Quatre
+prédicteurs : DPD (= T − Td, Magnus-Tetens), vent 10 m, HR fraction,
+override pluie si précipitation > 0 dans l'heure courante. Le code
+expose ``heures_lwd_par_jour`` qui produit la colonne
+``heures_humectation`` consommée par ``smith_periods``.
 
 ### Convention horaire
 
-Le décompte des heures HR ≥ 90 % se fait sur le **jour calendaire
+Le décompte des heures d'humectation se fait sur le **jour calendaire
 local** (Europe/Paris), pas UTC. La nuit du 14 au 15 août est attribuée
 au jour 15 pour la part 00-06 et au jour 14 pour la part 18-23 — le
 modèle Smith historique compte sur jour calendaire, on s'y aligne.
@@ -73,7 +83,7 @@ modèle Smith historique compte sur jour calendaire, on s'y aligne.
 
 | App | Fenêtre | Sortie présentée |
 |---|---|---|
-| Veille | 72 h à venir | Flag "Smith period probable J+1 / J+2" + heures HR≥90 % par jour |
+| Veille | 72 h à venir | Flag "Smith period probable J+1 / J+2" + heures humectation par jour |
 | Opérationnelle | 7 j prévision | Colonne ✓/✗ Smith par jour, info-bulle critère détaillé |
 | Climato | 1991-2020 | Nb annuel de Smith periods + heat-map mensuelle |
 
@@ -91,10 +101,11 @@ modèle Smith historique compte sur jour calendaire, on s'y aligne.
   gain de précision marginal sans validation locale.
 - **Pas de Mileos** : modèle propriétaire, viole le principe #6 (pas de
   boîte noire).
-- **Indépendance de l'ADR-0005 (LWD)** : Smith utilise HR comme proxy
-  d'humectation, pas le LWD Magarey. C'est moins fin mais plus simple
-  pour une v0. Une v1 ultérieure pourra substituer un critère
-  "h LWD-Magarey ≥ 11" au "h HR ≥ 90 %" si validation montre intérêt.
+- **Cohérence avec l'ADR-0005 (LWD)** : Smith utilise désormais le
+  proxy **LWD CART Gleason 1994** plutôt que le simple HR ≥ 90 %
+  initialement écrit dans cet ADR. Substitution effective 2026-05-29
+  (cf. *Mise à jour* en tête de l'ADR). Magarey DPD/NWP reste en
+  attente du papier d'origine pour substitution future.
 
 ## Conséquences
 
@@ -107,11 +118,14 @@ modèle Smith historique compte sur jour calendaire, on s'y aligne.
   *informationnel*, pas comme alerte. L'utilisateur conserve sa
   décision phytosanitaire.
 - **Code partagé socle** : implémentation dans
-  `meteo_socle.indices.mildiou.smith_periods(quotidien, h_min=11,
-  t_min_celsius=10.0, hr_seuil=0.90)`. Tests unitaires sur cas
+  `meteo_socle.indices.mildiou.smith_periods(quotidien_critere,
+  t_min_celsius=10.0, heures_min=11)`. L'agrégation horaire est faite
+  par `agreger_critere_journalier` qui délègue le calcul d'humectation
+  à `lwd_gleason.heures_lwd_par_jour`. Tests unitaires sur cas
   canoniques (vraie/fausse période, jours limites).
-- **Ajustabilité** : les trois seuils (T_min, HR, h_min) sont
-  paramétrables via config, défauts = valeurs Smith historiques. Permet
+- **Ajustabilité** : les deux seuils restants (T_min, heures_min) sont
+  paramétrables via config, défauts = valeurs Smith historiques.
+  Permet
   ré-étalonnage local sans changer le code.
 - **Surveillance bibliographique** : doctrine récente (Eyal 2019, FAO
   Crop Pathology Lab) revisite les seuils selon variétés tomate. Une

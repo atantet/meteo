@@ -145,10 +145,10 @@ def test_mildiou_smith_active_ajoute_colonnes() -> None:
     prev = _prevision(t_celsius=15.0, humidite=0.95)
     with _patch_etp(0.1):
         q = calculer_indicateurs_quotidiens(prev, config)
-    assert "mildiou_heures_hr_haute" in q.columns
+    assert "mildiou_heures_humectation" in q.columns
     assert "mildiou_smith_period" in q.columns
     # Tous les jours qualifient (HR 95 %, T_min 15 °C).
-    assert q["mildiou_heures_hr_haute"].max() >= 11
+    assert q["mildiou_heures_humectation"].max() >= 11
     # Au moins un jour Smith détecté (à partir du 2e jour qui satisfait).
     assert q["mildiou_smith_period"].any()
 
@@ -160,7 +160,7 @@ def test_mildiou_smith_inactif_pas_de_colonnes() -> None:
     prev = _prevision(humidite=0.95)
     with _patch_etp(0.1):
         q = calculer_indicateurs_quotidiens(prev, CONFIG_TEST)
-    assert "mildiou_heures_hr_haute" not in q.columns
+    assert "mildiou_heures_humectation" not in q.columns
     assert "mildiou_smith_period" not in q.columns
 
 

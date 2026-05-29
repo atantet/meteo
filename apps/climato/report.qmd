@@ -361,7 +361,6 @@ mildiou_cfg = config.get("mildiou_smith", {})
 critere = agreger_critere_journalier(
     horaire,
     tz_locale=mildiou_cfg.get("tz_locale", "Europe/Paris"),
-    hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
 )
 smith = smith_periods(
     critere,

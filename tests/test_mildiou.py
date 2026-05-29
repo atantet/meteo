@@ -18,16 +18,28 @@ def _serie_horaire_synth(
     n_jours: int,
     t_celsius_template: list[float],
     hr_template: list[float],
+    vent_ms: float = 1.0,
     tz: str = "UTC",
 ) -> pd.DataFrame:
-    """Construit une série horaire (24 h × n_jours) tilée depuis 1 jour-type."""
+    """Construit une série horaire (24 h × n_jours) tilée depuis 1 jour-type.
+
+    Le vent par défaut est bas (1 m/s) pour que les heures où DPD est
+    intermédiaire qualifient comme mouillées si HR ≥ 87.8 % (CART
+    Gleason). Précipitation = 0 (pas d'override pluie).
+    """
     assert len(t_celsius_template) == 24
     assert len(hr_template) == 24
     idx = pd.date_range(start, periods=24 * n_jours, freq="h", tz=tz)
     t = np.tile(t_celsius_template, n_jours)
     hr = np.tile(hr_template, n_jours)
+    n = len(idx)
     return pd.DataFrame(
-        {"temperature_2m": t + 273.15, "humidite_relative": hr},
+        {
+            "temperature_2m": t + 273.15,
+            "humidite_relative": hr,
+            "vitesse_vent_10m": np.full(n, vent_ms),
+            "precipitation": np.zeros(n),
+        },
         index=idx,
     )
 
@@ -41,7 +53,7 @@ def test_agreger_critere_journalier_compte_heures_correctement() -> None:
         hr_template=[0.95] * 12 + [0.50] * 12,
     )
     quot = agreger_critere_journalier(df, tz_locale="UTC")
-    assert (quot["heures_hr_haute"] == 12).all()
+    assert (quot["heures_humectation"] == 12).all()
     assert quot["t_min_celsius"].tolist() == pytest.approx([12.0, 12.0, 12.0])
 
 
@@ -58,7 +70,7 @@ def test_agreger_critere_journalier_local_tz_decoupage() -> None:
     )
     quot = agreger_critere_journalier(df, tz_locale="Europe/Paris")
     # On attend 24 h "hautes" le 15 juin (la fenêtre entière) en local.
-    assert int(quot.loc["2026-06-15", "heures_hr_haute"]) == 24
+    assert int(quot.loc["2026-06-15", "heures_humectation"]) == 24
 
 
 def test_smith_periods_detection_canonique() -> None:
@@ -66,7 +78,7 @@ def test_smith_periods_detection_canonique() -> None:
     quot = pd.DataFrame(
         {
             "t_min_celsius": [12.0, 12.0, 8.0],
-            "heures_hr_haute": [15, 15, 5],
+            "heures_humectation": [15, 15, 5],
         },
         index=pd.to_datetime(["2023-06-14", "2023-06-15", "2023-06-16"]),
     )
@@ -79,7 +91,7 @@ def test_smith_periods_t_min_sous_seuil_invalide() -> None:
     quot = pd.DataFrame(
         {
             "t_min_celsius": [9.0, 12.0],
-            "heures_hr_haute": [15, 15],
+            "heures_humectation": [15, 15],
         },
         index=pd.to_datetime(["2023-06-14", "2023-06-15"]),
     )
@@ -92,7 +104,7 @@ def test_smith_periods_heures_sous_seuil_invalide() -> None:
     quot = pd.DataFrame(
         {
             "t_min_celsius": [12.0, 12.0],
-            "heures_hr_haute": [15, 10],
+            "heures_humectation": [15, 10],
         },
         index=pd.to_datetime(["2023-06-14", "2023-06-15"]),
     )
@@ -104,7 +116,7 @@ def test_smith_periods_seuils_personnalisables() -> None:
     quot = pd.DataFrame(
         {
             "t_min_celsius": [8.0, 8.0],
-            "heures_hr_haute": [9, 9],
+            "heures_humectation": [9, 9],
         },
         index=pd.to_datetime(["2023-06-14", "2023-06-15"]),
     )

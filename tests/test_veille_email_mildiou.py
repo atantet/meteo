@@ -19,7 +19,7 @@ def _indicateurs_avec_mildiou(jours_risque: int, total_jours: int = 3):
     detail = pd.DataFrame(
         {
             "t_min_celsius": [12.0] * total_jours,
-            "heures_hr_haute": [15] * total_jours,
+            "heures_humectation": [15] * total_jours,
             "smith_period": [True] * jours_risque + [False] * (total_jours - jours_risque),
         },
         index=idx,

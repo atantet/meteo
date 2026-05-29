@@ -23,7 +23,7 @@ LIBELLES_COLONNES: dict[str, str] = {
     "etp_mm": "ETP (mm)",
     "bilan_eau_cumul_mm": "Bilan eau cumulé (mm)",
     # Mildiou Smith (ADR-0007) : nb heures HR ≥ seuil + flag période.
-    "mildiou_heures_hr_haute": "h HR ≥ 90 %",
+    "mildiou_heures_humectation": "h humectation (LWD)",
     "mildiou_smith_period": "Smith mildiou",
 }
 
@@ -38,7 +38,7 @@ PRECISION: dict[str, int] = {
     "rafales_max_kmh": 0,
     "etp_mm": 1,
     "bilan_eau_cumul_mm": 1,
-    "mildiou_heures_hr_haute": 0,
+    "mildiou_heures_humectation": 0,
 }
 
 # Couleurs (alignées sur App 1 Veille pour la cohérence visuelle).

@@ -33,7 +33,7 @@ def quotidien_synth() -> pd.DataFrame:
             "etp_mm": [3.0, 3.5, 4.0, 3.8, 2.5, 3.2, 3.5],
             "bilan_eau_cumul_mm": [-3.0, -4.0, -3.0, -5.8, -8.3, -3.5, -4.0],
             "rafales_max_kmh": [25.0, 30.0, 40.0, 35.0, 28.0, 32.0, 30.0],
-            "mildiou_heures_hr_haute": [4, 8, 12, 6, 2, 10, 5],
+            "mildiou_heures_humectation": [4, 8, 12, 6, 2, 10, 5],
         },
         index=idx,
     )
@@ -139,7 +139,7 @@ def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
     quotidien_synth: pd.DataFrame,
 ) -> None:
     """Onglet HR ≥ 90 % : seuil 11 h + min glissant 2 j présents."""
-    cfg = next(c for c in COURBES if c.colonne == "mildiou_heures_hr_haute")
+    cfg = next(c for c in COURBES if c.colonne == "mildiou_heures_humectation")
     fig = figure_indicateur(quotidien_synth, cfg)
     ax = fig.axes[0]
     _, labels = ax.get_legend_handles_labels()

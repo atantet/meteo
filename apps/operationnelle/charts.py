@@ -65,16 +65,16 @@ class CourbeConfig:
 
 
 def _decorer_mildiou_hr(ax, x, y) -> None:
-    """Décore l'axe pour l'indicateur Smith h HR ≥ 90 %.
+    """Décore l'axe pour l'indicateur Smith heures humectation LWD.
 
-    - Barres = nb d'heures HR ≥ 90 % par jour
+    - Barres = nb d'heures LWD CART Gleason 1994 par jour
     - Ligne pointillée = minimum glissant sur 2 j (input réel Smith)
     - Ligne rouge horizontale = seuil 11 h
     - Shade orange sous les jours où min 2 j ≥ seuil
     """
     y_min2j = y.rolling(window=SMITH_FENETRE_J, min_periods=SMITH_FENETRE_J).min()
 
-    ax.bar(x, y, color="#bdc3c7", width=0.65, label="h HR ≥ 90 % (jour)")
+    ax.bar(x, y, color="#bdc3c7", width=0.65, label="h humectation LWD (jour)")
     ax.plot(
         x,
         y_min2j,
@@ -163,17 +163,10 @@ COURBES: list[CourbeConfig] = [
         couleur="#d35400",
     ),
     CourbeConfig(
-        colonne="mildiou_heures_hr_haute",
-        titre="Heures HR ≥ 90 % (mildiou Smith)",
+        colonne="mildiou_heures_humectation",
+        titre="Heures humectation LWD (Gleason) — input Smith",
         unite="h",
         couleur="#8e44ad",
-    ),
-    CourbeConfig(
-        colonne="lwd_heures_gleason",
-        titre="Heures LWD (CART Gleason 1994)",
-        unite="h",
-        couleur="#16a085",
-        seuils=[Seuil(11.0, "Seuil Smith adapté (11 h)", "#c0392b")],
     ),
 ]
 
@@ -190,7 +183,7 @@ def figure_indicateur(
     pointillé + shade entre prévision et normale (sémantique
     chaud/froid selon que la prévision est au-dessus / en-dessous).
 
-    Cas spécial ``mildiou_heures_hr_haute`` (cf. ADR-0007 Smith) :
+    Cas spécial ``mildiou_heures_humectation`` (cf. ADR-0007 Smith) :
     on superpose le minimum sur fenêtre glissante 2 j (le vrai input
     de Smith) et le seuil critique 11 h. Une journée n'est partie
     d'une période de Smith que si le min 2 j passe au-dessus du
@@ -200,7 +193,7 @@ def figure_indicateur(
     x = quotidien.index
     y = quotidien[cfg.colonne]
 
-    if cfg.colonne == "mildiou_heures_hr_haute":
+    if cfg.colonne == "mildiou_heures_humectation":
         _decorer_mildiou_hr(ax, x, y)
         ax.set_ylabel(cfg.unite)
         ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")

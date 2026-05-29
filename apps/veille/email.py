@@ -128,7 +128,7 @@ def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
             f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
             f"{ligne['t_min_celsius']:.1f} °C</td>"
             f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
-            f"{int(ligne['heures_hr_haute'])} h</td>"
+            f"{int(ligne['heures_humectation'])} h</td>"
             f'<td style="padding:4px 8px;text-align:center;color:{couleur_ligne};font-weight:600;">'
             f"{smith}</td>"
             f"</tr>"
@@ -143,12 +143,13 @@ def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
         '<tr style="color:#888;font-size:12px;text-align:right;border-bottom:1px solid #eee;">'
         '<td style="padding:4px 8px;text-align:left;">Jour local</td>'
         '<td style="padding:4px 8px;">T_min</td>'
-        '<td style="padding:4px 8px;">h HR ≥ 90 %</td>'
+        '<td style="padding:4px 8px;">h humectation</td>'
         '<td style="padding:4px 8px;text-align:center;">Smith</td>'
         "</tr>" + "".join(lignes_html) + "</table>"
         '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
-        "Critère : 2 jours consécutifs T_min ≥ 10 °C ET ≥ 11 h HR ≥ 90 %. "
-        "Donnée HR maille ~25 km (hors abri). Indicateur informationnel."
+        "Critère : 2 jours consécutifs T_min ≥ 10 °C ET ≥ 11 h "
+        "humectation (LWD CART Gleason 1994). Donnée maille ~25 km "
+        "extérieure (hors abri). Indicateur informationnel."
         "</p>"
     )
 
