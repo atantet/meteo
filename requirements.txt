@@ -13,3 +13,10 @@ numpy
 pyyaml
 python-dotenv
 requests
+# Importé transitivement par meteo_socle.indices (calculs solaires
+# Penman-Monteith). Présence requise même si l'app op ne fait que la
+# prévision : l'ETP est calculée côté socle.
+pvlib
+# Backend Parquet pour pandas. Utilisé par le rapport climato et,
+# défensivement, si l'app op lit un cache à terme.
+pyarrow

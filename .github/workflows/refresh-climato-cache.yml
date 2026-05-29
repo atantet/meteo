@@ -1,0 +1,57 @@
+name: Refresh cache climato (parquet ERA5 30 ans)
+
+# Met à jour data/climato/historique_horaire.parquet en fetchant via
+# Open-Meteo Archive et committe le résultat si différent. Évite que
+# climato-publish refasse 30 requêtes API à chaque rebuild.
+#
+# - Cron : 04:00 UTC le 2 du mois (juste après climato-publish du 1er
+#   pour éviter une concurrence sur Pages).
+# - Manuel via workflow_dispatch pour forcer un refresh.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 2 * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-climato-cache
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment.yml
+          auto-activate-base: false
+          use-mamba: true
+
+      - name: Refresh cache parquet
+        run: python scripts/refresh_cache_climato.py
+
+      - name: Commit si parquet modifié
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain data/climato/historique_horaire.parquet)" ]]; then
+            git add data/climato/historique_horaire.parquet
+            git commit -m "chore(climato): refresh cache ERA5 (auto, $(date -u +%Y-%m-%d))"
+            git push origin main
+            echo "Cache mis à jour et poussé."
+          else
+            echo "Cache déjà à jour, rien à committer."
+          fi

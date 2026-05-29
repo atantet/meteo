@@ -1,22 +1,29 @@
-"""Fetch des données historiques pour l'App 3 Climato.
+"""Fetch et cache des données historiques pour l'App 3 Climato.
 
-Wrapper léger autour de ``OpenMeteoArchive`` qui :
+Deux entrées :
 
-- découpe la période demandée en lots annuels pour éviter les timeouts ;
-- concatène les résultats en un DataFrame unique horaire indexé UTC.
+- ``fetch_historique`` : appelle Open-Meteo Archive (1 requête par
+  année, ~10 s/an). Utilisé par le script de refresh du cache.
+- ``charger_historique_cache`` : lit le parquet versionné
+  ``data/climato/historique_horaire.parquet``. Utilisé par le rapport
+  Quarto pour un build rapide (<1 min vs 7-10 min de fetch direct).
 
-Le cache disque est intentionnellement absent en v0 — chaque build
-Quarto refait le fetch. À ajouter en v1 si les builds deviennent
-lents.
+Le refresh du cache est piloté par ``scripts/refresh_cache_climato.py``
+et le workflow ``.github/workflows/refresh-climato-cache.yml`` (cron
+mensuel + dispatch manuel).
 """
 
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pandas as pd
 
 from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
+
+# Chemin canonique du cache (relatif à la racine du repo).
+CACHE_PATH = Path("data/climato/historique_horaire.parquet")
 
 
 def fetch_historique(
@@ -69,3 +76,48 @@ def fetch_historique(
         if delai_entre_lots_s > 0 and i < len(annees) - 1:
             time.sleep(delai_entre_lots_s)
     return pd.concat(lots).sort_index()
+
+
+def charger_historique_cache(
+    repo_root: Path | None = None,
+    annee_debut: int | None = None,
+    annee_fin: int | None = None,
+) -> pd.DataFrame:
+    """Charge l'historique horaire depuis le parquet cache versionné.
+
+    Parameters
+    ----------
+    repo_root :
+        Racine du repo (où se trouve ``data/climato/…``). Si None,
+        cherche en remontant depuis le cwd jusqu'à trouver le dossier
+        ``data/climato``.
+    annee_debut, annee_fin :
+        Filtres optionnels sur l'année (inclus). Permet à un build
+        local de ne charger qu'une sous-fenêtre du cache 30 ans.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indexé UTC, colonnes socle.
+
+    Raises
+    ------
+    FileNotFoundError
+        Si le cache n'existe pas. Indique au lecteur comment le générer.
+    """
+    if repo_root is None:
+        repo_root = Path.cwd().resolve()
+        while repo_root != repo_root.parent and not (repo_root / CACHE_PATH).exists():
+            repo_root = repo_root.parent
+    chemin = repo_root / CACHE_PATH
+    if not chemin.exists():
+        raise FileNotFoundError(
+            f"Cache climato introuvable : {chemin}. "
+            "Le générer avec `python scripts/refresh_cache_climato.py`."
+        )
+    df = pd.read_parquet(chemin)
+    if annee_debut is not None:
+        df = df[df.index.year >= annee_debut]
+    if annee_fin is not None:
+        df = df[df.index.year <= annee_fin]
+    return df

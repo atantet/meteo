@@ -186,3 +186,41 @@ def test_fetch_historique_decoupe_lots_annuels() -> None:
     # 3 ans → 3 appels.
     assert fake_source.obtenir_historique.call_count == 3
     assert len(df) == 3
+
+
+# ---------- Cache parquet ----------
+
+
+def test_charger_historique_cache_lecture(tmp_path) -> None:
+    from apps.climato.donnees import CACHE_PATH, charger_historique_cache
+
+    # Crée un faux cache.
+    chemin = tmp_path / CACHE_PATH
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2020-01-01", periods=24, freq="h", tz="UTC")
+    pd.DataFrame({"temperature_2m": range(24)}, index=idx).to_parquet(chemin)
+
+    df = charger_historique_cache(repo_root=tmp_path)
+    assert len(df) == 24
+    assert df.index.tz is not None
+
+
+def test_charger_historique_cache_filtre_annee(tmp_path) -> None:
+    from apps.climato.donnees import CACHE_PATH, charger_historique_cache
+
+    chemin = tmp_path / CACHE_PATH
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    # 3 ans, 1 valeur/an.
+    idx = pd.DatetimeIndex(["2018-06-15", "2019-06-15", "2020-06-15"], tz="UTC")
+    pd.DataFrame({"temperature_2m": [10.0, 11.0, 12.0]}, index=idx).to_parquet(chemin)
+
+    df = charger_historique_cache(repo_root=tmp_path, annee_debut=2019, annee_fin=2020)
+    assert len(df) == 2
+    assert df.index.year.min() == 2019
+
+
+def test_charger_historique_cache_absent(tmp_path) -> None:
+    from apps.climato.donnees import charger_historique_cache
+
+    with pytest.raises(FileNotFoundError, match="refresh_cache_climato"):
+        charger_historique_cache(repo_root=tmp_path)

@@ -9,6 +9,7 @@ on:
       - "apps/climato/**"
       - "src/meteo_socle/**"
       - "config/climato.yaml"
+      - "data/climato/**"
       - "environment.yml"
       - ".github/workflows/climato-publish.yml"
   workflow_dispatch:

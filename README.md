@@ -115,20 +115,20 @@ URL résultante typique : `https://meteo-op-<random>.streamlit.app`.
 
 ### Climatologie pré-calculée
 
-Une normale journalière (T_min/T_max/T_moy par jour de l'année) sur
-1991-2020 OMM (ERA5) est versionnée dans
-`data/climato/normale_jour_lapetiteclaye.csv` et utilisée par :
+Deux artefacts versionnés alimentent les apps sans re-fetch Open-Meteo :
 
-- la courbe T° du mail Veille (overlay en pointillés gris),
-- la table Opérationnelle (colonnes Normale T° + Écart normale).
+- **`data/climato/normale_jour_lapetiteclaye.csv`** — normale
+  journalière (T_min/T_max/T_moy par jour de l'année) sur 1991-2020 OMM,
+  utilisée par la courbe T° du mail Veille et la table Op (colonnes
+  Normale + Écart). Régénération : `python scripts/compute_normale_jour.py`.
+- **`data/climato/historique_horaire.parquet`** — cache parquet
+  compressé (~5 MB) des 30 ans d'archive ERA5 horaire. Permet au
+  rapport Climato de se reconstruire en <1 min au lieu de 7-10 min de
+  fetch. Régénération : `python scripts/refresh_cache_climato.py`.
 
-Pour régénérer (rare, après changement de site ou de période OMM) :
-
-```bash
-python scripts/compute_normale_jour.py
-```
-
-Coût ~7-10 min (30 requêtes annuelles Open-Meteo Archive).
+Les deux scripts coûtent ~5-10 min (30 requêtes annuelles Open-Meteo
+Archive). Le cache parquet est rafraîchi mensuellement par le workflow
+`refresh-climato-cache.yml` (cron + manual dispatch).
 
 ### App 3 Climato (rapport Quarto)
 

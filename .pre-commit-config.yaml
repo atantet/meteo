@@ -11,7 +11,10 @@ repos:
       - id: trailing-whitespace
       - id: check-merge-conflict
       - id: check-added-large-files
-        args: [--maxkb=1024]
+        # Plafond relevé à 8 Mo pour autoriser le cache parquet 30 ans
+        # ERA5 (~4 Mo, cf. data/climato/historique_horaire.parquet).
+        # Au-delà, suspecter un binaire ou un dump par erreur.
+        args: [--maxkb=8192]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Aligné sur la version installée dans l'env conda meteo. Mettre à

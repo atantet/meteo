@@ -75,7 +75,7 @@ au calcul d'ETP socle. SAFRAN sera substitué en v1.
 #| cache: false
 
 from apps.climato.config import load_config
-from apps.climato.donnees import fetch_historique
+from apps.climato.donnees import charger_historique_cache
 from apps.climato.climatologie import (
     agreger_quotidien,
     agreger_mensuel,
@@ -89,13 +89,13 @@ site = config["site"]
 periode = config["rapport"]["periode_donnees"]
 seuils = config["indicateurs"]
 
-# Fetch lots annuels (~10 s/an).
-horaire = fetch_historique(
-    latitude=site["latitude"],
-    longitude=site["longitude"],
+# Lecture du cache parquet versionné (rafraîchi par le workflow
+# refresh-climato-cache, cf. scripts/refresh_cache_climato.py).
+# Build de l'ordre de la seconde au lieu de 7-10 min de fetch direct.
+horaire = charger_historique_cache(
+    repo_root=REPO_ROOT,
     annee_debut=periode["debut"],
     annee_fin=periode["fin"],
-    modele=config["source_meteo"]["modele"],
 )
 print(f"Données : {len(horaire):,} heures sur {periode['debut']}-{periode['fin']}.")
 
