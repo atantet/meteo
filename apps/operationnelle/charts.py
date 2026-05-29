@@ -22,6 +22,10 @@ COULEUR_ABOVE_CHAUD = "#e74c3c"  # rouge — au-dessus de la normale en T°
 COULEUR_BELOW_FROID = "#3498db"  # bleu — en-dessous de la normale en T°
 COULEUR_NORMALE = "#888888"
 
+# Seuil Smith (ADR-0007) : 11 h / jour sur 2 jours consécutifs.
+SMITH_HEURES_MIN = 11
+SMITH_FENETRE_J = 2
+
 
 @dataclass
 class CourbeConfig:
@@ -34,6 +38,54 @@ class CourbeConfig:
     colonne_normale: str | None = None
     couleur_above: str = COULEUR_ABOVE_CHAUD
     couleur_below: str = COULEUR_BELOW_FROID
+
+
+def _decorer_mildiou_hr(ax, x, y) -> None:
+    """Décore l'axe pour l'indicateur Smith h HR ≥ 90 %.
+
+    - Barres = nb d'heures HR ≥ 90 % par jour
+    - Ligne pointillée = minimum glissant sur 2 j (input réel Smith)
+    - Ligne rouge horizontale = seuil 11 h
+    - Shade orange sous les jours où min 2 j ≥ seuil
+    """
+    y_min2j = y.rolling(window=SMITH_FENETRE_J, min_periods=SMITH_FENETRE_J).min()
+
+    ax.bar(x, y, color="#bdc3c7", width=0.65, label="h HR ≥ 90 % (jour)")
+    ax.plot(
+        x,
+        y_min2j,
+        color="#8e44ad",
+        linestyle="--",
+        linewidth=1.8,
+        marker="o",
+        markersize=4,
+        label=f"Min glissant sur {SMITH_FENETRE_J} j (input Smith)",
+    )
+    ax.axhline(
+        SMITH_HEURES_MIN,
+        color="#c0392b",
+        linestyle=":",
+        linewidth=1.4,
+        label=f"Seuil Smith ({SMITH_HEURES_MIN} h)",
+    )
+    # Shade vertical sur les jours où min 2j ≥ seuil → critère humidité validé.
+    qualifie = (y_min2j >= SMITH_HEURES_MIN).fillna(False)
+    if qualifie.any():
+        # Largeur d'une barre journalière en jours (matplotlib).
+        for date_j, q in qualifie.items():
+            if q:
+                ax.axvspan(
+                    date_j - pd.Timedelta(hours=12),
+                    date_j + pd.Timedelta(hours=12),
+                    color="#e67e22",
+                    alpha=0.12,
+                )
+        # Une seule entrée légende pour le shade.
+        from matplotlib.patches import Patch
+
+        h, lbl = ax.get_legend_handles_labels()
+        h.append(Patch(facecolor="#e67e22", alpha=0.18, label="Critère humidité Smith validé"))
+        ax.legend(handles=h, loc="best", fontsize=8, frameon=False)
 
 
 COURBES: list[CourbeConfig] = [
@@ -101,10 +153,26 @@ def figure_indicateur(
     Si une colonne normale est référencée et présente, overlay
     pointillé + shade entre prévision et normale (sémantique
     chaud/froid selon que la prévision est au-dessus / en-dessous).
+
+    Cas spécial ``mildiou_heures_hr_haute`` (cf. ADR-0007 Smith) :
+    on superpose le minimum sur fenêtre glissante 2 j (le vrai input
+    de Smith) et le seuil critique 11 h. Une journée n'est partie
+    d'une période de Smith que si le min 2 j passe au-dessus du
+    seuil — un seul jour à 15 h ne suffit pas.
     """
     fig, ax = plt.subplots(figsize=figsize)
     x = quotidien.index
     y = quotidien[cfg.colonne]
+
+    if cfg.colonne == "mildiou_heures_hr_haute":
+        _decorer_mildiou_hr(ax, x, y)
+        ax.set_ylabel(cfg.unite)
+        ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
+        ax.grid(axis="y", alpha=0.25)
+        ax.legend(loc="best", fontsize=8, frameon=False)
+        fig.autofmt_xdate(rotation=30, ha="right")
+        fig.tight_layout()
+        return fig
 
     has_normale = cfg.colonne_normale is not None and cfg.colonne_normale in quotidien.columns
     if has_normale:

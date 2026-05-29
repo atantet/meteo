@@ -76,6 +76,18 @@ def test_figure_bilan_culture_genere_2_courbes(quotidien_synth: pd.DataFrame) ->
     assert any("ET_c cumulée" in lbl for lbl in labels)
 
 
+def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
+    quotidien_synth: pd.DataFrame,
+) -> None:
+    """Onglet HR ≥ 90 % : seuil 11 h + min glissant 2 j présents."""
+    cfg = next(c for c in COURBES if c.colonne == "mildiou_heures_hr_haute")
+    fig = figure_indicateur(quotidien_synth, cfg)
+    ax = fig.axes[0]
+    _, labels = ax.get_legend_handles_labels()
+    assert any("Seuil Smith" in lbl for lbl in labels)
+    assert any("Min glissant" in lbl for lbl in labels)
+
+
 def test_figure_bilan_culture_kc_zero_etc_constant_zero(
     quotidien_synth: pd.DataFrame,
 ) -> None:
