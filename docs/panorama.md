@@ -85,14 +85,23 @@ métadonnées.
 - Risque canicule (T° max + heat stress, défaut 32 °C à valider)
 - Fenêtres travail (heuristique pluie 24-72 h + vent + portance sol simple)
 
+**v0 livré (depuis 2026-05-29)** :
+
+- Risque mildiou tomate Smith periods 1956 (cf. [ADR-0007](decisions/0007-modele-mildiou-tomate-sous-abri.md)),
+  intégré aux 3 apps (mail Veille, dashboard Op, rapport Climato).
+- Bilan hydrique plein champ (Kc × ET₀, coefficients ARDEPI) — App 2 Op.
+- Bilan hydrique sous tunnel (k_tunnel = 0.70 défaut, cf.
+  [ADR-0008](decisions/0008-coefficient-etp-tunnel.md)), modèle sol
+  complet avec carry-over RU jour par jour — App 2 Op.
+
 **v1 (priorité bioagresseurs bio)** :
 
 - Humectation foliaire Magarey DPD/NWP 2005 + CART Gleason 1994 croisé
-  (cf. [ADR-0005](decisions/0005-modele-humectation-foliaire.md))
-- Risque mildiou tomate (Mills 1944 + LWD)
+  (cf. [ADR-0005](decisions/0005-modele-humectation-foliaire.md)) —
+  substituer le proxy HR ≥ 90 % par LWD Magarey dans Smith.
 - Risque mildiou pomme de terre (modèle à choisir entre Hyre, Mishra, SimMip — ADR à venir)
-- Bilan hydrique culture-spécifique (Kc × ETP, coefficients ARDEPI déjà
-  collectés)
+- Calibration locale k_tunnel après une saison d'observation
+  (compteur eau vs prédiction app).
 
 **v2 (extensions)** : alternaria, oïdium, botrytis, sommes thermiques par culture, etc.
 
