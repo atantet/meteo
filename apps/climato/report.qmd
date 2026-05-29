@@ -183,6 +183,59 @@ table_gel
 ```
 
 ```{python}
+#| label: fig-gel-distribution
+#| fig-cap: "Distribution des dates extrêmes de gel (1991-2020). Identifie une fenêtre fiable de plantation sans risque de gel ; les lignes pointillées marquent le 10ᵉ et 90ᵉ percentile."
+
+# Dates extrêmes en jour-de-l'année pour pouvoir agréger 30 ans.
+dgel_clean = dgel.dropna(subset=["dernier_gel_printemps", "premier_gel_automne"])
+dernier_jda = pd.to_datetime(dgel_clean["dernier_gel_printemps"]).dt.dayofyear
+premier_jda = pd.to_datetime(dgel_clean["premier_gel_automne"]).dt.dayofyear
+
+# Pour l'affichage on convertit jour-de-l'année → date d'une année de référence.
+def _jda_vers_date(jda):
+    return pd.Timestamp(2024, 1, 1) + pd.Timedelta(days=int(jda) - 1)
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
+
+ax = axes[0]
+ax.hist(dernier_jda, bins=range(int(dernier_jda.min()), int(dernier_jda.max()) + 7, 7),
+        color="#3498db", edgecolor="white")
+for q, label in ((0.10, "10ᵉ pctl"), (0.50, "Médiane"), (0.90, "90ᵉ pctl")):
+    v = dernier_jda.quantile(q)
+    ax.axvline(v, color="#c0392b" if q == 0.90 else "#444",
+               linestyle="--", linewidth=1.0, label=f"{label} = {_jda_vers_date(v).strftime('%d %b')}")
+ax.set_xlabel("Jour de l'année")
+ax.set_title("Dernier gel printanier")
+ax.legend(fontsize=8, frameon=False)
+# Étiquettes axe X = noms de mois.
+ax.set_xticks([1, 32, 60, 91, 121, 152])
+ax.set_xticklabels(["1 jan", "1 fév", "1 mar", "1 avr", "1 mai", "1 jun"])
+
+ax = axes[1]
+ax.hist(premier_jda, bins=range(int(premier_jda.min()), int(premier_jda.max()) + 7, 7),
+        color="#e67e22", edgecolor="white")
+for q, label in ((0.10, "10ᵉ pctl"), (0.50, "Médiane"), (0.90, "90ᵉ pctl")):
+    v = premier_jda.quantile(q)
+    ax.axvline(v, color="#c0392b" if q == 0.10 else "#444",
+               linestyle="--", linewidth=1.0, label=f"{label} = {_jda_vers_date(v).strftime('%d %b')}")
+ax.set_xlabel("Jour de l'année")
+ax.set_title("Premier gel automnal")
+ax.legend(fontsize=8, frameon=False)
+ax.set_xticks([244, 274, 305, 335, 366])
+ax.set_xticklabels(["1 sep", "1 oct", "1 nov", "1 déc", "31 déc"])
+
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+**Lecture pratique.** Pour planter sans risque de gel à 90 % de
+confiance, retenir le 90ᵉ percentile du dernier gel printanier comme
+date butée. Pour les semis tardifs automnaux, viser le 10ᵉ percentile
+du premier gel automnal.
+:::
+
+```{python}
 #| label: fig-jours-caracteristiques
 #| fig-cap: "Nombre annuel de jours caractéristiques (gel < 0 °C, canicule > 30 °C, pluvieux > 10 mm/24 h)."
 
