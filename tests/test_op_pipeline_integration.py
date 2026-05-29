@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -106,6 +107,28 @@ def test_pipeline_complete_compatible_figures_indicateur() -> None:
         if cfg.colonne in quot.columns:
             # Pas de NaN ininterprétable dans la colonne.
             assert quot[cfg.colonne].notna().any(), f"Colonne {cfg.colonne} tout NaN"
+
+
+def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
+    """Lance streamlit_app via AppTest (le testeur officiel Streamlit).
+
+    Reproduit exactement le pipeline d'exécution Cloud : import + main()
+    + rendu de tous les composants jusqu'au footer. Aurait attrapé les
+    TypeError du 2026-05-29 (substitution LWD puis rollback).
+
+    Ce test fait un vrai appel réseau à Open-Meteo. Marqué network pour
+    pouvoir l'exclure si CI a un souci de connectivité.
+    """
+    pytest.importorskip("streamlit.testing.v1")
+    from streamlit.testing.v1 import AppTest
+
+    app_path = REPO_ROOT / "apps" / "operationnelle" / "streamlit_app.py"
+    at = AppTest.from_file(str(app_path), default_timeout=60)
+    at.run()
+    assert not at.exception, f"Streamlit app a levé une exception : {list(at.exception)}"
+    # Au minimum un subheader devrait être rendu.
+    titres = [s.value for s in at.subheader]
+    assert any("courbes" in t.lower() for t in titres), f"Pas de section courbes : {titres}"
 
 
 def test_pipeline_complete_bilan_tunnel_marche_avec_data_realiste() -> None:
