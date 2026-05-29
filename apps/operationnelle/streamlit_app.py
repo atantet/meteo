@@ -106,19 +106,19 @@ def main() -> None:
             f"**{t0.strftime('%H:%M')} UTC** ({t0_loc.strftime('%H:%M')} heure locale)"
         )
 
-    # ----- Courbes 7 j (vue principale) -----
+    # ----- Courbes 7 j (vue principale, en onglets) -----
     st.subheader("Prévision 7 jours — courbes par indicateur")
     st.caption(
         "Pour les T° : courbe pointillée gris = normale OMM 1991-2020. "
-        "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous. "
-        "Cliquer sur une figure pour l'agrandir."
+        "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous."
     )
 
-    for cfg in COURBES:
-        if cfg.colonne not in quotidien.columns:
-            continue
-        fig = figure_indicateur(quotidien, cfg)
-        st.pyplot(fig, use_container_width=True)
+    courbes_dispo = [c for c in COURBES if c.colonne in quotidien.columns]
+    onglets = st.tabs([c.titre for c in courbes_dispo])
+    for tab, cfg in zip(onglets, courbes_dispo, strict=False):
+        with tab:
+            fig = figure_indicateur(quotidien, cfg)
+            st.pyplot(fig, use_container_width=True)
 
     # ----- Bilan hydrique culture (nouveau) -----
     st.subheader("Bilan hydrique par culture")
