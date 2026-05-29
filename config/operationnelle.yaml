@@ -44,11 +44,12 @@ alertes:
 
 # ----- Indicateurs informationnels (pas alertes) -----
 indicateurs:
-  # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007).
-  # Humectation par LWD CART Gleason 1994 (cf. ADR-0005).
+  # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007
+  # et ADR-0010). Humectation par proxy HR ≥ seuil (Smith historique).
   mildiou_smith:
     actif: true
     t_min_celsius: 10.0
+    hr_seuil: 0.90
     heures_min: 11
 
 # ----- Présentation -----

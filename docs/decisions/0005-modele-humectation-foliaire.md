@@ -2,7 +2,16 @@
 
 ## Statut
 
-Accepté — 2026-05-28
+Accepté — 2026-05-28 — **partiellement remplacé par
+[ADR-0010](0010-doctrine-pragmatique-lwd.md) le 2026-05-29.**
+
+La revue bibliographique LWD de cet ADR reste valide comme état de
+l'art. **La prescription opérationnelle** (Magarey DPD/NWP en
+production + CART Gleason en contrôle) **est remplacée** par la
+doctrine pragmatique de l'ADR-0010 : Smith ← HR ≥ 90 % en production
+v0, Magarey reporté sine die (trop théorique pour l'échelle de
+l'exploitation), Gleason conservé comme indicateur d'inspection.
+
 *Note : DOI exacts à confirmer avant signature finale ; références principales reconnues comme piliers de la littérature LWD.*
 
 ## Contexte

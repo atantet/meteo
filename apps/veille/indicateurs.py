@@ -209,7 +209,11 @@ def calculer_indicateurs(
         # jour ne pourra pas qualifier (par construction Smith demande
         # un jour A observable).
         h72_etendu = prevision.head(72 + 24).sort_index()
-        critere = agreger_critere_journalier(h72_etendu, tz_locale=tz_loc)
+        critere = agreger_critere_journalier(
+            h72_etendu,
+            tz_locale=tz_loc,
+            hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
+        )
         smith = smith_periods(
             critere,
             t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),

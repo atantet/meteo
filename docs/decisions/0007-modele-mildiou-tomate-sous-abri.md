@@ -2,13 +2,19 @@
 
 ## Statut
 
-Accepté — 2026-05-29
-*Mise à jour 2026-05-29 (même jour) : l'input « heures HR ≥ 90 % » est
-substitué par les « heures LWD CART Gleason 1994 » (cf. ADR-0005). Le
-seuil 11 h et la fenêtre 2 jours consécutifs restent inchangés ; seul
-le proxy d'humectation est remplacé. Plus discriminant en climat
-océanique humide nocturne. Le code de la v0 utilise désormais le LWD
-Gleason par défaut.*
+Accepté — 2026-05-29 — **doctrine LWD recadrée par
+[ADR-0010](0010-doctrine-pragmatique-lwd.md) le même jour.**
+
+*Historique :*
+
+- *Décision initiale : Smith ← HR ≥ 90 % comme proxy d'humectation
+  (transparence en attendant LWD Magarey).*
+- *Tentative de substitution 2026-05-29 vers LWD CART Gleason :
+  abandonnée (cf. ADR-0010) — Gleason calibré Iowa donne 5× trop de
+  périodes Smith sur climat océanique humide. Rollback à HR ≥ 90 %.*
+- *Doctrine actuelle : Smith ← HR ≥ 90 %, point. v1 = instrumentation
+  locale + recalibration HR empirique du seuil, pas substitution de
+  modèle.*
 
 *Note : v0 indicative ; à recalibrer après une saison de retour terrain
 sur les périodes effectivement déclenchées vs symptômes observés.*

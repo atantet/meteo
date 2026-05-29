@@ -36,10 +36,11 @@ indicateurs:
   # Seuil "jour pluvieux marquant" (cumul 24 h > seuil).
   seuil_jour_pluvieux_mm: 10.0
 
-# ----- Mildiou (ADR-0007 Smith periods + ADR-0005 LWD Gleason) -----
+# ----- Mildiou (ADR-0007 Smith periods + ADR-0010 doctrine LWD) -----
 mildiou_smith:
   actif: true
   t_min_celsius: 10.0
+  hr_seuil: 0.90
   heures_min: 11
   # Fuseau pour découper les jours calendaires (Smith historique
   # compte par jour local). Aligné sur site.tz.

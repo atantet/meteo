@@ -18,28 +18,16 @@ def _serie_horaire_synth(
     n_jours: int,
     t_celsius_template: list[float],
     hr_template: list[float],
-    vent_ms: float = 1.0,
     tz: str = "UTC",
 ) -> pd.DataFrame:
-    """Construit une série horaire (24 h × n_jours) tilée depuis 1 jour-type.
-
-    Le vent par défaut est bas (1 m/s) pour que les heures où DPD est
-    intermédiaire qualifient comme mouillées si HR ≥ 87.8 % (CART
-    Gleason). Précipitation = 0 (pas d'override pluie).
-    """
+    """Construit une série horaire (24 h × n_jours) tilée depuis 1 jour-type."""
     assert len(t_celsius_template) == 24
     assert len(hr_template) == 24
     idx = pd.date_range(start, periods=24 * n_jours, freq="h", tz=tz)
     t = np.tile(t_celsius_template, n_jours)
     hr = np.tile(hr_template, n_jours)
-    n = len(idx)
     return pd.DataFrame(
-        {
-            "temperature_2m": t + 273.15,
-            "humidite_relative": hr,
-            "vitesse_vent_10m": np.full(n, vent_ms),
-            "precipitation": np.zeros(n),
-        },
+        {"temperature_2m": t + 273.15, "humidite_relative": hr},
         index=idx,
     )
 

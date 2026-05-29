@@ -23,7 +23,7 @@ LIBELLES_COLONNES: dict[str, str] = {
     "etp_mm": "ETP (mm)",
     "bilan_eau_cumul_mm": "Bilan eau cumulé (mm)",
     # Mildiou Smith (ADR-0007) : nb heures HR ≥ seuil + flag période.
-    "mildiou_heures_humectation": "h humectation (LWD)",
+    "mildiou_heures_humectation": "h HR ≥ 90 %",
     "mildiou_smith_period": "Smith mildiou",
 }
 

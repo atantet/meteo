@@ -65,16 +65,16 @@ class CourbeConfig:
 
 
 def _decorer_mildiou_hr(ax, x, y) -> None:
-    """Décore l'axe pour l'indicateur Smith heures humectation LWD.
+    """Décore l'axe pour l'indicateur Smith heures HR ≥ 90 %.
 
-    - Barres = nb d'heures LWD CART Gleason 1994 par jour
+    - Barres = nb d'heures HR ≥ 90 % par jour (proxy Smith historique)
     - Ligne pointillée = minimum glissant sur 2 j (input réel Smith)
     - Ligne rouge horizontale = seuil 11 h
     - Shade orange sous les jours où min 2 j ≥ seuil
     """
     y_min2j = y.rolling(window=SMITH_FENETRE_J, min_periods=SMITH_FENETRE_J).min()
 
-    ax.bar(x, y, color="#bdc3c7", width=0.65, label="h humectation LWD (jour)")
+    ax.bar(x, y, color="#bdc3c7", width=0.65, label="h HR ≥ 90 % (jour)")
     ax.plot(
         x,
         y_min2j,
@@ -164,9 +164,15 @@ COURBES: list[CourbeConfig] = [
     ),
     CourbeConfig(
         colonne="mildiou_heures_humectation",
-        titre="Heures humectation LWD (Gleason) — input Smith",
+        titre="Heures HR ≥ 90 % (input Smith)",
         unite="h",
         couleur="#8e44ad",
+    ),
+    CourbeConfig(
+        colonne="lwd_heures_gleason",
+        titre="Heures LWD Gleason (inspection seule, pas input Smith)",
+        unite="h",
+        couleur="#16a085",
     ),
 ]
 
