@@ -237,33 +237,56 @@ du premier gel automnal.
 
 ```{python}
 #| label: tbl-calendrier-semis
-#| tbl-cap: "Calendrier de semis pépinière recommandé pour les cultures sensibles au gel. Date cible de plantation = 90ᵉ percentile du dernier gel printanier (sécurité gel de 90 %) ; date de semis déduite de la durée d'élevage médiane (CTIFL/GRAB) + 7 jours de marge. Voir [ADR-0009](https://github.com/atantet/meteo/blob/main/docs/decisions/0009-pepiniere-v0.md)."
+#| tbl-cap: "Calendrier de semis pépinière recommandé pour les cultures sensibles au gel. Trois colonnes 'Plantation' selon le niveau de risque gel accepté (médiane = 50 % d'années sans gel après ; P90 = 90 % ; P95 = 95 %). Durées d'élevage médianes CTIFL/GRAB + 7 jours de marge. Voir [ADR-0009](https://github.com/atantet/meteo/blob/main/docs/decisions/0009-pepiniere-v0.md)."
 
 from datetime import date as _date
 from meteo_socle.indices.pepiniere import calendrier_semis
 
-# 90ᵉ pctl jour-de-l'année dernier gel — fenêtre sécurisée plantation.
-percentile90_jda = int(round(dernier_jda.quantile(0.90)))
-date_plantation_cible = _date(2026, 1, 1) + pd.Timedelta(days=percentile90_jda - 1).to_pytimedelta()
+def _jda_to_date_2026(jda: int) -> _date:
+    return _date(2026, 1, 1) + pd.Timedelta(days=jda - 1).to_pytimedelta()
 
-cal = calendrier_semis(date_plantation_cible)
-cal_df = pd.DataFrame(cal)
-# Formatage français lisible.
-cal_df["Date semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%d %b"))
-cal_df["Date plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%d %b"))
-cal_df["Durée élevage (j)"] = cal_df["duree_elevage_j"]
-cal_df = cal_df[["culture", "Date semis", "Date plantation", "Durée élevage (j)"]]
-cal_df.columns = ["Culture", "Date semis", "Date plantation", "Durée élevage (j)"]
-cal_df = cal_df.sort_values("Date semis").reset_index(drop=True)
+# Trois niveaux de risque sur le dernier gel printanier.
+pctls = {"P50 (médiane)": 0.50, "P90 (sécurisé)": 0.90, "P95 (ultra-sécurisé)": 0.95}
+dates_plantation = {nom: _jda_to_date_2026(int(round(dernier_jda.quantile(q))))
+                    for nom, q in pctls.items()}
+
+# Cultures sensibles au gel (filtrage par défaut de calendrier_semis).
+cal_ref = calendrier_semis(dates_plantation["P90 (sécurisé)"])
+cultures = [e["culture"] for e in cal_ref]
+
+# Construit un tableau wide : une ligne par culture, 3 colonnes plantation
+# + 3 colonnes semis.
+lignes = []
+for culture in cultures:
+    ligne = {"Culture": culture}
+    for nom_pctl, d_plant in dates_plantation.items():
+        cal_pctl = calendrier_semis(d_plant, cultures=[culture])
+        semis = cal_pctl[0]["date_semis"]
+        ligne[f"Semis {nom_pctl}"] = semis.strftime("%d %b")
+        ligne[f"Plantation {nom_pctl}"] = d_plant.strftime("%d %b")
+    lignes.append(ligne)
+
+cal_df = pd.DataFrame(lignes)
+# Réordonne colonnes : Culture | Semis P50 | Plantation P50 | Semis P90 | ...
+ordre = ["Culture"]
+for nom in pctls:
+    ordre += [f"Semis {nom}", f"Plantation {nom}"]
+cal_df = cal_df[ordre].sort_values("Semis P90 (sécurisé)").reset_index(drop=True)
 cal_df
 ```
 
 ::: {.callout-tip}
-**Lecture pratique.** Ce tableau prend la **date de plantation
-sécurisée à 90 %** (90 % des années, plus aucun gel après cette
-date) et remonte la durée d'élevage de chaque culture. Pour planter
-plus tôt à ses risques, retenir la médiane ; pour planter
-ultra-sécurisé, prendre une marge supplémentaire de 1-2 semaines.
+**Lecture pratique.** Trois niveaux de risque gel pour la même
+culture :
+- **P50** = médiane (le dernier gel a lieu en moyenne à cette date).
+  La moitié des années, gèle après → 50 % de risque.
+- **P90** = sécurisé. 90 % des années passent sans gel après.
+  Pratique courante pour planifier.
+- **P95** = ultra-sécurisé. 95 % des années. Pour cultures
+  particulièrement sensibles ou si on a peu de plants de rechange.
+
+Plus tôt = plus de risque mais plus de récolte. À arbitrer selon
+les variétés et les protections disponibles (voile, mini-tunnel).
 :::
 
 ```{python}
