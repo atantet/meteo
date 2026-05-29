@@ -97,10 +97,17 @@ Secrets `VEILLE_SMTP_*`, `VEILLE_EMAIL_*` dans
 ### App 2 Opérationnelle (dashboard Streamlit)
 
 ```bash
+# Forme courte (cohérente avec les autres apps) :
+python -m apps.operationnelle             # http://localhost:8501
+python -m apps.operationnelle --port 8502
+python -m apps.operationnelle --headless  # pas d'ouverture browser auto
+
+# Forme directe équivalente :
 streamlit run apps/operationnelle/streamlit_app.py
 ```
 
-Ouvre un navigateur sur <http://localhost:8501>.
+Ouvre un navigateur sur <http://localhost:8501>. Pas de mode preview
+HTML statique : la preview de l'App 2 EST le live UI Streamlit.
 
 **Déploiement Streamlit Community Cloud** :
 
@@ -149,9 +156,20 @@ echo 'export PATH="$HOME/.local/quarto/bin:$PATH"' >> ~/.bashrc
 Puis :
 
 ```bash
+# Forme courte (cohérente avec les autres apps) :
+python -m apps.climato                              # rend report.html
+python -m apps.climato --preview /tmp/climato.html  # copie vers /tmp
+python -m apps.climato --open                       # ouvre via xdg-open
+
+# Forme directe équivalente :
 quarto render apps/climato/report.qmd --to html
-# → produit apps/climato/report.html
 ```
+
+Si la commande échoue avec ``No module named 'dotenv'`` ou similaire,
+c'est que Quarto pioche le mauvais Python. Le wrapper
+``python -m apps.climato`` règle ça en fixant ``QUARTO_PYTHON`` ;
+sinon exporter manuellement :
+``export QUARTO_PYTHON=~/.conda/envs/meteo/bin/python``.
 
 **Déploiement GitHub Pages** : le workflow
 `.github/workflows/climato-publish.yml` construit le rapport et le
