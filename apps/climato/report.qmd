@@ -434,6 +434,50 @@ plt.tight_layout()
 plt.show()
 ```
 
+# Humectation foliaire (LWD) — CART Gleason 1994
+
+::: {.callout-note}
+**Référence : ADR-0005.** Le proxy historique « HR ≥ 90 % » utilisé
+par Smith mildiou (cf. section précédente) tend à **surestimer** la
+durée d'humectation foliaire en climat océanique humide nocturne.
+Le modèle CART Gleason 1994 utilise quatre prédicteurs (DPD, vent,
+HR) pour discriminer plus finement les heures vraiment mouillées.
+Cette section compare les deux proxies sur la même fenêtre 30 ans.
+:::
+
+```{python}
+#| label: fig-comparaison-lwd-hr
+#| fig-cap: "Comparaison des deux proxies LWD : cumul annuel des heures avec HR ≥ 90 % vs cumul annuel des heures LWD CART Gleason. Si Gleason est sensiblement plus bas, cela confirme que le proxy HR surestime l'humectation."
+
+from meteo_socle.indices.lwd_gleason import heures_lwd_par_jour, lwd_horaire_gleason
+
+# Calcul horaire LWD Gleason sur les 30 ans.
+wet_horaire = lwd_horaire_gleason(horaire)
+# Heures HR ≥ 90 % par an (proxy Smith historique).
+hr_haute_horaire = (horaire["humidite_relative"] >= 0.90).astype(int)
+
+annees = pd.DatetimeIndex(horaire.index).year
+nb_h_hr_par_an = hr_haute_horaire.groupby(annees).sum()
+nb_h_lwd_par_an = wet_horaire.astype(int).groupby(annees).sum()
+
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.plot(nb_h_hr_par_an.index, nb_h_hr_par_an.values, marker="o",
+        color="#3498db", label="h HR ≥ 90 %", linewidth=1.8)
+ax.plot(nb_h_lwd_par_an.index, nb_h_lwd_par_an.values, marker="s",
+        color="#16a085", label="h LWD CART Gleason", linewidth=1.8)
+ax.set_xlabel("Année")
+ax.set_ylabel("Nombre d'heures cumulées par an")
+ax.set_title("Heures humectation annuelles — comparaison proxies")
+ax.legend()
+ax.grid(True, alpha=0.3, axis="y")
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+ecart_relatif = (1 - nb_h_lwd_par_an.mean() / nb_h_hr_par_an.mean()) * 100
+print(f"Écart moyen LWD vs HR : {ecart_relatif:+.0f} % (négatif = LWD plus restrictif).")
+```
+
 # Sources et méthodes (transparence — principe #5)
 
 Ce rapport applique le principe transverse #5 de transparence totale.
@@ -465,6 +509,14 @@ Tout ce qui suit est cliquable / reproductible.
   forecasting by 90 per cent humidity criteria*. **Plant Pathology** 5,
   83-87. Implémentation `meteo_socle.indices.mildiou.smith_periods`,
   tests dans `tests/test_mildiou.py`.
+- **Humectation foliaire CART (ADR-0005)** : Gleason, M.L. et al., 1994.
+  *Development and validation of an empirical model to estimate the
+  duration of dew periods*. **Plant Disease** 78, 1011-1016. Seuils
+  CART : DPD ≤ 3.7 °C → wet ; 3.7 < DPD ≤ 7.2 ET vent < 2.5 m/s ET
+  HR ≥ 87.8 % → wet ; sinon dry. Point de rosée par Magnus-Tetens
+  (Alduchov & Eskridge 1996). Implémentation
+  `meteo_socle.indices.lwd_gleason`, tests dans `tests/test_lwd_gleason.py`.
+  Magarey DPD/NWP en attente du papier (cf. ADR-0005).
 - **Coefficient ET tunnel (ADR-0008)** : k_tunnel = 0.70 par défaut
   pour passer de l'ET₀ extérieure FAO à l'ET₀ intérieure tunnel froid
   (médiane littérature tempérée). Castilla, N., 2013. *Greenhouse

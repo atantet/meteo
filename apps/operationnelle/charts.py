@@ -168,6 +168,13 @@ COURBES: list[CourbeConfig] = [
         unite="h",
         couleur="#8e44ad",
     ),
+    CourbeConfig(
+        colonne="lwd_heures_gleason",
+        titre="Heures LWD (CART Gleason 1994)",
+        unite="h",
+        couleur="#16a085",
+        seuils=[Seuil(11.0, "Seuil Smith adapté (11 h)", "#c0392b")],
+    ),
 ]
 
 
