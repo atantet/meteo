@@ -42,7 +42,8 @@ Sept principes transverses contraignent toutes les décisions du projet
 
 ## Stack technique
 
-- Python 3.12 via **conda** (`environment.yml`)
+- Python 3.12 via **conda** (`environment-dev.yml`) pour dev + CI ;
+  `requirements.txt` pour Streamlit Cloud (pip).
 - **DuckDB** pour l'entrepôt local, **Parquet** pour les archives
 - **Streamlit** (app opérationnelle), **Quarto** (app climato),
   **GitHub Actions** (veille & alertes)
@@ -67,7 +68,7 @@ géolocalisation au grain commune, pas de données personnelles tierces.
 
 ```bash
 # Une fois : créer l'env conda
-conda env create -f environment.yml
+conda env create -f environment-dev.yml
 
 # À chaque session : activer
 conda activate meteo
@@ -113,8 +114,9 @@ HTML statique : la preview de l'App 2 EST le live UI Streamlit.
 1. Sur <https://share.streamlit.io>, *New app*.
 2. Connecter le repo GitHub `meteo` (public).
 3. *Main file path* : `apps/operationnelle/streamlit_app.py`.
-4. *Python version* : 3.12 (Streamlit Cloud détecte `environment.yml`
-   automatiquement et installe via conda).
+4. *Python version* : 3.12 (Streamlit Cloud lit `requirements.txt` pour
+   les dépendances pip — `environment.yml` est renommé en
+   `environment-dev.yml` pour éviter qu'il tente conda et échoue).
 5. Pas de Secret nécessaire — la config par défaut suffit.
 
 URL résultante typique : `https://meteo-op-<random>.streamlit.app`.

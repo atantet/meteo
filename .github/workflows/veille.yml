@@ -33,7 +33,7 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: meteo
-          environment-file: environment.yml
+          environment-file: environment-dev.yml
           auto-activate-base: false
           # Cache l'env pour les exécutions suivantes (~10 s vs ~2 min).
           use-mamba: true

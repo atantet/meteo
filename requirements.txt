@@ -1,10 +1,12 @@
 # Dépendances pip pour Streamlit Community Cloud (App 2 Opérationnelle).
 #
 # Streamlit Cloud installe via pip et n'utilise PAS environment.yml
-# (depuis ~2024). Ce fichier liste le sous-ensemble minimal pour faire
-# tourner apps/operationnelle/streamlit_app.py.
+# (depuis ~2024). Pour éviter qu'il essaie quand même conda et plante,
+# environment.yml est renommé en environment-dev.yml. Ce fichier liste
+# le sous-ensemble minimal pour faire tourner
+# apps/operationnelle/streamlit_app.py via pip.
 #
-# CI et dev local utilisent environment.yml (conda) — pas ce fichier.
+# CI et dev local utilisent environment-dev.yml (conda) — pas ce fichier.
 # Garder les deux en cohérence (mettre à jour les deux si on ajoute une
 # dep utilisée par l'app Streamlit).
 streamlit

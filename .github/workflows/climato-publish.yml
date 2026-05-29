@@ -10,7 +10,7 @@ on:
       - "src/meteo_socle/**"
       - "config/climato.yaml"
       - "data/climato/**"
-      - "environment.yml"
+      - "environment-dev.yml"
       - ".github/workflows/climato-publish.yml"
   workflow_dispatch:
   schedule:
@@ -45,7 +45,7 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: meteo
-          environment-file: environment.yml
+          environment-file: environment-dev.yml
           auto-activate-base: false
           use-mamba: true
 

@@ -34,7 +34,7 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: meteo
-          environment-file: environment.yml
+          environment-file: environment-dev.yml
           auto-activate-base: false
           use-mamba: true
 
@@ -48,6 +48,6 @@ jobs:
         run: ruff check .
 
       # Note : mypy non lancé en CI (pas de pandas-stubs dans
-      # environment.yml). Le pre-commit hook (.pre-commit-config.yaml)
+      # environment-dev.yml). Le pre-commit hook (.pre-commit-config.yaml)
       # le déclenche localement avec les stubs corrects, suffisant pour
       # bloquer les erreurs de typage avant push.
