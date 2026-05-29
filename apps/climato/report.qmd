@@ -356,6 +356,15 @@ plt.show()
 ```
 
 ```{python}
+#| label: tbl-mildiou-top-annees
+#| tbl-cap: "Cinq années à plus forte pression mildiou tomate (1991-2020). Année de référence stratégique : si vos installations résistent à la pression de l'année top, elles passeront les années moyennes."
+
+top5_mildiou = nb_annuel.sort_values(ascending=False).head(5).to_frame("Nb périodes de Smith")
+top5_mildiou.index.name = "Année"
+top5_mildiou
+```
+
+```{python}
 #| label: fig-mildiou-mensuel
 #| fig-cap: "Répartition mensuelle des périodes de Smith (1991-2020). Identifie les fenêtres calendaires à plus forte pression."
 
