@@ -135,7 +135,7 @@ plt.show()
 
 ```{python}
 #| label: fig-pluie
-#| fig-cap: "Cumul de pluie mensuel moyen (2015-2024) et ETP mensuelle moyenne calculée par le socle FAO Penman-Monteith. La différence P − ETP indique le déficit / excédent hydrique théorique."
+#| fig-cap: "Cumul de pluie mensuel moyen (normale OMM 1991-2020, ERA5 ~25 km) et ETP mensuelle moyenne calculée par le socle FAO Penman-Monteith. La différence P − ETP indique le déficit / excédent hydrique théorique."
 
 fig, ax = plt.subplots(figsize=(9, 4.5))
 ax.bar(norm.index - 0.18, norm["pluie"], width=0.35, color="#3498db", label="Pluie (mm)")
@@ -206,6 +206,82 @@ plt.tight_layout()
 plt.show()
 ```
 
+# Besoin en eau saisonnier — culture sous tunnel
+
+::: {.callout-note}
+**Référence : ADR-0008.** L'ET₀ sous tunnel est estimée par
+ET₀_tunnel = k_tunnel × ET₀_extérieur avec k_tunnel = 0.70 par
+défaut (médiane littérature tempérée). Le Kc culture reste celui
+ARDEPI plein champ. Cette section caractérise la **pression hydrique
+mensuelle moyenne** sous tunnel sur 30 ans, utile pour dimensionner
+l'irrigation et planifier les rotations.
+:::
+
+```{python}
+#| label: fig-bilan-tunnel-mensuel
+#| fig-cap: "ETM mensuelle moyenne sous tunnel (1991-2020) pour la tomate à différents stades phénologiques. Donne le besoin d'irrigation théorique mois par mois sous tunnel froid (pluie supposée nulle). Sans report de RU sol."
+
+from meteo_socle.indices.bilan_hydrique import KC
+
+K_TUNNEL = 0.70
+CULTURE_REF = "Tomate"
+STADES_TOMATE = list(KC[CULTURE_REF].keys())
+
+# ETP mensuelle moyenne déjà en main (norm["etp"]).
+# ET_c_tunnel mensuelle = Kc(stade) × k_tunnel × ETP.
+fig, ax = plt.subplots(figsize=(9, 4.5))
+for stade in STADES_TOMATE:
+    kc = KC[CULTURE_REF][stade]
+    etm_tunnel = kc * K_TUNNEL * norm["etp"]
+    # Raccourcis lisibles dans la légende.
+    label_court = stade.replace("De ", "").replace("De la ", "").replace("Du ", "")
+    label_court = label_court[:42] + "…" if len(label_court) > 42 else label_court
+    ax.plot(etm_tunnel.index, etm_tunnel.values, marker="o", linewidth=1.6,
+            label=f"Kc={kc:.2f} · {label_court}")
+
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(mois_labels)
+ax.set_ylabel("ETM tunnel mensuelle moyenne (mm)")
+ax.set_title(f"Besoin d'eau {CULTURE_REF} sous tunnel — k_tunnel = {K_TUNNEL}")
+ax.grid(True, alpha=0.3, axis="y")
+ax.legend(fontsize=8, loc="best", frameon=False)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-bilan-tunnel-cumul-saison
+#| fig-cap: "Besoin d'eau cumulé saison maraîchère (avril-octobre) pour Tomate sous tunnel, scénarios de stade fixé toute la saison. Indicatif pour dimensionner réservoirs et plannings."
+
+import numpy as np
+
+# Saison maraîchère typique pour la tomate (avril-octobre).
+mois_saison = list(range(4, 11))
+fig, ax = plt.subplots(figsize=(9, 3.5))
+totaux: list[tuple[str, float]] = []
+for stade in STADES_TOMATE:
+    kc = KC[CULTURE_REF][stade]
+    etm_saison = (kc * K_TUNNEL * norm["etp"].loc[mois_saison]).sum()
+    totaux.append((stade, etm_saison))
+
+stades_lbls = [s.replace("De la ", "").replace("De ", "")[:35] + "…" for s, _ in totaux]
+valeurs = [v for _, v in totaux]
+ax.barh(stades_lbls, valeurs, color="#3498db")
+ax.set_xlabel("Cumul ETM tunnel avril-octobre (mm)")
+ax.set_title(f"{CULTURE_REF} sous tunnel — cumul saison par stade (k_tunnel = {K_TUNNEL})")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+**Lecture pratique.** Un cumul ETM saison de 300 mm sous tunnel
+correspond à 300 L d'eau par m² cultivé sur la période. Pour 100 m²
+de tomate sous tunnel, cela représente 30 m³ d'eau. À compléter du
+volume RFU déjà disponible dans le sol (déterminé par la texture et
+la profondeur d'enracinement, cf. App 2 Op section *Bilan tunnel*).
+:::
+
 # Risque mildiou tomate (Smith periods)
 
 ::: {.callout-note}
@@ -249,6 +325,32 @@ ax.axhline(nb_annuel.mean(), color="#444", linestyle="--", linewidth=0.8,
            label=f"Moyenne {nb_annuel.mean():.1f}")
 ax.legend()
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-mildiou-heatmap
+#| fig-cap: "Pression mildiou Smith par mois × année (1991-2020). Une cellule chaude = mois × année avec beaucoup de périodes de Smith. Identifie les années et les fenêtres saisonnières où la pression climatique mildiou a été la plus forte."
+
+import numpy as np
+smith_int = smith.astype(int)
+smith_int.index = pd.DatetimeIndex(smith_int.index)
+matrice = smith_int.groupby(
+    [smith_int.index.year, smith_int.index.month]
+).sum().unstack(fill_value=0)
+# Réordonne : années en lignes, mois 1-12 en colonnes.
+matrice = matrice.reindex(columns=range(1, 13), fill_value=0)
+
+fig, ax = plt.subplots(figsize=(9, 5.5))
+im = ax.imshow(matrice.values, aspect="auto", cmap="YlOrRd", origin="lower")
+ax.set_xticks(range(12))
+ax.set_xticklabels(mois_labels)
+ax.set_yticks(range(len(matrice.index)))
+ax.set_yticklabels(matrice.index)
+ax.set_ylabel("Année")
+ax.set_title("Périodes de Smith — pression mildiou par mois × année")
+plt.colorbar(im, ax=ax, label="Nb de jours étiquetés Smith / mois")
 plt.tight_layout()
 plt.show()
 ```
@@ -301,6 +403,13 @@ Tout ce qui suit est cliquable / reproductible.
   forecasting by 90 per cent humidity criteria*. **Plant Pathology** 5,
   83-87. Implémentation `meteo_socle.indices.mildiou.smith_periods`,
   tests dans `tests/test_mildiou.py`.
+- **Coefficient ET tunnel (ADR-0008)** : k_tunnel = 0.70 par défaut
+  pour passer de l'ET₀ extérieure FAO à l'ET₀ intérieure tunnel froid
+  (médiane littérature tempérée). Castilla, N., 2013. *Greenhouse
+  Technology and Management*, CABI ; Möller, M. et al., 2009.
+  **Agric. For. Meteorol.** 149, 358-364 ; Stanghellini, C., 1987,
+  thèse Wageningen. Coefficients culturaux ARDEPI plein champ
+  conservés (cf. `coefficients_culturaux_ardepi.json`).
 - **Code** : `apps/climato/{climatologie,donnees}.py`, tests dans
   `tests/test_climato.py`.
 
