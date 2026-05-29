@@ -104,7 +104,12 @@ def main() -> None:
 
     # ----- Courbes par indice -----
     st.subheader("Courbes par indicateur")
-    cols = list(LIBELLES_COLONNES.keys())
+    # On exclut les colonnes catégorielles / booléennes des courbes.
+    cols = [
+        c
+        for c in LIBELLES_COLONNES
+        if c not in ("direction_vent_cardinal", "mildiou_smith_period") and c in quotidien.columns
+    ]
     onglets = st.tabs([libelle(c) for c in cols])
     for tab, col in zip(onglets, cols, strict=False):
         with tab:
@@ -128,6 +133,12 @@ def main() -> None:
   = T° moy du jour − normale T° pour ce jour-de-l'année.
 - **Direction dominante** : moyenne vectorielle horaire pondérée
   par la vitesse.
+- **Smith mildiou (ADR-0007)** : indicateur informationnel pour
+  tomate sous abri. Détecte les fenêtres où T_min ≥ 10 °C ET
+  h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs (jour J étiqueté si
+  J-1 et J qualifient tous les deux). Calculé via le module socle
+  ``meteo_socle.indices.mildiou`` à partir de l'horaire forecast
+  Open-Meteo (maille ~25 km, donc hors abri).
 - **Site** : {site["latitude"]:.4f}°N, {site["longitude"]:.4f}°W,
   altitude {site["altitude"]} m, fuseau {site["tz"]}.
 - **Cache** : 1 h sur la requête. Rafraîchir = recharger la page.

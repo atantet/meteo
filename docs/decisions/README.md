@@ -15,6 +15,7 @@ dans l'archéologie git.
 | [0004](0004-etp-fao-penman-monteith.md) | Modèle ETP : FAO Penman-Monteith horaire | Accepté |
 | [0005](0005-modele-humectation-foliaire.md) | Modèle durée humectation foliaire (Magarey + Gleason croisé) | Accepté |
 | [0006](0006-strategie-rayonnement-global.md) | Stratégie de couverture rayonnement global (cascade 2 niveaux) | Accepté |
+| [0007](0007-modele-mildiou-tomate-sous-abri.md) | Modèle risque mildiou tomate sous abri (Smith periods 1956) | Accepté |
 
 ## Convention
 

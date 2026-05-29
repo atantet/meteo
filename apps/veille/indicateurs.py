@@ -31,13 +31,14 @@ peut être ajoutée en v1 si nécessaire.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
+from meteo_socle.indices.mildiou import agreger_critere_journalier, smith_periods
 
 # Conversions vers unités de présentation utilisateur.
 KELVIN_OFFSET: float = 273.15
@@ -105,6 +106,14 @@ class IndicateursVeille:
     prob_pluie_max_72h_pct: float
 
     tension_irrigation: bool
+
+    # Mildiou Smith periods (cf. ADR-0007). Liste de dates locales sur
+    # les 72 h à venir où une période de Smith est détectée.
+    # Vide = pas de période ; len ≥ 1 = au moins une période sur la
+    # fenêtre. Détail journalier (T_min, h HR ≥ seuil) inclus pour
+    # transparence dans le mail.
+    mildiou_smith_jours_a_risque: list[pd.Timestamp] = field(default_factory=list)
+    mildiou_smith_detail: pd.DataFrame | None = None
 
     # Métadonnées prévision : 1er pas horaire effectivement utilisé après
     # filtrage ``now_utc`` (proxy "T+0" pour le mail).
@@ -189,6 +198,36 @@ def calculer_indicateurs(
     dir_deg = direction_dominante_vecteur(h24)
     dir_card = degrees_to_cardinal(dir_deg) if not np.isnan(dir_deg) else ""
 
+    # Smith periods sur 72 h. Implémentation socle = ADR-0007.
+    mildiou_cfg = config["indicateurs"].get("mildiou_smith", {"actif": False})
+    smith_jours: list[pd.Timestamp] = []
+    smith_detail: pd.DataFrame | None = None
+    if mildiou_cfg.get("actif", False):
+        tz_loc = site.get("tz", "Europe/Paris")
+        # On agrège l'horizon 72 h. Ajoute la veille du premier jour
+        # affiché (h≥now) si dispo dans la prévision, sinon le premier
+        # jour ne pourra pas qualifier (par construction Smith demande
+        # un jour A observable).
+        h72_etendu = prevision.head(72 + 24).sort_index()
+        critere = agreger_critere_journalier(
+            h72_etendu,
+            tz_locale=tz_loc,
+            hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
+        )
+        smith = smith_periods(
+            critere,
+            t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
+            heures_min=int(mildiou_cfg.get("heures_min", 11)),
+        )
+        # Bornes du jour local de "demain" inclus jusqu'à J+3.
+        now_loc = now_utc.tz_convert(tz_loc)
+        debut = (now_loc.normalize() + pd.Timedelta(days=1)).tz_localize(None)
+        fin = (now_loc.normalize() + pd.Timedelta(days=3)).tz_localize(None)
+        fenetre = critere.loc[debut:fin]
+        smith_detail = fenetre.copy()
+        smith_detail["smith_period"] = smith.reindex(fenetre.index, fill_value=False)
+        smith_jours = list(smith_detail.index[smith_detail["smith_period"]])
+
     return IndicateursVeille(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
@@ -205,5 +244,7 @@ def calculer_indicateurs(
         prob_pluie_max_48h_pct=_prob_max(h48),
         prob_pluie_max_72h_pct=_prob_max(h72),
         tension_irrigation=bool(tension),
+        mildiou_smith_jours_a_risque=smith_jours,
+        mildiou_smith_detail=smith_detail,
         prevision_t0_utc=df.index[0],
     )

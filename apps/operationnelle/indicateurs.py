@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
+from meteo_socle.indices.mildiou import agreger_critere_journalier, smith_periods
 
 # Conversions vers unités de présentation utilisateur.
 KELVIN_OFFSET: float = 273.15
@@ -157,6 +158,29 @@ def calculer_indicateurs_quotidiens(
         )
 
     quotidien["bilan_eau_cumul_mm"] = (quotidien["pluie_24h_mm"] - quotidien["etp_mm"]).cumsum()
+
+    # Mildiou Smith periods (cf. ADR-0007). Calculé sur l'horaire brut
+    # avec découpe TZ locale, puis greffé sur le tableau quotidien.
+    mildiou_cfg = config.get("indicateurs", {}).get("mildiou_smith")
+    if mildiou_cfg and mildiou_cfg.get("actif", False):
+        critere = agreger_critere_journalier(
+            df,
+            tz_locale=tz_locale,
+            hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
+        )
+        smith = smith_periods(
+            critere,
+            t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
+            heures_min=int(mildiou_cfg.get("heures_min", 11)),
+        )
+        # Alignement sur l'index quotidien (DatetimeIndex de dates).
+        # critere.index est tz-naive en date locale.
+        quotidien["mildiou_heures_hr_haute"] = (
+            critere["heures_hr_haute"].reindex(quotidien.index, fill_value=0).astype(int)
+        )
+        quotidien["mildiou_smith_period"] = smith.reindex(quotidien.index, fill_value=False).astype(
+            bool
+        )
 
     # Climato T_moy normale OMM 1991-2020 (cf. data/climato/normale_jour_*.csv).
     normale = _charger_normale_t_moy()

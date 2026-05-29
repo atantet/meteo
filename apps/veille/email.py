@@ -96,6 +96,63 @@ def _bloc_carte_synoptique(carte_base64: str) -> str:
     )
 
 
+def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
+    """Bloc HTML mildiou Smith — vide si l'indicateur n'a pas été calculé.
+
+    Affiche le tableau journalier (T_min, h HR≥90 %, smith oui/non) sur
+    la fenêtre J+1 → J+3, et un bandeau de tête vert/orange selon
+    présence d'au moins une période détectée.
+    """
+    if ind.mildiou_smith_detail is None or ind.mildiou_smith_detail.empty:
+        return ""
+
+    detail = ind.mildiou_smith_detail
+    a_risque = len(ind.mildiou_smith_jours_a_risque) > 0
+    couleur = "#e67e22" if a_risque else "#27ae60"
+    titre = (
+        f"Mildiou tomate : période de Smith détectée sur "
+        f"{len(ind.mildiou_smith_jours_a_risque)} jour(s)"
+        if a_risque
+        else "Mildiou tomate : pas de période de Smith détectée sur J+1 → J+3"
+    )
+
+    lignes_html = []
+    for date, ligne in detail.iterrows():
+        smith = "✓" if ligne["smith_period"] else "—"
+        couleur_ligne = "#e67e22" if ligne["smith_period"] else "#555"
+        jour_fr = JOURS_FR[date.weekday()]
+        lignes_html.append(
+            f"<tr>"
+            f'<td style="padding:4px 8px;color:#555;">'
+            f"{jour_fr} {date.day:02d}/{date.month:02d}</td>"
+            f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
+            f"{ligne['t_min_celsius']:.1f} °C</td>"
+            f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
+            f"{int(ligne['heures_hr_haute'])} h</td>"
+            f'<td style="padding:4px 8px;text-align:center;color:{couleur_ligne};font-weight:600;">'
+            f"{smith}</td>"
+            f"</tr>"
+        )
+
+    return (
+        '<h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">'
+        "Mildiou tomate (Smith periods, ADR-0007)</h3>"
+        f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
+        f'color:white;border-radius:4px;font-size:13px;">{titre}</div>'
+        '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+        '<tr style="color:#888;font-size:12px;text-align:right;border-bottom:1px solid #eee;">'
+        '<td style="padding:4px 8px;text-align:left;">Jour local</td>'
+        '<td style="padding:4px 8px;">T_min</td>'
+        '<td style="padding:4px 8px;">h HR ≥ 90 %</td>'
+        '<td style="padding:4px 8px;text-align:center;">Smith</td>'
+        "</tr>" + "".join(lignes_html) + "</table>"
+        '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
+        "Critère : 2 jours consécutifs T_min ≥ 10 °C ET ≥ 11 h HR ≥ 90 %. "
+        "Donnée HR maille ~25 km (hors abri). Indicateur informationnel."
+        "</p>"
+    )
+
+
 def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
     """Formate le sujet selon template config.
 
@@ -251,6 +308,8 @@ def composer_html(
         + "</table>"
     )
 
+    bloc_mildiou = _bloc_mildiou_smith(ind)
+
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
         f'Fiches indices : <a href="{url_fiches}" style="color:#888;">{url_fiches}</a></p>'
@@ -294,6 +353,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {table_ind}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Horizon pluie 48-72 h</h3>
   {table_horizon}
+  {bloc_mildiou}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.

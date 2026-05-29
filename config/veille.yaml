@@ -104,6 +104,16 @@ indicateurs:
       seuil_pluie_compense_mm: 2.0  # Pluie < 2 mm = ne compense pas l'ETP
       seuil_deficit_7j_mm: -15.0    # Cumul P−ETP < −15 mm/7j = sec installé
 
+  # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007).
+  # Critère : 2 jours consécutifs avec T_min ≥ t_min ET nb heures HR ≥
+  # hr_seuil ≥ heures_min. Indicateur informationnel — pas de
+  # prescription (cf. principe #1).
+  mildiou_smith:
+    actif: true
+    t_min_celsius: 10.0
+    hr_seuil: 0.90
+    heures_min: 11
+
 # ----- Format email -----
 email:
   # html_mobile : table compacte responsive ; alt: texte_simple
