@@ -96,9 +96,10 @@ métadonnées.
 
 **v1 (priorité bioagresseurs bio)** :
 
-- Humectation foliaire Magarey DPD/NWP 2005 + CART Gleason 1994 croisé
-  (cf. [ADR-0005](decisions/0005-modele-humectation-foliaire.md)) —
-  substituer le proxy HR ≥ 90 % par LWD Magarey dans Smith.
+- Humectation foliaire Magarey DPD/NWP 2005 (cf.
+  [ADR-0005](decisions/0005-modele-humectation-foliaire.md)) —
+  substituer le proxy LWD CART Gleason 1994 (déjà en place depuis
+  2026-05-29) par Magarey DPD/NWP quand le papier sera accessible.
 - Risque mildiou pomme de terre (modèle à choisir entre Hyre, Mishra, SimMip — ADR à venir)
 - Calibration locale k_tunnel après une saison d'observation
   (compteur eau vs prédiction app).

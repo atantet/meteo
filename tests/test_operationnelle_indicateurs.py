@@ -127,7 +127,7 @@ def test_quotidien_vide_raise() -> None:
 
 
 def test_mildiou_smith_active_ajoute_colonnes() -> None:
-    """Avec config mildiou_smith actif → colonnes h HR haute + Smith période."""
+    """Avec config mildiou_smith actif → colonnes humectation + Smith période."""
     from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
 
     config = {
@@ -136,7 +136,6 @@ def test_mildiou_smith_active_ajoute_colonnes() -> None:
             "mildiou_smith": {
                 "actif": True,
                 "t_min_celsius": 10.0,
-                "hr_seuil": 0.90,
                 "heures_min": 11,
             }
         },

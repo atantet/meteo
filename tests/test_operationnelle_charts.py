@@ -135,10 +135,10 @@ def test_figure_indicateur_seuils_extra_masques_si_hors_range(
     assert not any("Hors range" in lbl for lbl in labels)
 
 
-def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
+def test_figure_indicateur_mildiou_humectation_seuil_et_min_glissant(
     quotidien_synth: pd.DataFrame,
 ) -> None:
-    """Onglet HR ≥ 90 % : seuil 11 h + min glissant 2 j présents."""
+    """Onglet humectation LWD : seuil 11 h + min glissant 2 j présents."""
     cfg = next(c for c in COURBES if c.colonne == "mildiou_heures_humectation")
     fig = figure_indicateur(quotidien_synth, cfg)
     ax = fig.axes[0]
