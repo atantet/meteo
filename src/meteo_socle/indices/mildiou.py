@@ -92,11 +92,12 @@ def agreger_critere_journalier(
     t_min_quot = t_celsius.resample("D").min()
     t_min_quot.index = pd.DatetimeIndex(t_min_quot.index).tz_localize(None)
 
-    quotidien = pd.DataFrame(
-        {
-            "t_min_celsius": t_min_quot,
-            "heures_humectation": lwd_quot["heures_lwd"].reindex(t_min_quot.index, fill_value=0),
-        }
+    # Construction défensive (pas dict-literal — comportement vu instable
+    # sur certains pandas/numpy en pré-release Python 3.14 sur Cloud).
+    quotidien = pd.DataFrame(index=t_min_quot.index)
+    quotidien["t_min_celsius"] = t_min_quot.to_numpy()
+    quotidien["heures_humectation"] = (
+        lwd_quot["heures_lwd"].reindex(t_min_quot.index, fill_value=0).to_numpy()
     )
     quotidien.index.name = "date"
     return quotidien
