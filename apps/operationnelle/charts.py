@@ -254,10 +254,9 @@ def figure_indicateur(
     return fig
 
 
-def bilan_tunnel_carry_over(
+def bilan_culture_carry_over(
     quotidien: pd.DataFrame,
     *,
-    k_tunnel: float,
     texture: str,
     fraction_cailloux: float,
     culture: str,
@@ -265,29 +264,41 @@ def bilan_tunnel_carry_over(
     fraction_ru_remplie_initial: float,
     ru_vers_rfu: float,
     seuil_irrigation_mm: float,
+    k_etp_ratio: float = 1.0,
+    inclure_pluie: bool = True,
 ) -> pd.DataFrame:
-    """Calcule le bilan hydrique sous tunnel jour par jour avec carry-over RU.
+    """Bilan hydrique culture-spécifique jour par jour avec carry-over RU.
 
-    Pluie = 0 (couverture). ETP_tunnel = k_tunnel × ETP_extérieur.
-    Le calcul socle ``calcul_bilan`` est appliqué chaque jour avec mise
-    à jour de ``fraction_ru_remplie`` pour le jour suivant (carry-over),
-    comme prescrit dans son docstring.
+    Modèle FAO 56 itéré avec mise à jour de ``fraction_ru_remplie`` pour
+    le jour suivant. Si l'irrigation est déclenchée (besoin > seuil),
+    la RU est rechargée à capacité au champ avant le jour suivant.
 
-    Si l'irrigation est déclenchée un jour (besoin > seuil), la RU est
-    rechargée jusqu'au plein avant le jour suivant.
+    Deux cas d'usage symétriques :
+
+    - **Plein champ** (défaut) : ``k_etp_ratio=1.0`` et
+      ``inclure_pluie=True``. ET₀ = ET₀ socle, pluie prise du forecast.
+    - **Sous tunnel** : ``k_etp_ratio=k_tunnel`` (≈ 0.7) et
+      ``inclure_pluie=False`` (couverture). Cf. ADR-0008.
+
+    Parameters
+    ----------
+    quotidien :
+        Doit contenir ``etp_mm`` et, si ``inclure_pluie`` actif,
+        ``pluie_24h_mm``.
+    k_etp_ratio :
+        Coefficient appliqué à l'ET₀ pour passer au contexte de la
+        culture (1.0 plein champ, < 1 abri).
+    inclure_pluie :
+        Si True, la pluie 24 h s'ajoute à la RU (à hauteur de
+        capacité champ — l'excédent est perdu en drainage).
 
     Returns
     -------
     pd.DataFrame
-        Indexé comme ``quotidien``, colonnes :
-        - ``etp_tunnel_mm`` : ET₀ sous tunnel (k_tunnel × ET₀ socle)
-        - ``etm_tunnel_mm`` : ETM = Kc × ET₀_tunnel (positif)
-        - ``ru_remplie_avant_mm`` : RU au début du jour
-        - ``ru_remplie_apres_mm`` : RU à la fin du jour (après irrigation)
-        - ``rfu_disponible_mm`` : RFU disponible début de jour
-        - ``besoin_irrigation_mm`` : déficit à combler
-        - ``irrigation_declenchee`` : bool (besoin > seuil)
-        - ``ru_max_mm`` : capacité RU totale (constante)
+        Colonnes : ``etp_culture_mm``, ``etm_mm``, ``pluie_mm``,
+        ``ru_remplie_avant_mm``, ``ru_remplie_apres_mm``,
+        ``rfu_disponible_mm``, ``besoin_irrigation_mm``,
+        ``irrigation_declenchee``, ``ru_max_mm``.
     """
     from meteo_socle.indices.bilan_hydrique import (
         KC,
@@ -302,28 +313,35 @@ def bilan_tunnel_carry_over(
     kc = float(KC[culture][stade])
 
     n = len(quotidien)
-    etp_tunnel = (k_tunnel * quotidien["etp_mm"]).to_numpy()
-    etm_tunnel = kc * etp_tunnel  # positif (consommation par culture)
+    etp_culture = (k_etp_ratio * quotidien["etp_mm"]).to_numpy()
+    etm = kc * etp_culture
+    if inclure_pluie and "pluie_24h_mm" in quotidien.columns:
+        pluie = quotidien["pluie_24h_mm"].to_numpy()
+    else:
+        pluie = [0.0] * n
 
     ru_avant = []
     ru_apres = []
     rfu_dispo = []
     besoin = []
     irrigue = []
+    pluie_log = []
     for i in range(n):
-        # Début de journée.
         ru_avant.append(ru_remplie)
         rfu = calcul_reserve_facilement_utilisable(ru_remplie, ru_vers_rfu)
         rfu_dispo.append(rfu)
         rfu_cible = calcul_reserve_facilement_utilisable(ru_max, ru_vers_rfu)
-        # Évolution de la RU sur la journée : -ETM (pas de pluie sous tunnel).
-        ru_post_jour = max(0.0, ru_remplie - etm_tunnel[i])
-        # Besoin pour ramener à la RFU cible.
+        # Évolution sur la journée : +pluie efficace − ETM. Pluie excédentaire
+        # au-delà de la capacité de champ → drainage (perdue).
+        bilan_net = float(pluie[i]) - etm[i]
+        ru_post_jour = max(0.0, min(ru_max, ru_remplie + bilan_net))
+        pluie_log.append(float(pluie[i]))
+        # Besoin pour ramener la RFU à sa cible.
         rfu_post = calcul_reserve_facilement_utilisable(ru_post_jour, ru_vers_rfu)
         b = max(0.0, rfu_cible - rfu_post)
         besoin.append(b)
         if b > seuil_irrigation_mm:
-            ru_remplie = ru_max  # irrigation = recharge complète à capacité champ
+            ru_remplie = ru_max
             irrigue.append(True)
         else:
             ru_remplie = ru_post_jour
@@ -332,8 +350,9 @@ def bilan_tunnel_carry_over(
 
     return pd.DataFrame(
         {
-            "etp_tunnel_mm": etp_tunnel,
-            "etm_tunnel_mm": etm_tunnel,
+            "etp_culture_mm": etp_culture,
+            "etm_mm": etm,
+            "pluie_mm": pluie_log,
             "ru_remplie_avant_mm": ru_avant,
             "ru_remplie_apres_mm": ru_apres,
             "rfu_disponible_mm": rfu_dispo,
@@ -345,18 +364,61 @@ def bilan_tunnel_carry_over(
     )
 
 
-def figure_bilan_tunnel(
+def bilan_tunnel_carry_over(
+    quotidien: pd.DataFrame,
+    *,
+    k_tunnel: float,
+    texture: str,
+    fraction_cailloux: float,
+    culture: str,
+    stade: str,
+    fraction_ru_remplie_initial: float,
+    ru_vers_rfu: float,
+    seuil_irrigation_mm: float,
+) -> pd.DataFrame:
+    """Wrapper rétro-compatible — bilan sol complet sous tunnel.
+
+    Délègue à ``bilan_culture_carry_over`` avec
+    ``inclure_pluie=False`` et ``k_etp_ratio=k_tunnel``.
+    Conserve les noms de colonnes historiques ``etp_tunnel_mm`` /
+    ``etm_tunnel_mm`` pour les tests existants.
+    """
+    bilan = bilan_culture_carry_over(
+        quotidien,
+        texture=texture,
+        fraction_cailloux=fraction_cailloux,
+        culture=culture,
+        stade=stade,
+        fraction_ru_remplie_initial=fraction_ru_remplie_initial,
+        ru_vers_rfu=ru_vers_rfu,
+        seuil_irrigation_mm=seuil_irrigation_mm,
+        k_etp_ratio=k_tunnel,
+        inclure_pluie=False,
+    )
+    return bilan.rename(columns={"etp_culture_mm": "etp_tunnel_mm", "etm_mm": "etm_tunnel_mm"})
+
+
+def figure_bilan_sol_complet(
     bilan: pd.DataFrame,
     culture: str,
     stade: str,
     seuil_irrigation_mm: float,
+    *,
+    titre_contexte: str = "Bilan sol",
+    afficher_pluie: bool = True,
     figsize: tuple[float, float] = (8.0, 4.0),
 ) -> plt.Figure:
-    """Trace l'évolution de la RU sous tunnel + déclenchements irrigation.
+    """Trace l'évolution de la RU + déclenchements irrigation (sol complet).
+
+    Sert pour les bilans plein air ET tunnel — partagé entre les deux
+    contextes :
+
+    - Plein air : ``afficher_pluie=True``, ``titre_contexte="Bilan plein air"``
+    - Tunnel : ``afficher_pluie=False``, ``titre_contexte="Bilan tunnel"``
 
     Deux axes y synchronisés :
     - gauche (mm) : RU disponible (ligne), capacité RU (bande horiz.),
-      seuil d'irrigation
+      seuil d'irrigation, pluie cumulée si plein air
     - droite (mm) : besoin d'irrigation par jour (barres)
     - markers verts : jours où l'irrigation est déclenchée
     """
@@ -404,6 +466,18 @@ def figure_bilan_tunnel(
         width=0.55,
         label="Besoin irrigation (mm)",
     )
+    # Plein air : ajout pluie en barres bleues côté droit pour
+    # visualiser l'entrée d'eau qui compense l'ETM.
+    if afficher_pluie and "pluie_mm" in bilan.columns:
+        ax2.bar(
+            x,
+            bilan["pluie_mm"],
+            color="#2980b9",
+            alpha=0.5,
+            width=0.4,
+            bottom=0,
+            label="Pluie (mm)",
+        )
     # Markers déclenchements.
     declenche = bilan[bilan["irrigation_declenchee"]]
     if not declenche.empty:
@@ -417,8 +491,13 @@ def figure_bilan_tunnel(
         )
 
     ax1.set_ylabel("RU / RFU (mm)")
-    ax2.set_ylabel("Besoin irrigation (mm/jour)")
-    ax1.set_title(f"Bilan tunnel — {culture} ({stade})", fontsize=11, loc="left", color="#34495e")
+    ax2.set_ylabel("Besoin irrigation · pluie (mm/jour)")
+    ax1.set_title(
+        f"{titre_contexte} — {culture} ({stade})",
+        fontsize=11,
+        loc="left",
+        color="#34495e",
+    )
     ax1.grid(axis="y", alpha=0.25)
 
     # Combine légendes des deux axes.
@@ -431,75 +510,26 @@ def figure_bilan_tunnel(
     return fig
 
 
-def figure_calendrier_semis(
-    cal: list[dict],
-    figsize: tuple[float, float] | None = None,
+def figure_bilan_tunnel(
+    bilan: pd.DataFrame,
+    culture: str,
+    stade: str,
+    seuil_irrigation_mm: float,
+    figsize: tuple[float, float] = (8.0, 4.0),
 ) -> plt.Figure:
-    """Gantt timeline horizontale du calendrier semis.
+    """Wrapper rétro-compatible — bilan tunnel sans pluie.
 
-    Parameters
-    ----------
-    cal :
-        Sortie de ``meteo_socle.indices.pepiniere.calendrier_semis``.
-    figsize :
-        Si None, hauteur adaptative au nombre de cultures.
+    Délègue à ``figure_bilan_sol_complet``.
     """
-    if not cal:
-        # Figure vide propre.
-        fig, ax = plt.subplots(figsize=(8, 1.5))
-        ax.text(
-            0.5,
-            0.5,
-            "Aucune culture sélectionnée",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-            color="#888",
-            fontsize=11,
-            style="italic",
-        )
-        ax.axis("off")
-        return fig
-
-    n = len(cal)
-    if figsize is None:
-        figsize = (9.0, max(2.5, 0.35 * n + 1.0))
-
-    # Tri par date semis pour lecture naturelle.
-    cal_tri = sorted(cal, key=lambda e: e["date_semis"])
-    cultures = [e["culture"] for e in cal_tri]
-    semis = [e["date_semis"] for e in cal_tri]
-    plant = [e["date_plantation"] for e in cal_tri]
-
-    fig, ax = plt.subplots(figsize=figsize)
-    y_pos = list(range(n))
-
-    for i, (s, p) in enumerate(zip(semis, plant, strict=False)):
-        # Barre verte = élevage.
-        ax.barh(i, (p - s).days, left=s, height=0.55, color="#27ae60", alpha=0.55, edgecolor="none")
-        # Marker semis (cercle bleu).
-        ax.scatter(s, i, color="#2980b9", s=80, zorder=5, label="Semis" if i == 0 else None)
-        # Marker plantation (carré rouge).
-        ax.scatter(
-            p,
-            i,
-            color="#c0392b",
-            s=80,
-            marker="s",
-            zorder=5,
-            label="Plantation" if i == 0 else None,
-        )
-
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(cultures)
-    ax.invert_yaxis()  # première culture en haut.
-    ax.set_xlabel("Date")
-    ax.set_title("Calendrier semis pépinière", fontsize=11, loc="left", color="#34495e")
-    ax.grid(axis="x", alpha=0.25)
-    ax.legend(loc="upper left", fontsize=8, frameon=False)
-    fig.autofmt_xdate(rotation=30, ha="right")
-    fig.tight_layout()
-    return fig
+    return figure_bilan_sol_complet(
+        bilan,
+        culture,
+        stade,
+        seuil_irrigation_mm,
+        titre_contexte="Bilan tunnel",
+        afficher_pluie=False,
+        figsize=figsize,
+    )
 
 
 def figure_bilan_culture(

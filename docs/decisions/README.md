@@ -17,7 +17,6 @@ dans l'archéologie git.
 | [0006](0006-strategie-rayonnement-global.md) | Stratégie de couverture rayonnement global (cascade 2 niveaux) | Accepté |
 | [0007](0007-modele-mildiou-tomate-sous-abri.md) | Modèle risque mildiou tomate sous abri (Smith periods 1956) | Accepté |
 | [0008](0008-coefficient-etp-tunnel.md) | Coefficient de réduction ET₀ sous tunnel froid (k_tunnel) | Accepté |
-| [0009](0009-pepiniere-v0.md) | Périmètre du module pépinière v0 (calendrier semis uniquement) | Accepté |
 
 ## Convention
 

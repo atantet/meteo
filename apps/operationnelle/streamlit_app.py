@@ -33,10 +33,10 @@ import streamlit as st  # noqa: E402
 from apps.operationnelle.charts import (  # noqa: E402
     COURBES,
     Seuil,
+    bilan_culture_carry_over,
     bilan_tunnel_carry_over,
-    figure_bilan_culture,
+    figure_bilan_sol_complet,
     figure_bilan_tunnel,
-    figure_calendrier_semis,
     figure_indicateur,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
@@ -49,7 +49,6 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     styler_ligne,
 )
 from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
-from meteo_socle.indices import pepiniere as _pepi  # noqa: E402
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
@@ -152,12 +151,12 @@ def main() -> None:
             )
             st.pyplot(fig, use_container_width=True)
 
-    # ----- Bilan hydrique culture (nouveau) -----
-    st.subheader("Bilan hydrique par culture")
+    # ----- Bilan hydrique sol complet (plein air + tunnel) -----
+    st.subheader("Bilan hydrique — modèle sol complet")
     st.caption(
-        "ET_c = Kc × ET₀ (FAO 56). Pluie cumulée comparée à l'ET_c cumulée "
-        "sur la fenêtre de prévision. Coefficients Kc issus du référentiel "
-        "ARDEPI (Provence) — à recaler localement pour la Bretagne."
+        "Itération FAO 56 jour par jour avec carry-over RU : si le déficit "
+        "RFU dépasse le seuil, irrigation virtuelle à capacité au champ ; "
+        "sinon la RU continue son évolution. Cf. ADR-0008 pour le tunnel."
     )
 
     coefficients = _charger_coefficients_kc()
@@ -174,48 +173,11 @@ def main() -> None:
 
     kc = float(coefficients[culture][stade])
     st.caption(
-        f"Kc = **{kc:.2f}** · "
-        f"hypothèse : pas de stress hydrique, ET_c = Kc · ET₀. "
-        f"Modèle simplifié sans report de réserve utile du sol "
-        f"(voir `meteo_socle.indices.bilan_hydrique` pour la version complète)."
+        f"Kc culture = **{kc:.2f}** · Référentiel ARDEPI plein champ. "
+        f"Sous tunnel, on garde le même Kc et on agit sur l'ET₀ via k_tunnel."
     )
 
-    if "etp_mm" in quotidien.columns and "pluie_24h_mm" in quotidien.columns:
-        fig_bh = figure_bilan_culture(quotidien, culture, stade, kc)
-        st.pyplot(fig_bh, use_container_width=True)
-
-    # ----- Bilan hydrique sous tunnel -----
-    st.subheader("Bilan hydrique sous tunnel (modèle sol complet)")
-    st.caption(
-        "Pluie = 0 (couverture). ETP réduite par un coefficient tunnel : "
-        "ET₀_tunnel = k × ET₀_extérieur. Modèle FAO 56 avec carry-over RU "
-        "jour par jour : si le besoin dépasse le seuil, irrigation virtuelle "
-        "à capacité au champ, sinon on continue avec la RU résiduelle."
-    )
-
-    with st.expander("Paramètres tunnel et sol", expanded=False):
-        # Presets rapides — l'utilisateur peut ensuite ajuster fin.
-        preset_k = st.radio(
-            "Configuration tunnel (preset)",
-            options=("Ouvert (portes jour + nuit)", "Froid standard (défaut)", "Fermé peu ventilé"),
-            index=1,
-            horizontal=True,
-            help="Cf. ADR-0008. Sélectionne k_tunnel approximatif ; "
-            "ajustable par le slider en dessous.",
-        )
-        k_preset = {
-            "Ouvert (portes jour + nuit)": 0.90,
-            "Froid standard (défaut)": 0.70,
-            "Fermé peu ventilé": 0.55,
-        }[preset_k]
-        k_tunnel = st.slider(
-            "k_tunnel — coef. ETP tunnel/extérieur",
-            min_value=0.40,
-            max_value=1.00,
-            value=k_preset,
-            step=0.05,
-            help="0.70 défaut (médiane littérature tunnel froid ventilé). Castilla 2013 § 4.",
-        )
+    with st.expander("Paramètres sol (partagés plein air + tunnel)", expanded=False):
         textures = sorted(RU_PAR_CM_DE_TF.keys())
         # Défaut limono-argileuse — typique sols armoricains.
         default_texture = (
@@ -269,102 +231,92 @@ def main() -> None:
             "déclenchée (recharge à capacité au champ).",
         )
 
-    # Vérifier qu'on a la culture côté bilan_hydrique aussi (mapping
-    # ARDEPI peut différer légèrement de KC).
-    if culture in PROFONDEUR_ENRACINEMENT_TYPIQUE:
-        try:
-            bilan = bilan_tunnel_carry_over(
-                quotidien,
-                k_tunnel=k_tunnel,
-                texture=texture,
-                fraction_cailloux=fraction_cailloux,
-                culture=culture,
-                stade=stade,
-                fraction_ru_remplie_initial=fraction_ru_remplie_initial,
-                ru_vers_rfu=ru_vers_rfu,
-                seuil_irrigation_mm=seuil_irrigation_mm,
-            )
-            fig_bt = figure_bilan_tunnel(bilan, culture, stade, seuil_irrigation_mm)
-            st.pyplot(fig_bt, use_container_width=True)
-
-            # Synthèse 7 j.
-            etm_total = float(bilan["etm_tunnel_mm"].sum())
-            nb_irrig = int(bilan["irrigation_declenchee"].sum())
-            besoin_total = float(bilan["besoin_irrigation_mm"].sum())
-            st.markdown(
-                f"**Synthèse 7 j sous tunnel** : "
-                f"ETM cumulée {etm_total:.1f} mm · "
-                f"besoin total irrigation {besoin_total:.1f} mm · "
-                f"{nb_irrig} déclenchement(s) prévu(s)."
-            )
-        except KeyError as e:
-            st.warning(
-                f"Donnée manquante pour le bilan tunnel ({e}). "
-                "Vérifier que la culture est référencée côté "
-                "PROFONDEUR_ENRACINEMENT_TYPIQUE."
-            )
-    else:
+    if culture not in PROFONDEUR_ENRACINEMENT_TYPIQUE:
         st.info(
             f"La culture « {culture} » n'a pas de profondeur d'enracinement "
             "référencée pour le bilan sol complet. Sélectionner une culture "
             "présente dans `PROFONDEUR_ENRACINEMENT_TYPIQUE`."
         )
-
-    # ----- Pépinière : calendrier semis interactif -----
-    st.subheader("Pépinière — calendrier semis")
-    st.caption(
-        "Choisir une date de plantation cible (typiquement après le risque "
-        "de gel) ; le calendrier remonte la durée d'élevage médiane par "
-        "culture (CTIFL/GRAB/ITAB). Cf. [ADR-0009] pour le périmètre v0."
-    )
-
-    import datetime as _dt
-
-    col_pep1, col_pep2 = st.columns(2)
-    with col_pep1:
-        date_plantation_cible = st.date_input(
-            "Date de plantation cible",
-            value=_dt.date(_dt.date.today().year, 5, 15),
-            help="Par défaut 15 mai (équivalent ~90ᵉ percentile dernier gel "
-            "Pleine-Fougères). Voir le rapport Climato pour la distribution exacte.",
-        )
-    with col_pep2:
-        marge = st.slider(
-            "Marge d'élevage (jours)",
-            min_value=0,
-            max_value=21,
-            value=7,
-            help="Sécurité ajoutée à la durée d'élevage médiane pour "
-            "absorber les retards (germination lente, météo défavorable).",
-        )
-
-    pep_cultures = _pepi.cultures_disponibles()
-    cultures_choisies = st.multiselect(
-        "Cultures à semer (vide = toutes les cultures sensibles au gel)",
-        options=pep_cultures,
-        default=[],
-    )
-    cultures_arg = cultures_choisies if cultures_choisies else None
-    cal = _pepi.calendrier_semis(
-        date_plantation_cible, cultures=cultures_arg, marge_securite_j=marge
-    )
-    cal_df = pd.DataFrame(cal)
-    if not cal_df.empty:
-        # Figure Gantt timeline.
-        fig_cal = figure_calendrier_semis(cal)
-        st.pyplot(fig_cal, use_container_width=True)
-        # Tableau détaillé en complément.
-        with st.expander("Tableau détaillé", expanded=False):
-            cal_df["Semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%a %d %b"))
-            cal_df["Plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%a %d %b"))
-            cal_df["Durée (j)"] = cal_df["duree_elevage_j"]
-            affichage = cal_df[["culture", "Semis", "Plantation", "Durée (j)"]].rename(
-                columns={"culture": "Culture"}
-            )
-            affichage = affichage.sort_values("Semis").reset_index(drop=True)
-            st.dataframe(affichage, use_container_width=True, hide_index=True)
     else:
-        st.info("Aucune culture sélectionnée.")
+        params_sol = dict(
+            texture=texture,
+            fraction_cailloux=fraction_cailloux,
+            culture=culture,
+            stade=stade,
+            fraction_ru_remplie_initial=fraction_ru_remplie_initial,
+            ru_vers_rfu=ru_vers_rfu,
+            seuil_irrigation_mm=seuil_irrigation_mm,
+        )
+        tab_pa, tab_tu = st.tabs(["Plein champ", "Sous tunnel"])
+
+        with tab_pa:
+            try:
+                bilan_pa = bilan_culture_carry_over(
+                    quotidien, k_etp_ratio=1.0, inclure_pluie=True, **params_sol
+                )
+                fig_pa = figure_bilan_sol_complet(
+                    bilan_pa,
+                    culture,
+                    stade,
+                    seuil_irrigation_mm,
+                    titre_contexte="Bilan plein champ",
+                    afficher_pluie=True,
+                )
+                st.pyplot(fig_pa, use_container_width=True)
+                pluie_tot = float(bilan_pa["pluie_mm"].sum())
+                etm_tot = float(bilan_pa["etm_mm"].sum())
+                nb_irrig = int(bilan_pa["irrigation_declenchee"].sum())
+                besoin_tot = float(bilan_pa["besoin_irrigation_mm"].sum())
+                st.markdown(
+                    f"**Synthèse 7 j plein champ** : "
+                    f"pluie cumulée {pluie_tot:.1f} mm · "
+                    f"ETM {etm_tot:.1f} mm · "
+                    f"besoin irrigation total {besoin_tot:.1f} mm · "
+                    f"{nb_irrig} déclenchement(s) prévu(s)."
+                )
+            except KeyError as e:
+                st.warning(f"Donnée manquante pour le bilan plein champ ({e}).")
+
+        with tab_tu:
+            st.caption("ADR-0008 — coefficient k_tunnel applique l'effet abri sur ET₀.")
+            preset_k = st.radio(
+                "Configuration tunnel (preset)",
+                options=(
+                    "Ouvert (portes jour + nuit)",
+                    "Froid standard (défaut)",
+                    "Fermé peu ventilé",
+                ),
+                index=1,
+                horizontal=True,
+                help="Sélectionne k_tunnel approximatif ; ajustable par le slider.",
+            )
+            k_preset = {
+                "Ouvert (portes jour + nuit)": 0.90,
+                "Froid standard (défaut)": 0.70,
+                "Fermé peu ventilé": 0.55,
+            }[preset_k]
+            k_tunnel = st.slider(
+                "k_tunnel — coef. ETP tunnel/extérieur",
+                min_value=0.40,
+                max_value=1.00,
+                value=k_preset,
+                step=0.05,
+            )
+            try:
+                bilan_tu = bilan_tunnel_carry_over(quotidien, k_tunnel=k_tunnel, **params_sol)
+                fig_tu = figure_bilan_tunnel(bilan_tu, culture, stade, seuil_irrigation_mm)
+                st.pyplot(fig_tu, use_container_width=True)
+                etm_tot = float(bilan_tu["etm_tunnel_mm"].sum())
+                nb_irrig = int(bilan_tu["irrigation_declenchee"].sum())
+                besoin_tot = float(bilan_tu["besoin_irrigation_mm"].sum())
+                st.markdown(
+                    f"**Synthèse 7 j sous tunnel (k_tunnel = {k_tunnel:.2f})** : "
+                    f"ETM cumulée {etm_tot:.1f} mm · "
+                    f"besoin irrigation total {besoin_tot:.1f} mm · "
+                    f"{nb_irrig} déclenchement(s) prévu(s)."
+                )
+            except KeyError as e:
+                st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
     # ----- Tableau détaillé (replié par défaut) -----
     with st.expander("Tableau détaillé jour par jour", expanded=False):

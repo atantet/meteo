@@ -93,9 +93,6 @@ métadonnées.
 - Bilan hydrique sous tunnel (k_tunnel = 0.70 défaut, cf.
   [ADR-0008](decisions/0008-coefficient-etp-tunnel.md)), modèle sol
   complet avec carry-over RU jour par jour — App 2 Op.
-- Calendrier semis pépinière (cf. [ADR-0009](decisions/0009-pepiniere-v0.md)),
-  date semis = date plantation cible − durée d'élevage CTIFL/GRAB.
-  Section dans App 2 Op (interactif) + App 3 Climato (90ᵉ pctl gel).
 
 **v1 (priorité bioagresseurs bio)** :
 
@@ -105,8 +102,6 @@ métadonnées.
 - Risque mildiou pomme de terre (modèle à choisir entre Hyre, Mishra, SimMip — ADR à venir)
 - Calibration locale k_tunnel après une saison d'observation
   (compteur eau vs prédiction app).
-- Pépinière : extensions hors-périmètre ADR-0009 — bilan substrat /
-  stress hydrique godet, Pythium, alertes T° pépinière dédiées.
 
 **v2 (extensions)** : alternaria, oïdium, botrytis, sommes thermiques par culture, etc.
 

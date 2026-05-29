@@ -147,6 +147,78 @@ def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
     assert any("Min glissant" in lbl for lbl in labels)
 
 
+def test_bilan_culture_plein_air_pluie_evite_irrigation() -> None:
+    """Plein air : pluie suffisante évite l'irrigation alors que tunnel l'aurait déclenchée."""
+    from apps.operationnelle.charts import (
+        bilan_culture_carry_over,
+        bilan_tunnel_carry_over,
+    )
+
+    idx = pd.date_range("2026-07-01", periods=5, freq="D")
+    # ETP 5 mm + pluie 5 mm → bilan net nul jour à jour.
+    df = pd.DataFrame({"etp_mm": [5.0] * 5, "pluie_24h_mm": [5.0] * 5}, index=idx)
+    kwargs = dict(
+        texture="Terres limono-argileuses",
+        fraction_cailloux=0.05,
+        culture="Tomate",
+        stade="De la plantation à la reprise",  # Kc 0.5
+        fraction_ru_remplie_initial=0.7,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=5.0,
+    )
+    plein_air = bilan_culture_carry_over(df, k_etp_ratio=1.0, inclure_pluie=True, **kwargs)
+    tunnel = bilan_tunnel_carry_over(df, k_tunnel=1.0, **kwargs)
+    # Plein air bénéficie de la pluie ; tunnel pas. → moins de déclenchements.
+    assert int(plein_air["irrigation_declenchee"].sum()) <= int(
+        tunnel["irrigation_declenchee"].sum()
+    )
+    # Colonne pluie correctement renseignée.
+    assert (plein_air["pluie_mm"] == 5.0).all()
+
+
+def test_bilan_culture_plein_air_secheresse_declenche_irrigation() -> None:
+    """Plein air sans pluie + ETM forte → irrigation déclenchée."""
+    from apps.operationnelle.charts import bilan_culture_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=5, freq="D")
+    df = pd.DataFrame({"etp_mm": [8.0] * 5, "pluie_24h_mm": [0.0] * 5}, index=idx)
+    bilan = bilan_culture_carry_over(
+        df,
+        texture="Terres sablo-argileuses",  # RU plus faible
+        fraction_cailloux=0.0,
+        culture="Tomate",
+        stade="De la floraison du 3ème bouquet à la mi-récolte",  # Kc 1.0
+        fraction_ru_remplie_initial=0.6,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=5.0,
+        k_etp_ratio=1.0,
+        inclure_pluie=True,
+    )
+    assert bilan["irrigation_declenchee"].any()
+
+
+def test_bilan_culture_pluie_excedentaire_ne_depasse_pas_ru_max() -> None:
+    """Pluie >> ETM → RU plafonnée à ru_max (drainage)."""
+    from apps.operationnelle.charts import bilan_culture_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=3, freq="D")
+    # Pluie 100 mm/j (déluge) — devrait être tronquée à ru_max.
+    df = pd.DataFrame({"etp_mm": [3.0] * 3, "pluie_24h_mm": [100.0] * 3}, index=idx)
+    bilan = bilan_culture_carry_over(
+        df,
+        texture="Terres limono-argileuses",
+        fraction_cailloux=0.05,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=0.5,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=10.0,
+        k_etp_ratio=1.0,
+        inclure_pluie=True,
+    )
+    assert (bilan["ru_remplie_apres_mm"] <= bilan["ru_max_mm"]).all()
+
+
 def test_bilan_tunnel_carry_over_decroit_ru_si_pas_irrigation() -> None:
     """Sans déclenchement, la RU décroît jour après jour (etp positive)."""
     from apps.operationnelle.charts import bilan_tunnel_carry_over
@@ -216,36 +288,6 @@ def test_figure_bilan_tunnel_smoke() -> None:
     _, labels = ax.get_legend_handles_labels()
     assert any("RU disponible" in lbl for lbl in labels)
     assert any("Seuil irrigation" in lbl for lbl in labels)
-
-
-def test_figure_calendrier_semis_smoke() -> None:
-    """La figure Gantt timeline doit se rendre sans erreur sur un calendrier réaliste."""
-    from datetime import date
-
-    from apps.operationnelle.charts import figure_calendrier_semis
-    from meteo_socle.indices.pepiniere import calendrier_semis
-
-    cal = calendrier_semis(date(2026, 5, 15))
-    fig = figure_calendrier_semis(cal)
-    ax = fig.axes[0]
-    # Légende a au moins Semis + Plantation.
-    _, labels = ax.get_legend_handles_labels()
-    assert "Semis" in labels
-    assert "Plantation" in labels
-    # Y-axis a une étiquette par culture.
-    assert len(ax.get_yticklabels()) == len(cal)
-
-
-def test_figure_calendrier_semis_vide() -> None:
-    """Liste vide produit une figure 'Aucune culture' sans crash."""
-    from apps.operationnelle.charts import figure_calendrier_semis
-
-    fig = figure_calendrier_semis([])
-    assert fig is not None
-    ax = fig.axes[0]
-    # Pas de légende dans le mode vide.
-    handles, _ = ax.get_legend_handles_labels()
-    assert handles == []
 
 
 def test_bilan_tunnel_ru_initiale_zero_declenche_irrigation_immediate() -> None:
