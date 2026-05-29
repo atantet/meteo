@@ -236,6 +236,37 @@ du premier gel automnal.
 :::
 
 ```{python}
+#| label: tbl-calendrier-semis
+#| tbl-cap: "Calendrier de semis pépinière recommandé pour les cultures sensibles au gel. Date cible de plantation = 90ᵉ percentile du dernier gel printanier (sécurité gel de 90 %) ; date de semis déduite de la durée d'élevage médiane (CTIFL/GRAB) + 7 jours de marge. Voir [ADR-0009](https://github.com/atantet/meteo/blob/main/docs/decisions/0009-pepiniere-v0.md)."
+
+from datetime import date as _date
+from meteo_socle.indices.pepiniere import calendrier_semis
+
+# 90ᵉ pctl jour-de-l'année dernier gel — fenêtre sécurisée plantation.
+percentile90_jda = int(round(dernier_jda.quantile(0.90)))
+date_plantation_cible = _date(2026, 1, 1) + pd.Timedelta(days=percentile90_jda - 1).to_pytimedelta()
+
+cal = calendrier_semis(date_plantation_cible)
+cal_df = pd.DataFrame(cal)
+# Formatage français lisible.
+cal_df["Date semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%d %b"))
+cal_df["Date plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%d %b"))
+cal_df["Durée élevage (j)"] = cal_df["duree_elevage_j"]
+cal_df = cal_df[["culture", "Date semis", "Date plantation", "Durée élevage (j)"]]
+cal_df.columns = ["Culture", "Date semis", "Date plantation", "Durée élevage (j)"]
+cal_df = cal_df.sort_values("Date semis").reset_index(drop=True)
+cal_df
+```
+
+::: {.callout-tip}
+**Lecture pratique.** Ce tableau prend la **date de plantation
+sécurisée à 90 %** (90 % des années, plus aucun gel après cette
+date) et remonte la durée d'élevage de chaque culture. Pour planter
+plus tôt à ses risques, retenir la médiane ; pour planter
+ultra-sécurisé, prendre une marge supplémentaire de 1-2 semaines.
+:::
+
+```{python}
 #| label: fig-jours-caracteristiques
 #| fig-cap: "Nombre annuel de jours caractéristiques (gel < 0 °C, canicule > 30 °C, pluvieux > 10 mm/24 h)."
 
@@ -465,6 +496,11 @@ Tout ce qui suit est cliquable / reproductible.
   forecasting by 90 per cent humidity criteria*. **Plant Pathology** 5,
   83-87. Implémentation `meteo_socle.indices.mildiou.smith_periods`,
   tests dans `tests/test_mildiou.py`.
+- **Calendrier semis pépinière (ADR-0009)** : durées d'élevage par
+  culture (médianes CTIFL/GRAB/ITAB) appliquées à la date cible de
+  plantation = 90ᵉ percentile dernier gel printanier. Catalogue dans
+  `src/meteo_socle/indices/pepiniere_cycles.json`, fonctions dans
+  `meteo_socle.indices.pepiniere`. Tests : `tests/test_pepiniere.py`.
 - **Coefficient ET tunnel (ADR-0008)** : k_tunnel = 0.70 par défaut
   pour passer de l'ET₀ extérieure FAO à l'ET₀ intérieure tunnel froid
   (médiane littérature tempérée). Castilla, N., 2013. *Greenhouse
