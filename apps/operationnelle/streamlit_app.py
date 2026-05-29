@@ -48,6 +48,10 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     styler_ligne,
 )
 from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
+from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
+    PROFONDEUR_ENRACINEMENT_TYPIQUE,
+    RU_PAR_CM_DE_TF,
+)
 from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
 
 KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
@@ -185,11 +189,6 @@ def main() -> None:
         "ET₀_tunnel = k × ET₀_extérieur. Modèle FAO 56 avec carry-over RU "
         "jour par jour : si le besoin dépasse le seuil, irrigation virtuelle "
         "à capacité au champ, sinon on continue avec la RU résiduelle."
-    )
-
-    from meteo_socle.indices.bilan_hydrique import (  # noqa: E402  # noqa: PLC0415
-        PROFONDEUR_ENRACINEMENT_TYPIQUE,
-        RU_PAR_CM_DE_TF,
     )
 
     with st.expander("Paramètres tunnel et sol", expanded=False):
