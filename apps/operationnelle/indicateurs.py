@@ -83,6 +83,17 @@ def _charger_normale_t_moy() -> pd.Series | None:
         return None
 
 
+def _charger_normales_journalieres() -> pd.DataFrame | None:
+    """Charge t_min / t_max / t_moy normales par day-of-year."""
+    if not NORMALE_JOUR_PATH.exists():
+        return None
+    try:
+        df = pd.read_csv(NORMALE_JOUR_PATH)
+        return df.set_index("day_of_year")[["t_min_celsius", "t_max_celsius", "t_moy_celsius"]]
+    except (OSError, KeyError):
+        return None
+
+
 def calculer_indicateurs_quotidiens(
     prevision: pd.DataFrame,
     config: dict[str, Any],
@@ -182,11 +193,13 @@ def calculer_indicateurs_quotidiens(
             bool
         )
 
-    # Climato T_moy normale OMM 1991-2020 (cf. data/climato/normale_jour_*.csv).
-    normale = _charger_normale_t_moy()
-    if normale is not None:
+    # Climato T° normales OMM 1991-2020 (cf. data/climato/normale_jour_*.csv).
+    normales = _charger_normales_journalieres()
+    if normales is not None:
         doy = pd.to_datetime(quotidien.index).dayofyear
-        quotidien["t_moy_normale_celsius"] = normale.reindex(doy).values
+        quotidien["t_min_normale_celsius"] = normales["t_min_celsius"].reindex(doy).values
+        quotidien["t_max_normale_celsius"] = normales["t_max_celsius"].reindex(doy).values
+        quotidien["t_moy_normale_celsius"] = normales["t_moy_celsius"].reindex(doy).values
         quotidien["ecart_normale_celsius"] = (
             quotidien["t_moy_celsius"] - quotidien["t_moy_normale_celsius"]
         )

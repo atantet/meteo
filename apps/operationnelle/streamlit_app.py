@@ -7,6 +7,7 @@ USAGE
 
 Local :
     streamlit run apps/operationnelle/streamlit_app.py
+    # ou : python -m apps.operationnelle
 
 Streamlit Community Cloud :
     Main file path = ``apps/operationnelle/streamlit_app.py``
@@ -14,6 +15,7 @@ Streamlit Community Cloud :
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -28,19 +30,24 @@ for p in (_REPO_ROOT, _SRC):
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from apps.operationnelle.charts import (  # noqa: E402
+    COURBES,
+    figure_bilan_culture,
+    figure_indicateur,
+)
 from apps.operationnelle.config import load_config  # noqa: E402
 from apps.operationnelle.indicateurs import (  # noqa: E402
     calculer_indicateurs_quotidiens,
     jours_complets_seulement,
 )
 from apps.operationnelle.ui_helpers import (  # noqa: E402
-    LIBELLES_COLONNES,
-    libelle,
     preparer_table_affichage,
     styler_ligne,
 )
 from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
 from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
+
+KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
 
 
 @st.cache_data(ttl=3600)
@@ -50,6 +57,13 @@ def _fetch_prevision(
     """Fetch Open-Meteo, cache 1 h pour limiter les requêtes."""
     src = OpenMeteoForecast(modele=modele)
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
+
+
+@st.cache_data
+def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
+    """Charge les coefficients culturaux ARDEPI."""
+    with open(KC_JSON_PATH) as f:
+        return json.load(f)
 
 
 def main() -> None:
@@ -92,28 +106,62 @@ def main() -> None:
             f"**{t0.strftime('%H:%M')} UTC** ({t0_loc.strftime('%H:%M')} heure locale)"
         )
 
-    # ----- Vue Semaine -----
-    st.subheader("Vue Semaine")
+    # ----- Courbes 7 j (vue principale) -----
+    st.subheader("Prévision 7 jours — courbes par indicateur")
     st.caption(
-        "Coloration : T° rouge si gel/canicule franchi · "
-        "rafales orange si vent fort · pluie bleu si intense."
+        "Pour les T° : courbe pointillée gris = normale OMM 1991-2020. "
+        "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous. "
+        "Cliquer sur une figure pour l'agrandir."
     )
-    table = preparer_table_affichage(quotidien, tz=site["tz"])
-    styler = table.style.apply(lambda row: styler_ligne(row, config["alertes"]), axis=1)
-    st.dataframe(styler, use_container_width=True)
 
-    # ----- Courbes par indice -----
-    st.subheader("Courbes par indicateur")
-    # On exclut les colonnes catégorielles / booléennes des courbes.
-    cols = [
-        c
-        for c in LIBELLES_COLONNES
-        if c not in ("direction_vent_cardinal", "mildiou_smith_period") and c in quotidien.columns
-    ]
-    onglets = st.tabs([libelle(c) for c in cols])
-    for tab, col in zip(onglets, cols, strict=False):
-        with tab:
-            st.line_chart(quotidien[col])
+    for cfg in COURBES:
+        if cfg.colonne not in quotidien.columns:
+            continue
+        fig = figure_indicateur(quotidien, cfg)
+        st.pyplot(fig, use_container_width=True)
+
+    # ----- Bilan hydrique culture (nouveau) -----
+    st.subheader("Bilan hydrique par culture")
+    st.caption(
+        "ET_c = Kc × ET₀ (FAO 56). Pluie cumulée comparée à l'ET_c cumulée "
+        "sur la fenêtre de prévision. Coefficients Kc issus du référentiel "
+        "ARDEPI (Provence) — à recaler localement pour la Bretagne."
+    )
+
+    coefficients = _charger_coefficients_kc()
+    cultures = sorted(coefficients.keys())
+    # Tomate en défaut pour rester aligné avec l'orientation App (mildiou).
+    default_culture = "Tomate" if "Tomate" in cultures else cultures[0]
+
+    col_c, col_s = st.columns(2)
+    with col_c:
+        culture = st.selectbox("Culture", cultures, index=cultures.index(default_culture))
+    with col_s:
+        stades = list(coefficients[culture].keys())
+        stade = st.selectbox("Stade phénologique", stades, index=0)
+
+    kc = float(coefficients[culture][stade])
+    st.caption(
+        f"Kc = **{kc:.2f}** · "
+        f"hypothèse : pas de stress hydrique, ET_c = Kc · ET₀. "
+        f"Modèle simplifié sans report de réserve utile du sol "
+        f"(voir `meteo_socle.indices.bilan_hydrique` pour la version complète)."
+    )
+
+    if "etp_mm" in quotidien.columns and "pluie_24h_mm" in quotidien.columns:
+        fig_bh = figure_bilan_culture(quotidien, culture, stade, kc)
+        st.pyplot(fig_bh, use_container_width=True)
+
+    # ----- Tableau détaillé (replié par défaut) -----
+    with st.expander("Tableau détaillé jour par jour", expanded=False):
+        st.caption(
+            "Coloration : T° rouge si gel/canicule franchi · "
+            "rafales orange si vent fort · pluie bleu si intense · "
+            "Smith mildiou orange info."
+        )
+        table = preparer_table_affichage(quotidien, tz=site["tz"])
+        styler = table.style.apply(lambda row: styler_ligne(row, config["alertes"]), axis=1)
+        st.dataframe(styler, use_container_width=True)
 
     # ----- Transparence sources (principe #5) -----
     if ui_cfg.get("inclure_sources_brutes", True):
@@ -127,18 +175,23 @@ def main() -> None:
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec
   les autres apps.
-- **Normale T° (1991-2020 OMM)** : extraite de
+- **Normales T° (1991-2020 OMM)** : extraites de
   ``data/climato/normale_jour_lapetiteclaye.csv`` (ERA5 30 ans —
-  voir `scripts/compute_normale_jour.py`). Colonne "Écart normale"
-  = T° moy du jour − normale T° pour ce jour-de-l'année.
+  voir `scripts/compute_normale_jour.py`). Disponibles pour T° min,
+  T° max et T° moyenne — overlay automatique sur les courbes.
 - **Direction dominante** : moyenne vectorielle horaire pondérée
   par la vitesse.
 - **Smith mildiou (ADR-0007)** : indicateur informationnel pour
   tomate sous abri. Détecte les fenêtres où T_min ≥ 10 °C ET
-  h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs (jour J étiqueté si
-  J-1 et J qualifient tous les deux). Calculé via le module socle
-  ``meteo_socle.indices.mildiou`` à partir de l'horaire forecast
-  Open-Meteo (maille ~25 km, donc hors abri).
+  h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs. Calculé via le
+  module socle ``meteo_socle.indices.mildiou`` à partir de
+  l'horaire forecast Open-Meteo (maille ~25 km, donc hors abri).
+- **Kc culture** : référentiel ARDEPI Provence (cf.
+  ``src/meteo_socle/indices/coefficients_culturaux_ardepi.json``).
+  Bilan affiché = cumul pluie vs cumul ET_c sans réserve utile du
+  sol — c'est une approximation. Pour le bilan complet
+  (sol + réserve + déclenchement irrigation), voir
+  ``meteo_socle.indices.bilan_hydrique.calcul_bilan``.
 - **Site** : {site["latitude"]:.4f}°N, {site["longitude"]:.4f}°W,
   altitude {site["altitude"]} m, fuseau {site["tz"]}.
 - **Cache** : 1 h sur la requête. Rafraîchir = recharger la page.
