@@ -12,7 +12,7 @@ Séparé de ``streamlit_app.py`` pour rester testable sans runtime UI.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -28,6 +28,20 @@ SMITH_FENETRE_J = 2
 
 
 @dataclass
+class Seuil:
+    """Seuil informatif tracé en horizontal pointillé sur une courbe.
+
+    **Affiché seulement si la courbe traverse ce seuil dans la fenêtre
+    visible** (sinon bruit visuel : un seuil hors range ne porte pas
+    d'info).
+    """
+
+    valeur: float
+    label: str
+    couleur: str = "#c0392b"
+
+
+@dataclass
 class CourbeConfig:
     """Configuration de rendu d'un indicateur."""
 
@@ -38,12 +52,10 @@ class CourbeConfig:
     colonne_normale: str | None = None
     couleur_above: str = COULEUR_ABOVE_CHAUD
     couleur_below: str = COULEUR_BELOW_FROID
-    # Seuil informatif tracé en horizontal pointillé. **Affiché seulement
-    # si la courbe traverse ce seuil dans la fenêtre visible** (sinon
-    # bruit visuel : un seuil hors range ne porte pas d'info).
-    seuil: float | None = None
-    seuil_label: str | None = None
-    seuil_couleur: str = "#c0392b"
+    # Liste de seuils statiques (définis ici, indépendants de la config
+    # alertes runtime). Pour des seuils dynamiques (gel, canicule), les
+    # passer via ``figure_indicateur(seuils_extra=...)``.
+    seuils: list[Seuil] = field(default_factory=list)
 
 
 def _decorer_mildiou_hr(ax, x, y) -> None:
@@ -101,10 +113,10 @@ COURBES: list[CourbeConfig] = [
         titre="Température minimale",
         unite="°C",
         couleur="#2980b9",
-        # Filtre biologique Smith (ADR-0007) : sous 10 °C, pas de cycle
-        # mildiou possible — affiché si la courbe traverse cette barre.
-        seuil=10.0,
-        seuil_label="Seuil biologique Smith (10 °C)",
+        # Seuil statique = filtre biologique Smith (ADR-0007). Le seuil
+        # gel (config alertes) est injecté dynamiquement par
+        # streamlit_app via seuils_extra.
+        seuils=[Seuil(10.0, "Seuil biologique Smith (10 °C)", "#c0392b")],
     ),
     CourbeConfig(
         colonne="t_max_celsius",
@@ -157,6 +169,7 @@ def figure_indicateur(
     quotidien: pd.DataFrame,
     cfg: CourbeConfig,
     figsize: tuple[float, float] = (8.0, 3.2),
+    seuils_extra: list[Seuil] | None = None,
 ) -> plt.Figure:
     """Construit une figure matplotlib pour un indicateur donné.
 
@@ -219,15 +232,12 @@ def figure_indicateur(
 
     ax.plot(x, y, color=cfg.couleur, linewidth=2.2, marker="o", label="Prévision")
 
-    # Seuil informatif uniquement si la courbe le traverse réellement.
-    if cfg.seuil is not None and y.min() < cfg.seuil < y.max():
-        ax.axhline(
-            cfg.seuil,
-            color=cfg.seuil_couleur,
-            linestyle=":",
-            linewidth=1.4,
-            label=cfg.seuil_label or f"Seuil {cfg.seuil:g}",
-        )
+    # Seuils informatifs (statiques cfg.seuils + dynamiques seuils_extra).
+    # Affichés uniquement si la courbe les traverse dans la fenêtre.
+    seuils_tous: list[Seuil] = list(cfg.seuils) + list(seuils_extra or [])
+    for s in seuils_tous:
+        if y.min() < s.valeur < y.max():
+            ax.axhline(s.valeur, color=s.couleur, linestyle=":", linewidth=1.4, label=s.label)
 
     ax.set_ylabel(cfg.unite)
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")

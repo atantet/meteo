@@ -104,6 +104,37 @@ def test_figure_indicateur_seuil_masque_si_courbe_ne_traverse_pas() -> None:
     assert not any("Seuil biologique" in lbl for lbl in labels)
 
 
+def test_figure_indicateur_seuils_extra_appliques(
+    quotidien_synth: pd.DataFrame,
+) -> None:
+    """Un seuil_extra traversé doit apparaître dans la légende."""
+    from apps.operationnelle.charts import Seuil
+
+    cfg = next(c for c in COURBES if c.colonne == "t_max_celsius")
+    # T_max va de 17 à 22 °C dans le synth → seuil 20 traversé.
+    fig = figure_indicateur(
+        quotidien_synth, cfg, seuils_extra=[Seuil(20.0, "Test canicule", "#c0392b")]
+    )
+    ax = fig.axes[0]
+    _, labels = ax.get_legend_handles_labels()
+    assert any("Test canicule" in lbl for lbl in labels)
+
+
+def test_figure_indicateur_seuils_extra_masques_si_hors_range(
+    quotidien_synth: pd.DataFrame,
+) -> None:
+    from apps.operationnelle.charts import Seuil
+
+    cfg = next(c for c in COURBES if c.colonne == "t_max_celsius")
+    # Seuil 50 °C jamais traversé.
+    fig = figure_indicateur(
+        quotidien_synth, cfg, seuils_extra=[Seuil(50.0, "Hors range", "#c0392b")]
+    )
+    ax = fig.axes[0]
+    _, labels = ax.get_legend_handles_labels()
+    assert not any("Hors range" in lbl for lbl in labels)
+
+
 def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
     quotidien_synth: pd.DataFrame,
 ) -> None:

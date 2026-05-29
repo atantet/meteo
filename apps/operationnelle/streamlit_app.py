@@ -32,6 +32,7 @@ import streamlit as st  # noqa: E402
 
 from apps.operationnelle.charts import (  # noqa: E402
     COURBES,
+    Seuil,
     figure_bilan_culture,
     figure_indicateur,
 )
@@ -113,11 +114,34 @@ def main() -> None:
         "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous."
     )
 
+    # Seuils dynamiques tirés de la config alertes : gel sur T_min,
+    # canicule sur T_max. Affichés seulement si la courbe les traverse.
+    alertes_cfg = config["alertes"]
+    seuils_par_colonne: dict[str, list[Seuil]] = {}
+    if alertes_cfg.get("gel", {}).get("actif"):
+        seuils_par_colonne["t_min_celsius"] = [
+            Seuil(
+                float(alertes_cfg["gel"]["seuil_celsius"]),
+                f"Seuil gel ({alertes_cfg['gel']['seuil_celsius']:g} °C)",
+                "#2980b9",
+            )
+        ]
+    if alertes_cfg.get("canicule", {}).get("actif"):
+        seuils_par_colonne["t_max_celsius"] = [
+            Seuil(
+                float(alertes_cfg["canicule"]["seuil_celsius"]),
+                f"Seuil canicule ({alertes_cfg['canicule']['seuil_celsius']:g} °C)",
+                "#c0392b",
+            )
+        ]
+
     courbes_dispo = [c for c in COURBES if c.colonne in quotidien.columns]
     onglets = st.tabs([c.titre for c in courbes_dispo])
     for tab, cfg in zip(onglets, courbes_dispo, strict=False):
         with tab:
-            fig = figure_indicateur(quotidien, cfg)
+            fig = figure_indicateur(
+                quotidien, cfg, seuils_extra=seuils_par_colonne.get(cfg.colonne)
+            )
             st.pyplot(fig, use_container_width=True)
 
     # ----- Bilan hydrique culture (nouveau) -----
