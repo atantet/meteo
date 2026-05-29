@@ -60,7 +60,7 @@ class EmailComposed:
 SOURCE_DEFAUT = (
     "Open-Meteo best_match (AROME France HD 0-2 j · ICON-EU/ARPEGE 2-4 j · ECMWF IFS 4-7 j)"
 )
-METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle, cf. ADR-0004)"
+METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
 CRON_EXPLAIN = "30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
 
@@ -136,7 +136,7 @@ def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
 
     return (
         '<h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">'
-        "Mildiou tomate (Smith periods, ADR-0007)</h3>"
+        "Mildiou tomate (Smith periods)</h3>"
         f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
         f'color:white;border-radius:4px;font-size:13px;">{titre}</div>'
         '<table style="width:100%;border-collapse:collapse;font-size:14px;">'

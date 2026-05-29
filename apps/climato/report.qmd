@@ -51,7 +51,7 @@ investissements en abris et irrigation.
 ::: {.callout-warning}
 **v0 — source placeholder**
 
-L'ADR-0002 du projet prévoit l'utilisation des données SAFRAN de
+La feuille de route v1 du projet prévoit l'utilisation des données SAFRAN de
 Météo-France (ré-analyse 8 km, depuis 1958) comme source historique
 de référence pour cette climato locale. Dans la v0 actuelle, faute
 d'accès SAFRAN intégré, c'est **ERA5** (ré-analyse ECMWF ~25 km,
@@ -262,7 +262,7 @@ plt.show()
 # Besoin en eau saisonnier — culture sous tunnel
 
 ::: {.callout-note}
-**Référence : ADR-0008.** L'ET₀ sous tunnel est estimée par
+**Méthode.** L'ET₀ sous tunnel est estimée par
 ET₀_tunnel = k_tunnel × ET₀_extérieur avec k_tunnel = 0.70 par
 défaut (médiane littérature tempérée). Le Kc culture reste celui
 ARDEPI plein champ. Cette section caractérise la **pression hydrique
@@ -338,7 +338,7 @@ la profondeur d'enracinement, cf. App 2 Op section *Bilan tunnel*).
 # Risque mildiou tomate (Smith periods)
 
 ::: {.callout-note}
-**Référence : ADR-0007.** Le modèle Smith periods (1956) détecte une
+**Méthode.** Le modèle Smith periods (1956) détecte une
 période à risque mildiou lorsque *deux jours consécutifs* satisfont
 T_min ≥ 10 °C ET ≥ 11 heures avec HR ≥ 90 %. L'indicateur est calculé
 sur le micro-climat ERA5 maille ~25 km — **donc hors abri** — et reste
@@ -437,7 +437,7 @@ plt.show()
 # Humectation foliaire (LWD) — CART Gleason 1994
 
 ::: {.callout-note}
-**Référence : ADR-0005.** Le proxy historique « HR ≥ 90 % » utilisé
+**Note méthodologique.** Le proxy historique « HR ≥ 90 % » utilisé
 par Smith mildiou (cf. section précédente) tend à **surestimer** la
 durée d'humectation foliaire en climat océanique humide nocturne.
 Le modèle CART Gleason 1994 utilise quatre prédicteurs (DPD, vent,
@@ -505,19 +505,19 @@ Tout ce qui suit est cliquable / reproductible.
     des données de la réanalyse SAFRAN*. Rapport HAL hal-02593413.
 - **Convention d'unités** : alignée socle (T en K, HR en fraction,
   rayonnement en J m⁻² h⁻¹, vent en m s⁻¹, pluie et ETP en mm).
-- **Risque mildiou (ADR-0007)** : Smith, L.P., 1956. *Potato blight
+- **Risque mildiou** : Smith, L.P., 1956. *Potato blight
   forecasting by 90 per cent humidity criteria*. **Plant Pathology** 5,
   83-87. Implémentation `meteo_socle.indices.mildiou.smith_periods`,
   tests dans `tests/test_mildiou.py`.
-- **Humectation foliaire CART (ADR-0005)** : Gleason, M.L. et al., 1994.
+- **Humectation foliaire CART** : Gleason, M.L. et al., 1994.
   *Development and validation of an empirical model to estimate the
   duration of dew periods*. **Plant Disease** 78, 1011-1016. Seuils
   CART : DPD ≤ 3.7 °C → wet ; 3.7 < DPD ≤ 7.2 ET vent < 2.5 m/s ET
   HR ≥ 87.8 % → wet ; sinon dry. Point de rosée par Magnus-Tetens
   (Alduchov & Eskridge 1996). Implémentation
   `meteo_socle.indices.lwd_gleason`, tests dans `tests/test_lwd_gleason.py`.
-  Magarey DPD/NWP en attente du papier (cf. ADR-0005).
-- **Coefficient ET tunnel (ADR-0008)** : k_tunnel = 0.70 par défaut
+  Magarey DPD/NWP en attente du papier d'origine.
+- **Coefficient ET tunnel** : k_tunnel = 0.70 par défaut
   pour passer de l'ET₀ extérieure FAO à l'ET₀ intérieure tunnel froid
   (médiane littérature tempérée). Castilla, N., 2013. *Greenhouse
   Technology and Management*, CABI ; Möller, M. et al., 2009.

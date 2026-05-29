@@ -156,7 +156,7 @@ def main() -> None:
     st.caption(
         "Itération FAO 56 jour par jour avec carry-over RU : si le déficit "
         "RFU dépasse le seuil, irrigation virtuelle à capacité au champ ; "
-        "sinon la RU continue son évolution. Cf. ADR-0008 pour le tunnel."
+        "sinon la RU continue son évolution."
     )
 
     coefficients = _charger_coefficients_kc()
@@ -278,7 +278,10 @@ def main() -> None:
                 st.warning(f"Donnée manquante pour le bilan plein champ ({e}).")
 
         with tab_tu:
-            st.caption("ADR-0008 — coefficient k_tunnel applique l'effet abri sur ET₀.")
+            st.caption(
+                "Coefficient k_tunnel : facteur de réduction de l'ET₀ pour "
+                "passer du climat extérieur au micro-climat tunnel."
+            )
             preset_k = st.radio(
                 "Configuration tunnel (preset)",
                 options=(
@@ -347,8 +350,8 @@ def main() -> None:
   T° max et T° moyenne — overlay automatique sur les courbes.
 - **Direction dominante** : moyenne vectorielle horaire pondérée
   par la vitesse.
-- **Smith mildiou (ADR-0007)** : indicateur informationnel pour
-  tomate sous abri. Détecte les fenêtres où T_min ≥ 10 °C ET
+- **Smith mildiou** : indicateur informationnel pour tomate sous
+  abri (Smith 1956). Détecte les fenêtres où T_min ≥ 10 °C ET
   h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs. Calculé via le
   module socle ``meteo_socle.indices.mildiou`` à partir de
   l'horaire forecast Open-Meteo (maille ~25 km, donc hors abri).
