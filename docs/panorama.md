@@ -11,9 +11,9 @@ Exploitation reprise : **La Petite Claye des Champs** (Pleine-Fougères, 35),
 porteur DJA, EARL unipersonnelle nouvelle. Acte authentique visé 02/2027,
 première saison opérationnelle 2027.
 
-Périmètre des apps : **maraîchage bio diversifié** (vente directe, principal) +
-**pépinière de plants maraîchers** (interne ferme). Blé pour pain *hors
-périmètre*.
+Périmètre des apps : **maraîchage bio diversifié** (vente directe, principal).
+Blé pour pain *hors périmètre*. Pépinière interne *hors périmètre v0* —
+module abandonné délibérément 2026-05-29.
 
 ## Architecture d'ensemble
 
@@ -41,8 +41,8 @@ périmètre*.
    │ App 1 Veille    │ │ App 2 Opér.     │ │ App 3 Climato   │
    │ 0–72 h          │ │ 3–15 j (≤ 7 j)  │ │ saison → DRIAS  │
    │ GH Actions cron │ │ Streamlit Cloud │ │ Quarto + Pages  │
-   │ email matinal   │ │ + module        │ │ rapports HTML   │
-   │                 │ │ pépinière       │ │ + PDF           │
+   │ email matinal   │ │ dashboard       │ │ rapports HTML   │
+   │                 │ │                 │ │ + PDF           │
    └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
@@ -193,7 +193,7 @@ GitHub Actions, heure à confirmer (par défaut 6 h Paris).
 
 ---
 
-## 3. App 2 — Opérationnelle 3-15 j (Streamlit Cloud) + Module Pépinière
+## 3. App 2 — Opérationnelle 3-15 j (Streamlit Cloud)
 
 ### Décisions éclairées
 
@@ -201,23 +201,17 @@ GitHub Actions, heure à confirmer (par défaut 6 h Paris).
 2. Anticiper traitement bio préventif (24-48 h avant pic de pression)
 3. Décider l'irrigation sous abri vs plein champ sur 7-10 j
 4. Anticiper protections (voile, paillage, fermetures)
-5. **Module Pépinière** : décisions micro-climat serre, planning de levée
-   par espèce, durcissement avant repiquage
 
 ### Données d'entrée
 
 Prévision 3-15 j (Open-Meteo ensemble v0, mix MF ARPEGE + AROME v1) +
-observations terrain saisies à la main + capteurs micro-climat serre (v1+).
+observations terrain saisies à la main.
 
 ### Vues
 
 - **Vue Semaine** : tableau jour × indicateur, codes couleur
 - **Vue Indice** : courbe 15 j avec seuils et zones de risque (chaque point
   est cliquable → métadonnées)
-- **Module Pépinière** (sous-vue dédiée) :
-    - T° / HR serre vs extérieur (capteurs si présents, sinon modèle)
-    - Planning levée par espèce, statut germination
-    - Statut durcissement (hardening) avant repiquage
 - **Saisie observations bio** : date + parcelle + observation libre + photo
   optionnelle (couplage rétro avec météo des 14 j passés pour modèle local)
 - **Expand « vérifier la source »** systématique sur chaque indicateur
@@ -233,19 +227,14 @@ observations terrain saisies à la main + capteurs micro-climat serre (v1+).
 
 ### Phasage
 
-| Version | Vue Semaine | Module Pépinière | Saisie obs | Multi-parcelles |
-|---|---|---|---|---|
-| v0 | 4 indices, lecture seule | — | — | 1 point ferme |
-| v1 | + indices bioagresseurs + bilan culture-spécifique | ✓ | ✓ | — |
-| v2 | + comparaison interannuelle | + capteurs locaux | mobile dédié si retour terrain | ✓ |
+| Version | Vue Semaine | Saisie obs | Multi-parcelles |
+|---|---|---|---|
+| v0 | 4 indices, lecture seule | — | 1 point ferme |
+| v1 | + indices bioagresseurs + bilan culture-spécifique | ✓ | — |
+| v2 | + comparaison interannuelle | mobile dédié si retour terrain | ✓ |
 
 ### Hypothèses propres / questions ouvertes
 
-- Module Pépinière en v1 (plus complexe ; nécessite capteurs serre
-  idéalement)
-- **Type de structure pépinière** (serre froide ? chauffée ? tunnel ? table
-  chauffante ?) — **information manquante**, à demander
-- Période d'activité pépinière (Feb-Jun typiquement ?) — à confirmer
 - Saisie observations : Streamlit responsive suffit en v1, dédié mobile en
   v2 si retour terrain le justifie
 - Granularité spatiale : 1 point ferme en v0, multi-parcelles en v1
@@ -348,7 +337,6 @@ permissions.
 
 **Phase 5+ — Extensions**
 
-- Module Pépinière (App 2)
 - Indices bioagresseurs (socle + apps)
 - Capteurs locaux à la ferme
 - Bilan saison annuel + projections DRIAS (App 3)
@@ -360,8 +348,6 @@ permissions.
 Ce qui n'est *pas encore* tranché et nécessitera des décisions ultérieures
 (souvent en ADR successeur) :
 
-- **Pépinière** : type de structure, période d'activité, intégration capteurs
-  serre. Bloque la finalisation du Module Pépinière App 2.
 - **Décisions matinales de la veille** : 5 hypothèses à valider terrain.
 - **Heure d'envoi email** : 6 h Paris par défaut, à valider.
 - **Seuils par défaut alertes** : gel, canicule, pluie, vent — à valider par

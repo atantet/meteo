@@ -12,9 +12,8 @@ Outils d'aide à la décision météo-climatique pour l'exploitation maraîchèr
 
 ## Périmètre
 
-Les apps ciblent le **maraîchage bio diversifié** (vente directe) et la
-**pépinière de plants** internes à la ferme. Le blé pour transformation en
-pain est hors périmètre.
+Les apps ciblent le **maraîchage bio diversifié** (vente directe). Le blé
+pour transformation en pain et la pépinière interne sont hors périmètre v0.
 
 ## Architecture
 
