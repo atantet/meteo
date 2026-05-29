@@ -38,6 +38,12 @@ class CourbeConfig:
     colonne_normale: str | None = None
     couleur_above: str = COULEUR_ABOVE_CHAUD
     couleur_below: str = COULEUR_BELOW_FROID
+    # Seuil informatif tracé en horizontal pointillé. **Affiché seulement
+    # si la courbe traverse ce seuil dans la fenêtre visible** (sinon
+    # bruit visuel : un seuil hors range ne porte pas d'info).
+    seuil: float | None = None
+    seuil_label: str | None = None
+    seuil_couleur: str = "#c0392b"
 
 
 def _decorer_mildiou_hr(ax, x, y) -> None:
@@ -95,6 +101,10 @@ COURBES: list[CourbeConfig] = [
         titre="Température minimale",
         unite="°C",
         couleur="#2980b9",
+        # Filtre biologique Smith (ADR-0007) : sous 10 °C, pas de cycle
+        # mildiou possible — affiché si la courbe traverse cette barre.
+        seuil=10.0,
+        seuil_label="Seuil biologique Smith (10 °C)",
     ),
     CourbeConfig(
         colonne="t_max_celsius",
@@ -208,6 +218,17 @@ def figure_indicateur(
         )
 
     ax.plot(x, y, color=cfg.couleur, linewidth=2.2, marker="o", label="Prévision")
+
+    # Seuil informatif uniquement si la courbe le traverse réellement.
+    if cfg.seuil is not None and y.min() < cfg.seuil < y.max():
+        ax.axhline(
+            cfg.seuil,
+            color=cfg.seuil_couleur,
+            linestyle=":",
+            linewidth=1.4,
+            label=cfg.seuil_label or f"Seuil {cfg.seuil:g}",
+        )
+
     ax.set_ylabel(cfg.unite)
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
     ax.grid(axis="y", alpha=0.25)
