@@ -20,3 +20,5 @@ pvlib
 # Backend Parquet pour pandas. Utilisé par le rapport climato et,
 # défensivement, si l'app op lit un cache à terme.
 pyarrow
+# Figures App 2 Op (courbes avec overlay normale + bilan culture).
+matplotlib
