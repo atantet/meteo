@@ -48,6 +48,7 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     styler_ligne,
 )
 from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
+from meteo_socle.indices import pepiniere as _pepi  # noqa: E402
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
@@ -307,6 +308,57 @@ def main() -> None:
             "référencée pour le bilan sol complet. Sélectionner une culture "
             "présente dans `PROFONDEUR_ENRACINEMENT_TYPIQUE`."
         )
+
+    # ----- Pépinière : calendrier semis interactif -----
+    st.subheader("Pépinière — calendrier semis")
+    st.caption(
+        "Choisir une date de plantation cible (typiquement après le risque "
+        "de gel) ; le calendrier remonte la durée d'élevage médiane par "
+        "culture (CTIFL/GRAB/ITAB). Cf. [ADR-0009] pour le périmètre v0."
+    )
+
+    import datetime as _dt
+
+    col_pep1, col_pep2 = st.columns(2)
+    with col_pep1:
+        date_plantation_cible = st.date_input(
+            "Date de plantation cible",
+            value=_dt.date(_dt.date.today().year, 5, 15),
+            help="Par défaut 15 mai (équivalent ~90ᵉ percentile dernier gel "
+            "Pleine-Fougères). Voir le rapport Climato pour la distribution exacte.",
+        )
+    with col_pep2:
+        marge = st.slider(
+            "Marge d'élevage (jours)",
+            min_value=0,
+            max_value=21,
+            value=7,
+            help="Sécurité ajoutée à la durée d'élevage médiane pour "
+            "absorber les retards (germination lente, météo défavorable).",
+        )
+
+    pep_cultures = _pepi.cultures_disponibles()
+    cultures_choisies = st.multiselect(
+        "Cultures à semer (vide = toutes les cultures sensibles au gel)",
+        options=pep_cultures,
+        default=[],
+    )
+    cultures_arg = cultures_choisies if cultures_choisies else None
+    cal = _pepi.calendrier_semis(
+        date_plantation_cible, cultures=cultures_arg, marge_securite_j=marge
+    )
+    cal_df = pd.DataFrame(cal)
+    if not cal_df.empty:
+        cal_df["Semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%a %d %b"))
+        cal_df["Plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%a %d %b"))
+        cal_df["Durée (j)"] = cal_df["duree_elevage_j"]
+        affichage = cal_df[["culture", "Semis", "Plantation", "Durée (j)"]].rename(
+            columns={"culture": "Culture"}
+        )
+        affichage = affichage.sort_values("Semis").reset_index(drop=True)
+        st.dataframe(affichage, use_container_width=True, hide_index=True)
+    else:
+        st.info("Aucune culture sélectionnée.")
 
     # ----- Tableau détaillé (replié par défaut) -----
     with st.expander("Tableau détaillé jour par jour", expanded=False):
