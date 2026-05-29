@@ -7,6 +7,12 @@ Pour chaque indicateur, une figure :
   entre les deux (vert = excédent ou plus chaud, rouge = déficit ou
   plus froid selon la sémantique de l'indicateur).
 
+Bilan hydrique :
+- Plein champ : ``figure_bilan_culture`` — simple cumul pluie vs ETc.
+- Sous tunnel : ``figure_bilan_tunnel`` — modèle sol complet via
+  ``meteo_socle.indices.bilan_hydrique.calcul_bilan`` itéré jour par
+  jour avec carry-over RU. Pluie = 0 (couverture), ETP × k_tunnel.
+
 Séparé de ``streamlit_app.py`` pour rester testable sans runtime UI.
 """
 
@@ -243,6 +249,183 @@ def figure_indicateur(
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
     ax.grid(axis="y", alpha=0.25)
     ax.legend(loc="best", fontsize=8, frameon=False)
+    fig.autofmt_xdate(rotation=30, ha="right")
+    fig.tight_layout()
+    return fig
+
+
+def bilan_tunnel_carry_over(
+    quotidien: pd.DataFrame,
+    *,
+    k_tunnel: float,
+    texture: str,
+    fraction_cailloux: float,
+    culture: str,
+    stade: str,
+    fraction_ru_remplie_initial: float,
+    ru_vers_rfu: float,
+    seuil_irrigation_mm: float,
+) -> pd.DataFrame:
+    """Calcule le bilan hydrique sous tunnel jour par jour avec carry-over RU.
+
+    Pluie = 0 (couverture). ETP_tunnel = k_tunnel × ETP_extérieur.
+    Le calcul socle ``calcul_bilan`` est appliqué chaque jour avec mise
+    à jour de ``fraction_ru_remplie`` pour le jour suivant (carry-over),
+    comme prescrit dans son docstring.
+
+    Si l'irrigation est déclenchée un jour (besoin > seuil), la RU est
+    rechargée jusqu'au plein avant le jour suivant.
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexé comme ``quotidien``, colonnes :
+        - ``etp_tunnel_mm`` : ET₀ sous tunnel (k_tunnel × ET₀ socle)
+        - ``etm_tunnel_mm`` : ETM = Kc × ET₀_tunnel (positif)
+        - ``ru_remplie_avant_mm`` : RU au début du jour
+        - ``ru_remplie_apres_mm`` : RU à la fin du jour (après irrigation)
+        - ``rfu_disponible_mm`` : RFU disponible début de jour
+        - ``besoin_irrigation_mm`` : déficit à combler
+        - ``irrigation_declenchee`` : bool (besoin > seuil)
+        - ``ru_max_mm`` : capacité RU totale (constante)
+    """
+    from meteo_socle.indices.bilan_hydrique import (
+        KC,
+        calcul_reserve_facilement_utilisable,
+        calcul_reserve_utile,
+    )
+
+    _, _, ru_max, ru_remplie = calcul_reserve_utile(
+        texture, fraction_cailloux, culture, fraction_ru_remplie_initial
+    )
+
+    kc = float(KC[culture][stade])
+
+    n = len(quotidien)
+    etp_tunnel = (k_tunnel * quotidien["etp_mm"]).to_numpy()
+    etm_tunnel = kc * etp_tunnel  # positif (consommation par culture)
+
+    ru_avant = []
+    ru_apres = []
+    rfu_dispo = []
+    besoin = []
+    irrigue = []
+    for i in range(n):
+        # Début de journée.
+        ru_avant.append(ru_remplie)
+        rfu = calcul_reserve_facilement_utilisable(ru_remplie, ru_vers_rfu)
+        rfu_dispo.append(rfu)
+        rfu_cible = calcul_reserve_facilement_utilisable(ru_max, ru_vers_rfu)
+        # Évolution de la RU sur la journée : -ETM (pas de pluie sous tunnel).
+        ru_post_jour = max(0.0, ru_remplie - etm_tunnel[i])
+        # Besoin pour ramener à la RFU cible.
+        rfu_post = calcul_reserve_facilement_utilisable(ru_post_jour, ru_vers_rfu)
+        b = max(0.0, rfu_cible - rfu_post)
+        besoin.append(b)
+        if b > seuil_irrigation_mm:
+            ru_remplie = ru_max  # irrigation = recharge complète à capacité champ
+            irrigue.append(True)
+        else:
+            ru_remplie = ru_post_jour
+            irrigue.append(False)
+        ru_apres.append(ru_remplie)
+
+    return pd.DataFrame(
+        {
+            "etp_tunnel_mm": etp_tunnel,
+            "etm_tunnel_mm": etm_tunnel,
+            "ru_remplie_avant_mm": ru_avant,
+            "ru_remplie_apres_mm": ru_apres,
+            "rfu_disponible_mm": rfu_dispo,
+            "besoin_irrigation_mm": besoin,
+            "irrigation_declenchee": irrigue,
+            "ru_max_mm": [ru_max] * n,
+        },
+        index=quotidien.index,
+    )
+
+
+def figure_bilan_tunnel(
+    bilan: pd.DataFrame,
+    culture: str,
+    stade: str,
+    seuil_irrigation_mm: float,
+    figsize: tuple[float, float] = (8.0, 4.0),
+) -> plt.Figure:
+    """Trace l'évolution de la RU sous tunnel + déclenchements irrigation.
+
+    Deux axes y synchronisés :
+    - gauche (mm) : RU disponible (ligne), capacité RU (bande horiz.),
+      seuil d'irrigation
+    - droite (mm) : besoin d'irrigation par jour (barres)
+    - markers verts : jours où l'irrigation est déclenchée
+    """
+    fig, ax1 = plt.subplots(figsize=figsize)
+    ax2 = ax1.twinx()
+
+    x = bilan.index
+    ax1.fill_between(
+        x,
+        0,
+        bilan["ru_max_mm"],
+        color="#bdc3c7",
+        alpha=0.12,
+        label="Capacité RU totale",
+    )
+    ax1.plot(
+        x,
+        bilan["ru_remplie_avant_mm"],
+        color="#2980b9",
+        linewidth=2.0,
+        marker="o",
+        label="RU disponible (début jour)",
+    )
+    ax1.plot(
+        x,
+        bilan["rfu_disponible_mm"],
+        color="#16a085",
+        linewidth=1.2,
+        linestyle="--",
+        label="RFU disponible",
+    )
+    ax1.axhline(
+        seuil_irrigation_mm,
+        color="#c0392b",
+        linestyle=":",
+        linewidth=1.2,
+        label=f"Seuil irrigation ({seuil_irrigation_mm:.0f} mm)",
+    )
+    # Besoin journalier sur axe droit (barres).
+    ax2.bar(
+        x,
+        bilan["besoin_irrigation_mm"],
+        color="#e67e22",
+        alpha=0.5,
+        width=0.55,
+        label="Besoin irrigation (mm)",
+    )
+    # Markers déclenchements.
+    declenche = bilan[bilan["irrigation_declenchee"]]
+    if not declenche.empty:
+        ax2.scatter(
+            declenche.index,
+            declenche["besoin_irrigation_mm"],
+            color="#27ae60",
+            s=60,
+            zorder=5,
+            label="Irrigation déclenchée",
+        )
+
+    ax1.set_ylabel("RU / RFU (mm)")
+    ax2.set_ylabel("Besoin irrigation (mm/jour)")
+    ax1.set_title(f"Bilan tunnel — {culture} ({stade})", fontsize=11, loc="left", color="#34495e")
+    ax1.grid(axis="y", alpha=0.25)
+
+    # Combine légendes des deux axes.
+    h1, l1 = ax1.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax1.legend(h1 + h2, l1 + l2, loc="best", fontsize=8, frameon=False)
+
     fig.autofmt_xdate(rotation=30, ha="right")
     fig.tight_layout()
     return fig

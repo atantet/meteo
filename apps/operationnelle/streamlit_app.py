@@ -33,7 +33,9 @@ import streamlit as st  # noqa: E402
 from apps.operationnelle.charts import (  # noqa: E402
     COURBES,
     Seuil,
+    bilan_tunnel_carry_over,
     figure_bilan_culture,
+    figure_bilan_tunnel,
     figure_indicateur,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
@@ -175,6 +177,123 @@ def main() -> None:
     if "etp_mm" in quotidien.columns and "pluie_24h_mm" in quotidien.columns:
         fig_bh = figure_bilan_culture(quotidien, culture, stade, kc)
         st.pyplot(fig_bh, use_container_width=True)
+
+    # ----- Bilan hydrique sous tunnel -----
+    st.subheader("Bilan hydrique sous tunnel (modèle sol complet)")
+    st.caption(
+        "Pluie = 0 (couverture). ETP réduite par un coefficient tunnel : "
+        "ET₀_tunnel = k × ET₀_extérieur. Modèle FAO 56 avec carry-over RU "
+        "jour par jour : si le besoin dépasse le seuil, irrigation virtuelle "
+        "à capacité au champ, sinon on continue avec la RU résiduelle."
+    )
+
+    from meteo_socle.indices.bilan_hydrique import (  # noqa: E402  # noqa: PLC0415
+        PROFONDEUR_ENRACINEMENT_TYPIQUE,
+        RU_PAR_CM_DE_TF,
+    )
+
+    with st.expander("Paramètres tunnel et sol", expanded=False):
+        k_tunnel = st.slider(
+            "k_tunnel — coef. ETP tunnel/extérieur",
+            min_value=0.40,
+            max_value=1.00,
+            value=0.70,
+            step=0.05,
+            help="0.70 défaut (médiane littérature tunnel froid ventilé). Castilla 2013 § 4.",
+        )
+        textures = sorted(RU_PAR_CM_DE_TF.keys())
+        # Défaut limono-argileuse — typique sols armoricains.
+        default_texture = (
+            "Terres limono-argileuses" if "Terres limono-argileuses" in textures else textures[0]
+        )
+        texture = st.selectbox(
+            "Texture sol",
+            textures,
+            index=textures.index(default_texture),
+            help="Détermine la rétention par cm de terre fine.",
+        )
+        fraction_cailloux = (
+            st.slider(
+                "Fraction de cailloux (%)",
+                min_value=0,
+                max_value=50,
+                value=5,
+                help="Réduit la profondeur effective de terre fine.",
+            )
+            / 100.0
+        )
+        fraction_ru_remplie_initial = (
+            st.slider(
+                "RU initiale (% de la capacité au champ)",
+                min_value=0,
+                max_value=100,
+                value=70,
+                help="État de remplissage du sol au jour J. 100 % = sol "
+                "complètement humide après pluie ou irrigation récente.",
+            )
+            / 100.0
+        )
+        ru_vers_rfu = (
+            st.slider(
+                "Fraction RFU/RU (%)",
+                min_value=40,
+                max_value=80,
+                value=60,
+                help="Fraction de la RU mobilisable sans stress. "
+                "Typiquement 50-70 % selon la culture.",
+            )
+            / 100.0
+        )
+        seuil_irrigation_mm = st.slider(
+            "Seuil de déclenchement irrigation (mm)",
+            min_value=2.0,
+            max_value=30.0,
+            value=10.0,
+            step=1.0,
+            help="Si le déficit en RFU dépasse ce seuil, irrigation "
+            "déclenchée (recharge à capacité au champ).",
+        )
+
+    # Vérifier qu'on a la culture côté bilan_hydrique aussi (mapping
+    # ARDEPI peut différer légèrement de KC).
+    if culture in PROFONDEUR_ENRACINEMENT_TYPIQUE:
+        try:
+            bilan = bilan_tunnel_carry_over(
+                quotidien,
+                k_tunnel=k_tunnel,
+                texture=texture,
+                fraction_cailloux=fraction_cailloux,
+                culture=culture,
+                stade=stade,
+                fraction_ru_remplie_initial=fraction_ru_remplie_initial,
+                ru_vers_rfu=ru_vers_rfu,
+                seuil_irrigation_mm=seuil_irrigation_mm,
+            )
+            fig_bt = figure_bilan_tunnel(bilan, culture, stade, seuil_irrigation_mm)
+            st.pyplot(fig_bt, use_container_width=True)
+
+            # Synthèse 7 j.
+            etm_total = float(bilan["etm_tunnel_mm"].sum())
+            nb_irrig = int(bilan["irrigation_declenchee"].sum())
+            besoin_total = float(bilan["besoin_irrigation_mm"].sum())
+            st.markdown(
+                f"**Synthèse 7 j sous tunnel** : "
+                f"ETM cumulée {etm_total:.1f} mm · "
+                f"besoin total irrigation {besoin_total:.1f} mm · "
+                f"{nb_irrig} déclenchement(s) prévu(s)."
+            )
+        except KeyError as e:
+            st.warning(
+                f"Donnée manquante pour le bilan tunnel ({e}). "
+                "Vérifier que la culture est référencée côté "
+                "PROFONDEUR_ENRACINEMENT_TYPIQUE."
+            )
+    else:
+        st.info(
+            f"La culture « {culture} » n'a pas de profondeur d'enracinement "
+            "référencée pour le bilan sol complet. Sélectionner une culture "
+            "présente dans `PROFONDEUR_ENRACINEMENT_TYPIQUE`."
+        )
 
     # ----- Tableau détaillé (replié par défaut) -----
     with st.expander("Tableau détaillé jour par jour", expanded=False):

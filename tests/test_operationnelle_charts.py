@@ -147,6 +147,77 @@ def test_figure_indicateur_mildiou_hr_seuil_et_min_glissant(
     assert any("Min glissant" in lbl for lbl in labels)
 
 
+def test_bilan_tunnel_carry_over_decroit_ru_si_pas_irrigation() -> None:
+    """Sans déclenchement, la RU décroît jour après jour (etp positive)."""
+    from apps.operationnelle.charts import bilan_tunnel_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=5, freq="D")
+    # Pluie 0 (ignorée sous tunnel) + ETP constante.
+    df = pd.DataFrame({"etp_mm": [3.0] * 5, "pluie_24h_mm": [0.0] * 5}, index=idx)
+    bilan = bilan_tunnel_carry_over(
+        df,
+        k_tunnel=0.7,
+        texture="Terres limoneuses",
+        fraction_cailloux=0.0,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=1.0,
+        ru_vers_rfu=0.6,
+        # Seuil très haut → jamais déclenché.
+        seuil_irrigation_mm=999.0,
+    )
+    ru_serie = bilan["ru_remplie_avant_mm"].to_numpy()
+    # RU strictement décroissante (pas de pluie, pas d'irrigation).
+    assert all(ru_serie[i] > ru_serie[i + 1] for i in range(len(ru_serie) - 1))
+
+
+def test_bilan_tunnel_carry_over_recharge_si_seuil_franchi() -> None:
+    """Si le besoin dépasse le seuil, irrigation déclenchée → RU rechargée."""
+    from apps.operationnelle.charts import bilan_tunnel_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=5, freq="D")
+    df = pd.DataFrame({"etp_mm": [10.0] * 5, "pluie_24h_mm": [0.0] * 5}, index=idx)
+    bilan = bilan_tunnel_carry_over(
+        df,
+        k_tunnel=1.0,
+        texture="Terres sableuses",  # RU faible → s'épuise vite
+        fraction_cailloux=0.0,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=0.5,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=1.0,  # seuil bas → déclenche vite
+    )
+    assert bilan["irrigation_declenchee"].any()
+
+
+def test_figure_bilan_tunnel_smoke() -> None:
+    """La figure tunnel se rend sans erreur sur une RU plausible."""
+    from apps.operationnelle.charts import (
+        bilan_tunnel_carry_over,
+        figure_bilan_tunnel,
+    )
+
+    idx = pd.date_range("2026-07-01", periods=7, freq="D")
+    df = pd.DataFrame({"etp_mm": [4.0] * 7, "pluie_24h_mm": [0.0] * 7}, index=idx)
+    bilan = bilan_tunnel_carry_over(
+        df,
+        k_tunnel=0.7,
+        texture="Terres limono-argileuses",
+        fraction_cailloux=0.05,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=0.7,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=10.0,
+    )
+    fig = figure_bilan_tunnel(bilan, culture="Tomate", stade="X", seuil_irrigation_mm=10.0)
+    ax = fig.axes[0]
+    _, labels = ax.get_legend_handles_labels()
+    assert any("RU disponible" in lbl for lbl in labels)
+    assert any("Seuil irrigation" in lbl for lbl in labels)
+
+
 def test_figure_bilan_culture_kc_zero_etc_constant_zero(
     quotidien_synth: pd.DataFrame,
 ) -> None:
