@@ -218,6 +218,53 @@ def test_figure_bilan_tunnel_smoke() -> None:
     assert any("Seuil irrigation" in lbl for lbl in labels)
 
 
+def test_bilan_tunnel_ru_initiale_zero_declenche_irrigation_immediate() -> None:
+    """RU initiale = 0 → besoin immédiat dès le premier jour avec ETP > 0."""
+    from apps.operationnelle.charts import bilan_tunnel_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=3, freq="D")
+    df = pd.DataFrame({"etp_mm": [3.0] * 3, "pluie_24h_mm": [0.0] * 3}, index=idx)
+    bilan = bilan_tunnel_carry_over(
+        df,
+        k_tunnel=0.7,
+        texture="Terres limono-argileuses",
+        fraction_cailloux=0.05,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=0.0,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=1.0,
+    )
+    # Premier jour : besoin déjà > seuil → irrigation déclenchée jour 0.
+    assert bilan["irrigation_declenchee"].iloc[0]
+
+
+def test_bilan_tunnel_k_tunnel_zero_pas_d_etm_evolutif() -> None:
+    """k_tunnel = 0 → ETM = 0. RU initialement pleine → reste pleine (pas
+    de besoin), donc pas de déclenchement."""
+    from apps.operationnelle.charts import bilan_tunnel_carry_over
+
+    idx = pd.date_range("2026-07-01", periods=5, freq="D")
+    df = pd.DataFrame({"etp_mm": [5.0] * 5, "pluie_24h_mm": [0.0] * 5}, index=idx)
+    bilan = bilan_tunnel_carry_over(
+        df,
+        k_tunnel=0.0,
+        texture="Terres limono-argileuses",
+        fraction_cailloux=0.05,
+        culture="Tomate",
+        stade="De la plantation à la reprise",
+        fraction_ru_remplie_initial=1.0,
+        ru_vers_rfu=0.6,
+        seuil_irrigation_mm=10.0,
+    )
+    # ETM nulle.
+    assert (bilan["etm_tunnel_mm"] == 0).all()
+    # RU pleine ne décroît pas → pas d'irrigation déclenchée.
+    assert not bilan["irrigation_declenchee"].any()
+    # RU reste à capacité = constante.
+    assert bilan["ru_remplie_avant_mm"].nunique() == 1
+
+
 def test_figure_bilan_culture_kc_zero_etc_constant_zero(
     quotidien_synth: pd.DataFrame,
 ) -> None:

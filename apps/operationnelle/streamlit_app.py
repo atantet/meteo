@@ -193,11 +193,25 @@ def main() -> None:
     )
 
     with st.expander("Paramètres tunnel et sol", expanded=False):
+        # Presets rapides — l'utilisateur peut ensuite ajuster fin.
+        preset_k = st.radio(
+            "Configuration tunnel (preset)",
+            options=("Ouvert (portes jour + nuit)", "Froid standard (défaut)", "Fermé peu ventilé"),
+            index=1,
+            horizontal=True,
+            help="Cf. ADR-0008. Sélectionne k_tunnel approximatif ; "
+            "ajustable par le slider en dessous.",
+        )
+        k_preset = {
+            "Ouvert (portes jour + nuit)": 0.90,
+            "Froid standard (défaut)": 0.70,
+            "Fermé peu ventilé": 0.55,
+        }[preset_k]
         k_tunnel = st.slider(
             "k_tunnel — coef. ETP tunnel/extérieur",
             min_value=0.40,
             max_value=1.00,
-            value=0.70,
+            value=k_preset,
             step=0.05,
             help="0.70 défaut (médiane littérature tunnel froid ventilé). Castilla 2013 § 4.",
         )
