@@ -16,3 +16,12 @@ def test_streamlit_app_importable():
 
     assert hasattr(streamlit_app, "main")
     assert callable(streamlit_app.main)
+
+
+def test_streamlit_app_importe_modules_critiques():
+    """Vérifie la présence des imports clés (régression : disparition silencieuse)."""
+    from apps.operationnelle import streamlit_app
+
+    # Modules métier socle et apps que le main attend.
+    for nom in ("_pepi", "COURBES", "Seuil", "bilan_tunnel_carry_over"):
+        assert hasattr(streamlit_app, nom), f"{nom} manquant dans streamlit_app"
