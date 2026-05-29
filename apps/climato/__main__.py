@@ -49,6 +49,12 @@ def main() -> int:
         action="store_true",
         help="Ouvre le HTML après build via xdg-open.",
     )
+    parser.add_argument(
+        "--server",
+        action="store_true",
+        help="Mode preview live (quarto preview) avec auto-reload sur "
+        "changement du .qmd. Lance un serveur local jusqu'à Ctrl-C.",
+    )
     args = parser.parse_args()
 
     if shutil.which("quarto") is None:
@@ -67,6 +73,16 @@ def main() -> int:
     env = os.environ.copy()
     if "QUARTO_PYTHON" not in env:
         env["QUARTO_PYTHON"] = sys.executable
+
+    if args.server:
+        log.info("Quarto preview server (Ctrl-C pour arrêter).")
+        try:
+            return subprocess.call(
+                ["quarto", "preview", str(REPORT_QMD), "--no-browser"],
+                env=env,
+            )
+        except KeyboardInterrupt:
+            return 0
 
     log.info("Rendu Quarto : %s → HTML (QUARTO_PYTHON=%s)", REPORT_QMD, env["QUARTO_PYTHON"])
     try:

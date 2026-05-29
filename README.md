@@ -160,6 +160,7 @@ Puis :
 python -m apps.climato                              # rend report.html
 python -m apps.climato --preview /tmp/climato.html  # copie vers /tmp
 python -m apps.climato --open                       # ouvre via xdg-open
+python -m apps.climato --server                     # preview live (auto-reload)
 
 # Forme directe équivalente :
 quarto render apps/climato/report.qmd --to html
