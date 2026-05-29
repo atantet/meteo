@@ -218,6 +218,36 @@ def test_figure_bilan_tunnel_smoke() -> None:
     assert any("Seuil irrigation" in lbl for lbl in labels)
 
 
+def test_figure_calendrier_semis_smoke() -> None:
+    """La figure Gantt timeline doit se rendre sans erreur sur un calendrier réaliste."""
+    from datetime import date
+
+    from apps.operationnelle.charts import figure_calendrier_semis
+    from meteo_socle.indices.pepiniere import calendrier_semis
+
+    cal = calendrier_semis(date(2026, 5, 15))
+    fig = figure_calendrier_semis(cal)
+    ax = fig.axes[0]
+    # Légende a au moins Semis + Plantation.
+    _, labels = ax.get_legend_handles_labels()
+    assert "Semis" in labels
+    assert "Plantation" in labels
+    # Y-axis a une étiquette par culture.
+    assert len(ax.get_yticklabels()) == len(cal)
+
+
+def test_figure_calendrier_semis_vide() -> None:
+    """Liste vide produit une figure 'Aucune culture' sans crash."""
+    from apps.operationnelle.charts import figure_calendrier_semis
+
+    fig = figure_calendrier_semis([])
+    assert fig is not None
+    ax = fig.axes[0]
+    # Pas de légende dans le mode vide.
+    handles, _ = ax.get_legend_handles_labels()
+    assert handles == []
+
+
 def test_bilan_tunnel_ru_initiale_zero_declenche_irrigation_immediate() -> None:
     """RU initiale = 0 → besoin immédiat dès le premier jour avec ETP > 0."""
     from apps.operationnelle.charts import bilan_tunnel_carry_over

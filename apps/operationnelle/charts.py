@@ -431,6 +431,77 @@ def figure_bilan_tunnel(
     return fig
 
 
+def figure_calendrier_semis(
+    cal: list[dict],
+    figsize: tuple[float, float] | None = None,
+) -> plt.Figure:
+    """Gantt timeline horizontale du calendrier semis.
+
+    Parameters
+    ----------
+    cal :
+        Sortie de ``meteo_socle.indices.pepiniere.calendrier_semis``.
+    figsize :
+        Si None, hauteur adaptative au nombre de cultures.
+    """
+    if not cal:
+        # Figure vide propre.
+        fig, ax = plt.subplots(figsize=(8, 1.5))
+        ax.text(
+            0.5,
+            0.5,
+            "Aucune culture sélectionnée",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            color="#888",
+            fontsize=11,
+            style="italic",
+        )
+        ax.axis("off")
+        return fig
+
+    n = len(cal)
+    if figsize is None:
+        figsize = (9.0, max(2.5, 0.35 * n + 1.0))
+
+    # Tri par date semis pour lecture naturelle.
+    cal_tri = sorted(cal, key=lambda e: e["date_semis"])
+    cultures = [e["culture"] for e in cal_tri]
+    semis = [e["date_semis"] for e in cal_tri]
+    plant = [e["date_plantation"] for e in cal_tri]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    y_pos = list(range(n))
+
+    for i, (s, p) in enumerate(zip(semis, plant, strict=False)):
+        # Barre verte = élevage.
+        ax.barh(i, (p - s).days, left=s, height=0.55, color="#27ae60", alpha=0.55, edgecolor="none")
+        # Marker semis (cercle bleu).
+        ax.scatter(s, i, color="#2980b9", s=80, zorder=5, label="Semis" if i == 0 else None)
+        # Marker plantation (carré rouge).
+        ax.scatter(
+            p,
+            i,
+            color="#c0392b",
+            s=80,
+            marker="s",
+            zorder=5,
+            label="Plantation" if i == 0 else None,
+        )
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(cultures)
+    ax.invert_yaxis()  # première culture en haut.
+    ax.set_xlabel("Date")
+    ax.set_title("Calendrier semis pépinière", fontsize=11, loc="left", color="#34495e")
+    ax.grid(axis="x", alpha=0.25)
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
+    fig.autofmt_xdate(rotation=30, ha="right")
+    fig.tight_layout()
+    return fig
+
+
 def figure_bilan_culture(
     quotidien: pd.DataFrame,
     culture: str,

@@ -36,6 +36,7 @@ from apps.operationnelle.charts import (  # noqa: E402
     bilan_tunnel_carry_over,
     figure_bilan_culture,
     figure_bilan_tunnel,
+    figure_calendrier_semis,
     figure_indicateur,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
@@ -349,14 +350,19 @@ def main() -> None:
     )
     cal_df = pd.DataFrame(cal)
     if not cal_df.empty:
-        cal_df["Semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%a %d %b"))
-        cal_df["Plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%a %d %b"))
-        cal_df["Durée (j)"] = cal_df["duree_elevage_j"]
-        affichage = cal_df[["culture", "Semis", "Plantation", "Durée (j)"]].rename(
-            columns={"culture": "Culture"}
-        )
-        affichage = affichage.sort_values("Semis").reset_index(drop=True)
-        st.dataframe(affichage, use_container_width=True, hide_index=True)
+        # Figure Gantt timeline.
+        fig_cal = figure_calendrier_semis(cal)
+        st.pyplot(fig_cal, use_container_width=True)
+        # Tableau détaillé en complément.
+        with st.expander("Tableau détaillé", expanded=False):
+            cal_df["Semis"] = cal_df["date_semis"].apply(lambda d: d.strftime("%a %d %b"))
+            cal_df["Plantation"] = cal_df["date_plantation"].apply(lambda d: d.strftime("%a %d %b"))
+            cal_df["Durée (j)"] = cal_df["duree_elevage_j"]
+            affichage = cal_df[["culture", "Semis", "Plantation", "Durée (j)"]].rename(
+                columns={"culture": "Culture"}
+            )
+            affichage = affichage.sort_values("Semis").reset_index(drop=True)
+            st.dataframe(affichage, use_container_width=True, hide_index=True)
     else:
         st.info("Aucune culture sélectionnée.")
 
