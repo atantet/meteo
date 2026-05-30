@@ -24,7 +24,7 @@ def test_load_config_defaut_repo() -> None:
         assert key in config, f"Section manquante : {key}"
     assert config["periodes"]["normale_debut"] == 1991
     assert config["periodes"]["normale_fin"] == 2020
-    assert config["source_meteo"]["modele"] == "era5"
+    assert config["source_meteo"]["modele"] == "cerra"
 
 
 # ---------- Climatologie ----------
