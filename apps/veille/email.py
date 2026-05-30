@@ -98,6 +98,42 @@ def _bloc_carte_synoptique(carte_base64: str) -> str:
     )
 
 
+def _tendance_texte_48h(
+    prevision_horaire: pd.DataFrame | None,
+    tz_locale: str = "Europe/Paris",
+) -> list[str]:
+    """Tendance texte 48 h équivalente à la bande pictos HTML.
+
+    Renvoie une liste de lignes (1 par jour) du style :
+    "  Sam 30/05 : matin Clair → midi Pluie modérée → soir Couvert"
+    """
+    if prevision_horaire is None or "weather_code" not in prevision_horaire.columns:
+        return []
+
+    from apps.shared.pictograms import code_dominant_fenetre, libelle
+
+    horaire_loc = prevision_horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_48h = horaire_loc.head(48)
+    if horaire_48h.empty:
+        return []
+
+    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
+    fenetres = (("matin", 6, 12), ("midi", 12, 16), ("soir", 16, 21))
+    lignes: list[str] = []
+    for jour in jours_uniques:
+        jour_label = JOURS_FR[jour.weekday()][:3] + f" {jour.day:02d}/{jour.month:02d}"
+        parts = []
+        for nom_fenetre, h_debut, h_fin in fenetres:
+            masque = (horaire_48h.index.normalize() == jour) & (
+                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
+            )
+            code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
+            parts.append(f"{nom_fenetre} {libelle(code)}")
+        lignes.append(f"  {jour_label} : " + " → ".join(parts))
+    return lignes
+
+
 def _bloc_pictogrammes_veille(
     prevision_horaire: pd.DataFrame | None,
     tz_locale: str = "Europe/Paris",
@@ -255,6 +291,7 @@ def composer_texte(
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     tz_locale: str = "Europe/Paris",
+    prevision_horaire: pd.DataFrame | None = None,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     lignes: list[str] = []
@@ -273,6 +310,13 @@ def composer_texte(
         lignes.append("")
     else:
         lignes.append("Aucune alerte seuil franchi sur les prochaines 24 h.")
+        lignes.append("")
+
+    # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
+    tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
+    if tendance_lignes:
+        lignes.append("TENDANCE 48 h (AROME France HD) :")
+        lignes.extend(tendance_lignes)
         lignes.append("")
 
     def fmt(label: str, val: str, win: str) -> str:
@@ -465,7 +509,13 @@ def composer_email(
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"])
-    texte = composer_texte(ind, alertes, maintenant, url_fiches=url_fiches)
+    texte = composer_texte(
+        ind,
+        alertes,
+        maintenant,
+        url_fiches=url_fiches,
+        prevision_horaire=prevision_horaire,
+    )
     html = composer_html(
         ind,
         alertes,

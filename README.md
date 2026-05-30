@@ -6,9 +6,15 @@ Outils d'aide à la décision météo-climatique pour l'exploitation maraîchèr
 > **Statut** — v0 en production. Voir `docs/decisions/` pour les décisions
 > structurantes et `docs/panorama.md` pour la vue d'ensemble.
 >
-> - Veille email — cron quotidien GitHub Actions (06:30 UTC).
-> - Opérationnelle — Streamlit Community Cloud (en cours de mise en ligne).
+> - Veille email — cron quotidien GitHub Actions (06:30 UTC). Bande
+>   pictogrammes 48 h (AROME France HD), indicateurs 24 h, alertes seuil,
+>   mildiou Smith, carte synoptique DWD.
+> - Opérationnelle — Streamlit Community Cloud. Pictogrammes ARPEGE vs
+>   ECMWF IFS 7 j avec accord, courbes par indicateur avec normales OMM
+>   1991-2020, bilan hydrique sol complet (plein champ + tunnel).
 > - Climato — rapport Quarto publié sur <https://atantet.github.io/meteo/>.
+>   Régime thermique, pluviométrique, ETP, mildiou, calendrier annuel
+>   des conditions météo, etc. (cache parquet 30 ans ERA5 versionné).
 
 ## Périmètre
 
