@@ -93,6 +93,16 @@ métadonnées.
 - Bilan hydrique sous tunnel (k_tunnel = 0.70 défaut, cf.
   [ADR-0008](decisions/0008-coefficient-etp-tunnel.md)), modèle sol
   complet avec carry-over RU jour par jour — App 2 Op.
+- Pictogrammes météo Meteocons (MIT, Bas Milius) basés sur codes
+  WMO 4677 d'Open-Meteo :
+  - **Mail Veille** : bande "Tendance 48 h" en tête (3 fenêtres
+    matin/midi/soir × 2 jours, AROME France HD 1.3 km).
+  - **App 2 Op** : section "Tendance 7 jours" comparaison ARPEGE
+    vs ECMWF IFS avec colonne accord ✓/⚠ (visualisation
+    multi-modèles).
+  - **Climato** : section "Calendrier annuel des conditions
+    météo" (distribution mensuelle sur 30 ans en 7 catégories
+    agrégées).
 
 **v1 (priorité bioagresseurs bio)** :
 
