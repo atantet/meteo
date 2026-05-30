@@ -70,6 +70,53 @@ def test_bloc_mildiou_smith_sans_periode() -> None:
     assert "#27ae60" in html
 
 
+def test_bloc_pictogrammes_veille_grille_2j_3fenetres() -> None:
+    """Le bloc pictos doit produire 6 cellules (2 j × 3 fenêtres)."""
+    import numpy as np
+
+    from apps.veille.email import _bloc_pictogrammes_veille
+
+    # 48 h horaires synthétiques avec weather_code = 0 (clair) partout.
+    idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.zeros(48, dtype=int)}, index=idx)
+    html = _bloc_pictogrammes_veille(df, tz_locale="Europe/Paris")
+    # 6 pictos = 6 cellules avec data:image inline.
+    assert html.count("data:image/png") == 6
+    assert "Tendance 48 h" in html
+    assert "Matin" in html
+    assert "Midi" in html
+    assert "Soir" in html
+
+
+def test_bloc_pictogrammes_veille_vide_sans_weather_code() -> None:
+    """Si la prévision n'a pas weather_code, le bloc retourne ''."""
+    from apps.veille.email import _bloc_pictogrammes_veille
+
+    idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
+    df = pd.DataFrame({"temperature_2m": [285.0] * 48}, index=idx)
+    assert _bloc_pictogrammes_veille(df) == ""
+
+
+def test_bloc_pictogrammes_veille_vide_si_none() -> None:
+    from apps.veille.email import _bloc_pictogrammes_veille
+
+    assert _bloc_pictogrammes_veille(None) == ""
+
+
+def test_bloc_pictogrammes_priorise_pluie_sur_clair() -> None:
+    """Pluie modérée mi-journée → picto pluie, pas clair."""
+    import numpy as np
+
+    from apps.veille.email import _bloc_pictogrammes_veille
+
+    idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
+    codes = np.zeros(48, dtype=int)
+    codes[10:15] = 63  # pluie modérée midi local le 1er jour
+    df = pd.DataFrame({"weather_code": codes}, index=idx)
+    html = _bloc_pictogrammes_veille(df, tz_locale="Europe/Paris")
+    assert "Pluie modérée" in html
+
+
 def test_bloc_mildiou_smith_vide_si_indicateur_non_calcule() -> None:
     """Si indicateurs sans détail (mildiou désactivé), bloc retourne vide."""
     from apps.veille.email import _bloc_mildiou_smith
