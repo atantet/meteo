@@ -156,6 +156,21 @@ def chemin_icone(code: int) -> Path:
     return ICONES_DIR / f"{nom_icone(code)}.png"
 
 
+def icone_bytes(code: int) -> bytes | None:
+    """Renvoie les bytes du PNG icône pour st.image() ou équivalent.
+
+    Évite les soucis de résolution de chemin (notamment sur Streamlit
+    Cloud où ``Path.exists()`` peut être trompeur). Retourne None si
+    l'icône n'existe pas, dans ce cas l'appelant doit fallback texte.
+    """
+    chemin = chemin_icone(code)
+    if not chemin.exists():
+        chemin = ICONES_DIR / "not-available.png"
+    if not chemin.exists():
+        return None
+    return chemin.read_bytes()
+
+
 def icone_base64(code: int) -> str:
     """Renvoie le PNG icône encodé base64 prêt pour ``<img src="data:...">``.
 
@@ -203,14 +218,16 @@ def codes_dominants_par_jour(
     horaire_diurne = horaire_loc[
         (horaire_loc.index.hour >= heure_debut_diurne) & (horaire_loc.index.hour < heure_fin_diurne)
     ]
-    par_jour: dict[pd.Timestamp, int] = {}
+    par_jour: dict[pd.Timestamp, int | None] = {}
     for jour, grp in horaire_diurne.groupby(horaire_diurne.index.normalize()):
         codes = grp["weather_code"]
-        par_jour[jour] = code_dominant_fenetre(codes)
+        code = code_dominant_fenetre(codes)
+        if code is not None:
+            par_jour[jour] = code
     return sorted(par_jour.items())
 
 
-def code_dominant_fenetre(codes_horaires: pd.Series) -> int:
+def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     """Choisit le code représentatif d'une fenêtre horaire.
 
     Heuristique : prend le code avec la **sévérité maximale**
@@ -224,12 +241,14 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int:
 
     Returns
     -------
-    int
-        Code WMO retenu, ou 0 si la série est vide / tout NaN.
+    int | None
+        Code WMO retenu, ou ``None`` si la série est vide / tout NaN
+        (cas typique d'un modèle qui ne fournit pas weather_code,
+        ex. ECMWF IFS04 sur Open-Meteo).
     """
     codes_valides = codes_horaires.dropna().astype(int)
     if codes_valides.empty:
-        return 0
+        return None
     severites = codes_valides.map(lambda c: WMO_SEVERITE.get(int(c), 0))
     idx_max = severites.idxmax()
     return int(codes_valides.loc[idx_max])

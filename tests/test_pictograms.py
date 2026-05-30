@@ -76,11 +76,12 @@ def test_code_dominant_fenetre_orage_prioritaire() -> None:
     assert code_dominant_fenetre(serie) == 95
 
 
-def test_code_dominant_fenetre_vide_renvoie_0() -> None:
+def test_code_dominant_fenetre_vide_renvoie_none() -> None:
+    """Série vide ou tout NaN → None (modèle sans weather_code)."""
     from apps.shared.pictograms import code_dominant_fenetre
 
-    assert code_dominant_fenetre(pd.Series([], dtype=float)) == 0
-    assert code_dominant_fenetre(pd.Series([float("nan")] * 3)) == 0
+    assert code_dominant_fenetre(pd.Series([], dtype=float)) is None
+    assert code_dominant_fenetre(pd.Series([float("nan")] * 3)) is None
 
 
 def test_codes_dominants_par_jour_decoupe_local() -> None:

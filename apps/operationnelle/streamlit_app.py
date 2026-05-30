@@ -77,12 +77,8 @@ def _afficher_bande_pictogrammes(
     une colonne accord (✓ / ⚠). Quand un modèle ne couvre pas un
     jour (ARPEGE > 4j), affiche '—'.
     """
-    from apps.shared.pictograms import (
-        chemin_icone,
-    )
-    from apps.shared.pictograms import (
-        libelle as libelle_picto,
-    )
+    from apps.shared.pictograms import icone_bytes
+    from apps.shared.pictograms import libelle as libelle_picto
 
     tz_loc = site.get("tz", "Europe/Paris")
     resultats: dict[str, list[tuple]] = {}
@@ -116,9 +112,9 @@ def _afficher_bande_pictogrammes(
                 row[idx].markdown("—")
                 continue
             codes_jour.append(code)
-            icon_path = chemin_icone(code)
-            if icon_path.exists():
-                row[idx].image(str(icon_path), width=48)
+            icon_data = icone_bytes(code)
+            if icon_data is not None:
+                row[idx].image(icon_data, width=48)
                 row[idx].caption(libelle_picto(code))
             else:
                 row[idx].markdown(libelle_picto(code))
@@ -191,7 +187,7 @@ def main() -> None:
         "modeles_pictogrammes",
         [
             {"label": "ARPEGE", "modele": "meteofrance_arpege_europe"},
-            {"label": "ECMWF IFS", "modele": "ecmwf_ifs04"},
+            {"label": "ECMWF IFS", "modele": "ecmwf_ifs025"},
         ],
     )
     modeles_pictos = [(m["label"], m["modele"]) for m in modeles_pictos_cfg]

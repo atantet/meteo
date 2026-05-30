@@ -29,7 +29,7 @@ source_meteo:
     - label: ARPEGE
       modele: meteofrance_arpege_europe
     - label: ECMWF IFS
-      modele: ecmwf_ifs04
+      modele: ecmwf_ifs025
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
 #
