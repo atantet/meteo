@@ -126,6 +126,8 @@ def test_obtenir_prevision_query_params(fake_payload: dict) -> None:
     # Liste des variables horaires demandées.
     assert "temperature_2m" in params["hourly"]
     assert "et0_fao_evapotranspiration" in params["hourly"]
+    # weather_code requis pour les pictogrammes des apps Veille/Op.
+    assert "weather_code" in params["hourly"]
 
 
 def test_obtenir_prevision_http_error(fake_payload: dict) -> None:
