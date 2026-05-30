@@ -161,7 +161,11 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
     def fmt_t(row) -> str:
         try:
             return (
-                f"{row['t_min_celsius']:.0f}/{row['t_moy_celsius']:.0f}/{row['t_max_celsius']:.0f}"
+                f'<span style="color:#2980b9;">{row["t_min_celsius"]:.0f}</span>'
+                '<span style="color:#aaa;">/</span>'
+                f'<span style="color:#7f8c8d;">{row["t_moy_celsius"]:.0f}</span>'
+                '<span style="color:#aaa;">/</span>'
+                f'<span style="color:#c0392b;">{row["t_max_celsius"]:.0f}</span>'
             )
         except (KeyError, ValueError):
             return "—"
@@ -170,9 +174,14 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
         try:
             mm = row["pluie_24h_mm"]
             proba = row.get("prob_pluie_max_pct", None)
+            mm_html = f'<span style="color:#3498db;">{mm:.1f}</span>'
             if pd.isna(proba):
-                return f"{mm:.1f}"
-            return f"{mm:.1f}/{proba:.0f}"
+                return mm_html
+            return (
+                mm_html
+                + '<span style="color:#aaa;">/</span>'
+                + f'<span style="color:#888;">{proba:.0f}</span>'
+            )
         except (KeyError, ValueError):
             return "—"
 
@@ -183,16 +192,21 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
             return "—"
 
     def fmt_bilan(row) -> str:
-        """Bilan eau du jour = pluie − ETP."""
+        """Bilan eau du jour = pluie − ETP, colorisé selon signe."""
         try:
             v = row["pluie_24h_mm"] - row["etp_mm"]
-            return f"{v:+.1f}"
+            couleur = "#27ae60" if v >= 0 else "#c0392b"
+            return f'<span style="color:{couleur};">{v:+.1f}</span>'
         except (KeyError, ValueError):
             return "—"
 
     def fmt_vent(row) -> str:
         try:
-            return f"{row['vent_moy_kmh']:.0f}/{row['rafales_max_kmh']:.0f}"
+            return (
+                f'<span style="color:#16a085;">{row["vent_moy_kmh"]:.0f}</span>'
+                '<span style="color:#aaa;">/</span>'
+                f'<span style="color:#e67e22;">{row["rafales_max_kmh"]:.0f}</span>'
+            )
         except (KeyError, ValueError):
             return "—"
 

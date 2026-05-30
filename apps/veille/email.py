@@ -254,7 +254,13 @@ def _bloc_grille_indicateurs_48h(
             serie_k = serie_fenetre(jour, "temperature_2m", h_debut, h_fin)
             if serie_k.empty:
                 return "—"
-            return f"{serie_k.min() - 273.15:.0f}/{serie_k.max() - 273.15:.0f}"
+            t_min = serie_k.min() - 273.15
+            t_max = serie_k.max() - 273.15
+            return (
+                f'<span style="color:#2980b9;">{t_min:.0f}</span>'
+                f'<span style="color:#aaa;">/</span>'
+                f'<span style="color:#c0392b;">{t_max:.0f}</span>'
+            )
 
         def fmt_pluie(jour, h_debut, h_fin) -> str:
             serie = serie_fenetre(jour, "precipitation", h_debut, h_fin)
@@ -262,9 +268,14 @@ def _bloc_grille_indicateurs_48h(
                 return "—"
             mm = serie.sum()
             proba = serie_fenetre(jour, "probabilite_pluie_pct", h_debut, h_fin)
+            mm_html = f'<span style="color:#3498db;">{mm:.1f}</span>'
             if proba.empty:
-                return f"{mm:.1f}"
-            return f"{mm:.1f}/{proba.max():.0f}"
+                return mm_html
+            return (
+                mm_html
+                + '<span style="color:#aaa;">/</span>'
+                + f'<span style="color:#888;">{proba.max():.0f}</span>'
+            )
 
         def fmt_vent(jour, h_debut, h_fin) -> str:
             vent = serie_fenetre(jour, "vitesse_vent_10m", h_debut, h_fin)
@@ -273,7 +284,11 @@ def _bloc_grille_indicateurs_48h(
                 return "—"
             v_moy = vent.mean() * MS_TO_KMH_VEILLE
             r_max = (rafales.max() if not rafales.empty else vent.max()) * MS_TO_KMH_VEILLE
-            return f"{v_moy:.0f}/{r_max:.0f}"
+            return (
+                f'<span style="color:#16a085;">{v_moy:.0f}</span>'
+                f'<span style="color:#aaa;">/</span>'
+                f'<span style="color:#e67e22;">{r_max:.0f}</span>'
+            )
 
         def fmt_hr(jour, h_debut, h_fin) -> str:
             serie = serie_fenetre(jour, "humidite_relative", h_debut, h_fin)
