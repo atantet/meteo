@@ -168,12 +168,6 @@ COURBES: list[CourbeConfig] = [
         unite="h",
         couleur="#8e44ad",
     ),
-    CourbeConfig(
-        colonne="lwd_heures_gleason",
-        titre="Heures LWD Gleason (inspection seule, pas input Smith)",
-        unite="h",
-        couleur="#16a085",
-    ),
 ]
 
 

@@ -172,7 +172,7 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
             proba = row.get("prob_pluie_max_pct", None)
             if pd.isna(proba):
                 return f"{mm:.1f}"
-            return f"{mm:.1f} ({proba:.0f} %)"
+            return f"{mm:.1f}/{proba:.0f}"
         except (KeyError, ValueError):
             return "—"
 
@@ -204,7 +204,7 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
 
     lignes = [
         ("T° min/moy/max (°C)", fmt_t),
-        ("Pluie mm (proba)", fmt_pluie),
+        ("Pluie mm/proba %", fmt_pluie),
         ("ETP (mm)", fmt_etp),
         ("Bilan eau du jour (mm)", fmt_bilan),
         ("Vent moy/raf (km/h)", fmt_vent),
@@ -234,7 +234,7 @@ def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
         for _date, row in quotidien.iterrows():
             cellules.append(
                 '<td style="padding:6px 8px;text-align:center;font-size:12px;'
-                f'font-variant-numeric:tabular-nums;color:#34495e;'
+                f"font-variant-numeric:tabular-nums;color:#34495e;"
                 f'white-space:nowrap;">{formatter(row)}</td>'
             )
         body.append("<tr>" + "".join(cellules) + "</tr>")
