@@ -109,7 +109,9 @@ def test_composer_html_structure() -> None:
     assert "<!DOCTYPE html>" in html
     assert 'name="viewport"' in html  # responsive mobile
     assert "Gel" in html
-    assert "T° min nuit" in html
+    # La grille 48 h apparaît seulement avec prevision_horaire fournie ;
+    # sans, on a quand même Synthèse 24 h.
+    assert "Synthèse 24 h" in html
     # Footer source + ETP discret.
     assert "Open-Meteo" in html
     assert "FAO" in html

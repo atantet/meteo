@@ -134,18 +134,171 @@ def _tendance_texte_48h(
     return lignes
 
 
+MS_TO_KMH_VEILLE = 3.6
+FENETRES_VEILLE = (
+    ("Matin", 6, 12),
+    ("Midi", 12, 16),
+    ("Soir", 16, 21),
+)
+
+
+def _bloc_grille_indicateurs_48h(
+    prevision_horaire: pd.DataFrame | None,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Grille unifiée J+0 / J+1 — pictos + T° + Pluie + Vent + HR.
+
+    Source : 48 premières heures de la prévision (= AROME France HD
+    via best_match Open-Meteo). Substitue les anciennes tables
+    "Indicateurs 24 h" et "Horizon pluie 48-72 h" pour une lecture
+    en un coup d'œil.
+
+    Layout : un mini-tableau par jour (5 lignes × 3 colonnes
+    matin/midi/soir), deux tableaux empilés. Plus lisible sur mobile
+    qu'un grand tableau 7 colonnes.
+    """
+    if prevision_horaire is None:
+        return ""
+
+    from apps.shared.pictograms import code_dominant_fenetre, icone_base64, libelle
+
+    horaire_loc = prevision_horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_48h = horaire_loc.head(48)
+    if horaire_48h.empty:
+        return ""
+
+    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
+    tableaux: list[str] = []
+
+    for jour in jours_uniques:
+        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
+        jour_label = (
+            JOURS_FR[jour_loc.weekday()].capitalize() + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
+        )
+
+        # En-tête : titre du jour + colonnes matin/midi/soir.
+        en_tete = (
+            '<tr style="background:#fafafa;">'
+            f'<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
+            f"{jour_label}</th>"
+            + "".join(
+                f'<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;">'
+                f"{nom}</th>"
+                for nom, _, _ in FENETRES_VEILLE
+            )
+            + "</tr>"
+        )
+
+        def cellule_picto(jour: pd.Timestamp) -> str:
+            cells = []
+            for _nom, h_debut, h_fin in FENETRES_VEILLE:
+                masque = (horaire_48h.index.normalize() == jour) & (
+                    (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
+                )
+                if "weather_code" in horaire_48h.columns:
+                    code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
+                else:
+                    code = None
+                if code is None:
+                    cells.append('<td style="padding:4px;text-align:center;">—</td>')
+                else:
+                    uri = icone_base64(code)
+                    alt = libelle(code)
+                    cells.append(
+                        '<td style="padding:4px;text-align:center;">'
+                        f'<img src="{uri}" alt="{alt}" title="{alt}" '
+                        'style="width:40px;height:40px;display:inline-block;">'
+                        "</td>"
+                    )
+            return (
+                '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">Météo</td>'
+                + "".join(cells)
+                + "</tr>"
+            )
+
+        def serie_fenetre(jour: pd.Timestamp, colonne: str, h_debut: int, h_fin: int) -> pd.Series:
+            masque = (horaire_48h.index.normalize() == jour) & (
+                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
+            )
+            if colonne not in horaire_48h.columns:
+                return pd.Series([], dtype=float)
+            return horaire_48h.loc[masque, colonne].dropna()
+
+        def ligne_indicateur(label: str, formatter) -> str:
+            """Construit une ligne ``<tr>`` avec un libellé + 3 cellules formatées.
+
+            ``formatter`` reçoit ``(jour, h_debut, h_fin)`` et renvoie une string.
+            """
+            cells = []
+            for _nom, h_debut, h_fin in FENETRES_VEILLE:
+                val_str = formatter(jour, h_debut, h_fin)
+                cells.append(
+                    '<td style="padding:4px;text-align:center;'
+                    "font-variant-numeric:tabular-nums;font-size:13px;"
+                    f'color:#34495e;">{val_str}</td>'
+                )
+            return (
+                f'<tr><td style="padding:4px 8px;color:#888;font-size:11px;">{label}</td>'
+                + "".join(cells)
+                + "</tr>"
+            )
+
+        def fmt_t_min_max(jour, h_debut, h_fin) -> str:
+            serie_k = serie_fenetre(jour, "temperature_2m", h_debut, h_fin)
+            if serie_k.empty:
+                return "—"
+            return f"{serie_k.min() - 273.15:.0f}/{serie_k.max() - 273.15:.0f}"
+
+        def fmt_pluie(jour, h_debut, h_fin) -> str:
+            serie = serie_fenetre(jour, "precipitation", h_debut, h_fin)
+            if serie.empty:
+                return "—"
+            return f"{serie.sum():.1f}"
+
+        def fmt_vent(jour, h_debut, h_fin) -> str:
+            vent = serie_fenetre(jour, "vitesse_vent_10m", h_debut, h_fin)
+            rafales = serie_fenetre(jour, "rafales_vent_10m", h_debut, h_fin)
+            if vent.empty:
+                return "—"
+            v_moy = vent.mean() * MS_TO_KMH_VEILLE
+            r_max = (rafales.max() if not rafales.empty else vent.max()) * MS_TO_KMH_VEILLE
+            return f"{v_moy:.0f}/{r_max:.0f}"
+
+        def fmt_hr(jour, h_debut, h_fin) -> str:
+            serie = serie_fenetre(jour, "humidite_relative", h_debut, h_fin)
+            if serie.empty:
+                return "—"
+            return f"{serie.mean() * 100:.0f} %"
+
+        lignes = [
+            en_tete,
+            cellule_picto(jour),
+            ligne_indicateur("T° min/max (°C)", fmt_t_min_max),
+            ligne_indicateur("Pluie (mm)", fmt_pluie),
+            ligne_indicateur("Vent moy/raf (km/h)", fmt_vent),
+            ligne_indicateur("HR moy", fmt_hr),
+        ]
+
+        tableaux.append(
+            '<table style="width:100%;border-collapse:collapse;'
+            'margin:8px 0;border:1px solid #eee;border-radius:4px;">' + "".join(lignes) + "</table>"
+        )
+    return (
+        '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
+        "Tendance 48 h (AROME France HD 1.3 km)</h3>" + "".join(tableaux)
+    )
+
+
 def _bloc_pictogrammes_veille(
     prevision_horaire: pd.DataFrame | None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
-    """Bande de pictogrammes 2 jours × 3 fenêtres (matin/midi/soir).
+    """[DEPRECATED] Ancienne bande pictos seule.
 
-    Vide si la prévision n'est pas fournie ou ne contient pas
-    ``weather_code``. Basée sur les 48 premières heures de la
-    prévision (= AROME France HD via best_match Open-Meteo).
-
-    Layout : table HTML 2×3 (2 jours × 3 fenêtres) avec icône
-    Meteocons en base64 inline, libellé FR au-dessous.
+    Remplacée par ``_bloc_grille_indicateurs_48h`` qui regroupe pictos
+    + indicateurs en une grille unifiée. Conservée pour rétrocompat
+    de l'API publique tant qu'un consommateur la référence.
     """
     if prevision_horaire is None or "weather_code" not in prevision_horaire.columns:
         return ""
@@ -407,33 +560,23 @@ def composer_html(
         )
 
     direction = ind.direction_vent_dominante_cardinal or "—"
-    table_ind = (
-        '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
-        + row("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h")
-        + row("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h")
-        + row("Pluie cumulée", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h")
-        + row("Proba. pluie max", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire 0-24 h")
-        + row("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h")
-        + row("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h")
+    # Encart "Synthèse 24 h" condensé pour les valeurs cumulées / dominantes
+    # qui n'apparaissent pas dans la grille 48 h (ETP du jour, vent direction
+    # dominante pondérée vitesse).
+    table_synthese = (
+        '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+        + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h · FAO P-M socle")
         + row(
             "Vent direction dom.",
             f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
             "0-24 h · pondéré vitesse",
         )
-        + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h · FAO P-M socle")
-        + "</table>"
-    )
-
-    table_horizon = (
-        '<table style="width:100%;border-collapse:collapse;font-size:15px;">'
-        + row("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h")
-        + row("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm", "0-72 h")
-        + row("Proba. pluie max", f"{ind.prob_pluie_max_72h_pct:.0f} %", "max horaire 0-72 h")
+        + row("Bilan eau 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "P − ETP cumulés")
         + "</table>"
     )
 
     bloc_mildiou = _bloc_mildiou_smith(ind)
-    bloc_pictos = _bloc_pictogrammes_veille(prevision_horaire, tz_locale=tz_locale)
+    bloc_grille = _bloc_grille_indicateurs_48h(prevision_horaire, tz_locale=tz_locale)
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -473,14 +616,13 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     fenêtres ci-dessous relatives à T+0h.
   </p>
   {bandeau}
-  {bloc_pictos}
-  {_bloc_chart(chart_72h_base64)}
-  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Indicateurs 24 h</h3>
-  {table_ind}
-  <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Horizon pluie 48-72 h</h3>
-  {table_horizon}
+  {bloc_grille}
+  <h3 style="margin:16px 0 6px 0;font-size:14px;color:#34495e;">Synthèse 24 h</h3>
+  {table_synthese}
   {bloc_mildiou}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
+  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 72 h <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
+  {_bloc_chart(chart_72h_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
     Les seuils sont des défauts opérationnels, ajustables dans la config.
