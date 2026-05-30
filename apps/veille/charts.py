@@ -10,6 +10,8 @@ from __future__ import annotations
 import base64
 import io
 import logging
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import matplotlib
@@ -168,7 +170,7 @@ def carte_synoptique_dwd_base64(
     largeur_max_px: int = 800,
     timeout: float = 10.0,
     session: requests.Session | None = None,
-) -> str:
+) -> tuple[str, datetime | None]:
     """Récupère la dernière carte d'analyse synoptique DWD et la prépare pour mail.
 
     Télécharge l'image PNG (~5 MB), la redimensionne à ``largeur_max_px`` et
@@ -188,10 +190,12 @@ def carte_synoptique_dwd_base64(
 
     Returns
     -------
-    str
-        ``data:image/jpeg;base64,...`` à insérer dans ``<img src=...>``.
-        Chaîne vide en cas d'échec (réseau, image invalide). L'absence
-        de carte ne doit pas casser l'envoi du mail.
+    tuple[str, datetime | None]
+        ``(data:image/jpeg;base64,..., last_modified_utc)``. La date est
+        parsée depuis le header HTTP ``Last-Modified`` (= heure de
+        production de l'analyse côté DWD), ``None`` si absent ou
+        illisible. En cas d'échec réseau, retourne ``("", None)``.
+        L'absence de carte ne doit pas casser l'envoi du mail.
     """
     sess = session or requests.Session()
     try:
@@ -200,7 +204,15 @@ def carte_synoptique_dwd_base64(
         img = Image.open(io.BytesIO(resp.content))
     except (requests.RequestException, OSError) as e:
         logger.warning("Carte synoptique DWD indisponible : %s", e)
-        return ""
+        return "", None
+
+    last_modified: datetime | None = None
+    lm_header = resp.headers.get("Last-Modified")
+    if lm_header:
+        try:
+            last_modified = parsedate_to_datetime(lm_header)
+        except (TypeError, ValueError):
+            last_modified = None
 
     # Aplatit éventuelle transparence RGBA → RGB pour JPEG.
     if img.mode in ("RGBA", "LA"):
@@ -218,4 +230,5 @@ def carte_synoptique_dwd_base64(
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=75, optimize=True)
     buf.seek(0)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii")
+    data_uri = "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii")
+    return data_uri, last_modified

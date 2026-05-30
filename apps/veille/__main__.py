@@ -106,7 +106,9 @@ def executer_veille(
 
     tz_locale = config["site"].get("tz", "Europe/Paris")
     chart = graphique_48h_base64(prevision, now_utc, tz_locale=tz_locale)
-    carte = carte_synoptique_dwd_base64()  # vide silencieusement si DWD down
+    # Vide silencieusement si DWD down. last_modified = heure de
+    # production de l'analyse côté DWD (header HTTP Last-Modified).
+    carte, carte_last_modified = carte_synoptique_dwd_base64()
     email = composer_email(
         ind,
         alertes,
@@ -114,6 +116,7 @@ def executer_veille(
         now_utc.to_pydatetime(),
         chart_48h_base64=chart,
         carte_synoptique_base64=carte,
+        carte_synoptique_last_modified=carte_last_modified,
         prevision_horaire=prevision,
     )
 

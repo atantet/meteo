@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -81,10 +82,34 @@ def _bloc_chart(chart_base64: str) -> str:
     )
 
 
-def _bloc_carte_synoptique(carte_base64: str) -> str:
-    """Bloc HTML pour la carte synoptique DWD (vide si non fournie)."""
+DWD_URL_AFFICHEE = (
+    "https://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png"
+)
+
+
+def _bloc_carte_synoptique(
+    carte_base64: str,
+    last_modified: datetime | None = None,
+    source_url: str = DWD_URL_AFFICHEE,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Bloc HTML pour la carte synoptique DWD (vide si non fournie).
+
+    ``last_modified`` (datetime UTC) — heure de production de l'analyse
+    côté DWD lue dans le header HTTP. Affichée localisée + lien vers
+    l'URL source pour traçabilité (principe #5).
+    """
     if not carte_base64:
         return ""
+    legende = (
+        'Analyse de surface — <a href="' + source_url + '" '
+        'style="color:#888;text-decoration:underline;">Deutscher Wetterdienst</a>'
+    )
+    if last_modified is not None:
+        lm_loc = last_modified.astimezone(ZoneInfo(tz_locale))
+        legende += f" · mise à jour {lm_loc.strftime('%d/%m %Hh%M %Z')}"
+    else:
+        legende += " · mise à jour 4×/jour"
     return (
         '<div style="margin:18px 0 6px 0;">'
         '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
@@ -94,7 +119,7 @@ def _bloc_carte_synoptique(carte_base64: str) -> str:
         'style="max-width:100%;height:auto;border-radius:4px;border:1px solid #eee;">'
         "</div>"
         '<p style="margin:4px 0 0 0;font-size:11px;color:#888;text-align:center;">'
-        "Analyse de surface — Deutscher Wetterdienst (mise à jour 4×/jour)"
+        f"{legende}"
         "</p>"
         "</div>"
     )
@@ -607,6 +632,7 @@ def composer_html(
     site: str = SITE_EXPLAIN,
     chart_48h_base64: str = "",
     carte_synoptique_base64: str = "",
+    carte_synoptique_last_modified: datetime | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
@@ -652,6 +678,11 @@ def composer_html(
         etp_horaire_48h=ind.etp_horaire_48h,
         tz_locale=tz_locale,
     )
+    bloc_carte = _bloc_carte_synoptique(
+        carte_synoptique_base64,
+        last_modified=carte_synoptique_last_modified,
+        tz_locale=tz_locale,
+    )
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -693,7 +724,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bandeau}
   {bloc_grille}
   {bloc_mildiou}
-  {_bloc_carte_synoptique(carte_synoptique_base64)}
+  {bloc_carte}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 48 h
   <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
   {_bloc_chart(chart_48h_base64)}
@@ -713,6 +744,7 @@ def composer_email(
     maintenant: datetime,
     chart_48h_base64: str = "",
     carte_synoptique_base64: str = "",
+    carte_synoptique_last_modified: datetime | None = None,
     prevision_horaire: pd.DataFrame | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
@@ -739,6 +771,7 @@ def composer_email(
         url_fiches=url_fiches,
         chart_48h_base64=chart_48h_base64,
         carte_synoptique_base64=carte_synoptique_base64,
+        carte_synoptique_last_modified=carte_synoptique_last_modified,
         prevision_horaire=prevision_horaire,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

@@ -81,15 +81,38 @@ def test_carte_synoptique_redimensionne_et_encode() -> None:
     mock_session = MagicMock()
     mock_response = MagicMock()
     mock_response.content = _png_de_test(width=2000, height=1200)
+    mock_response.headers = {"Last-Modified": "Sat, 30 May 2026 06:00:00 GMT"}
     mock_session.get.return_value = mock_response
 
-    data_uri = carte_synoptique_dwd_base64(session=mock_session, largeur_max_px=800)
+    data_uri, last_modified = carte_synoptique_dwd_base64(session=mock_session, largeur_max_px=800)
     assert data_uri.startswith("data:image/jpeg;base64,")
     assert len(data_uri) > 100
+    assert last_modified is not None
+    assert last_modified.year == 2026
+    assert last_modified.month == 5
+    assert last_modified.day == 30
+    assert last_modified.hour == 6
+
+
+def test_carte_synoptique_sans_last_modified_header() -> None:
+    """Header Last-Modified absent → last_modified=None, data_uri OK."""
+    from unittest.mock import MagicMock
+
+    from apps.veille.charts import carte_synoptique_dwd_base64
+
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = _png_de_test()
+    mock_response.headers = {}
+    mock_session.get.return_value = mock_response
+
+    data_uri, last_modified = carte_synoptique_dwd_base64(session=mock_session)
+    assert data_uri.startswith("data:image/jpeg;base64,")
+    assert last_modified is None
 
 
 def test_carte_synoptique_robuste_si_dwd_down() -> None:
-    """Si DWD est inaccessible, retourne chaîne vide (ne casse pas le mail)."""
+    """Si DWD est inaccessible, retourne (chaîne vide, None) (ne casse pas le mail)."""
     from unittest.mock import MagicMock
 
     import requests
@@ -98,4 +121,4 @@ def test_carte_synoptique_robuste_si_dwd_down() -> None:
 
     mock_session = MagicMock()
     mock_session.get.side_effect = requests.ConnectionError("DWD down")
-    assert carte_synoptique_dwd_base64(session=mock_session) == ""
+    assert carte_synoptique_dwd_base64(session=mock_session) == ("", None)
