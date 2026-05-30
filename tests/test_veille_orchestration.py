@@ -23,7 +23,8 @@ def _config_test() -> dict:
             "horizon_max_jours": 2,
         },
         "alertes": {
-            "gel": {"actif": True, "seuil_celsius": -2.0},
+            "gel_irrigation": {"actif": True, "seuil_celsius": 4.0},
+            "gel_cultures": {"actif": True, "seuil_celsius": -2.0},
             "canicule": {"actif": True, "seuil_celsius": 32.0},
             "pluie_intense": {"actif": True, "seuil_mm_24h": 20.0},
             "vent_fort": {"actif": True, "seuil_kmh": 60.0},
@@ -103,7 +104,9 @@ def test_executer_veille_alerte_gel_dans_email() -> None:
 
     assert code == 0
     out = buf.getvalue()
-    assert "gel" in out.lower()
+    # T_min < -2 °C → gel_cultures critique. T_min < 4 °C aussi → gel_irrigation.
+    assert "gel cultures" in out.lower()
+    assert "gel irrigation" in out.lower()
     assert "-5.0" in out  # T° min affichée
 
 

@@ -1,8 +1,9 @@
 """Évaluation des alertes pour l'App 1 Veille.
 
 À partir des indicateurs calculés (cf. ``indicateurs.py``) et des
-seuils de la config, identifie les alertes déclenchées : gel, canicule,
-pluie intense, vent fort.
+seuils de la config, identifie les alertes déclenchées :
+gel irrigation (purge), gel cultures (protection), canicule, pluie
+intense, vent fort.
 
 Le ton des messages reste **informationnel** (cf. principe n°1 — ne pas
 prescrire d'action, exposer le signal). Chaque alerte porte sa source
@@ -21,7 +22,7 @@ from .indicateurs import IndicateursVeille
 class Alerte:
     """Une alerte déclenchée par un seuil franchi."""
 
-    type: str  # gel | canicule | pluie_intense | vent_fort
+    type: str  # gel_irrigation | gel_cultures | canicule | pluie_intense | vent_fort
     niveau: str  # warning | critique
     titre: str  # texte court ("Gel attendu cette nuit")
     valeur: float  # valeur observée/prévue
@@ -30,12 +31,12 @@ class Alerte:
 
 
 def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Alerte]:
-    """Évalue les 4 types d'alertes à partir des indicateurs et de la config.
+    """Évalue les alertes à partir des indicateurs et de la config.
 
     Parameters
     ----------
     ind :
-        Indicateurs calculés pour les prochaines 24-168 h.
+        Indicateurs calculés pour les prochaines 24-48 h.
     config :
         Configuration Veille (cf. ``config.load_config``). Lit la
         section ``alertes`` pour les seuils et le drapeau ``actif``.
@@ -44,21 +45,47 @@ def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Aler
     -------
     list[Alerte]
         Liste des alertes effectivement déclenchées, ordre fixe
-        (gel, canicule, pluie, vent). Liste vide si aucune.
+        (gel_irrigation, gel_cultures, canicule, pluie, vent).
+        Liste vide si aucune.
     """
     cfg = config["alertes"]
     alertes: list[Alerte] = []
 
-    g = cfg["gel"]
-    if g["actif"] and ind.temperature_min_24h_celsius < g["seuil_celsius"]:
+    # Gel irrigation : T° min 0-48 h ≤ seuil (marge de sécurité avant
+    # purge). Warning, anticipation saisonnière.
+    gi = cfg.get("gel_irrigation", {"actif": False})
+    if gi["actif"] and ind.temperature_min_48h_celsius <= gi["seuil_celsius"]:
         alertes.append(
             Alerte(
-                type="gel",
+                type="gel_irrigation",
+                niveau="warning",
+                titre=(
+                    f"Risque de gel sous 48 h — T° min prévue "
+                    f"{ind.temperature_min_48h_celsius:.1f} °C "
+                    "(penser à purger le système d'irrigation)"
+                ),
+                valeur=ind.temperature_min_48h_celsius,
+                unite="°C",
+                seuil=gi["seuil_celsius"],
+            )
+        )
+
+    # Gel cultures : T° min 0-24 h ≤ seuil (gel franc nuit prochaine).
+    # Critique, action immédiate (protéger ou récolter).
+    gc = cfg.get("gel_cultures", {"actif": False})
+    if gc["actif"] and ind.temperature_min_24h_celsius <= gc["seuil_celsius"]:
+        alertes.append(
+            Alerte(
+                type="gel_cultures",
                 niveau="critique",
-                titre=(f"Gel attendu — T° min prévue {ind.temperature_min_24h_celsius:.1f} °C"),
+                titre=(
+                    f"Gel cette nuit — T° min prévue "
+                    f"{ind.temperature_min_24h_celsius:.1f} °C "
+                    "(protéger ou récolter les cultures sensibles)"
+                ),
                 valeur=ind.temperature_min_24h_celsius,
                 unite="°C",
-                seuil=g["seuil_celsius"],
+                seuil=gc["seuil_celsius"],
             )
         )
 

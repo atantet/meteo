@@ -28,6 +28,7 @@ def _indicateurs_avec_mildiou(jours_risque: int, total_jours: int = 3):
     return IndicateursVeille(
         temperature_min_24h_celsius=12.0,
         temperature_max_24h_celsius=22.0,
+        temperature_min_48h_celsius=11.0,
         cumul_pluie_24h_mm=0.0,
         cumul_pluie_48h_mm=0.0,
         vent_max_24h_kmh=15.0,
@@ -152,6 +153,7 @@ def test_bloc_mildiou_smith_vide_si_indicateur_non_calcule() -> None:
     ind = IndicateursVeille(
         temperature_min_24h_celsius=12.0,
         temperature_max_24h_celsius=22.0,
+        temperature_min_48h_celsius=11.0,
         cumul_pluie_24h_mm=0.0,
         cumul_pluie_48h_mm=0.0,
         vent_max_24h_kmh=15.0,

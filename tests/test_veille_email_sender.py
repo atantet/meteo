@@ -32,6 +32,7 @@ def _ind(**kwargs):
     defaults = dict(
         temperature_min_24h_celsius=8.0,
         temperature_max_24h_celsius=18.0,
+        temperature_min_48h_celsius=6.0,
         cumul_pluie_24h_mm=2.5,
         cumul_pluie_48h_mm=5.0,
         vent_max_24h_kmh=20.0,

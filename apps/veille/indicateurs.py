@@ -85,6 +85,7 @@ class IndicateursVeille:
 
     temperature_min_24h_celsius: float
     temperature_max_24h_celsius: float
+    temperature_min_48h_celsius: float
 
     cumul_pluie_24h_mm: float
     cumul_pluie_48h_mm: float
@@ -158,6 +159,7 @@ def calculer_indicateurs(
     h48 = df.head(48)
 
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
+    temperature_celsius_48h = h48["temperature_2m"] - KELVIN_OFFSET
 
     # ETP via le socle FAO Penman-Monteith (cohérence inter-apps).
     site = config["site"]
@@ -214,6 +216,7 @@ def calculer_indicateurs(
     return IndicateursVeille(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
+        temperature_min_48h_celsius=float(temperature_celsius_48h.min()),
         cumul_pluie_24h_mm=pluie_24h,
         cumul_pluie_48h_mm=float(h48["precipitation"].sum()),
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
