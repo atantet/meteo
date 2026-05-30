@@ -478,6 +478,98 @@ ecart_relatif = (1 - nb_h_lwd_par_an.mean() / nb_h_hr_par_an.mean()) * 100
 print(f"Écart moyen LWD vs HR : {ecart_relatif:+.0f} % (négatif = LWD plus restrictif).")
 ```
 
+# Calendrier annuel des conditions météo
+
+::: {.callout-note}
+Distribution mensuelle moyenne sur 30 ans (1991-2020) des conditions
+météo dominantes diurnes (8h-20h locales). Les catégories suivent les
+codes WMO 4677 d'Open-Meteo. *Indisponible si le cache parquet a été
+généré avant l'ajout de ``weather_code`` aux variables socle — sera
+rempli automatiquement au prochain refresh mensuel du cache.*
+:::
+
+```{python}
+#| label: fig-conditions-mensuelles
+#| fig-cap: "Nombre moyen de jours par catégorie météo et par mois (1991-2020, ERA5, jours diurnes 8h-20h locales). Une journée est classée selon le code WMO de sévérité maximale dans sa fenêtre diurne."
+
+if "weather_code" not in horaire.columns:
+    print("⚠ weather_code absent du cache parquet — lancer scripts/refresh_cache_climato.py pour mettre à jour.")
+else:
+    from apps.shared.pictograms import WMO_SEVERITE
+
+    horaire_loc = horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert("Europe/Paris")
+    horaire_diurne = horaire_loc[
+        (horaire_loc.index.hour >= 8) & (horaire_loc.index.hour < 20)
+    ]
+    # Code dominant par jour = code de sévérité max.
+    horaire_diurne = horaire_diurne.assign(
+        date_locale=horaire_diurne.index.normalize(),
+        severite=horaire_diurne["weather_code"].map(lambda c: WMO_SEVERITE.get(int(c), 0)),
+    )
+    idx_max = horaire_diurne.groupby("date_locale")["severite"].idxmax()
+    quot_codes = horaire_diurne.loc[idx_max, ["weather_code"]].copy()
+    quot_codes.index = pd.DatetimeIndex(quot_codes.index).tz_localize(None)
+    quot_codes["weather_code"] = quot_codes["weather_code"].astype(int)
+
+    # Catégories agrégées pour lisibilité.
+    def categorie(code):
+        if code in (0, 1):
+            return "Clair / ensoleillé"
+        if code in (2, 3):
+            return "Nuageux / couvert"
+        if code in (45, 48):
+            return "Brouillard"
+        if 51 <= code <= 57 or code in (61, 63):
+            return "Pluie légère / bruine"
+        if code in (65,) or 80 <= code <= 82:
+            return "Pluie forte / averses"
+        if 71 <= code <= 77 or 85 <= code <= 86:
+            return "Neige"
+        if 95 <= code <= 99:
+            return "Orage"
+        return "Autre"
+
+    quot_codes["categorie"] = quot_codes["weather_code"].apply(categorie)
+    quot_codes["mois"] = quot_codes.index.month
+
+    # Comptage par mois × catégorie puis moyenne sur 30 ans.
+    par_mois_cat = quot_codes.groupby(["mois", "categorie"]).size().unstack(fill_value=0) / 30
+
+    ordre = [
+        "Clair / ensoleillé",
+        "Nuageux / couvert",
+        "Brouillard",
+        "Pluie légère / bruine",
+        "Pluie forte / averses",
+        "Neige",
+        "Orage",
+    ]
+    par_mois_cat = par_mois_cat.reindex(columns=[c for c in ordre if c in par_mois_cat.columns])
+    couleurs = {
+        "Clair / ensoleillé": "#f1c40f",
+        "Nuageux / couvert": "#95a5a6",
+        "Brouillard": "#bdc3c7",
+        "Pluie légère / bruine": "#3498db",
+        "Pluie forte / averses": "#2c3e50",
+        "Neige": "#ecf0f1",
+        "Orage": "#8e44ad",
+    }
+    couleurs_ordre = [couleurs.get(c, "#7f8c8d") for c in par_mois_cat.columns]
+
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+    par_mois_cat.plot.bar(stacked=True, color=couleurs_ordre, ax=ax, edgecolor="white", linewidth=0.3)
+    ax.set_xticks(range(12))
+    ax.set_xticklabels(mois_labels, rotation=0)
+    ax.set_ylabel("Jours moyens / mois (30 ans)")
+    ax.set_xlabel("")
+    ax.set_title("Conditions météo dominantes diurnes par mois")
+    ax.legend(title="Catégorie", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+    plt.tight_layout()
+    plt.show()
+```
+
 # Sources et méthodes (transparence — principe #5)
 
 Ce rapport applique le principe transverse #5 de transparence totale.
