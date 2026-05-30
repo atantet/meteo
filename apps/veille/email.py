@@ -225,14 +225,16 @@ def _bloc_grille_indicateurs_48h(
                 return pd.Series([], dtype=float)
             return horaire_48h.loc[masque, colonne].dropna()
 
-        def ligne_indicateur(label: str, formatter) -> str:
+        def ligne_indicateur(label: str, formatter, jour_courant: pd.Timestamp = jour) -> str:
             """Construit une ligne ``<tr>`` avec un libellé + 3 cellules formatées.
 
             ``formatter`` reçoit ``(jour, h_debut, h_fin)`` et renvoie une string.
+            ``jour_courant`` est explicitement fourni pour éviter la capture de
+            la variable de boucle ``jour`` (B023).
             """
             cells = []
             for _nom, h_debut, h_fin in FENETRES_VEILLE:
-                val_str = formatter(jour, h_debut, h_fin)
+                val_str = formatter(jour_courant, h_debut, h_fin)
                 cells.append(
                     '<td style="padding:4px;text-align:center;'
                     "font-variant-numeric:tabular-nums;font-size:13px;"
@@ -621,7 +623,8 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {table_synthese}
   {bloc_mildiou}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
-  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 72 h <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
+  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 72 h
+  <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
   {_bloc_chart(chart_72h_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
