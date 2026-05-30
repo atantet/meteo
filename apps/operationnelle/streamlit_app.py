@@ -68,13 +68,9 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
 
 
-_MODELES_PICTOGRAMMES = (
-    ("ARPEGE", "meteofrance_arpege_europe"),
-    ("ECMWF IFS", "ecmwf_ifs04"),
-)
-
-
-def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
+def _afficher_bande_pictogrammes(
+    site: dict, horizon_jours: int, modeles: list[tuple[str, str]]
+) -> None:
     """Rend une grille jour × modèle avec les pictos Open-Meteo + libellé.
 
     Une ligne par jour, deux colonnes modèles (ARPEGE, IFS) +
@@ -90,7 +86,7 @@ def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
 
     tz_loc = site.get("tz", "Europe/Paris")
     resultats: dict[str, list[tuple]] = {}
-    for nom_modele, code_modele in _MODELES_PICTOGRAMMES:
+    for nom_modele, code_modele in modeles:
         try:
             prev = _fetch_prevision(site["latitude"], site["longitude"], horizon_jours, code_modele)
             resultats[nom_modele] = codes_dominants_par_jour(prev, tz_locale=tz_loc)
@@ -102,8 +98,8 @@ def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
 
     en_tete = st.columns([1.6, 1, 1, 1.4])
     en_tete[0].markdown("**Jour**")
-    en_tete[1].markdown(f"**{_MODELES_PICTOGRAMMES[0][0]}**")
-    en_tete[2].markdown(f"**{_MODELES_PICTOGRAMMES[1][0]}**")
+    en_tete[1].markdown(f"**{modeles[0][0]}**")
+    en_tete[2].markdown(f"**{modeles[1][0]}**")
     en_tete[3].markdown("**Accord**")
 
     code_par_jour_modele: dict[str, dict[pd.Timestamp, int]] = {
@@ -114,7 +110,7 @@ def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
         row = st.columns([1.6, 1, 1, 1.4])
         row[0].markdown(f"**{jour.strftime('%a %d %b').capitalize()}**")
         codes_jour = []
-        for idx, (nom_modele, _) in enumerate(_MODELES_PICTOGRAMMES, start=1):
+        for idx, (nom_modele, _) in enumerate(modeles, start=1):
             code = code_par_jour_modele.get(nom_modele, {}).get(jour)
             if code is None:
                 row[idx].markdown("—")
@@ -190,9 +186,18 @@ def main() -> None:
         "(~10 km, 0-4 j fiable) vs ECMWF IFS (~9 km, modèle de référence "
         "mondial, 0-10 j)."
     )
-    with st.spinner("Récupération ARPEGE + ECMWF IFS…"):
+    # Config modèles : liste de dicts {label, modele} → liste de tuples.
+    modeles_pictos_cfg = config["source_meteo"].get(
+        "modeles_pictogrammes",
+        [
+            {"label": "ARPEGE", "modele": "meteofrance_arpege_europe"},
+            {"label": "ECMWF IFS", "modele": "ecmwf_ifs04"},
+        ],
+    )
+    modeles_pictos = [(m["label"], m["modele"]) for m in modeles_pictos_cfg]
+    with st.spinner(f"Récupération {' + '.join(m for m, _ in modeles_pictos)}…"):
         try:
-            _afficher_bande_pictogrammes(site, horizon)
+            _afficher_bande_pictogrammes(site, horizon, modeles_pictos)
         except Exception as e:  # noqa: BLE001
             st.warning(f"Pictogrammes indisponibles : {e}")
 

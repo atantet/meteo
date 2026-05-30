@@ -22,6 +22,14 @@ source_meteo:
   # Horizon plus long que la Veille : panorama prévoit 3-15 j pour
   # l'opérationnel. Open-Meteo plafond pratique ~14 j sur ECMWF.
   horizon_max_jours: 14
+  # Modèles affichés en parallèle pour la bande pictogrammes (haut du
+  # dashboard). Permet visualiser l'accord/désaccord entre ARPEGE
+  # Météo-France et ECMWF IFS. Identifiants Open-Meteo officiels.
+  modeles_pictogrammes:
+    - label: ARPEGE
+      modele: meteofrance_arpege_europe
+    - label: ECMWF IFS
+      modele: ecmwf_ifs04
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
 #
