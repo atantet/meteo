@@ -77,7 +77,7 @@ def _afficher_bande_pictogrammes(
     une colonne accord (✓ / ⚠). Quand un modèle ne couvre pas un
     jour (ARPEGE > 4j), affiche '—'.
     """
-    from apps.shared.pictograms import icone_bytes
+    from apps.shared.pictograms import icone_base64
     from apps.shared.pictograms import libelle as libelle_picto
 
     tz_loc = site.get("tz", "Europe/Paris")
@@ -91,40 +91,63 @@ def _afficher_bande_pictogrammes(
 
     # Unifie les dates couvertes par au moins un modèle.
     jours_tous = sorted({jour for codes in resultats.values() for jour, _ in codes})[:horizon_jours]
-
-    en_tete = st.columns([1.6, 1, 1, 1.4])
-    en_tete[0].markdown("**Jour**")
-    en_tete[1].markdown(f"**{modeles[0][0]}**")
-    en_tete[2].markdown(f"**{modeles[1][0]}**")
-    en_tete[3].markdown("**Accord**")
+    if not jours_tous:
+        st.markdown("_Aucune donnée disponible pour les modèles sélectionnés._")
+        return
 
     code_par_jour_modele: dict[str, dict[pd.Timestamp, int]] = {
         nom: dict(codes) for nom, codes in resultats.items()
     }
 
-    for jour in jours_tous:
-        row = st.columns([1.6, 1, 1, 1.4])
-        row[0].markdown(f"**{jour.strftime('%a %d %b').capitalize()}**")
-        codes_jour = []
-        for idx, (nom_modele, _) in enumerate(modeles, start=1):
+    # Tableau HTML transposé : 1 ligne par modèle, 1 colonne par jour.
+    # Scroll horizontal automatique sur mobile via overflow-x.
+    en_tete = (
+        '<tr style="background:#fafafa;">'
+        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
+        "font-size:13px;position:sticky;left:0;background:#fafafa;\">Modèle</th>"
+        + "".join(
+            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
+            f'color:#888;white-space:nowrap;">{jour.strftime("%a %d %b").capitalize()}</th>'
+            for jour in jours_tous
+        )
+        + "</tr>"
+    )
+
+    body = []
+    for nom_modele, _ in modeles:
+        cellules = [
+            '<th style="padding:6px 8px;text-align:left;font-size:13px;'
+            "color:#34495e;position:sticky;left:0;background:white;\">"
+            f"{nom_modele}</th>"
+        ]
+        for jour in jours_tous:
             code = code_par_jour_modele.get(nom_modele, {}).get(jour)
             if code is None:
-                row[idx].markdown("—")
-                continue
-            codes_jour.append(code)
-            icon_data = icone_bytes(code)
-            if icon_data is not None:
-                row[idx].image(icon_data, width=48)
-                row[idx].caption(libelle_picto(code))
+                cellules.append(
+                    '<td style="padding:6px 8px;text-align:center;color:#aaa;">—</td>'
+                )
             else:
-                row[idx].markdown(libelle_picto(code))
-        # Colonne accord.
-        if len(codes_jour) == 2 and codes_jour[0] == codes_jour[1]:
-            row[3].markdown("✓ accord")
-        elif len(codes_jour) == 2:
-            row[3].markdown("⚠ divergence")
-        else:
-            row[3].markdown("—")
+                uri = icone_base64(code)
+                lib = libelle_picto(code)
+                cellules.append(
+                    '<td style="padding:6px 8px;text-align:center;">'
+                    f'<img src="{uri}" alt="{lib}" title="{lib}" '
+                    'style="width:42px;height:42px;display:block;margin:0 auto;">'
+                    f'<div style="font-size:10px;color:#888;margin-top:2px;'
+                    f'white-space:nowrap;">{lib}</div></td>'
+                )
+        body.append("<tr>" + "".join(cellules) + "</tr>")
+
+    html = (
+        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
+        'border:1px solid #eee;border-radius:4px;">'
+        '<table style="border-collapse:collapse;min-width:100%;'
+        'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
+        + en_tete
+        + "".join(body)
+        + "</table></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 @st.cache_data
