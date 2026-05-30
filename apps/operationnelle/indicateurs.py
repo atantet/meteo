@@ -139,7 +139,10 @@ def calculer_indicateurs_quotidiens(
     travail["t_celsius"] = df["temperature_2m"] - KELVIN_OFFSET
     travail["pluie_mm"] = df["precipitation"]
     travail["rafales_kmh"] = df["rafales_vent_10m"] * MS_TO_KMH
+    travail["vitesse_vent_kmh"] = df["vitesse_vent_10m"] * MS_TO_KMH
     travail["etp_mm"] = etp_horaire
+    if "probabilite_pluie_pct" in df.columns:
+        travail["probabilite_pluie_pct"] = df["probabilite_pluie_pct"]
 
     # Stocke aussi vitesse + direction pour la direction dominante
     # journalière calculée plus bas.
@@ -150,14 +153,18 @@ def calculer_indicateurs_quotidiens(
     travail.index = travail.index.tz_convert(tz_locale)
     travail["date_locale"] = travail.index.date
 
-    quotidien = travail.groupby("date_locale").agg(
-        t_min_celsius=("t_celsius", "min"),
-        t_max_celsius=("t_celsius", "max"),
-        t_moy_celsius=("t_celsius", "mean"),
-        pluie_24h_mm=("pluie_mm", "sum"),
-        rafales_max_kmh=("rafales_kmh", "max"),
-        etp_mm=("etp_mm", "sum"),
-    )
+    agg_dict = {
+        "t_min_celsius": ("t_celsius", "min"),
+        "t_max_celsius": ("t_celsius", "max"),
+        "t_moy_celsius": ("t_celsius", "mean"),
+        "pluie_24h_mm": ("pluie_mm", "sum"),
+        "rafales_max_kmh": ("rafales_kmh", "max"),
+        "vent_moy_kmh": ("vitesse_vent_kmh", "mean"),
+        "etp_mm": ("etp_mm", "sum"),
+    }
+    if "probabilite_pluie_pct" in travail.columns:
+        agg_dict["prob_pluie_max_pct"] = ("probabilite_pluie_pct", "max")
+    quotidien = travail.groupby("date_locale").agg(**agg_dict)
 
     # Direction dominante par jour (vector mean pondéré vitesse).
     if "direction_vent_deg" in travail.columns:

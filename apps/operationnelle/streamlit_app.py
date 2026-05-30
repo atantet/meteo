@@ -104,7 +104,7 @@ def _afficher_bande_pictogrammes(
     en_tete = (
         '<tr style="background:#fafafa;">'
         '<th style="padding:6px 8px;text-align:left;color:#34495e;'
-        "font-size:13px;position:sticky;left:0;background:#fafafa;\">Modèle</th>"
+        'font-size:13px;position:sticky;left:0;background:#fafafa;">Modèle</th>'
         + "".join(
             f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
             f'color:#888;white-space:nowrap;">{jour.strftime("%a %d %b").capitalize()}</th>'
@@ -117,15 +117,13 @@ def _afficher_bande_pictogrammes(
     for nom_modele, _ in modeles:
         cellules = [
             '<th style="padding:6px 8px;text-align:left;font-size:13px;'
-            "color:#34495e;position:sticky;left:0;background:white;\">"
+            'color:#34495e;position:sticky;left:0;background:white;">'
             f"{nom_modele}</th>"
         ]
         for jour in jours_tous:
             code = code_par_jour_modele.get(nom_modele, {}).get(jour)
             if code is None:
-                cellules.append(
-                    '<td style="padding:6px 8px;text-align:center;color:#aaa;">—</td>'
-                )
+                cellules.append('<td style="padding:6px 8px;text-align:center;color:#aaa;">—</td>')
             else:
                 uri = icone_base64(code)
                 lib = libelle_picto(code)
@@ -141,6 +139,109 @@ def _afficher_bande_pictogrammes(
     html = (
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
         'border:1px solid #eee;border-radius:4px;">'
+        '<table style="border-collapse:collapse;min-width:100%;'
+        'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
+        + en_tete
+        + "".join(body)
+        + "</table></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
+    """Grille variables × jours (transposée, scroll horizontal).
+
+    Une ligne par variable (T° min/moy/max, Pluie+proba, ETP, bilan eau
+    du jour, Vent moy/raf, Vent direction), une colonne par jour. Source =
+    best_match (= quotidien déjà calculé dans main).
+    """
+    if quotidien.empty:
+        return
+
+    def fmt_t(row) -> str:
+        try:
+            return (
+                f"{row['t_min_celsius']:.0f}/{row['t_moy_celsius']:.0f}/{row['t_max_celsius']:.0f}"
+            )
+        except (KeyError, ValueError):
+            return "—"
+
+    def fmt_pluie(row) -> str:
+        try:
+            mm = row["pluie_24h_mm"]
+            proba = row.get("prob_pluie_max_pct", None)
+            if pd.isna(proba):
+                return f"{mm:.1f}"
+            return f"{mm:.1f} ({proba:.0f} %)"
+        except (KeyError, ValueError):
+            return "—"
+
+    def fmt_etp(row) -> str:
+        try:
+            return f"{row['etp_mm']:.1f}"
+        except (KeyError, ValueError):
+            return "—"
+
+    def fmt_bilan(row) -> str:
+        """Bilan eau du jour = pluie − ETP."""
+        try:
+            v = row["pluie_24h_mm"] - row["etp_mm"]
+            return f"{v:+.1f}"
+        except (KeyError, ValueError):
+            return "—"
+
+    def fmt_vent(row) -> str:
+        try:
+            return f"{row['vent_moy_kmh']:.0f}/{row['rafales_max_kmh']:.0f}"
+        except (KeyError, ValueError):
+            return "—"
+
+    def fmt_direction(row) -> str:
+        card = row.get("direction_vent_cardinal", "")
+        if not card or pd.isna(card):
+            return "—"
+        return str(card)
+
+    lignes = [
+        ("T° min/moy/max (°C)", fmt_t),
+        ("Pluie mm (proba)", fmt_pluie),
+        ("ETP (mm)", fmt_etp),
+        ("Bilan eau du jour (mm)", fmt_bilan),
+        ("Vent moy/raf (km/h)", fmt_vent),
+        ("Vent direction", fmt_direction),
+    ]
+
+    en_tete = (
+        '<tr style="background:#fafafa;">'
+        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
+        'font-size:13px;position:sticky;left:0;background:#fafafa;">Indicateur</th>'
+        + "".join(
+            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
+            f'color:#888;white-space:nowrap;">'
+            f"{date.strftime('%a %d %b').capitalize()}</th>"
+            for date in quotidien.index
+        )
+        + "</tr>"
+    )
+
+    body = []
+    for label, formatter in lignes:
+        cellules = [
+            '<th style="padding:6px 8px;text-align:left;font-size:12px;'
+            'color:#34495e;position:sticky;left:0;background:white;">'
+            f"{label}</th>"
+        ]
+        for _date, row in quotidien.iterrows():
+            cellules.append(
+                '<td style="padding:6px 8px;text-align:center;font-size:12px;'
+                f'font-variant-numeric:tabular-nums;color:#34495e;'
+                f'white-space:nowrap;">{formatter(row)}</td>'
+            )
+        body.append("<tr>" + "".join(cellules) + "</tr>")
+
+    html = (
+        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
+        'border:1px solid #eee;border-radius:4px;margin-top:8px;">'
         '<table style="border-collapse:collapse;min-width:100%;'
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
         + en_tete
@@ -219,6 +320,10 @@ def main() -> None:
             _afficher_bande_pictogrammes(site, horizon, modeles_pictos)
         except Exception as e:  # noqa: BLE001
             st.warning(f"Pictogrammes indisponibles : {e}")
+
+    # Grille variables détaillées sous les pictos, même structure
+    # transposée (variables en lignes, jours en colonnes).
+    _afficher_grille_variables(quotidien)
 
     # ----- Courbes 7 j (vue principale, en onglets) -----
     st.subheader("Prévision 7 jours — courbes par indicateur")

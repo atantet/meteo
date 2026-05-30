@@ -260,7 +260,11 @@ def _bloc_grille_indicateurs_48h(
             serie = serie_fenetre(jour, "precipitation", h_debut, h_fin)
             if serie.empty:
                 return "—"
-            return f"{serie.sum():.1f}"
+            mm = serie.sum()
+            proba = serie_fenetre(jour, "probabilite_pluie_pct", h_debut, h_fin)
+            if proba.empty:
+                return f"{mm:.1f}"
+            return f"{mm:.1f} ({proba.max():.0f} %)"
 
         def fmt_vent(jour, h_debut, h_fin) -> str:
             vent = serie_fenetre(jour, "vitesse_vent_10m", h_debut, h_fin)
@@ -313,7 +317,7 @@ def _bloc_grille_indicateurs_48h(
             en_tete,
             cellule_picto(jour),
             ligne_indicateur("T° min/max (°C)", fmt_t_min_max),
-            ligne_indicateur("Pluie (mm)", fmt_pluie),
+            ligne_indicateur("Pluie mm (proba max)", fmt_pluie),
             ligne_indicateur("Vent moy/raf (km/h)", fmt_vent),
             ligne_indicateur("Vent direction", fmt_vent_direction),
             ligne_indicateur("HR moy", fmt_hr),
