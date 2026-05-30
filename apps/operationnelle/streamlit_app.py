@@ -67,6 +67,91 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
 
 
+_MODELES_PICTOGRAMMES = (
+    ("ARPEGE", "meteofrance_arpege_europe"),
+    ("ECMWF IFS", "ecmwf_ifs04"),
+)
+
+
+def _agreger_pictos_jour(prevision: pd.DataFrame, tz_locale: str) -> list[tuple]:
+    """Pour chaque jour local de la prévision, renvoie (date, code dominant).
+
+    Code dominant = max sévérité parmi les codes horaires de la
+    journée locale (8h-20h pour rester sur la fenêtre diurne).
+    """
+    from apps.shared.pictograms import code_dominant_fenetre
+
+    horaire_loc = prevision.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_diurne = horaire_loc[(horaire_loc.index.hour >= 8) & (horaire_loc.index.hour < 20)]
+    par_jour: dict[pd.Timestamp, int] = {}
+    for jour, grp in horaire_diurne.groupby(horaire_diurne.index.normalize()):
+        codes = grp["weather_code"] if "weather_code" in grp.columns else pd.Series([])
+        par_jour[jour] = code_dominant_fenetre(codes)
+    return sorted(par_jour.items())
+
+
+def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
+    """Rend une grille jour × modèle avec les pictos Open-Meteo + libellé.
+
+    Une ligne par jour, deux colonnes modèles (ARPEGE, IFS) +
+    une colonne accord (✓ / ⚠). Quand un modèle ne couvre pas un
+    jour (ARPEGE > 4j), affiche '—'.
+    """
+    from apps.shared.pictograms import (
+        chemin_icone,
+    )
+    from apps.shared.pictograms import (
+        libelle as libelle_picto,
+    )
+
+    tz_loc = site.get("tz", "Europe/Paris")
+    resultats: dict[str, list[tuple]] = {}
+    for nom_modele, code_modele in _MODELES_PICTOGRAMMES:
+        try:
+            prev = _fetch_prevision(site["latitude"], site["longitude"], horizon_jours, code_modele)
+            resultats[nom_modele] = _agreger_pictos_jour(prev, tz_loc)
+        except Exception:  # noqa: BLE001
+            resultats[nom_modele] = []
+
+    # Unifie les dates couvertes par au moins un modèle.
+    jours_tous = sorted({jour for codes in resultats.values() for jour, _ in codes})[:horizon_jours]
+
+    en_tete = st.columns([1.6, 1, 1, 1.4])
+    en_tete[0].markdown("**Jour**")
+    en_tete[1].markdown(f"**{_MODELES_PICTOGRAMMES[0][0]}**")
+    en_tete[2].markdown(f"**{_MODELES_PICTOGRAMMES[1][0]}**")
+    en_tete[3].markdown("**Accord**")
+
+    code_par_jour_modele: dict[str, dict[pd.Timestamp, int]] = {
+        nom: dict(codes) for nom, codes in resultats.items()
+    }
+
+    for jour in jours_tous:
+        row = st.columns([1.6, 1, 1, 1.4])
+        row[0].markdown(f"**{jour.strftime('%a %d %b').capitalize()}**")
+        codes_jour = []
+        for idx, (nom_modele, _) in enumerate(_MODELES_PICTOGRAMMES, start=1):
+            code = code_par_jour_modele.get(nom_modele, {}).get(jour)
+            if code is None:
+                row[idx].markdown("—")
+                continue
+            codes_jour.append(code)
+            icon_path = chemin_icone(code)
+            if icon_path.exists():
+                row[idx].image(str(icon_path), width=48)
+                row[idx].caption(libelle_picto(code))
+            else:
+                row[idx].markdown(libelle_picto(code))
+        # Colonne accord.
+        if len(codes_jour) == 2 and codes_jour[0] == codes_jour[1]:
+            row[3].markdown("✓ accord")
+        elif len(codes_jour) == 2:
+            row[3].markdown("⚠ divergence")
+        else:
+            row[3].markdown("—")
+
+
 @st.cache_data
 def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
     """Charge les coefficients culturaux ARDEPI."""
@@ -113,6 +198,19 @@ def main() -> None:
             f"Premier pas de prévision (T+0) : "
             f"**{t0.strftime('%H:%M')} UTC** ({t0_loc.strftime('%H:%M')} heure locale)"
         )
+
+    # ----- Bande pictogrammes 7 j ARPEGE vs IFS -----
+    st.subheader("Tendance 7 jours — ARPEGE vs ECMWF IFS")
+    st.caption(
+        "Deux modèles en parallèle pour révéler l'accord (confiance haute) "
+        "ou le désaccord (incertitude) sur la prévision. ARPEGE Météo-France "
+        "(~10 km, 0-4 j fiable) vs ECMWF IFS (~9 km, modèle de référence "
+        "mondial, 0-10 j)."
+    )
+    try:
+        _afficher_bande_pictogrammes(site, horizon)
+    except Exception as e:  # noqa: BLE001
+        st.warning(f"Pictogrammes indisponibles : {e}")
 
     # ----- Courbes 7 j (vue principale, en onglets) -----
     st.subheader("Prévision 7 jours — courbes par indicateur")

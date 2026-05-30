@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+import pandas as pd
+
 # Helpers FR partagés avec App 2 Opérationnelle, cf. apps/shared/dates_fr.py.
 from apps.shared.dates_fr import (
     JOURS_FR,
@@ -93,6 +95,83 @@ def _bloc_carte_synoptique(carte_base64: str) -> str:
         "Analyse de surface — Deutscher Wetterdienst (mise à jour 4×/jour)"
         "</p>"
         "</div>"
+    )
+
+
+def _bloc_pictogrammes_veille(
+    prevision_horaire: pd.DataFrame | None,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Bande de pictogrammes 2 jours × 3 fenêtres (matin/midi/soir).
+
+    Vide si la prévision n'est pas fournie ou ne contient pas
+    ``weather_code``. Basée sur les 48 premières heures de la
+    prévision (= AROME France HD via best_match Open-Meteo).
+
+    Layout : table HTML 2×3 (2 jours × 3 fenêtres) avec icône
+    Meteocons en base64 inline, libellé FR au-dessous.
+    """
+    if prevision_horaire is None or "weather_code" not in prevision_horaire.columns:
+        return ""
+
+    from apps.shared.pictograms import code_dominant_fenetre, icone_base64, libelle
+
+    horaire_loc = prevision_horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_48h = horaire_loc.head(48)
+    if horaire_48h.empty:
+        return ""
+
+    # Identifie les 2 jours locaux couverts par les 48 h.
+    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
+    fenetres = (
+        ("Matin", 6, 12),
+        ("Midi", 12, 16),
+        ("Soir", 16, 21),
+    )
+
+    cellules = []
+    for jour in jours_uniques:
+        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
+        jour_label = JOURS_FR[jour_loc.weekday()][:3] + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
+        rangee_cellules = [
+            f'<td style="padding:4px 8px;font-size:12px;color:#888;white-space:nowrap;">'
+            f"{jour_label}</td>"
+        ]
+        for nom_fenetre, h_debut, h_fin in fenetres:
+            masque = (horaire_48h.index.normalize() == jour) & (
+                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
+            )
+            codes_fenetre = horaire_48h.loc[masque, "weather_code"]
+            code = code_dominant_fenetre(codes_fenetre)
+            icone_uri = icone_base64(code)
+            alt = libelle(code)
+            rangee_cellules.append(
+                f'<td style="padding:4px;text-align:center;">'
+                f'<img src="{icone_uri}" alt="{alt}" title="{alt}" '
+                f'style="width:48px;height:48px;display:block;margin:0 auto;">'
+                f'<div style="font-size:10px;color:#888;margin-top:2px;">{nom_fenetre}</div>'
+                f"</td>"
+            )
+        cellules.append("<tr>" + "".join(rangee_cellules) + "</tr>")
+
+    en_tete_fenetres = (
+        '<tr style="font-size:11px;color:#aaa;">'
+        "<td></td>"
+        + "".join(
+            f'<td style="text-align:center;padding:2px;">{nom}</td>' for nom, _, _ in fenetres
+        )
+        + "</tr>"
+    )
+
+    return (
+        '<h3 style="margin:14px 0 6px 0;font-size:14px;color:#34495e;">'
+        "Tendance 48 h (AROME France HD 1.3 km)</h3>"
+        '<table style="width:100%;border-collapse:collapse;'
+        'background:#fafafa;border-radius:4px;">'
+        + en_tete_fenetres
+        + "".join(cellules)
+        + "</table>"
     )
 
 
@@ -244,6 +323,7 @@ def composer_html(
     site: str = SITE_EXPLAIN,
     chart_72h_base64: str = "",
     carte_synoptique_base64: str = "",
+    prevision_horaire: pd.DataFrame | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
@@ -309,6 +389,7 @@ def composer_html(
     )
 
     bloc_mildiou = _bloc_mildiou_smith(ind)
+    bloc_pictos = _bloc_pictogrammes_veille(prevision_horaire, tz_locale=tz_locale)
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -348,6 +429,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     fenêtres ci-dessous relatives à T+0h.
   </p>
   {bandeau}
+  {bloc_pictos}
   {_bloc_chart(chart_72h_base64)}
   <h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">Indicateurs 24 h</h3>
   {table_ind}
@@ -371,6 +453,7 @@ def composer_email(
     maintenant: datetime,
     chart_72h_base64: str = "",
     carte_synoptique_base64: str = "",
+    prevision_horaire: pd.DataFrame | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -390,5 +473,6 @@ def composer_email(
         url_fiches=url_fiches,
         chart_72h_base64=chart_72h_base64,
         carte_synoptique_base64=carte_synoptique_base64,
+        prevision_horaire=prevision_horaire,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

@@ -57,6 +57,7 @@ HOURLY_VARIABLES_DEFAUT: list[str] = [
     "shortwave_radiation",  # W/m² → J/m²/h
     "et0_fao_evapotranspiration",  # mm/h
     "cloud_cover",  # % → fraction
+    "weather_code",  # int WMO 4677 (0-99) — pour pictos météo
 ]
 
 # Mapping noms Open-Meteo → noms socle (équivalent à
@@ -72,6 +73,7 @@ RENAME_VERS_SOCLE: dict[str, str] = {
     "shortwave_radiation": "rayonnement_global",
     "et0_fao_evapotranspiration": "etp_open_meteo",
     "cloud_cover": "cloud_cover",
+    "weather_code": "weather_code",
 }
 
 

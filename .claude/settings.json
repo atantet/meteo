@@ -35,7 +35,16 @@
       "Bash(~/.conda/envs/meteo/bin/pre-commit:*)",
       "Bash(~/.conda/envs/meteo/bin/streamlit:*)",
       "Bash(~/.conda/envs/app_bilan_hydrique/bin/python:*)",
+      "Bash(find:*)",
+      "Bash(file:*)",
+      "Bash(pkill:*)",
+      "Bash(tar:*)",
+      "Bash(mv:*)",
+      "Bash(quarto:*)",
+      "Bash(~/.local/quarto/bin/quarto:*)",
+      "Bash(for *)",
       "Write(/home/atantet/projets/meteo/**)",
+      "Write(/tmp/**)",
       "Edit(/home/atantet/projets/meteo/**)"
     ]
   }

@@ -114,6 +114,7 @@ def executer_veille(
         now_utc.to_pydatetime(),
         chart_72h_base64=chart,
         carte_synoptique_base64=carte,
+        prevision_horaire=prevision,
     )
 
     if preview_path is not None:
