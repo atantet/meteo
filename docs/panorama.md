@@ -24,8 +24,8 @@ module abandonné délibérément 2026-05-29.
                     │  │ sources   │  │ geo (IDW²)  │     │
                     │  │ DPObs     │  │ multi-stat. │     │
                     │  │ DPClim    │  └─────────────┘     │
-                    │  │ SAFRAN    │  ┌─────────────┐     │
-                    │  │ OpenMeteo │  │ indices     │     │
+                    │  │ OpenMeteo │  ┌─────────────┐     │
+                    │  │ (CERRA)   │  │ indices     │     │
                     │  └───────────┘  │ ETP, bilan, │     │
                     │  ┌───────────┐  │ gel, mildiou│     │
                     │  │ entrepot  │  │ LWD, etc.   │     │
@@ -104,17 +104,16 @@ métadonnées.
     météo" (distribution mensuelle sur 30 ans en 7 catégories
     agrégées).
 
-**v1 (priorité bioagresseurs bio)** :
+**v0 = méthodologie gelée 2026-05-30.** Les pistes d'amélioration
+théoriques (Magarey DPD/NWP, SAFRAN MF, capteur T+HR autonome,
+calibration locale k_tunnel) sont **abandonnées** — v0 est jugée
+suffisante pour le besoin terrain. Tout temps disponible va sur
+l'usage et le retour empirique, pas sur la course au modèle plus
+fin. Cf. [[methodo-gelee-v0]] en mémoire Claude pour le détail.
 
-- Humectation foliaire Magarey DPD/NWP 2005 (cf.
-  [ADR-0005](decisions/0005-modele-humectation-foliaire.md)) —
-  substituer le proxy LWD CART Gleason 1994 (déjà en place depuis
-  2026-05-29) par Magarey DPD/NWP quand le papier sera accessible.
-- Risque mildiou pomme de terre (modèle à choisir entre Hyre, Mishra, SimMip — ADR à venir)
-- Calibration locale k_tunnel après une saison d'observation
-  (compteur eau vs prédiction app).
-
-**v2 (extensions)** : alternaria, oïdium, botrytis, sommes thermiques par culture, etc.
+**v2 (extensions éventuelles)** : alternaria, oïdium, botrytis,
+sommes thermiques par culture, etc. À arbitrer après une saison de
+retour terrain — pas un engagement.
 
 ### Critères MVP
 
@@ -128,9 +127,9 @@ métadonnées.
 
 | Version | Sources | Indices | Notes |
 |---|---|---|---|
-| v0 | MF DPObs + Open-Meteo | 5 MVP | DuckDB local, mode replay |
-| v1 | + SAFRAN | + bioagresseurs + bilan hydrique culture | Pour app climato |
-| v2 | + capteurs locaux | + alternaria, oïdium, sommes T° | Si capteurs ferme installés |
+| v0 (acté 2026-05-30) | Open-Meteo (prévision best_match + CERRA archive) | Smith mildiou tomate, bilan hydrique plein champ + tunnel, pictos WMO 4677 | Production, méthodologie gelée |
+| ~~v1~~ | abandonné | abandonné | ~~SAFRAN, Magarey LWD, capteur HR, calibration k_tunnel~~ |
+| v2 (éventuel) | inchangé | + alternaria, oïdium, sommes T° par culture | À arbitrer après retour terrain |
 
 ### Hypothèses propres / questions ouvertes
 
@@ -263,8 +262,9 @@ observations terrain saisies à la main.
 
 ### Données d'entrée
 
-Historique SAFRAN 1958→ (8 km, gratuit via climetlab / data.gouv.fr) +
-projections DRIAS 2030 / 2050 / 2100.
+Historique **CERRA Copernicus 1984→** (5 km, gratuit via Open-Meteo
+Archive — SAFRAN MF abandonné méthodo gelée 2026-05-30).
+Projections DRIAS 2030 / 2050 / 2100 : à arbitrer si besoin v2.
 
 ### Indicateurs / analyses
 
@@ -290,7 +290,7 @@ projections DRIAS 2030 / 2050 / 2100.
 
 - Un rapport « Climatologie Pleine-Fougères » publié sur Pages
 - 3-4 figures clés (régime pluie, T° saisonnière, dates gel, ETP saison)
-- Source SAFRAN intégrée
+- Source CERRA intégrée
 - HTML + PDF générés depuis Quarto
 
 ### Phasage
@@ -303,7 +303,7 @@ projections DRIAS 2030 / 2050 / 2100.
 
 ### Hypothèses propres / questions ouvertes
 
-- Source historique : SAFRAN (8 km) en v0 — confirmé
+- Source historique : CERRA (5 km) — méthodo gelée 2026-05-30
 - Période de référence climatologique : 1991-2020 OMM (par défaut) — à valider
 - Date cible premier rapport climato : avant saison 2027 ? — à confirmer
 
@@ -343,7 +343,7 @@ permissions.
 
 **Phase 4 — App 3 Climato MVP**
 
-- Source SAFRAN intégrée
+- Source CERRA intégrée
 - Rapport « Climatologie Pleine-Fougères » publié sur Pages
 
 **Phase 5+ — Extensions**
