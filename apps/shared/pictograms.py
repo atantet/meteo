@@ -22,6 +22,14 @@ Codes WMO 4677 résumés (cf. https://open-meteo.com/en/docs) :
 
 Utilisé par App 1 Veille (bande pictos en tête du mail) et App 2 Op
 (comparaison ARPEGE vs IFS dashboard).
+
+API publique :
+- ``nom_icone(code)`` → nom du fichier PNG
+- ``libelle(code)`` → libellé FR du code WMO
+- ``chemin_icone(code)`` → chemin absolu de l'icône
+- ``icone_base64(code)`` → data URI pour ``<img src="data:...">``
+- ``code_dominant_fenetre(série)`` → max sévérité d'une fenêtre
+- ``codes_dominants_par_jour(df, tz_locale)`` → liste de (date, code)
 """
 
 from __future__ import annotations
