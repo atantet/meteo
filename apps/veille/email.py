@@ -30,7 +30,11 @@ from apps.shared.dates_fr import (
 )
 
 from .alertes import Alerte, resume_alertes
-from .indicateurs import IndicateursVeille
+from .indicateurs import (
+    IndicateursVeille,
+    degrees_to_cardinal,
+    direction_dominante_vecteur,
+)
 
 __all__ = [
     # Re-exports pour rétro-compat (les tests historiques importaient
@@ -273,22 +277,78 @@ def _bloc_grille_indicateurs_48h(
                 return "—"
             return f"{serie.mean() * 100:.0f} %"
 
+        def fmt_vent_direction(jour, h_debut, h_fin) -> str:
+            masque = (horaire_48h.index.normalize() == jour) & (
+                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
+            )
+            sub = horaire_48h.loc[masque]
+            if sub.empty or "direction_vent_deg" not in sub.columns:
+                return "—"
+            deg = direction_dominante_vecteur(sub)
+            if pd.isna(deg):
+                return "—"
+            return degrees_to_cardinal(deg)
+
+        # ETP du jour : aggrégation 24h (somme de l'ETP horaire FAO socle
+        # si dispo, sinon etp_open_meteo en mm/h). Affichée en une seule
+        # cellule centrée (colspan=3) sous l'HR.
+        def cellule_etp_jour(jour_courant: pd.Timestamp = jour) -> str:
+            masque = horaire_48h.index.normalize() == jour_courant
+            etp_col = "etp_open_meteo" if "etp_open_meteo" in horaire_48h.columns else None
+            if etp_col is None:
+                val = "—"
+            else:
+                serie = horaire_48h.loc[masque, etp_col].dropna()
+                val = f"{serie.sum():.1f} mm" if not serie.empty else "—"
+            return (
+                '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
+                "ETP du jour</td>"
+                f'<td colspan="{len(FENETRES_VEILLE)}" '
+                'style="padding:4px;text-align:center;'
+                'font-variant-numeric:tabular-nums;font-size:13px;color:#34495e;">'
+                f"{val}</td></tr>"
+            )
+
         lignes = [
             en_tete,
             cellule_picto(jour),
             ligne_indicateur("T° min/max (°C)", fmt_t_min_max),
             ligne_indicateur("Pluie (mm)", fmt_pluie),
             ligne_indicateur("Vent moy/raf (km/h)", fmt_vent),
+            ligne_indicateur("Vent direction", fmt_vent_direction),
             ligne_indicateur("HR moy", fmt_hr),
+            cellule_etp_jour(),
         ]
 
         tableaux.append(
             '<table style="width:100%;border-collapse:collapse;'
             'margin:8px 0;border:1px solid #eee;border-radius:4px;">' + "".join(lignes) + "</table>"
         )
+    # Bilan eau 48 h = pluie cumul 48h - ETP cumul 48h.
+    pluie_48h = (
+        horaire_48h["precipitation"].sum() if "precipitation" in horaire_48h.columns else 0.0
+    )
+    etp_48h = (
+        horaire_48h["etp_open_meteo"].sum() if "etp_open_meteo" in horaire_48h.columns else 0.0
+    )
+    bilan_48h = pluie_48h - etp_48h
+    couleur_bilan = "#27ae60" if bilan_48h >= 0 else "#c0392b"
+    bilan_html = (
+        '<table style="width:100%;border-collapse:collapse;margin:6px 0 0 0;'
+        'font-size:13px;">'
+        '<tr><td style="padding:6px 8px;color:#555;">Bilan eau 48 h (P − ETP)</td>'
+        f'<td style="padding:6px 8px;text-align:right;font-weight:600;'
+        f'color:{couleur_bilan};font-variant-numeric:tabular-nums;">'
+        f"{bilan_48h:+.1f} mm</td></tr>"
+        '<tr><td colspan="2" style="padding:0 8px 6px 8px;'
+        'color:#aaa;font-size:11px;text-align:right;">'
+        f"P = {pluie_48h:.1f} mm · ETP = {etp_48h:.1f} mm</td></tr>"
+        "</table>"
+    )
+
     return (
         '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
-        "Tendance 48 h (AROME France HD 1.3 km)</h3>" + "".join(tableaux)
+        "Tendance 48 h (AROME France HD 1.3 km)</h3>" + "".join(tableaux) + bilan_html
     )
 
 
@@ -561,22 +621,6 @@ def composer_html(
             "</tr>"
         )
 
-    direction = ind.direction_vent_dominante_cardinal or "—"
-    # Encart "Synthèse 24 h" condensé pour les valeurs cumulées / dominantes
-    # qui n'apparaissent pas dans la grille 48 h (ETP du jour, vent direction
-    # dominante pondérée vitesse).
-    table_synthese = (
-        '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
-        + row("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h · FAO P-M socle")
-        + row(
-            "Vent direction dom.",
-            f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
-            "0-24 h · pondéré vitesse",
-        )
-        + row("Bilan eau 7 j", f"{ind.bilan_eau_7j_mm:.1f} mm", "P − ETP cumulés")
-        + "</table>"
-    )
-
     bloc_mildiou = _bloc_mildiou_smith(ind)
     bloc_grille = _bloc_grille_indicateurs_48h(prevision_horaire, tz_locale=tz_locale)
 
@@ -619,8 +663,6 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   </p>
   {bandeau}
   {bloc_grille}
-  <h3 style="margin:16px 0 6px 0;font-size:14px;color:#34495e;">Synthèse 24 h</h3>
-  {table_synthese}
   {bloc_mildiou}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 72 h
