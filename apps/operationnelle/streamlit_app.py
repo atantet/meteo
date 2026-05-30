@@ -49,6 +49,7 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     styler_ligne,
 )
 from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
+from apps.shared.pictograms import codes_dominants_par_jour  # noqa: E402
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
@@ -73,24 +74,6 @@ _MODELES_PICTOGRAMMES = (
 )
 
 
-def _agreger_pictos_jour(prevision: pd.DataFrame, tz_locale: str) -> list[tuple]:
-    """Pour chaque jour local de la prévision, renvoie (date, code dominant).
-
-    Code dominant = max sévérité parmi les codes horaires de la
-    journée locale (8h-20h pour rester sur la fenêtre diurne).
-    """
-    from apps.shared.pictograms import code_dominant_fenetre
-
-    horaire_loc = prevision.copy()
-    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-    horaire_diurne = horaire_loc[(horaire_loc.index.hour >= 8) & (horaire_loc.index.hour < 20)]
-    par_jour: dict[pd.Timestamp, int] = {}
-    for jour, grp in horaire_diurne.groupby(horaire_diurne.index.normalize()):
-        codes = grp["weather_code"] if "weather_code" in grp.columns else pd.Series([])
-        par_jour[jour] = code_dominant_fenetre(codes)
-    return sorted(par_jour.items())
-
-
 def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
     """Rend une grille jour × modèle avec les pictos Open-Meteo + libellé.
 
@@ -110,7 +93,7 @@ def _afficher_bande_pictogrammes(site: dict, horizon_jours: int) -> None:
     for nom_modele, code_modele in _MODELES_PICTOGRAMMES:
         try:
             prev = _fetch_prevision(site["latitude"], site["longitude"], horizon_jours, code_modele)
-            resultats[nom_modele] = _agreger_pictos_jour(prev, tz_loc)
+            resultats[nom_modele] = codes_dominants_par_jour(prev, tz_locale=tz_loc)
         except Exception:  # noqa: BLE001
             resultats[nom_modele] = []
 

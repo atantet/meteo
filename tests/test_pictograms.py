@@ -81,3 +81,38 @@ def test_code_dominant_fenetre_vide_renvoie_0() -> None:
 
     assert code_dominant_fenetre(pd.Series([], dtype=float)) == 0
     assert code_dominant_fenetre(pd.Series([float("nan")] * 3)) == 0
+
+
+def test_codes_dominants_par_jour_decoupe_local() -> None:
+    """Agrégation diurne (8h-20h) par jour local."""
+    import numpy as np
+
+    from apps.shared.pictograms import codes_dominants_par_jour
+
+    # 48 h horaires UTC à partir du 15 juin minuit.
+    idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
+    codes = np.zeros(48, dtype=int)  # clair partout par défaut
+    # Pluie modérée (63) à 13h-15h UTC le 15 juin = 15h-17h Paris.
+    codes[13:16] = 63
+    df = pd.DataFrame({"weather_code": codes}, index=idx)
+    out = codes_dominants_par_jour(df, tz_locale="Europe/Paris")
+    # Au moins 2 jours.
+    assert len(out) >= 2
+    # 1er jour doit montrer pluie (sévérité maxi).
+    code_jour1 = out[0][1]
+    assert code_jour1 == 63
+
+
+def test_codes_dominants_par_jour_vide_renvoie_liste_vide() -> None:
+    from apps.shared.pictograms import codes_dominants_par_jour
+
+    assert codes_dominants_par_jour(pd.DataFrame()) == []
+
+
+def test_codes_dominants_par_jour_sans_weather_code_vide() -> None:
+    """Si la colonne weather_code n'existe pas, retour vide."""
+    from apps.shared.pictograms import codes_dominants_par_jour
+
+    idx = pd.date_range("2026-06-15", periods=24, freq="h", tz="UTC")
+    df = pd.DataFrame({"temperature_2m": [285.0] * 24}, index=idx)
+    assert codes_dominants_par_jour(df) == []

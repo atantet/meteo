@@ -161,6 +161,47 @@ def icone_base64(code: int) -> str:
     return f"data:image/png;base64,{data}"
 
 
+def codes_dominants_par_jour(
+    prevision_horaire: pd.DataFrame,
+    tz_locale: str = "Europe/Paris",
+    heure_debut_diurne: int = 8,
+    heure_fin_diurne: int = 20,
+) -> list[tuple[pd.Timestamp, int]]:
+    """Agrège les codes WMO horaires en code dominant par jour local.
+
+    Restreint la fenêtre aux heures diurnes (défaut 8h-20h locales) pour
+    refléter ce que perçoit l'utilisateur de jour. Choisit le code de
+    **sévérité maximale** par jour (privilégie la signalisation d'un
+    épisode pluvieux ponctuel sur la moyenne).
+
+    Parameters
+    ----------
+    prevision_horaire :
+        DataFrame indexé UTC avec colonne ``weather_code``.
+    tz_locale :
+        Fuseau pour découper les jours calendaires.
+    heure_debut_diurne, heure_fin_diurne :
+        Bornes locales (incluse / exclue).
+
+    Returns
+    -------
+    list[(date, code)]
+        Triées chronologiquement.
+    """
+    if prevision_horaire.empty or "weather_code" not in prevision_horaire.columns:
+        return []
+    horaire_loc = prevision_horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_diurne = horaire_loc[
+        (horaire_loc.index.hour >= heure_debut_diurne) & (horaire_loc.index.hour < heure_fin_diurne)
+    ]
+    par_jour: dict[pd.Timestamp, int] = {}
+    for jour, grp in horaire_diurne.groupby(horaire_diurne.index.normalize()):
+        codes = grp["weather_code"]
+        par_jour[jour] = code_dominant_fenetre(codes)
+    return sorted(par_jour.items())
+
+
 def code_dominant_fenetre(codes_horaires: pd.Series) -> int:
     """Choisit le code représentatif d'une fenêtre horaire.
 
