@@ -132,5 +132,5 @@ def test_load_config_defaut_repo(tmp_path: Path) -> None:
         assert key in config, f"Section manquante : {key}"
     # Site = La Petite Claye.
     assert config["site"]["latitude"] == pytest.approx(48.5420)
-    assert config["planification"]["cron_utc"] == "30 6 * * *"
-    assert config["source_meteo"]["horizon_max_jours"] == 7
+    assert config["planification"]["cron_utc"] == "17 4 * * *"
+    assert config["source_meteo"]["horizon_max_jours"] == 2

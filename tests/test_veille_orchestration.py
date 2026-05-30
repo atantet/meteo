@@ -20,7 +20,7 @@ def _config_test() -> dict:
         "source_meteo": {
             "prevision": "openmeteo",
             "modeles": ["best_match"],
-            "horizon_max_jours": 7,
+            "horizon_max_jours": 2,
         },
         "alertes": {
             "gel": {"actif": True, "seuil_celsius": -2.0},
@@ -28,15 +28,7 @@ def _config_test() -> dict:
             "pluie_intense": {"actif": True, "seuil_mm_24h": 20.0},
             "vent_fort": {"actif": True, "seuil_kmh": 60.0},
         },
-        "indicateurs": {
-            "bilan_eau": {
-                "tension_irrigation": {
-                    "seuil_etp_seche_mm": 5.0,
-                    "seuil_pluie_compense_mm": 2.0,
-                    "seuil_deficit_7j_mm": -15.0,
-                }
-            }
-        },
+        "indicateurs": {},
         "email": {
             "format": "html_mobile",
             "sujet_template": "Veille {date} — {alertes_resume}",
@@ -48,26 +40,25 @@ def _config_test() -> dict:
 
 
 def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
-    """168 h de prévision homogène (1 semaine).
+    """72 h de prévision homogène (horizon AROME France HD + marge mildiou).
 
     Inclut les colonnes nécessaires au calcul ETP socle (T, HR, vent,
     rayonnement). rayonnement_global=0 ⇒ ETP socle ~ aérodynamique
     seul, suffisant pour des tests d'orchestration où l'ETP exacte
     n'est pas le sujet.
     """
-    index = pd.date_range("2024-06-15 00:00:00+00:00", periods=168, freq="h", tz="UTC")
+    index = pd.date_range("2024-06-15 00:00:00+00:00", periods=72, freq="h", tz="UTC")
     return pd.DataFrame(
         {
-            "temperature_2m": np.full(168, t_celsius + 273.15),
-            "humidite_relative": np.full(168, 0.7),
-            "precipitation": np.full(168, 0.0),
-            "probabilite_pluie_pct": np.full(168, 0.0),
-            "vitesse_vent_10m": np.full(168, 5.0),
-            "rafales_vent_10m": np.full(168, 9.0),
-            "direction_vent_deg": np.full(168, 270.0),
-            "rayonnement_global": np.full(168, 0.0),
-            "etp_open_meteo": np.full(168, 0.1),
-            "cloud_cover": np.full(168, 0.5),
+            "temperature_2m": np.full(72, t_celsius + 273.15),
+            "humidite_relative": np.full(72, 0.7),
+            "precipitation": np.full(72, 0.0),
+            "probabilite_pluie_pct": np.full(72, 0.0),
+            "vitesse_vent_10m": np.full(72, 5.0),
+            "rafales_vent_10m": np.full(72, 9.0),
+            "direction_vent_deg": np.full(72, 270.0),
+            "rayonnement_global": np.full(72, 0.0),
+            "cloud_cover": np.full(72, 0.5),
         },
         index=index,
     )
@@ -93,7 +84,7 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     assert "Veille 2024-06-15 — RAS" in output  # pas d'alerte
     # Source appelée avec bons paramètres.
     mock_source.obtenir_prevision.assert_called_once_with(
-        latitude=48.5, longitude=-1.6, horizon_jours=7
+        latitude=48.5, longitude=-1.6, horizon_jours=2
     )
 
 

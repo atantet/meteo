@@ -20,34 +20,41 @@ site:
 # ----- Planification -----
 planification:
   # Cron en UTC (GitHub Actions n'accepte que UTC).
-  # 06:30 UTC = 07:30 Paris hiver / 08:30 Paris été.
-  # Justification : à 06:30 UTC, le run ECMWF IFS 00 UTC est
-  # disponible avec marge (terminé ~06:00 UTC, diffusé Open-Meteo
-  # ~06:30 UTC). Garantit toujours une prévision 7 j fraîche. Coût :
-  # mail un peu tardif en été (8h30) ; envisager double-cron
-  # DST-conscious si gênant à l'usage.
-  cron_utc: "30 6 * * *"
+  # 04:17 UTC = 05:17 Paris hiver / 06:17 Paris été.
+  # Justification : la Veille ne consomme que la fenêtre 0-48 h
+  # (alertes + cumuls + mildiou + figure), donc seul AROME France HD
+  # 1.3 km est requis. Son run 00 UTC est diffusé par Open-Meteo vers
+  # 03:30-04:00 UTC ; on cible 04:17 UTC pour avoir la marge.
+  # Minute non-ronde (17) pour éviter le pic top-of-the-hour des
+  # crons GH Actions (lag observé jusqu'à 2-3 h sur "30 6 * * *").
+  cron_utc: "17 4 * * *"
   # Désactivable temporairement (vacances, période sans activité).
   actif: true
 
 # ----- Source météo -----
 source_meteo:
-  # En v0 : Open-Meteo (gratuit, pas d'auth, passerelle multi-modèles
-  # incluant AROME France HD et ECMWF IFS). Voir ADR-0002.
+  # En v0 : Open-Meteo (gratuit, pas d'auth). Voir ADR-0002.
   prevision: openmeteo
-  # "best_match" compose automatiquement :
-  # - 0–2 j : AROME France HD 1.3 km (modèle français haute résolution)
-  # - 2–4 j : ICON-EU ou ARPEGE
-  # - 4–7 j : ECMWF IFS 9 km (référence mondiale)
-  # AVANTAGE : c'est le seul mode qui retourne et0_fao_evapotranspiration
-  # nativement (les modèles individuels comme AROME ne fournissent pas
-  # l'ETP). Pour un usage plus fin (multi-modèles séparés), prévoir un
-  # OpenMeteoForecast étendu en v1.
+  # best_match avec horizon 2 j = AROME France HD 1.3 km nativement
+  # sur 0-48 h (best_match compose AROME sur cette fenêtre). On garde
+  # best_match plutôt que meteofrance_arome_france_hd explicite parce
+  # qu'AROME seul ne renvoie pas shortwave_radiation (NaN), ce qui
+  # casse le calcul ETP socle (FAO Penman-Monteith). best_match
+  # complète automatiquement les variables manquantes (rayonnement
+  # global typiquement via ICON-EU ou IFS) tout en gardant AROME
+  # pour T/HR/vent/pluie.
+  # NB : la fraîcheur du rayonnement_global peut traîner d'1 run
+  # (= ~12 h) si IFS 00 UTC n'est pas encore diffusé à l'heure du
+  # cron — impact opérationnel marginal car le rayonnement attendu
+  # est dominé par la prévision de couverture nuageuse, pas par le
+  # delta entre 2 runs.
   modeles:
     - best_match
-  # Plafond explicite — au-delà la prévision déterministe perd trop en
-  # fiabilité pour servir l'opérationnel.
-  horizon_max_jours: 7
+  # Horizon plafond Veille = 48 h. La fenêtre 48-72 h a été retirée
+  # délibérément (cumuls, mildiou, figure) pour rester sur AROME
+  # France HD sur tout l'horizon (best_match bascule sur ICON-EU /
+  # ARPEGE au-delà de 48 h).
+  horizon_max_jours: 2
 
 # ----- Alertes seuils -----
 #
@@ -88,22 +95,6 @@ alertes:
 
 # ----- Indicateurs envoyés (info, pas alerte forte) -----
 indicateurs:
-  # Bilan eau du jour et tendance 7 j (P − ETP cumulé, sans Kc culture).
-  bilan_eau:
-    actif: true
-    # Heuristique "tension irrigation aujourd'hui" — affiche un flag si
-    # les 3 conditions sont remplies. Pas dépendant d'une climato
-    # locale (qui nécessiterait SAFRAN, différé v1) ; seuils fixes
-    # simples à calibrer après une saison.
-    #
-    # tension_irrigation = (ETP_24h > seuil_etp_seche)
-    #                       AND (pluie_24h < seuil_pluie_compense)
-    #                       AND (bilan_P_ETP_7j < seuil_deficit_7j)
-    tension_irrigation:
-      seuil_etp_seche_mm: 5.0       # ETP > 5 mm/jour = journée séchante
-      seuil_pluie_compense_mm: 2.0  # Pluie < 2 mm = ne compense pas l'ETP
-      seuil_deficit_7j_mm: -15.0    # Cumul P−ETP < −15 mm/7j = sec installé
-
   # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007
   # et ADR-0010 doctrine pragmatique LWD).
   # Critère : 2 jours consécutifs avec T_min ≥ t_min ET nb heures

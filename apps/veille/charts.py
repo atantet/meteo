@@ -60,11 +60,11 @@ COULEUR_PLUIE = "#3498db"
 COULEUR_PROBA = "#16a085"
 
 
-def graphique_72h_base64(
+def graphique_48h_base64(
     prevision: pd.DataFrame,
     now_utc: pd.Timestamp,
     tz_locale: str = "Europe/Paris",
-    horizon_h: int = 72,
+    horizon_h: int = 48,
 ) -> str:
     """Génère un PNG base64 du graph T° + pluie + proba sur ``horizon_h``.
 
@@ -77,7 +77,8 @@ def graphique_72h_base64(
     tz_locale :
         Fuseau horaire pour les ticks de l'axe X.
     horizon_h :
-        Nombre d'heures de prévision affichées (défaut 72).
+        Nombre d'heures de prévision affichées (défaut 48 — horizon
+        natif AROME France HD).
 
     Returns
     -------
@@ -117,7 +118,7 @@ def graphique_72h_base64(
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
     ax_t.grid(True, alpha=0.3)
-    ax_t.set_title(f"Prévision {horizon_h} h — Open-Meteo")
+    ax_t.set_title(f"Prévision {horizon_h} h — Open-Meteo AROME France HD")
 
     # Pluie en barres + proba pluie en ligne (axe secondaire).
     if "precipitation" in df.columns:

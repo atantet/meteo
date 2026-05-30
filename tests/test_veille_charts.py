@@ -1,4 +1,4 @@
-"""Tests `apps.veille.charts` — génération graphique 72 h."""
+"""Tests `apps.veille.charts` — génération graphique 48 h."""
 
 from __future__ import annotations
 
@@ -28,33 +28,33 @@ def _prevision_synth() -> pd.DataFrame:
     )
 
 
-def test_graphique_72h_base64_prefixe_data_uri() -> None:
-    from apps.veille.charts import graphique_72h_base64
+def test_graphique_48h_base64_prefixe_data_uri() -> None:
+    from apps.veille.charts import graphique_48h_base64
 
     prevision = _prevision_synth()
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
-    data_uri = graphique_72h_base64(prevision, now)
+    data_uri = graphique_48h_base64(prevision, now)
     assert data_uri.startswith("data:image/png;base64,")
     # Base64 PNG non vide.
     assert len(data_uri) > 1000
 
 
-def test_graphique_72h_base64_prevision_vide() -> None:
+def test_graphique_48h_base64_prevision_vide() -> None:
     """now_utc dans le futur lointain → DataFrame vide → chaîne vide."""
-    from apps.veille.charts import graphique_72h_base64
+    from apps.veille.charts import graphique_48h_base64
 
     prevision = _prevision_synth()
     now = pd.Timestamp("2030-01-01 00:00:00+00:00")
-    assert graphique_72h_base64(prevision, now) == ""
+    assert graphique_48h_base64(prevision, now) == ""
 
 
-def test_graphique_72h_pas_de_proba_si_colonne_absente() -> None:
+def test_graphique_48h_pas_de_proba_si_colonne_absente() -> None:
     """Robuste à l'absence de probabilite_pluie_pct."""
-    from apps.veille.charts import graphique_72h_base64
+    from apps.veille.charts import graphique_48h_base64
 
     prev = _prevision_synth().drop(columns=["probabilite_pluie_pct"])
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
-    data_uri = graphique_72h_base64(prev, now)
+    data_uri = graphique_48h_base64(prev, now)
     assert data_uri.startswith("data:image/png;base64,")
 
 

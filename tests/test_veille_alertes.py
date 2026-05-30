@@ -27,17 +27,13 @@ def _ind(**kwargs):
         temperature_max_24h_celsius=20.0,
         cumul_pluie_24h_mm=0.0,
         cumul_pluie_48h_mm=0.0,
-        cumul_pluie_72h_mm=0.0,
         vent_max_24h_kmh=10.0,
         rafales_max_24h_kmh=20.0,
         direction_vent_dominante_deg=270.0,
         direction_vent_dominante_cardinal="O",
         etp_jour_mm=2.0,
-        bilan_eau_7j_mm=0.0,
         prob_pluie_max_24h_pct=0.0,
         prob_pluie_max_48h_pct=0.0,
-        prob_pluie_max_72h_pct=0.0,
-        tension_irrigation=False,
         prevision_t0_utc=None,
     )
     defaults.update(kwargs)

@@ -34,17 +34,13 @@ def _ind(**kwargs):
         temperature_max_24h_celsius=18.0,
         cumul_pluie_24h_mm=2.5,
         cumul_pluie_48h_mm=5.0,
-        cumul_pluie_72h_mm=8.0,
         vent_max_24h_kmh=20.0,
         rafales_max_24h_kmh=35.0,
         direction_vent_dominante_deg=270.0,
         direction_vent_dominante_cardinal="O",
         etp_jour_mm=3.2,
-        bilan_eau_7j_mm=-5.0,
         prob_pluie_max_24h_pct=15.0,
         prob_pluie_max_48h_pct=30.0,
-        prob_pluie_max_72h_pct=45.0,
-        tension_irrigation=False,
         prevision_t0_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
     )
     defaults.update(kwargs)

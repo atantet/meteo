@@ -63,21 +63,19 @@ class EmailComposed:
 
 # Source explicite — adapté à la config par défaut de l'App 1 Veille
 # (cf. config/veille.yaml ``source_meteo.modeles``).
-SOURCE_DEFAUT = (
-    "Open-Meteo best_match (AROME France HD 0-2 j · ICON-EU/ARPEGE 2-4 j · ECMWF IFS 4-7 j)"
-)
+SOURCE_DEFAUT = "Open-Meteo · AROME France HD 1.3 km (Météo-France)"
 METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
-CRON_EXPLAIN = "30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été"
+CRON_EXPLAIN = "17 4 * * * UTC = 05:17 Paris hiver / 06:17 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
 
 
 def _bloc_chart(chart_base64: str) -> str:
-    """Bloc HTML pour le graphique 72 h embarqué (vide si non fourni)."""
+    """Bloc HTML pour le graphique 48 h embarqué (vide si non fourni)."""
     if not chart_base64:
         return ""
     return (
         '<div style="margin:12px 0;text-align:center;">'
-        f'<img src="{chart_base64}" alt="Prévision 72 h" '
+        f'<img src="{chart_base64}" alt="Prévision 48 h" '
         'style="max-width:100%;height:auto;border-radius:4px;">'
         "</div>"
     )
@@ -148,18 +146,22 @@ FENETRES_VEILLE = (
 
 def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
+    etp_horaire_48h: pd.Series | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Grille unifiée J+0 / J+1 — pictos + T° + Pluie + Vent + HR.
 
-    Source : 48 premières heures de la prévision (= AROME France HD
-    via best_match Open-Meteo). Substitue les anciennes tables
-    "Indicateurs 24 h" et "Horizon pluie 48-72 h" pour une lecture
-    en un coup d'œil.
+    Source : 48 premières heures de la prévision (AROME France HD
+    1.3 km Open-Meteo). Substitue les anciennes tables "Indicateurs
+    24 h" et "Horizon pluie 48-72 h" pour une lecture en un coup d'œil.
 
     Layout : un mini-tableau par jour (5 lignes × 3 colonnes
     matin/midi/soir), deux tableaux empilés. Plus lisible sur mobile
     qu'un grand tableau 7 colonnes.
+
+    ``etp_horaire_48h`` (Series indexée UTC) provient du calcul socle
+    FAO Penman-Monteith — utilisée pour ETP du jour et bilan eau 48 h.
+    Si ``None`` ou vide, ces cellules affichent "—".
     """
     if prevision_horaire is None:
         return ""
@@ -171,6 +173,14 @@ def _bloc_grille_indicateurs_48h(
     horaire_48h = horaire_loc.head(48)
     if horaire_48h.empty:
         return ""
+
+    # ETP horaire socle alignée sur le même fuseau pour pouvoir splitter
+    # par jour local (ETP du jour J+0 vs J+1).
+    if etp_horaire_48h is not None and not etp_horaire_48h.empty:
+        etp_loc = etp_horaire_48h.copy()
+        etp_loc.index = pd.DatetimeIndex(etp_loc.index).tz_convert(tz_locale)
+    else:
+        etp_loc = None
 
     jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
     tableaux: list[str] = []
@@ -308,16 +318,15 @@ def _bloc_grille_indicateurs_48h(
                 return "—"
             return degrees_to_cardinal(deg)
 
-        # ETP du jour : aggrégation 24h (somme de l'ETP horaire FAO socle
-        # si dispo, sinon etp_open_meteo en mm/h). Affichée en une seule
-        # cellule centrée (colspan=3) sous l'HR.
+        # ETP du jour : agrégation 24 h depuis la série ETP horaire socle
+        # (FAO Penman-Monteith). Affichée en une seule cellule centrée
+        # (colspan=3) sous l'HR.
         def cellule_etp_jour(jour_courant: pd.Timestamp = jour) -> str:
-            masque = horaire_48h.index.normalize() == jour_courant
-            etp_col = "etp_open_meteo" if "etp_open_meteo" in horaire_48h.columns else None
-            if etp_col is None:
+            if etp_loc is None:
                 val = "—"
             else:
-                serie = horaire_48h.loc[masque, etp_col].dropna()
+                masque_etp = etp_loc.index.normalize() == jour_courant
+                serie = etp_loc.loc[masque_etp].dropna()
                 val = f"{serie.sum():.1f} mm" if not serie.empty else "—"
             return (
                 '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
@@ -343,13 +352,11 @@ def _bloc_grille_indicateurs_48h(
             '<table style="width:100%;border-collapse:collapse;'
             'margin:8px 0;border:1px solid #eee;border-radius:4px;">' + "".join(lignes) + "</table>"
         )
-    # Bilan eau 48 h = pluie cumul 48h - ETP cumul 48h.
+    # Bilan eau 48 h = pluie cumul 48h - ETP cumul 48h (ETP socle FAO).
     pluie_48h = (
         horaire_48h["precipitation"].sum() if "precipitation" in horaire_48h.columns else 0.0
     )
-    etp_48h = (
-        horaire_48h["etp_open_meteo"].sum() if "etp_open_meteo" in horaire_48h.columns else 0.0
-    )
+    etp_48h = float(etp_loc.sum()) if etp_loc is not None else 0.0
     bilan_48h = pluie_48h - etp_48h
     couleur_bilan = "#27ae60" if bilan_48h >= 0 else "#c0392b"
     bilan_html = (
@@ -462,7 +469,7 @@ def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
         f"Mildiou tomate : période de Smith détectée sur "
         f"{len(ind.mildiou_smith_jours_a_risque)} jour(s)"
         if a_risque
-        else "Mildiou tomate : pas de période de Smith détectée sur J+1 → J+3"
+        else "Mildiou tomate : pas de période de Smith détectée sur J+1 → J+2"
     )
 
     lignes_html = []
@@ -563,9 +570,8 @@ def composer_texte(
     lignes.append(fmt("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
     lignes.append(fmt("Cumul pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h"))
     lignes.append(fmt("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h"))
-    lignes.append(fmt("Cumul pluie 72 h", f"{ind.cumul_pluie_72h_mm:.1f} mm", "0-72 h"))
     lignes.append(fmt("Proba. pluie 24 h", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire"))
-    lignes.append(fmt("Proba. pluie 72 h", f"{ind.prob_pluie_max_72h_pct:.0f} %", "max horaire"))
+    lignes.append(fmt("Proba. pluie 48 h", f"{ind.prob_pluie_max_48h_pct:.0f} %", "max horaire"))
     lignes.append(fmt("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h"))
     lignes.append(fmt("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h"))
     lignes.append(
@@ -599,7 +605,7 @@ def composer_html(
     methode_etp: str = METHODE_ETP,
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
-    chart_72h_base64: str = "",
+    chart_48h_base64: str = "",
     carte_synoptique_base64: str = "",
     prevision_horaire: pd.DataFrame | None = None,
     tz_locale: str = "Europe/Paris",
@@ -641,7 +647,11 @@ def composer_html(
         )
 
     bloc_mildiou = _bloc_mildiou_smith(ind)
-    bloc_grille = _bloc_grille_indicateurs_48h(prevision_horaire, tz_locale=tz_locale)
+    bloc_grille = _bloc_grille_indicateurs_48h(
+        prevision_horaire,
+        etp_horaire_48h=ind.etp_horaire_48h,
+        tz_locale=tz_locale,
+    )
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -684,9 +694,9 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_grille}
   {bloc_mildiou}
   {_bloc_carte_synoptique(carte_synoptique_base64)}
-  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 72 h
+  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 48 h
   <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
-  {_bloc_chart(chart_72h_base64)}
+  {_bloc_chart(chart_48h_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
     Les seuils sont des défauts opérationnels, ajustables dans la config.
@@ -701,13 +711,13 @@ def composer_email(
     alertes: list[Alerte],
     config: dict[str, Any],
     maintenant: datetime,
-    chart_72h_base64: str = "",
+    chart_48h_base64: str = "",
     carte_synoptique_base64: str = "",
     prevision_horaire: pd.DataFrame | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
-    ``chart_72h_base64`` (optionnel) sera embarqué dans le HTML comme image
+    ``chart_48h_base64`` (optionnel) sera embarqué dans le HTML comme image
     inline. ``carte_synoptique_base64`` (optionnel) sera embarquée comme
     illustration de la situation synoptique productive. Si vides, aucune
     image n'est rendue.
@@ -727,7 +737,7 @@ def composer_email(
         alertes,
         maintenant,
         url_fiches=url_fiches,
-        chart_72h_base64=chart_72h_base64,
+        chart_48h_base64=chart_48h_base64,
         carte_synoptique_base64=carte_synoptique_base64,
         prevision_horaire=prevision_horaire,
     )

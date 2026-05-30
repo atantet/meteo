@@ -1,12 +1,15 @@
 name: Veille email matinal
 
-# Cron 30 6 * * * UTC = 07:30 Paris hiver / 08:30 Paris été.
-# Justification : ECMWF IFS 00 UTC est diffusé Open-Meteo vers 06:30 UTC,
-# garantit une prévision 7 j fraîche toute l'année.
-# Cf. config/veille.yaml et le commit doc des décisions de cron.
+# Cron 17 4 * * * UTC = 05:17 Paris hiver / 06:17 Paris été.
+# Justification : la Veille ne dépend plus que d'AROME France HD 1.3 km
+# (horizon 48 h). Le run 00 UTC d'AROME est diffusé par Open-Meteo vers
+# 03:30-04:00 UTC, on cible 04:17 UTC pour avoir la marge.
+# Minute non-ronde (17) pour éviter le pic top-of-the-hour des crons
+# GH Actions, où le lag observé peut atteindre 2-3 h.
+# Cf. config/veille.yaml.
 on:
   schedule:
-    - cron: "30 6 * * *"
+    - cron: "17 4 * * *"
   # Permet déclenchement manuel pour tests.
   workflow_dispatch:
 

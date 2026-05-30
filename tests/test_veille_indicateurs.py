@@ -17,20 +17,12 @@ sys.path.insert(0, str(REPO_ROOT))
 CONFIG_TEST = {
     # Site = Pleine-Fougères (cf. ADR-0001 règle 3) — utile pour calcul_etp.
     "site": {"latitude": 48.5420, "longitude": -1.6155, "altitude": 30},
-    "indicateurs": {
-        "bilan_eau": {
-            "tension_irrigation": {
-                "seuil_etp_seche_mm": 5.0,
-                "seuil_pluie_compense_mm": 2.0,
-                "seuil_deficit_7j_mm": -15.0,
-            }
-        }
-    },
+    "indicateurs": {},
 }
 
 
 def _prevision_synthetique(
-    duree_h: int = 168,
+    duree_h: int = 72,
     t_celsius: float = 15.0,
     pluie_horaire_mm: float = 0.0,
     vent_ms: float = 5.0,
@@ -80,12 +72,14 @@ def test_calculer_indicateurs_basique() -> None:
     assert ind.cumul_pluie_24h_mm == pytest.approx(0.0)
     assert ind.vent_max_24h_kmh == pytest.approx(18.0)  # 5 m/s × 3.6
     assert ind.rafales_max_24h_kmh == pytest.approx(32.4)  # 9 m/s × 3.6
-    # ETP mockée : 0.1 mm/h × 24 = 2.4 mm/j ; × 168 = 16.8 mm sur 7j.
+    # ETP mockée : 0.1 mm/h × 24 = 2.4 mm/j.
     assert ind.etp_jour_mm == pytest.approx(2.4)
-    assert ind.bilan_eau_7j_mm == pytest.approx(-16.8)
+    # Série ETP horaire 48 h : 48 valeurs à 0.1 mm/h.
+    assert len(ind.etp_horaire_48h) == 48
+    assert ind.etp_horaire_48h.sum() == pytest.approx(4.8)
     # Probabilité par défaut : 0 % partout.
     assert ind.prob_pluie_max_24h_pct == pytest.approx(0.0)
-    assert ind.prob_pluie_max_72h_pct == pytest.approx(0.0)
+    assert ind.prob_pluie_max_48h_pct == pytest.approx(0.0)
 
 
 def test_calculer_indicateurs_proba_pluie() -> None:
@@ -93,16 +87,14 @@ def test_calculer_indicateurs_proba_pluie() -> None:
     from apps.veille.indicateurs import calculer_indicateurs
 
     prevision = _prevision_synthetique()
-    # 0-24h : max à 30% ; 24-48h : max à 60% ; 48-72h : max à 10%.
+    # 0-24h : max à 30% ; 24-48h : max à 60%.
     prevision.loc[prevision.index[:24], "probabilite_pluie_pct"] = 30.0
     prevision.loc[prevision.index[24:48], "probabilite_pluie_pct"] = 60.0
-    prevision.loc[prevision.index[48:72], "probabilite_pluie_pct"] = 10.0
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
     with _patch_etp(0.1):
         ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
     assert ind.prob_pluie_max_24h_pct == pytest.approx(30.0)
     assert ind.prob_pluie_max_48h_pct == pytest.approx(60.0)
-    assert ind.prob_pluie_max_72h_pct == pytest.approx(60.0)
 
 
 def test_calculer_indicateurs_direction_dominante() -> None:
@@ -165,30 +157,6 @@ def test_calculer_indicateurs_cumuls_pluie() -> None:
         ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
     assert ind.cumul_pluie_24h_mm == pytest.approx(24.0)
     assert ind.cumul_pluie_48h_mm == pytest.approx(48.0)
-    assert ind.cumul_pluie_72h_mm == pytest.approx(72.0)
-
-
-def test_calculer_indicateurs_tension_irrigation_declenchee() -> None:
-    """ETP forte + pluie nulle + déficit accumulé → tension_irrigation True."""
-    from apps.veille.indicateurs import calculer_indicateurs
-
-    prevision = _prevision_synthetique(pluie_horaire_mm=0.0)
-    now = pd.Timestamp("2024-06-15 00:00:00+00:00")
-    # ETP mockée à 0.4 mm/h → 9.6 mm/j, bilan 7j = −67.2 mm.
-    with _patch_etp(0.4):
-        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
-    assert ind.tension_irrigation is True
-
-
-def test_calculer_indicateurs_tension_irrigation_pluie_compense() -> None:
-    """ETP forte mais pluie 24h suffisante → pas de tension."""
-    from apps.veille.indicateurs import calculer_indicateurs
-
-    prevision = _prevision_synthetique(pluie_horaire_mm=0.5)
-    now = pd.Timestamp("2024-06-15 00:00:00+00:00")
-    with _patch_etp(0.4):
-        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
-    assert ind.tension_irrigation is False
 
 
 def test_calculer_indicateurs_filtre_past() -> None:
@@ -219,10 +187,10 @@ def test_calculer_indicateurs_etp_socle_appelee() -> None:
     prevision = _prevision_synthetique()
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
     with patch("apps.veille.indicateurs.calcul_etp") as mock_etp:
-        mock_etp.return_value = pd.Series(0.0, index=prevision.head(24).index)
+        mock_etp.return_value = pd.Series(0.0, index=prevision.head(48).index)
         calculer_indicateurs(prevision, now, CONFIG_TEST)
-    # Au moins 2 appels (h24 et h168), avec les coords site Pleine-Fougères.
-    assert mock_etp.call_count >= 2
+    # 2 appels (h24 et h48), avec les coords site Pleine-Fougères.
+    assert mock_etp.call_count == 2
     for call in mock_etp.call_args_list:
         args = call.args
         assert args[1] == pytest.approx(48.5420)  # latitude

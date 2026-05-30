@@ -5,11 +5,11 @@ de ``meteo_socle.sources.openmeteo.OpenMeteoForecast``), calcule les
 indicateurs envoyés dans l'email matinal :
 
 - Température min / max sur les prochaines 24 h (proxy nuit / jour)
-- Cumuls de pluie 24 / 48 / 72 h
+- Cumuls de pluie 24 / 48 h
 - Vent moyen et rafales maximaux 24 h (km/h)
-- ETP cumulée 24 h (caractère séchant du jour)
-- Bilan eau (P − ETP) cumulé 7 jours
-- Flag "tension irrigation" si l'heuristique config est déclenchée
+- ETP cumulée 24 h (caractère séchant du jour) + série horaire 48 h
+  utilisée par l'email pour reconstruire ETP du jour et bilan eau 48 h
+- Périodes de Smith mildiou tomate sur 48 h
 
 **Cohérence inter-apps (cf. principe #4 rigueur scientifique)** :
 l'ETP est calculée par ``meteo_socle.indices.etp_fao.calcul_etp``
@@ -19,9 +19,6 @@ toutes les apps (Veille, Opérationnelle, Climato) et nous donne la
 maîtrise des hypothèses (R_so via pvlib, clearness, G jour/nuit).
 ``etp_open_meteo`` reste un cross-check possible mais n'est pas utilisé
 en production.
-
-Les seuils de la tension irrigation viennent de
-``config["indicateurs"]["bilan_eau"]["tension_irrigation"]``.
 
 Note v0 : la "nuit" et le "jour" sont approximés par "les prochaines
 24 h" (le minimum atterrit naturellement en nuit, le maximum en
@@ -91,7 +88,6 @@ class IndicateursVeille:
 
     cumul_pluie_24h_mm: float
     cumul_pluie_48h_mm: float
-    cumul_pluie_72h_mm: float
 
     vent_max_24h_kmh: float
     rafales_max_24h_kmh: float
@@ -99,16 +95,17 @@ class IndicateursVeille:
     direction_vent_dominante_cardinal: str
 
     etp_jour_mm: float
-    bilan_eau_7j_mm: float
 
     prob_pluie_max_24h_pct: float
     prob_pluie_max_48h_pct: float
-    prob_pluie_max_72h_pct: float
 
-    tension_irrigation: bool
+    # Série ETP horaire 48 h (mm/h) calculée par le socle. Permet à
+    # email.py de reconstruire ETP du jour J+0 / J+1 et le bilan eau
+    # 48 h sans dupliquer la logique. Indexée comme la prévision.
+    etp_horaire_48h: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
 
     # Mildiou Smith periods (cf. ADR-0007). Liste de dates locales sur
-    # les 72 h à venir où une période de Smith est détectée.
+    # les 48 h à venir où une période de Smith est détectée.
     # Vide = pas de période ; len ≥ 1 = au moins une période sur la
     # fenêtre. Détail journalier (T_min, h HR ≥ seuil) inclus pour
     # transparence dans le mail.
@@ -132,14 +129,12 @@ def calculer_indicateurs(
     prevision :
         DataFrame indexé tz-aware UTC, colonnes selon les conventions
         socle (``temperature_2m`` K, ``precipitation`` mm,
-        ``vitesse_vent_10m`` et ``rafales_vent_10m`` m/s,
-        ``etp_open_meteo`` mm/h).
+        ``vitesse_vent_10m`` et ``rafales_vent_10m`` m/s).
     now_utc :
         Référence temporelle. Les lignes du DataFrame antérieures sont
         ignorées.
     config :
         Configuration Veille (cf. ``apps.veille.config.load_config``).
-        Seul ``indicateurs.bilan_eau.tension_irrigation`` est lu ici.
 
     Returns
     -------
@@ -161,8 +156,6 @@ def calculer_indicateurs(
 
     h24 = df.head(24)
     h48 = df.head(48)
-    h72 = df.head(72)
-    h168 = df.head(24 * 7)
 
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
 
@@ -171,21 +164,11 @@ def calculer_indicateurs(
     etp_horaire_24h = calcul_etp(
         h24[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
     )
-    etp_horaire_7j = calcul_etp(
-        h168[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
+    etp_horaire_48h = calcul_etp(
+        h48[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
     )
     etp_24h = float(etp_horaire_24h.sum())
     pluie_24h = float(h24["precipitation"].sum())
-    etp_7j = float(etp_horaire_7j.sum())
-    pluie_7j = float(h168["precipitation"].sum())
-    bilan_7j = pluie_7j - etp_7j
-
-    tension_cfg = config["indicateurs"]["bilan_eau"]["tension_irrigation"]
-    tension = (
-        etp_24h > tension_cfg["seuil_etp_seche_mm"]
-        and pluie_24h < tension_cfg["seuil_pluie_compense_mm"]
-        and bilan_7j < tension_cfg["seuil_deficit_7j_mm"]
-    )
 
     # Probabilité de pluie : colonne optionnelle (selon les variables
     # demandées dans le fetch). On donne 0 si absente.
@@ -198,19 +181,19 @@ def calculer_indicateurs(
     dir_deg = direction_dominante_vecteur(h24)
     dir_card = degrees_to_cardinal(dir_deg) if not np.isnan(dir_deg) else ""
 
-    # Smith periods sur 72 h. Implémentation socle = ADR-0007.
+    # Smith periods sur 48 h. Implémentation socle = ADR-0007.
     mildiou_cfg = config["indicateurs"].get("mildiou_smith", {"actif": False})
     smith_jours: list[pd.Timestamp] = []
     smith_detail: pd.DataFrame | None = None
     if mildiou_cfg.get("actif", False):
         tz_loc = site.get("tz", "Europe/Paris")
-        # On agrège l'horizon 72 h. Ajoute la veille du premier jour
+        # On agrège l'horizon 48 h. Ajoute la veille du premier jour
         # affiché (h≥now) si dispo dans la prévision, sinon le premier
         # jour ne pourra pas qualifier (par construction Smith demande
         # un jour A observable).
-        h72_etendu = prevision.head(72 + 24).sort_index()
+        h48_etendu = prevision.head(48 + 24).sort_index()
         critere = agreger_critere_journalier(
-            h72_etendu,
+            h48_etendu,
             tz_locale=tz_loc,
             hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
         )
@@ -219,10 +202,10 @@ def calculer_indicateurs(
             t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
             heures_min=int(mildiou_cfg.get("heures_min", 11)),
         )
-        # Bornes du jour local de "demain" inclus jusqu'à J+3.
+        # Bornes du jour local de "demain" inclus jusqu'à J+2.
         now_loc = now_utc.tz_convert(tz_loc)
         debut = (now_loc.normalize() + pd.Timedelta(days=1)).tz_localize(None)
-        fin = (now_loc.normalize() + pd.Timedelta(days=3)).tz_localize(None)
+        fin = (now_loc.normalize() + pd.Timedelta(days=2)).tz_localize(None)
         fenetre = critere.loc[debut:fin]
         smith_detail = fenetre.copy()
         smith_detail["smith_period"] = smith.reindex(fenetre.index, fill_value=False)
@@ -233,17 +216,14 @@ def calculer_indicateurs(
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
         cumul_pluie_24h_mm=pluie_24h,
         cumul_pluie_48h_mm=float(h48["precipitation"].sum()),
-        cumul_pluie_72h_mm=float(h72["precipitation"].sum()),
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
         direction_vent_dominante_deg=dir_deg if not np.isnan(dir_deg) else 0.0,
         direction_vent_dominante_cardinal=dir_card,
         etp_jour_mm=etp_24h,
-        bilan_eau_7j_mm=bilan_7j,
         prob_pluie_max_24h_pct=_prob_max(h24),
         prob_pluie_max_48h_pct=_prob_max(h48),
-        prob_pluie_max_72h_pct=_prob_max(h72),
-        tension_irrigation=bool(tension),
+        etp_horaire_48h=etp_horaire_48h,
         mildiou_smith_jours_a_risque=smith_jours,
         mildiou_smith_detail=smith_detail,
         prevision_t0_utc=df.index[0],
