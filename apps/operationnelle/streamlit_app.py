@@ -207,10 +207,11 @@ def main() -> None:
         "(~10 km, 0-4 j fiable) vs ECMWF IFS (~9 km, modèle de référence "
         "mondial, 0-10 j)."
     )
-    try:
-        _afficher_bande_pictogrammes(site, horizon)
-    except Exception as e:  # noqa: BLE001
-        st.warning(f"Pictogrammes indisponibles : {e}")
+    with st.spinner("Récupération ARPEGE + ECMWF IFS…"):
+        try:
+            _afficher_bande_pictogrammes(site, horizon)
+        except Exception as e:  # noqa: BLE001
+            st.warning(f"Pictogrammes indisponibles : {e}")
 
     # ----- Courbes 7 j (vue principale, en onglets) -----
     st.subheader("Prévision 7 jours — courbes par indicateur")
