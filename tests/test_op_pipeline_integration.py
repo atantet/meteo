@@ -129,6 +129,10 @@ def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
     # Au minimum un subheader devrait être rendu.
     titres = [s.value for s in at.subheader]
     assert any("courbes" in t.lower() for t in titres), f"Pas de section courbes : {titres}"
+    # Section pictogrammes ARPEGE vs IFS doit aussi être rendue.
+    assert any("ARPEGE" in t and "IFS" in t for t in titres), (
+        f"Section pictogrammes manquante : {titres}"
+    )
 
 
 def test_pipeline_complete_bilan_tunnel_marche_avec_data_realiste() -> None:
