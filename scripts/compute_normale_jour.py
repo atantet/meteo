@@ -48,7 +48,7 @@ def main() -> None:
     modele = config["source_meteo"]["modele"]
 
     print(
-        f"Fetch ERA5 ({modele}) {debut}-{fin} (normale OMM, {fin - debut + 1} ans) "
+        f"Fetch archive ({modele}) {debut}-{fin} (normale OMM, {fin - debut + 1} ans) "
         f"pour ({site['latitude']}, {site['longitude']})…"
     )
     horaire = fetch_historique(

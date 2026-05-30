@@ -11,12 +11,13 @@ site:
 
 # ----- Source historique -----
 source_meteo:
-  # Placeholder v0 : ERA5 via Open-Meteo (~25 km). ADR-0002 planifie
-  # SAFRAN MF (~8 km) en v1 pour mieux capter le gradient côtier
-  # breton. Note : ERA5-Land (~10 km) ne fournit pas shortwave_radiation
-  # nécessaire au calcul d'ETP socle — on retombe sur ERA5.
+  # CERRA (Copernicus European Regional Reanalysis, ~5 km Europe)
+  # via Open-Meteo Archive. Substitue ERA5 (~25 km) pour mieux capter
+  # le gradient côtier breton. Plus simple d'accès que SAFRAN MF
+  # (~8 km) qui demande Climatik INRAE + intégration custom.
+  # Historique 1984-présent (suffisant pour normale OMM 1991-2020).
   archive: openmeteo
-  modele: era5
+  modele: cerra
 
 # ----- Périodes climatologiques -----
 periodes:

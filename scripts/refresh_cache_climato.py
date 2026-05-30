@@ -54,7 +54,7 @@ def main() -> int:
     modele = config["source_meteo"]["modele"]
 
     log.info(
-        "Fetch ERA5 %d-%d via Open-Meteo (modèle %s, lat=%.4f, lon=%.4f)",
+        "Fetch archive %d-%d via Open-Meteo (modèle %s, lat=%.4f, lon=%.4f)",
         periode["debut"],
         periode["fin"],
         modele,

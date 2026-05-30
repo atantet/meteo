@@ -1,6 +1,6 @@
 ---
 title: "Climatologie locale — La Petite Claye, Pleine-Fougères"
-subtitle: "Normale OMM 1991-2020 — ERA5 (v0)"
+subtitle: "Normale OMM 1991-2020 — CERRA Copernicus 5 km"
 author: "Alexis Tantet"
 date: today
 format:
@@ -49,23 +49,22 @@ l'exploitation maraîchère : choix variétal, calendrier cultural,
 investissements en abris et irrigation.
 
 ::: {.callout-warning}
-**v0 — source placeholder**
+**Source : CERRA Copernicus**
 
-La feuille de route v1 du projet prévoit l'utilisation des données SAFRAN de
-Météo-France (ré-analyse 8 km, depuis 1958) comme source historique
-de référence pour cette climato locale. Dans la v0 actuelle, faute
-d'accès SAFRAN intégré, c'est **ERA5** (ré-analyse ECMWF ~25 km,
-servie par Open-Meteo) qui est utilisée. ERA5-Land (~10 km) aurait
-été préférable mais ne fournit pas `shortwave_radiation` nécessaire
-au calcul d'ETP socle. SAFRAN sera substitué en v1.
+La ré-analyse **CERRA** (Copernicus European Regional Reanalysis,
+~5 km, 1984-présent) est utilisée comme source historique de
+référence pour cette climato locale, servie par Open-Meteo Archive.
+SAFRAN MF (~8 km) reste une alternative possible pour la version
+française stricte mais demande une intégration Climatik INRAE
+spécifique non encore en place.
 :::
 
 ## Source des données et méthode
 
-| Élément | Choix v0 | Justification |
+| Élément | Choix | Justification |
 |---|---|---|
-| **Source historique** | ERA5 via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~25 km de résolution native |
-| **Interpolation au site** | Open-Meteo accepte des coordonnées arbitraires (ici 48.5420 N, 1.6155 W) et renvoie les valeurs de la maille ERA5 la plus proche (~25 km de côté). La méthode exacte (nearest-neighbor vs bilinéaire) n'est pas explicitement documentée côté Open-Meteo ; on traite donc le résultat comme représentatif de la maille englobante, pas du point lui-même. | Le gradient côtier breton (variation T° / pluie / vent côte → intérieur sur 10-20 km) est **lissé** par la maille 25 km. SAFRAN 8 km (v1) capterait mieux ce gradient |
+| **Source historique** | CERRA via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~5 km de résolution native sur l'Europe |
+| **Interpolation au site** | Open-Meteo accepte des coordonnées arbitraires (ici 48.5420 N, 1.6155 W) et renvoie les valeurs de la maille CERRA la plus proche (~5 km de côté). La méthode exacte (nearest-neighbor vs bilinéaire) n'est pas explicitement documentée côté Open-Meteo ; on traite donc le résultat comme représentatif de la maille englobante, pas du point lui-même. | Le gradient côtier breton (variation T° / pluie / vent côte → intérieur sur 10-20 km) est mieux capté qu'avec ERA5 25 km. SAFRAN 8 km serait équivalent mais demande Climatik INRAE. |
 | **Fenêtre temporelle** | 1991-2020 (30 ans, normale OMM standard) | Standard climatologique international |
 | **Calcul ETP** | FAO Penman-Monteith horaire via `meteo_socle.indices.etp_fao` | Cohérence inter-apps (cf. principe transverse #4) |
 | **Seuils d'analyse** | gel 0 °C, canicule 30 °C, pluie marquante 10 mm/24 h | Cf. `config/climato.yaml` |
@@ -115,7 +114,7 @@ dgel = dates_gel_par_annee(quotidien, seuil_gel=seuils["seuil_gel_celsius"])
 
 ```{python}
 #| label: fig-temperatures
-#| fig-cap: "Température mensuelle (normale 1991-2020 OMM, ERA5 ~25 km). T° min et max moyennes sur 24 h, t° moy sur l'ensemble."
+#| fig-cap: "Température mensuelle (normale 1991-2020 OMM, CERRA ~5 km). T° min et max moyennes sur 24 h, t° moy sur l'ensemble."
 
 mois_labels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
 fig, ax = plt.subplots(figsize=(9, 4.5))
@@ -135,7 +134,7 @@ plt.show()
 
 ```{python}
 #| label: fig-pluie
-#| fig-cap: "Cumul de pluie mensuel moyen (normale OMM 1991-2020, ERA5 ~25 km) et ETP mensuelle moyenne calculée par le socle FAO Penman-Monteith. La différence P − ETP indique le déficit / excédent hydrique théorique."
+#| fig-cap: "Cumul de pluie mensuel moyen (normale OMM 1991-2020, CERRA ~5 km) et ETP mensuelle moyenne calculée par le socle FAO Penman-Monteith. La différence P − ETP indique le déficit / excédent hydrique théorique."
 
 fig, ax = plt.subplots(figsize=(9, 4.5))
 ax.bar(norm.index - 0.18, norm["pluie"], width=0.35, color="#3498db", label="Pluie (mm)")
@@ -341,7 +340,7 @@ la profondeur d'enracinement, cf. App 2 Op section *Bilan tunnel*).
 **Méthode.** Le modèle Smith periods (1956) détecte une
 période à risque mildiou lorsque *deux jours consécutifs* satisfont
 T_min ≥ 10 °C ET ≥ 11 heures avec HR ≥ 90 %. L'indicateur est calculé
-sur le micro-climat ERA5 maille ~25 km — **donc hors abri** — et reste
+sur le micro-climat CERRA maille ~5 km — **donc hors abri** — et reste
 informationnel. Une période de Smith détectée ne signifie pas qu'une
 attaque va survenir : elle signifie que les conditions atmosphériques
 y sont favorables.
@@ -349,7 +348,7 @@ y sont favorables.
 
 ```{python}
 #| label: fig-mildiou-nb-par-an
-#| fig-cap: "Nombre annuel de périodes de Smith détectées (1991-2020, ERA5 maille ~25 km). Mesure la pression climatique mildiou tomate à l'échelle régionale."
+#| fig-cap: "Nombre annuel de périodes de Smith détectées (1991-2020, CERRA maille ~5 km). Mesure la pression climatique mildiou tomate à l'échelle régionale."
 
 from meteo_socle.indices.mildiou import (
     agreger_critere_journalier,
@@ -490,7 +489,7 @@ rempli automatiquement au prochain refresh mensuel du cache.*
 
 ```{python}
 #| label: fig-conditions-mensuelles
-#| fig-cap: "Nombre moyen de jours par catégorie météo et par mois (1991-2020, ERA5, jours diurnes 8h-20h locales). Une journée est classée selon le code WMO de sévérité maximale dans sa fenêtre diurne."
+#| fig-cap: "Nombre moyen de jours par catégorie météo et par mois (1991-2020, CERRA, jours diurnes 8h-20h locales). Une journée est classée selon le code WMO de sévérité maximale dans sa fenêtre diurne."
 
 if "weather_code" not in horaire.columns:
     print("⚠ weather_code absent du cache parquet — lancer scripts/refresh_cache_climato.py pour mettre à jour.")
@@ -575,14 +574,15 @@ else:
 Ce rapport applique le principe transverse #5 de transparence totale.
 Tout ce qui suit est cliquable / reproductible.
 
-- **Données brutes** : ERA5 via Open-Meteo Archive
-  (`https://archive-api.open-meteo.com/v1/archive`). Modèle ECMWF
-  Copernicus, résolution native ~25 km, mise à jour ~quotidienne.
+- **Données brutes** : CERRA (Copernicus European Regional Reanalysis)
+  via Open-Meteo Archive (`https://archive-api.open-meteo.com/v1/archive`).
+  Résolution native ~5 km sur l'Europe, historique 1984-présent, mise
+  à jour ~quotidienne.
 - **Localisation effective** : Open-Meteo accepte le couple
   (latitude, longitude) demandé mais renvoie en pratique la maille
-  ERA5 la plus proche du point. Pour Pleine-Fougères, cette maille
-  englobe une zone d'environ 25 × 25 km. Le résultat est donc une
-  **moyenne régionale**, pas une valeur ponctuelle au site. La méthode
+  CERRA la plus proche du point. Pour Pleine-Fougères, cette maille
+  englobe une zone d'environ 5 × 5 km. Le résultat est donc une
+  **moyenne locale**, pas une valeur ponctuelle au site. La méthode
   d'extraction exacte (nearest vs bilinéaire) n'est pas explicitement
   documentée par Open-Meteo ; on considère ici que les valeurs
   représentent la maille englobante. Le gradient côtier breton est
@@ -620,7 +620,7 @@ Tout ce qui suit est cliquable / reproductible.
   `tests/test_climato.py`.
 
 ::: {.callout-note}
-**v1 prévue** : substitution ERA5 ~25 km → SAFRAN MF 8 km, intégration des
+**v1 prévue** : substitution CERRA ~5 km → SAFRAN MF 8 km, intégration des
 projections DRIAS 2030/2050/2100, ajout d'un bilan saison N annuel
 généré automatiquement en fin d'octobre.
 :::
