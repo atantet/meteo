@@ -10,6 +10,19 @@ Chaque indicateur est annoté de sa **fenêtre temporelle** (entre
 crochets, gris discret) et le footer du mail rappelle la **source des
 données** + la **méthode de calcul ETP** + la programmation du cron
 (principe n°5 transparence).
+
+**Palette de couleurs** : Bang Wong 2011 (Nature Methods), choisie pour
+être distinguable par les daltoniens (deutéranopie + protanopie,
+~8 % des hommes) :
+
+- ``#0072B2`` bleu profond — T° min (froid)
+- ``#D55E00`` vermillon — T° max, alertes critiques, déficit hydrique
+- ``#56B4E9`` bleu ciel — pluie
+- ``#009E73`` vert bleuté — vent moyen, bilan hydrique positif, OK
+- ``#E69F00`` orange — rafales, warnings, risque mildiou
+
+Les valeurs numériques sont rendues en ``font-weight:700`` pour
+hiérarchie visuelle ; les labels gauches restent en gris discret.
 """
 
 from __future__ import annotations
@@ -162,11 +175,45 @@ def _tendance_texte_48h(
 
 
 MS_TO_KMH_VEILLE = 3.6
+# 4 quartiers de 6 h égaux, en heure locale, intervalles fermés à gauche
+# et ouverts à droite : [h_debut, h_fin). Couvrent les 24 h du jour
+# affiché. Aucun rollover ; la nuit affichée est la nuit DU jour J
+# (donc déjà passée pour J0 si T+0 > 06 h locale, c'est attendu).
 FENETRES_VEILLE = (
+    ("Nuit", 0, 6),
     ("Matin", 6, 12),
-    ("Midi", 12, 16),
-    ("Soir", 16, 21),
+    ("Après-midi", 12, 18),
+    ("Soir", 18, 24),
 )
+
+
+def _unite(texte: str) -> str:
+    """Span unité discret (gris clair, plus petit) à coller après une valeur."""
+    return f'<span style="color:#aaa;font-weight:400;font-size:11px;">&nbsp;{texte}</span>'
+
+
+def _masque_fenetre(horaire_loc: pd.DataFrame, jour: pd.Timestamp, h_debut: int, h_fin: int):
+    """Masque booléen pour une fenêtre intra-jour ``[h_debut, h_fin)`` en heure locale.
+
+    ``horaire_loc`` doit être indexé tz-aware sur la zone locale (déjà
+    converti par l'appelant) — l'attribut ``.hour`` est lu directement.
+    """
+    return (horaire_loc.index.normalize() == jour) & (
+        (horaire_loc.index.hour >= h_debut) & (horaire_loc.index.hour < h_fin)
+    )
+
+
+def _serie_fenetre(
+    horaire_loc: pd.DataFrame,
+    jour: pd.Timestamp,
+    colonne: str,
+    h_debut: int,
+    h_fin: int,
+) -> pd.Series:
+    """Sous-série d'une colonne sur la fenêtre ``[h_debut, h_fin)`` du jour local."""
+    if colonne not in horaire_loc.columns:
+        return pd.Series([], dtype=float)
+    return horaire_loc.loc[_masque_fenetre(horaire_loc, jour, h_debut, h_fin), colonne].dropna()
 
 
 def _bloc_grille_indicateurs_48h(
@@ -232,9 +279,7 @@ def _bloc_grille_indicateurs_48h(
         def cellule_picto(jour: pd.Timestamp) -> str:
             cells = []
             for _nom, h_debut, h_fin in FENETRES_VEILLE:
-                masque = (horaire_48h.index.normalize() == jour) & (
-                    (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
-                )
+                masque = _masque_fenetre(horaire_48h, jour, h_debut, h_fin)
                 if "weather_code" in horaire_48h.columns:
                     code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
                 else:
@@ -250,19 +295,18 @@ def _bloc_grille_indicateurs_48h(
                         'style="width:40px;height:40px;display:inline-block;">'
                         "</td>"
                     )
+            # Bandeau continu : fond sombre sur le <tr> entier (mieux que
+            # 4 rectangles séparés). Le label "Météo" passe en gris clair
+            # pour rester lisible sur fond foncé.
             return (
-                '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">Météo</td>'
+                '<tr style="background:#34495e;">'
+                '<td style="padding:4px 8px;color:#cfd6dc;font-size:11px;">Météo</td>'
                 + "".join(cells)
                 + "</tr>"
             )
 
         def serie_fenetre(jour: pd.Timestamp, colonne: str, h_debut: int, h_fin: int) -> pd.Series:
-            masque = (horaire_48h.index.normalize() == jour) & (
-                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
-            )
-            if colonne not in horaire_48h.columns:
-                return pd.Series([], dtype=float)
-            return horaire_48h.loc[masque, colonne].dropna()
+            return _serie_fenetre(horaire_48h, jour, colonne, h_debut, h_fin)
 
         def ligne_indicateur(label: str, formatter, jour_courant: pd.Timestamp = jour) -> str:
             """Construit une ligne ``<tr>`` avec un libellé + 3 cellules formatées.
@@ -277,6 +321,7 @@ def _bloc_grille_indicateurs_48h(
                 cells.append(
                     '<td style="padding:4px;text-align:center;'
                     "font-variant-numeric:tabular-nums;font-size:13px;"
+                    "font-weight:700;"
                     f'color:#34495e;">{val_str}</td>'
                 )
             return (
@@ -292,9 +337,10 @@ def _bloc_grille_indicateurs_48h(
             t_min = serie_k.min() - 273.15
             t_max = serie_k.max() - 273.15
             return (
-                f'<span style="color:#2980b9;">{t_min:.0f}</span>'
+                f'<span style="color:#0072B2;">{t_min:.0f}</span>'
                 f'<span style="color:#aaa;">/</span>'
-                f'<span style="color:#c0392b;">{t_max:.0f}</span>'
+                f'<span style="color:#D55E00;">{t_max:.0f}</span>'
+                f"{_unite('°C')}"
             )
 
         def fmt_pluie(jour, h_debut, h_fin) -> str:
@@ -303,13 +349,15 @@ def _bloc_grille_indicateurs_48h(
                 return "—"
             mm = serie.sum()
             proba = serie_fenetre(jour, "probabilite_pluie_pct", h_debut, h_fin)
-            mm_html = f'<span style="color:#3498db;">{mm:.1f}</span>'
+            mm_html = f'<span style="color:#56B4E9;">{mm:.1f}</span>' + _unite("mm")
             if proba.empty:
                 return mm_html
+            proba_max = int(round(proba.max()))
             return (
                 mm_html
-                + '<span style="color:#aaa;">/</span>'
-                + f'<span style="color:#888;">{proba.max():.0f}</span>'
+                + '<span style="color:#aaa;"> / </span>'
+                + f'<span style="color:#888;">{proba_max:02d}</span>'
+                + _unite("%")
             )
 
         def fmt_vent(jour, h_debut, h_fin) -> str:
@@ -320,22 +368,20 @@ def _bloc_grille_indicateurs_48h(
             v_moy = vent.mean() * MS_TO_KMH_VEILLE
             r_max = (rafales.max() if not rafales.empty else vent.max()) * MS_TO_KMH_VEILLE
             return (
-                f'<span style="color:#16a085;">{v_moy:.0f}</span>'
+                f'<span style="color:#009E73;">{v_moy:.0f}</span>'
                 f'<span style="color:#aaa;">/</span>'
-                f'<span style="color:#e67e22;">{r_max:.0f}</span>'
+                f'<span style="color:#E69F00;">{r_max:.0f}</span>'
+                f"{_unite('km/h')}"
             )
 
         def fmt_hr(jour, h_debut, h_fin) -> str:
             serie = serie_fenetre(jour, "humidite_relative", h_debut, h_fin)
             if serie.empty:
                 return "—"
-            return f"{serie.mean() * 100:.0f} %"
+            return f"{serie.mean() * 100:.0f}{_unite('%')}"
 
         def fmt_vent_direction(jour, h_debut, h_fin) -> str:
-            masque = (horaire_48h.index.normalize() == jour) & (
-                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
-            )
-            sub = horaire_48h.loc[masque]
+            sub = horaire_48h.loc[_masque_fenetre(horaire_48h, jour, h_debut, h_fin)]
             if sub.empty or "direction_vent_deg" not in sub.columns:
                 return "—"
             deg = direction_dominante_vecteur(sub)
@@ -352,24 +398,24 @@ def _bloc_grille_indicateurs_48h(
             else:
                 masque_etp = etp_loc.index.normalize() == jour_courant
                 serie = etp_loc.loc[masque_etp].dropna()
-                val = f"{serie.sum():.1f} mm" if not serie.empty else "—"
+                val = f"{serie.sum():.1f}{_unite('mm')}" if not serie.empty else "—"
             return (
                 '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
                 "ETP du jour</td>"
                 f'<td colspan="{len(FENETRES_VEILLE)}" '
                 'style="padding:4px;text-align:center;'
-                'font-variant-numeric:tabular-nums;font-size:13px;color:#34495e;">'
+                'font-variant-numeric:tabular-nums;font-size:13px;color:#34495e;font-weight:700;">'
                 f"{val}</td></tr>"
             )
 
         lignes = [
             en_tete,
             cellule_picto(jour),
-            ligne_indicateur("T° min/max (°C)", fmt_t_min_max),
-            ligne_indicateur("Pluie mm/proba % max", fmt_pluie),
-            ligne_indicateur("Vent moy/raf (km/h)", fmt_vent),
+            ligne_indicateur("T° min/max", fmt_t_min_max),
+            ligne_indicateur("Pluie / proba max", fmt_pluie),
+            ligne_indicateur("Vent moy / rafales", fmt_vent),
             ligne_indicateur("Vent direction", fmt_vent_direction),
-            ligne_indicateur("HR moy", fmt_hr),
+            ligne_indicateur("HR moyenne", fmt_hr),
             cellule_etp_jour(),
         ]
 
@@ -383,17 +429,17 @@ def _bloc_grille_indicateurs_48h(
     )
     etp_48h = float(etp_loc.sum()) if etp_loc is not None else 0.0
     bilan_48h = pluie_48h - etp_48h
-    couleur_bilan = "#27ae60" if bilan_48h >= 0 else "#c0392b"
+    couleur_bilan = "#009E73" if bilan_48h >= 0 else "#D55E00"
     bilan_html = (
         '<table style="width:100%;border-collapse:collapse;margin:6px 0 0 0;'
         'font-size:13px;">'
         '<tr><td style="padding:6px 8px;color:#555;">Bilan eau 48 h (P − ETP)</td>'
-        f'<td style="padding:6px 8px;text-align:right;font-weight:600;'
+        f'<td style="padding:6px 8px;text-align:right;font-weight:700;'
         f'color:{couleur_bilan};font-variant-numeric:tabular-nums;">'
-        f"{bilan_48h:+.1f} mm</td></tr>"
+        f"{bilan_48h:+.1f}{_unite('mm')}</td></tr>"
         '<tr><td colspan="2" style="padding:0 8px 6px 8px;'
         'color:#aaa;font-size:11px;text-align:right;">'
-        f"P = {pluie_48h:.1f} mm · ETP = {etp_48h:.1f} mm</td></tr>"
+        f"P = {pluie_48h:.1f}{_unite('mm')} · ETP = {etp_48h:.1f}{_unite('mm')}</td></tr>"
         "</table>"
     )
 
@@ -477,59 +523,164 @@ def _bloc_pictogrammes_veille(
     )
 
 
-def _bloc_mildiou_smith(ind: IndicateursVeille) -> str:
-    """Bloc HTML mildiou Smith — vide si l'indicateur n'a pas été calculé.
+def _bloc_risque_maladies(
+    prevision_horaire: pd.DataFrame | None,
+    config: dict[str, Any],
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Bloc HTML "Risque maladies" — homogène en format avec la grille Tendance.
 
-    Affiche le tableau journalier (T_min, h HR≥90 %, smith oui/non) sur
-    la fenêtre J+1 → J+3, et un bandeau de tête vert/orange selon
-    présence d'au moins une période détectée.
+    Pour chaque jour affiché (J0, J+1) : un mini-tableau avec colonnes
+    Nuit / Matin / Après-midi / Soir et 2 lignes (T° min, h HR ≥ seuil).
+    Un bandeau coloré par jour synthétise la condition globale 24 h
+    (T_min ≥ seuil_T ET ≥ heures_min HR au-dessus du seuil HR).
+
+    Sémantique : constat météo générique (oïdium, botrytis, alternaria,
+    mildiou…) pour orienter la décision d'aération nocturne, **pas** un
+    modèle pathogène. Smith mildiou tomate spécifique reste calculé en
+    arrière-plan dans IndicateursVeille pour cross-check ultérieur.
+
+    Vide si ``risque_maladies`` désactivé dans config ou si la prévision
+    n'a pas les colonnes nécessaires (humidité relative, température).
     """
-    if ind.mildiou_smith_detail is None or ind.mildiou_smith_detail.empty:
+    rm_cfg = config.get("alertes", {}).get("risque_maladies", {})
+    if not rm_cfg.get("actif", False) or prevision_horaire is None:
         return ""
 
-    detail = ind.mildiou_smith_detail
-    a_risque = len(ind.mildiou_smith_jours_a_risque) > 0
-    couleur = "#e67e22" if a_risque else "#27ae60"
-    titre = (
-        f"Mildiou tomate : période de Smith détectée sur "
-        f"{len(ind.mildiou_smith_jours_a_risque)} jour(s)"
-        if a_risque
-        else "Mildiou tomate : pas de période de Smith détectée sur J+1 → J+2"
-    )
+    t_min_seuil = float(rm_cfg.get("t_min_nuit_celsius", 15.0))
+    hr_seuil = float(rm_cfg.get("hr_seuil", 0.90))
+    heures_min_24h = int(rm_cfg.get("heures_min", 6))
 
-    lignes_html = []
-    for date, ligne in detail.iterrows():
-        smith = "✓" if ligne["smith_period"] else "—"
-        couleur_ligne = "#e67e22" if ligne["smith_period"] else "#555"
-        jour_fr = JOURS_FR[date.weekday()]
-        lignes_html.append(
-            f"<tr>"
-            f'<td style="padding:4px 8px;color:#555;">'
-            f"{jour_fr} {date.day:02d}/{date.month:02d}</td>"
-            f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
-            f"{ligne['t_min_celsius']:.1f} °C</td>"
-            f'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">'
-            f"{int(ligne['heures_humectation'])} h</td>"
-            f'<td style="padding:4px 8px;text-align:center;color:{couleur_ligne};font-weight:600;">'
-            f"{smith}</td>"
-            f"</tr>"
+    horaire_loc = prevision_horaire.copy()
+    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
+    horaire_48h = horaire_loc.head(48)
+    if (
+        horaire_48h.empty
+        or "temperature_2m" not in horaire_48h.columns
+        or "humidite_relative" not in horaire_48h.columns
+    ):
+        return ""
+
+    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
+    tableaux_html: list[str] = []
+
+    for jour in jours_uniques:
+        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
+        jour_label = (
+            JOURS_FR[jour_loc.weekday()].capitalize() + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
         )
 
+        # Agrégation 24 h pour le bandeau du jour : utilise les mêmes
+        # règles que l'alerte ``risque_maladies`` (cf. alertes.py).
+        masque_jour = horaire_48h.index.normalize() == jour
+        t_jour = horaire_48h.loc[masque_jour, "temperature_2m"].dropna() - 273.15
+        hr_jour = horaire_48h.loc[masque_jour, "humidite_relative"].dropna()
+        if t_jour.empty or hr_jour.empty:
+            t_min_24h: float | None = None
+            h_hum_24h = 0
+            condition_propice = False
+        else:
+            t_min_24h = float(t_jour.min())
+            h_hum_24h = int((hr_jour >= hr_seuil).sum())
+            condition_propice = t_min_24h >= t_min_seuil and h_hum_24h >= heures_min_24h
+        couleur = "#E69F00" if condition_propice else "#009E73"
+        if t_min_24h is None:
+            bandeau_titre = f"{jour_label} — données insuffisantes pour le jour entier"
+        elif condition_propice:
+            bandeau_titre = (
+                f"{jour_label} — conditions propices : "
+                f"T° min {t_min_24h:.1f} °C, "
+                f"{h_hum_24h} h HR ≥ {hr_seuil * 100:.0f} %"
+            )
+        else:
+            bandeau_titre = (
+                f"{jour_label} — pas de signal marqué : "
+                f"T° min {t_min_24h:.1f} °C, "
+                f"{h_hum_24h} h HR ≥ {hr_seuil * 100:.0f} %"
+            )
+
+        # En-tête de mini-tableau aligné sur la grille Tendance.
+        en_tete = (
+            '<tr style="background:#fafafa;">'
+            f'<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
+            f"{jour_label}</th>"
+            + "".join(
+                f'<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;">'
+                f"{nom}</th>"
+                for nom, _, _ in FENETRES_VEILLE
+            )
+            + "</tr>"
+        )
+
+        def _cellule_valeur(html_val: str) -> str:
+            return (
+                '<td style="padding:4px;text-align:center;'
+                "font-variant-numeric:tabular-nums;font-size:13px;"
+                'font-weight:700;color:#34495e;">'
+                f"{html_val}</td>"
+            )
+
+        # T° min par fenêtre
+        cells_tmin: list[str] = []
+        for _nom, h_debut, h_fin in FENETRES_VEILLE:
+            serie_k = _serie_fenetre(horaire_48h, jour, "temperature_2m", h_debut, h_fin)
+            if serie_k.empty:
+                cells_tmin.append(_cellule_valeur("—"))
+            else:
+                t_min = serie_k.min() - 273.15
+                cells_tmin.append(
+                    _cellule_valeur(
+                        f'<span style="color:#0072B2;">{t_min:.0f}</span>{_unite("°C")}'
+                    )
+                )
+        ligne_tmin = (
+            '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">T° min</td>'
+            + "".join(cells_tmin)
+            + "</tr>"
+        )
+
+        # h HR ≥ seuil par fenêtre
+        cells_hr: list[str] = []
+        for _nom, h_debut, h_fin in FENETRES_VEILLE:
+            serie = _serie_fenetre(horaire_48h, jour, "humidite_relative", h_debut, h_fin)
+            if serie.empty:
+                cells_hr.append(_cellule_valeur("—"))
+            else:
+                n_h = int((serie >= hr_seuil).sum())
+                # Mise en évidence si la fenêtre est majoritairement
+                # humectée (≥ 3 h sur 6 h = moitié).
+                if n_h >= 3:
+                    valeur = f'<span style="color:#E69F00;">{n_h}</span>{_unite("h")}'
+                else:
+                    valeur = f"{n_h}{_unite('h')}"
+                cells_hr.append(_cellule_valeur(valeur))
+        ligne_hr = (
+            f'<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
+            f"h HR ≥ {hr_seuil * 100:.0f} %</td>" + "".join(cells_hr) + "</tr>"
+        )
+
+        tableau_jour = (
+            f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
+            f'color:white;border-radius:4px;font-size:13px;">{bandeau_titre}</div>'
+            '<table style="width:100%;border-collapse:collapse;'
+            'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
+            + en_tete
+            + ligne_tmin
+            + ligne_hr
+            + "</table>"
+        )
+        tableaux_html.append(tableau_jour)
+
     return (
-        '<h3 style="margin:16px 0 8px 0;font-size:15px;color:#34495e;">'
-        "Mildiou tomate (Smith periods)</h3>"
-        f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
-        f'color:white;border-radius:4px;font-size:13px;">{titre}</div>'
-        '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
-        '<tr style="color:#888;font-size:12px;text-align:right;border-bottom:1px solid #eee;">'
-        '<td style="padding:4px 8px;text-align:left;">Jour local</td>'
-        '<td style="padding:4px 8px;">T_min</td>'
-        '<td style="padding:4px 8px;">h HR ≥ 90 %</td>'
-        '<td style="padding:4px 8px;text-align:center;">Smith</td>'
-        "</tr>" + "".join(lignes_html) + "</table>"
-        '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
-        "Critère : 2 jours consécutifs T_min ≥ 10 °C ET ≥ 11 h HR ≥ 90 %. "
-        "Donnée HR maille ~25 km (hors abri). Indicateur informationnel."
+        '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
+        "Risque maladies — conditions d'aération</h3>"
+        + "".join(tableaux_html)
+        + '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
+        f"Constat météo informationnel : T° min ≥ {t_min_seuil:.0f} °C "
+        f"ET ≥ {heures_min_24h} h HR ≥ {hr_seuil * 100:.0f} % sur 24 h "
+        "= conditions propices au développement de maladies (oïdium, botrytis, "
+        "alternaria, mildiou…) sous abri mal aéré la nuit. Pas un modèle "
+        "pathogène — décision d'aération vous revient."
         "</p>"
     )
 
@@ -561,11 +712,22 @@ def composer_texte(
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     lignes: list[str] = []
-    lignes.append(f"Veille météo — {format_horodatage_fr(maintenant, tz_locale)}")
+    lignes.append(f"Veille météo — {format_date_fr(maintenant)}")
     lignes.append("=" * 70)
-    t0 = format_t0_court(ind.prevision_t0_utc, tz_locale)
-    lignes.append(f"Premier pas de prévision (T+0h) : {t0}")
-    lignes.append("Toutes les fenêtres ci-dessous sont relatives à T+0h.")
+    if ind.prevision_t0_utc is not None:
+        t0_loc = ind.prevision_t0_utc
+        if t0_loc.tzinfo is None:
+            t0_loc = t0_loc.tz_localize("UTC")
+        t0_loc = t0_loc.tz_convert(tz_locale)
+        debut_fenetre = t0_loc.normalize()
+        fin_fenetre = debut_fenetre + pd.Timedelta(hours=48)
+        fenetre_label = (
+            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 "
+            f"au {fin_fenetre.strftime('%d/%m/%Y')} 00h00"
+        )
+    else:
+        fenetre_label = "—"
+    lignes.append(f"Prévision du {fenetre_label}")
     lignes.append("")
 
     if alertes:
@@ -634,10 +796,11 @@ def composer_html(
     carte_synoptique_base64: str = "",
     carte_synoptique_last_modified: datetime | None = None,
     prevision_horaire: pd.DataFrame | None = None,
+    risque_maladies_config: dict[str, Any] | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
-    couleur_niveau = {"critique": "#c0392b", "warning": "#e67e22"}
+    couleur_niveau = {"critique": "#D55E00", "warning": "#E69F00"}
 
     bandeau = ""
     if alertes:
@@ -655,7 +818,7 @@ def composer_html(
         bandeau = "".join(bandeau_items)
     else:
         bandeau = (
-            '<div style="margin:6px 0;padding:8px 12px;background:#27ae60;'
+            '<div style="margin:6px 0;padding:8px 12px;background:#009E73;'
             'color:white;border-radius:4px;">'
             "Aucune alerte seuil franchi sur les prochaines 24 h."
             "</div>"
@@ -672,7 +835,12 @@ def composer_html(
             "</tr>"
         )
 
-    bloc_mildiou = _bloc_mildiou_smith(ind)
+    # Bloc "Risque maladies" générique (remplace l'ancien Smith
+    # spécifique tomate). Wrap config en dict pour le helper.
+    config_pour_bloc = {"alertes": {"risque_maladies": risque_maladies_config or {}}}
+    bloc_risque_maladies = _bloc_risque_maladies(
+        prevision_horaire, config_pour_bloc, tz_locale=tz_locale
+    )
     bloc_grille = _bloc_grille_indicateurs_48h(
         prevision_horaire,
         etp_horaire_48h=ind.etp_horaire_48h,
@@ -702,8 +870,21 @@ def composer_html(
         "</div>"
     )
 
-    horodatage = format_horodatage_fr(maintenant, tz_locale)
-    t0_str = format_t0_court(ind.prevision_t0_utc, tz_locale)
+    # Fenêtre de prévision : du J0 00 h 00 locale au J0 + 48 h locale,
+    # alignée sur la couverture du tableau Tendance + axe X graphique.
+    if ind.prevision_t0_utc is not None:
+        t0_loc = ind.prevision_t0_utc
+        if t0_loc.tzinfo is None:
+            t0_loc = t0_loc.tz_localize("UTC")
+        t0_loc = t0_loc.tz_convert(tz_locale)
+        debut_fenetre = t0_loc.normalize()
+        fin_fenetre = debut_fenetre + pd.Timedelta(hours=48)
+        fenetre_label = (
+            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 "
+            f"au {fin_fenetre.strftime('%d/%m/%Y')} 00h00"
+        )
+    else:
+        fenetre_label = "—"
 
     return f"""<!DOCTYPE html>
 <html><head>
@@ -713,17 +894,15 @@ def composer_html(
 </head><body style="margin:0;padding:0;background:#f4f4f4;
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
-  <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">Veille météo</h2>
-  <p style="margin:0 0 4px 0;font-size:13px;color:#888;">
-    {horodatage} — La Petite Claye, Pleine-Fougères
-  </p>
-  <p style="margin:0 0 12px 0;font-size:12px;color:#888;">
-    Premier pas de prévision (T+0h) : <strong style="color:#555;">{t0_str}</strong> ·
-    fenêtres ci-dessous relatives à T+0h.
+  <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">
+    Prévision du {fenetre_label}
+  </h2>
+  <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
+    La Petite Claye, Pleine-Fougères
   </p>
   {bandeau}
   {bloc_grille}
-  {bloc_mildiou}
+  {bloc_risque_maladies}
   {bloc_carte}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 48 h
   <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
@@ -764,6 +943,7 @@ def composer_email(
         url_fiches=url_fiches,
         prevision_horaire=prevision_horaire,
     )
+    rm_config = config.get("alertes", {}).get("risque_maladies")
     html = composer_html(
         ind,
         alertes,
@@ -773,5 +953,6 @@ def composer_email(
         carte_synoptique_base64=carte_synoptique_base64,
         carte_synoptique_last_modified=carte_synoptique_last_modified,
         prevision_horaire=prevision_horaire,
+        risque_maladies_config=rm_config,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

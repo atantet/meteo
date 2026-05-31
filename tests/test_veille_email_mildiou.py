@@ -1,72 +1,69 @@
-"""Tests du bloc HTML mildiou Smith dans le mail Veille (cf. ADR-0007)."""
+"""Tests du bloc HTML "Risque maladies" dans le mail Veille."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 
-def _indicateurs_avec_mildiou(jours_risque: int, total_jours: int = 3):
-    """Construit un IndicateursVeille minimal avec section mildiou peuplée."""
-    from apps.veille.indicateurs import IndicateursVeille
+_CONFIG_RM = {
+    "alertes": {
+        "risque_maladies": {
+            "actif": True,
+            "t_min_nuit_celsius": 15.0,
+            "hr_seuil": 0.90,
+            "heures_min": 6,
+        }
+    }
+}
 
-    idx = pd.date_range("2026-07-01", periods=total_jours, freq="D")
-    detail = pd.DataFrame(
+
+def _prevision_synth(t_celsius: float, hr_fraction: float) -> pd.DataFrame:
+    """48 h synthétiques constantes pour test_bloc_risque_maladies."""
+    idx = pd.date_range("2026-07-01 00:00", periods=48, freq="h", tz="UTC")
+    return pd.DataFrame(
         {
-            "t_min_celsius": [12.0] * total_jours,
-            "heures_humectation": [15] * total_jours,
-            "smith_period": [True] * jours_risque + [False] * (total_jours - jours_risque),
+            "temperature_2m": np.full(48, t_celsius + 273.15),
+            "humidite_relative": np.full(48, hr_fraction),
         },
         index=idx,
     )
-    jours = list(detail.index[detail["smith_period"]])
-    return IndicateursVeille(
-        temperature_min_24h_celsius=12.0,
-        temperature_max_24h_celsius=22.0,
-        temperature_min_48h_celsius=11.0,
-        temperature_max_48h_celsius=23.0,
-        cumul_pluie_24h_mm=0.0,
-        cumul_pluie_48h_mm=0.0,
-        vent_max_24h_kmh=15.0,
-        rafales_max_24h_kmh=25.0,
-        direction_vent_dominante_deg=180.0,
-        direction_vent_dominante_cardinal="S",
-        etp_jour_mm=4.0,
-        prob_pluie_max_24h_pct=20.0,
-        prob_pluie_max_48h_pct=30.0,
-        heures_humectation_24h=0,
-        mildiou_smith_jours_a_risque=jours,
-        mildiou_smith_detail=detail,
-        prevision_t0_utc=pd.Timestamp("2026-07-01 00:00", tz="UTC"),
+
+
+def test_bloc_risque_maladies_conditions_propices() -> None:
+    """T_min ≥ 15 °C + HR ≥ 90 % constants → bandeau orange "Conditions propices"."""
+    from apps.veille.email import _bloc_risque_maladies
+
+    html = _bloc_risque_maladies(
+        _prevision_synth(t_celsius=16.0, hr_fraction=0.95),
+        _CONFIG_RM,
+        tz_locale="Europe/Paris",
     )
+    assert "Risque maladies" in html
+    assert "Conditions propices" in html or "conditions propices" in html
+    # Bandeau orange (Wong palette E69F00) indique un risque.
+    assert "#E69F00" in html
 
 
-def test_bloc_mildiou_smith_avec_periode_detectee() -> None:
-    from apps.veille.email import _bloc_mildiou_smith
+def test_bloc_risque_maladies_pas_de_signal() -> None:
+    """Nuit fraîche + air sec → bandeau vert "Pas de signal"."""
+    from apps.veille.email import _bloc_risque_maladies
 
-    ind = _indicateurs_avec_mildiou(jours_risque=2, total_jours=3)
-    html = _bloc_mildiou_smith(ind)
-    assert "Mildiou tomate" in html
-    assert "2 jour(s)" in html
-    # Bandeau orange (e67e22) indique un risque.
-    assert "#e67e22" in html
-    # 3 lignes de données (header a un style ≠ <tr> bare).
-    assert html.count("<tr>") == 3
-
-
-def test_bloc_mildiou_smith_sans_periode() -> None:
-    from apps.veille.email import _bloc_mildiou_smith
-
-    ind = _indicateurs_avec_mildiou(jours_risque=0, total_jours=3)
-    html = _bloc_mildiou_smith(ind)
-    assert "pas de période de Smith" in html
-    # Bandeau vert (27ae60) = pas de risque.
-    assert "#27ae60" in html
+    html = _bloc_risque_maladies(
+        _prevision_synth(t_celsius=10.0, hr_fraction=0.50),
+        _CONFIG_RM,
+        tz_locale="Europe/Paris",
+    )
+    assert "Risque maladies" in html
+    assert "pas de signal" in html.lower()
+    # Bandeau vert (Wong palette 009E73) = pas de risque.
+    assert "#009E73" in html
 
 
 def test_bloc_pictogrammes_veille_grille_2j_3fenetres() -> None:
@@ -147,27 +144,20 @@ def test_bloc_pictogrammes_priorise_pluie_sur_clair() -> None:
     assert "Pluie modérée" in html
 
 
-def test_bloc_mildiou_smith_vide_si_indicateur_non_calcule() -> None:
-    """Si indicateurs sans détail (mildiou désactivé), bloc retourne vide."""
-    from apps.veille.email import _bloc_mildiou_smith
-    from apps.veille.indicateurs import IndicateursVeille
+def test_bloc_risque_maladies_vide_si_inactif() -> None:
+    """Si alertes.risque_maladies.actif=False → bloc vide."""
+    from apps.veille.email import _bloc_risque_maladies
 
-    ind = IndicateursVeille(
-        temperature_min_24h_celsius=12.0,
-        temperature_max_24h_celsius=22.0,
-        temperature_min_48h_celsius=11.0,
-        temperature_max_48h_celsius=23.0,
-        cumul_pluie_24h_mm=0.0,
-        cumul_pluie_48h_mm=0.0,
-        vent_max_24h_kmh=15.0,
-        rafales_max_24h_kmh=25.0,
-        direction_vent_dominante_deg=180.0,
-        direction_vent_dominante_cardinal="S",
-        etp_jour_mm=4.0,
-        prob_pluie_max_24h_pct=20.0,
-        prob_pluie_max_48h_pct=30.0,
-        heures_humectation_24h=0,
-        # Pas de détail → bloc doit être vide.
-        prevision_t0_utc=pd.Timestamp("2026-07-01 00:00", tz="UTC"),
+    config = {"alertes": {"risque_maladies": {"actif": False}}}
+    html = _bloc_risque_maladies(
+        _prevision_synth(t_celsius=16.0, hr_fraction=0.95),
+        config,
     )
-    assert _bloc_mildiou_smith(ind) == ""
+    assert html == ""
+
+
+def test_bloc_risque_maladies_vide_si_prevision_none() -> None:
+    """Si prevision_horaire=None → bloc vide (ne casse pas le mail)."""
+    from apps.veille.email import _bloc_risque_maladies
+
+    assert _bloc_risque_maladies(None, _CONFIG_RM) == ""

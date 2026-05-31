@@ -57,9 +57,11 @@ DWD_SYNOPTIC_URL = (
 KELVIN_OFFSET: float = 273.15
 
 # Couleurs alignées avec le HTML email.
-COULEUR_T = "#c0392b"
-COULEUR_PLUIE = "#3498db"
-COULEUR_PROBA = "#16a085"
+# Palette Bang Wong 2011 (Nature Methods) — distinguable par
+# daltoniens (deutéranopie, protanopie).
+COULEUR_T = "#D55E00"  # vermillon
+COULEUR_PLUIE = "#56B4E9"  # bleu ciel
+COULEUR_PROBA = "#009E73"  # vert bleuté
 
 
 def graphique_48h_base64(
@@ -92,6 +94,11 @@ def graphique_48h_base64(
     if df.empty:
         return ""
     df.index = df.index.tz_convert(tz_locale)
+
+    # Bornes axe X : du J0 00 h 00 (local) au J0+horizon, alignées sur
+    # la fenêtre couverte par le tableau Tendance et le libellé du mail.
+    x_min = df.index[0].normalize()
+    x_max = x_min + pd.Timedelta(hours=horizon_h)
 
     fig, (ax_t, ax_p) = plt.subplots(
         2, 1, figsize=(7, 4), sharex=True, gridspec_kw={"height_ratios": [1, 1]}
@@ -155,6 +162,10 @@ def graphique_48h_base64(
     ax_p.xaxis.set_major_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
     plt.setp(ax_p.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=8)
     ax_p.grid(True, alpha=0.3)
+    # Bornes axe X fixées sur la fenêtre couverte par le tableau et le
+    # libellé "Prévision du JJ/MM/AAAA 00 h 00 au JJ/MM/AAAA 00 h 00".
+    ax_t.set_xlim(x_min, x_max)
+    ax_p.set_xlim(x_min, x_max)
     ax_p.set_xlabel("")
 
     fig.tight_layout()
