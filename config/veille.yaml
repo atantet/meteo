@@ -95,22 +95,26 @@ alertes:
     # Sources : fiches GRAB, CIVAM bio, CTIFL protections antigel.
     seuil_celsius: -2.0
 
-  # La canicule se découpe en deux besoins terrain (cf. doctrine
-  # Agrobio35 Ille-et-Vilaine, flash maraîchage mai 2026, J. Bellanger) :
-  #   1. Aération max des tunnels / serres dès le matin pour éviter
-  #      surchauffe sous abri (warning, anticipation 48 h).
-  #   2. Stress thermique des cultures et impact sur les chantiers :
-  #      bassinages midi, ombrage, travail avant 10 h, hydratation
-  #      (critique, fenêtre 24 h).
+  # ----- Alertes archivées 2026-05-31 -----
+  #
+  # canicule, pluie intense et vent fort sont désormais portés par la
+  # Vigilance Météo-France (officielle d'État) — une seule méthode par
+  # phénomène. Sections gardées en config avec actif: false pour
+  # permettre une réactivation rapide si le retour terrain montre que
+  # les seuils MF sont trop sévères pour l'usage agro (Vigilance MF
+  # se déclenche sur épisode dangereux département ; les seuils
+  # ci-dessous étaient calibrés pour des actions agro plus précoces).
+  # Le code Python correspondant reste actif et fonctionnel — seul le
+  # drapeau actif: false les neutralise.
   canicule_aeration:
-    actif: true
+    actif: false  # ARCHIVÉ 2026-05-31 — remplacé par Vigilance MF "Canicule"
     # Seuil sur T° max prévue 0-48 h (°C). 25 °C marque le palier où
     # sous tunnel/serre la T° peut largement dépasser les seuils
     # critiques en journée. Doctrine Agrobio35.
     seuil_celsius: 25.0
 
   canicule_stress:
-    actif: true
+    actif: false  # ARCHIVÉ 2026-05-31 — remplacé par Vigilance MF "Canicule"
     # Seuil sur T° max prévue 0-24 h (°C). 30 °C = palier opérationnel
     # Agrobio35 (épisode mai 2026 cité : T_max 30-34 °C). Stress
     # thermique : avortement floral, blocage croissance, montée à
@@ -118,14 +122,14 @@ alertes:
     seuil_celsius: 30.0
 
   pluie_intense:
-    actif: true
+    actif: false  # ARCHIVÉ 2026-05-31 — remplacé par Vigilance MF "Pluie-inondation"
     # Seuil sur cumul 24 h (mm). 20 mm/24h commence à lessiver
     # cuivre/soufre et rend les travaux de sol impossibles. Pas de
     # source consensuelle, doctrine opérationnelle.
     seuil_mm_24h: 20.0
 
   vent_fort:
-    actif: true
+    actif: false  # ARCHIVÉ 2026-05-31 — remplacé par Vigilance MF "Vent violent"
     # Seuil sur vent max prévu (km/h). 60 km/h fait voler bâches et
     # voiles ; vigilance MF "fort vent intérieur" >70 km/h. Doctrine
     # opérationnelle.
@@ -162,6 +166,22 @@ indicateurs:
     t_min_celsius: 10.0
     hr_seuil: 0.90
     heures_min: 11
+
+# ----- Vigilance Météo-France -----
+#
+# Référence officielle d'État pour les phénomènes dangereux (vent,
+# pluie, orages, neige-verglas, canicule, grand froid). Couverture J et
+# J+1 (~48 h). Granularité : département.
+#
+# Authentification : variable d'env METEOFRANCE_TOKEN (clé base64
+# "Application ID" du portail https://portail-api.meteofrance.fr —
+# partagée avec les autres APIs MF, une seule application = une seule
+# clé). Souscription à l'API "Données Publiques Vigilance" requise au
+# préalable. Si absente, le bloc Vigilance est silencieusement skippé
+# du mail (dégradé gracieux).
+vigilance_mf:
+  # Code département à 2 chiffres. 35 = Ille-et-Vilaine.
+  departement: "35"
 
 # ----- Format email -----
 email:

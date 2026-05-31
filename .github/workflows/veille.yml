@@ -53,4 +53,7 @@ jobs:
           VEILLE_SMTP_PASSWORD: ${{ secrets.VEILLE_SMTP_PASSWORD }}
           VEILLE_EMAIL_FROM: ${{ secrets.VEILLE_EMAIL_FROM }}
           VEILLE_EMAIL_TO: ${{ secrets.VEILLE_EMAIL_TO }}
+          # Application ID Météo-France (portail-api.meteofrance.fr).
+          # Active le bloc Vigilance dans le mail. Absent = bloc skippé.
+          METEOFRANCE_TOKEN: ${{ secrets.METEOFRANCE_TOKEN }}
         run: python -m apps.veille

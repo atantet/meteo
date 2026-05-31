@@ -42,8 +42,19 @@ from apps.shared.dates_fr import (
     format_horodatage_fr,
     format_t0_court,
 )
+from meteo_socle.sources.meteofrance_vigilance import (
+    NIVEAU_NOMS as VIGILANCE_NIVEAU_NOMS,
+)
+from meteo_socle.sources.meteofrance_vigilance import (
+    VigilanceDepartement,
+)
 
 from .alertes import Alerte, resume_alertes
+from .cartes_synoptiques import (
+    METEOCIEL_PAGE_AFFICHEE,
+    METOFFICE_PAGE_AFFICHEE,
+    CartesGrille,
+)
 from .indicateurs import (
     IndicateursVeille,
     degrees_to_cardinal,
@@ -131,6 +142,188 @@ def _bloc_carte_synoptique(
         f'<img src="{carte_base64}" alt="Analyse de surface DWD" '
         'style="max-width:100%;height:auto;border-radius:4px;border:1px solid #eee;">'
         "</div>"
+        '<p style="margin:4px 0 0 0;font-size:11px;color:#888;text-align:center;">'
+        f"{legende}"
+        "</p>"
+        "</div>"
+    )
+
+
+# Palette pour les niveaux Vigilance MF (texte foncé sur fond clair pour
+# le tableau ; cellules colorées pour les non-verts → lisible mobile).
+_VIGILANCE_COULEURS = {
+    1: {"bg": "#f4f4f4", "fg": "#7f8c8d"},  # Vert (rendu neutre, pas vert criard)
+    2: {"bg": "#fff4d1", "fg": "#9a7000"},  # Jaune
+    3: {"bg": "#ffd9b3", "fg": "#a04000"},  # Orange
+    4: {"bg": "#ffcccc", "fg": "#a00000"},  # Rouge
+}
+
+VIGILANCE_URL_AFFICHEE = "https://vigilance.meteofrance.fr/fr"
+
+
+def _bloc_vigilance_mf(
+    vigilance: VigilanceDepartement | None,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Bloc HTML Vigilance Météo-France pour le département configuré.
+
+    - ``None`` (clé API non configurée, ou fetch échoué) → bloc vide.
+    - Tout vert → ligne compacte "tout vert".
+    - ≥ 1 phénomène ≥ jaune → mini-tableau filtrant les phénomènes
+      non-verts, avec niveaux J et J+1 colorés.
+
+    Source officielle d'État. Référence légale pour les phénomènes
+    dangereux (cf. méthodo "une seule méthode par phénomène").
+    """
+    if vigilance is None:
+        return ""
+
+    update_loc = vigilance.update_time.tz_convert(tz_locale)
+    legende = (
+        f'<a href="{VIGILANCE_URL_AFFICHEE}" '
+        'style="color:#888;text-decoration:underline;">Vigilance Météo-France</a> · '
+        f"département {vigilance.departement} · "
+        f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
+    )
+
+    # Tous verts : ligne unique compacte (pas de bruit visuel).
+    if vigilance.niveau_max_global <= 1:
+        return (
+            '<div style="margin:12px 0 6px 0;padding:8px 12px;'
+            'background:#f4f4f4;border-radius:4px;font-size:12px;color:#555;">'
+            "<strong>Vigilance Météo-France</strong> : aucun phénomène en cours "
+            f"(département {vigilance.departement})."
+            '<div style="font-size:11px;color:#888;margin-top:4px;">'
+            f"{legende}</div>"
+            "</div>"
+        )
+
+    # Filtre phénomènes non-verts pour réduire le bruit.
+    actifs = [p for p in vigilance.phenomenes if p.niveau_max > 1]
+
+    def cellule_niveau(niveau: int) -> str:
+        c = _VIGILANCE_COULEURS.get(niveau, _VIGILANCE_COULEURS[1])
+        return (
+            f'<td style="padding:4px 8px;text-align:center;'
+            f"background:{c['bg']};color:{c['fg']};font-weight:600;"
+            'font-size:12px;border:1px solid #fff;">'
+            f"{VIGILANCE_NIVEAU_NOMS[niveau]}"
+            "</td>"
+        )
+
+    lignes_html: list[str] = []
+    for p in actifs:
+        lignes_html.append(
+            "<tr>"
+            '<td style="padding:4px 8px;color:#555;font-size:12px;">'
+            f"{p.nom}</td>" + cellule_niveau(p.niveau_j) + cellule_niveau(p.niveau_j1) + "</tr>"
+        )
+
+    return (
+        '<div style="margin:12px 0 6px 0;">'
+        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+        "Vigilance Météo-France</h3>"
+        '<table cellpadding="0" cellspacing="0" border="0" '
+        'style="width:100%;border-collapse:collapse;'
+        'border:1px solid #eee;border-radius:4px;overflow:hidden;">'
+        '<tr style="background:#fafafa;">'
+        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888;'
+        'font-weight:600;">Phénomène</th>'
+        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
+        "font-weight:600;\">Aujourd'hui</th>"
+        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
+        'font-weight:600;">Demain</th>'
+        "</tr>" + "".join(lignes_html) + "</table>"
+        '<p style="margin:4px 0 0 0;font-size:11px;color:#888;">'
+        f"{legende}"
+        "</p>"
+        "</div>"
+    )
+
+
+def _bloc_cartes_synoptiques(
+    grille: CartesGrille | None,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Bloc HTML 2 sections empilées — Met Office puis AROME, 1 colonne.
+
+    Vide si ``grille`` est ``None`` ou si aucune carte n'a été récupérée
+    avec succès. Les cartes individuelles manquantes sont silencieusement
+    sautées.
+
+    Layout :
+
+    +---------------- Situation synoptique --------------------+
+    | Met Office UK — surface (Atlantique nord / Europe)        |
+    |   Analyse 00 UTC                                          |
+    |   [carte 1]                                               |
+    |   Prévi +24 h                                             |
+    |   [carte 2]                                               |
+    |   Prévi +48 h                                             |
+    |   [carte 3]                                               |
+    +-----------------------------------------------------------+
+    | Météociel AROME 1.3 km — France (précip + iso + nébu)     |
+    |   Analyse 00 UTC ≈                                        |
+    |   [carte 4]                                               |
+    |   Prévi +24 h                                             |
+    |   [carte 5]                                               |
+    |   Prévi +48 h                                             |
+    |   [carte 6]                                               |
+    +-----------------------------------------------------------+
+    """
+    if grille is None or grille.nb_disponibles == 0:
+        return ""
+
+    def cartes_section(cartes, titre: str, source_url: str, alt_prefix: str) -> str:
+        lignes: list[str] = [
+            '<div style="margin:10px 0 6px 0;">'
+            '<h4 style="margin:0 0 4px 0;font-size:13px;color:#34495e;'
+            'font-weight:600;">'
+            f'<a href="{source_url}" style="color:#34495e;text-decoration:none;">'
+            f"{titre}</a></h4>"
+            "</div>"
+        ]
+        for c in cartes:
+            if not c.data_uri:
+                lignes.append(
+                    '<p style="text-align:center;color:#bbb;font-size:11px;'
+                    f'margin:6px 0;">{c.label} — carte indisponible</p>'
+                )
+                continue
+            lignes.append(
+                '<div style="text-align:center;margin:6px 0 10px 0;">'
+                '<div style="font-size:11px;color:#888;margin-bottom:2px;">'
+                f"{c.label}"
+                "</div>"
+                f'<img src="{c.data_uri}" alt="{alt_prefix} — {c.label}" '
+                'style="max-width:100%;height:auto;border-radius:4px;'
+                'border:1px solid #eee;">'
+                "</div>"
+            )
+        return "".join(lignes)
+
+    section_metoffice = cartes_section(
+        grille.metoffice,
+        titre="Met Office UK — surface (Atlantique nord / Europe, fronts)",
+        source_url=METOFFICE_PAGE_AFFICHEE,
+        alt_prefix="Met Office surface",
+    )
+    section_arome = cartes_section(
+        grille.arome,
+        titre="Météociel AROME 1.3 km — France (précip + pression + nébulosité)",
+        source_url=METEOCIEL_PAGE_AFFICHEE,
+        alt_prefix="AROME résumé France",
+    )
+
+    run_loc = grille.run_utc.tz_convert(tz_locale)
+    legende = f"run {run_loc.strftime('%d/%m %Hh%M %Z')}"
+
+    return (
+        '<div style="margin:18px 0 6px 0;">'
+        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+        "Situation synoptique</h3>"
+        f"{section_metoffice}"
+        f"{section_arome}"
         '<p style="margin:4px 0 0 0;font-size:11px;color:#888;text-align:center;">'
         f"{legende}"
         "</p>"
@@ -829,8 +1022,8 @@ def composer_html(
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     chart_48h_base64: str = "",
-    carte_synoptique_base64: str = "",
-    carte_synoptique_last_modified: datetime | None = None,
+    cartes_grille: CartesGrille | None = None,
+    vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     risque_maladies_config: dict[str, Any] | None = None,
     tz_locale: str = "Europe/Paris",
@@ -892,11 +1085,8 @@ def composer_html(
         now_utc=now_utc_ts,
         tz_locale=tz_locale,
     )
-    bloc_carte = _bloc_carte_synoptique(
-        carte_synoptique_base64,
-        last_modified=carte_synoptique_last_modified,
-        tz_locale=tz_locale,
-    )
+    bloc_carte = _bloc_cartes_synoptiques(cartes_grille, tz_locale=tz_locale)
+    bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale)
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -949,6 +1139,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     La Petite Claye, Pleine-Fougères
   </p>
   {bandeau}
+  {bloc_vigilance}
   {bloc_grille}
   {bloc_risque_maladies}
   {bloc_carte}
@@ -970,16 +1161,16 @@ def composer_email(
     config: dict[str, Any],
     maintenant: datetime,
     chart_48h_base64: str = "",
-    carte_synoptique_base64: str = "",
-    carte_synoptique_last_modified: datetime | None = None,
+    cartes_grille: CartesGrille | None = None,
+    vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
     ``chart_48h_base64`` (optionnel) sera embarqué dans le HTML comme image
-    inline. ``carte_synoptique_base64`` (optionnel) sera embarquée comme
-    illustration de la situation synoptique productive. Si vides, aucune
-    image n'est rendue.
+    inline. ``cartes_grille`` (optionnel) — grille 3×2 Met Office (gauche) +
+    AROME mode 24 (droite) sur 3 échéances. Si ``None`` ou cartes toutes
+    indisponibles, aucun bloc carte n'est rendu.
     """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
@@ -998,8 +1189,8 @@ def composer_email(
         maintenant,
         url_fiches=url_fiches,
         chart_48h_base64=chart_48h_base64,
-        carte_synoptique_base64=carte_synoptique_base64,
-        carte_synoptique_last_modified=carte_synoptique_last_modified,
+        cartes_grille=cartes_grille,
+        vigilance=vigilance,
         prevision_horaire=prevision_horaire,
         risque_maladies_config=rm_config,
     )

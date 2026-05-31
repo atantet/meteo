@@ -193,3 +193,103 @@ def test_envoyer_envoi_reel_sans_secrets_raise() -> None:
     email = EmailComposed(sujet="S", texte="T", html="H")
     with pytest.raises(ValueError):
         envoyer(email, secrets=None, envoi_reel=True)
+
+
+# --- Tests d'intégration cartes synoptiques + vigilance MF (2026-05-31) ---
+
+
+def _cartes_grille_factice():
+    """Fixture CartesGrille avec 6 placeholders data_uri non vides."""
+    import pandas as pd
+
+    from apps.veille.cartes_synoptiques import CartesGrille, CarteSynoptique
+
+    placeholder = "data:image/jpeg;base64,iVBORw0KGgoAAAANSU"  # tronqué, valide pour test HTML
+    labels = ["Analyse 00 UTC", "Prévi +24 h", "Prévi +48 h"]
+    metoffice = [
+        CarteSynoptique(label=label, source="metoffice", data_uri=placeholder) for label in labels
+    ]
+    arome = [CarteSynoptique(label=label, source="arome", data_uri=placeholder) for label in labels]
+    return CartesGrille(
+        run_utc=pd.Timestamp("2026-05-31 00:00", tz="UTC"),
+        metoffice=metoffice,
+        arome=arome,
+    )
+
+
+def _vigilance_jaune_orages():
+    """Fixture VigilanceDepartement avec Orages en jaune sur J et J+1."""
+    import pandas as pd
+
+    from meteo_socle.sources.meteofrance_vigilance import (
+        PHENOMENES_NOMS,
+        PHENOMENES_PERTINENTS,
+        VigilanceDepartement,
+        VigilancePhenomene,
+    )
+
+    phenomenes = [
+        VigilancePhenomene(
+            code=pid,
+            nom=PHENOMENES_NOMS[pid],
+            niveau_j=2 if pid == 3 else 1,
+            niveau_j1=2 if pid == 3 else 1,
+        )
+        for pid in PHENOMENES_PERTINENTS
+    ]
+    return VigilanceDepartement(
+        departement="35",
+        update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
+        phenomenes=phenomenes,
+    )
+
+
+def test_composer_html_avec_cartes_grille_contient_les_2_sources() -> None:
+    """Le HTML produit doit contenir les sections Met Office + Météociel AROME."""
+    from apps.veille.email import composer_html
+
+    html = composer_html(
+        _ind(),
+        [],
+        datetime(2026, 5, 31, 7, 0),
+        cartes_grille=_cartes_grille_factice(),
+    )
+    assert "Situation synoptique" in html
+    assert "Met Office" in html
+    assert "AROME" in html
+    # Les 3 labels d'échéances apparaissent au moins 1 fois par section (×2 = 6).
+    assert html.count("Analyse 00 UTC") >= 2
+    assert html.count("Prévi +24 h") >= 2
+    assert html.count("Prévi +48 h") >= 2
+
+
+def test_composer_html_sans_cartes_grille_nempeche_pas_le_rendu() -> None:
+    """Sans cartes (None), le HTML reste valide et ne contient pas le bloc."""
+    from apps.veille.email import composer_html
+
+    html = composer_html(_ind(), [], datetime(2026, 5, 31, 7, 0), cartes_grille=None)
+    assert "<html>" in html.lower() or "<html " in html.lower()
+    assert "Situation synoptique" not in html
+
+
+def test_composer_html_avec_vigilance_orages_jaune() -> None:
+    """Une vigilance avec orages jaune doit produire le bloc tableau."""
+    from apps.veille.email import composer_html
+
+    html = composer_html(
+        _ind(),
+        [],
+        datetime(2026, 5, 31, 7, 0),
+        vigilance=_vigilance_jaune_orages(),
+    )
+    assert "Vigilance Météo-France" in html
+    assert "Orages" in html
+    assert "Jaune" in html
+
+
+def test_composer_html_sans_vigilance_pas_de_bloc() -> None:
+    """Sans vigilance (None), pas de bloc Vigilance dans le HTML."""
+    from apps.veille.email import composer_html
+
+    html = composer_html(_ind(), [], datetime(2026, 5, 31, 7, 0), vigilance=None)
+    assert "Vigilance Météo-France" not in html

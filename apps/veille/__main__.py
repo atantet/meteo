@@ -29,10 +29,12 @@ from typing import Any
 import pandas as pd
 import requests
 
+from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
 from meteo_socle.sources.openmeteo import OpenMeteoForecast
 
 from .alertes import evaluer_alertes
-from .charts import carte_synoptique_dwd_base64, graphique_48h_base64
+from .cartes_synoptiques import recuperer_cartes
+from .charts import graphique_48h_base64
 from .config import (
     ConfigError,
     load_config,
@@ -112,17 +114,25 @@ def executer_veille(
 
     tz_locale = config["site"].get("tz", "Europe/Paris")
     chart = graphique_48h_base64(prevision, now_utc, tz_locale=tz_locale)
-    # Vide silencieusement si DWD down. last_modified = heure de
-    # production de l'analyse côté DWD (header HTTP Last-Modified).
-    carte, carte_last_modified = carte_synoptique_dwd_base64()
+    # Grille 3×2 : Met Office (gauche, fronts Atlantique nord/Europe) +
+    # AROME mode 24 (droite, France précip+pression+nébulosité), pour
+    # T+0 / T+24 / T+48 du run 00 UTC. Cartes manquantes sautées
+    # silencieusement (mail envoyé même si une source est down).
+    cartes_grille = recuperer_cartes(now_utc=now_utc)
+    # Vigilance MF (officielle d'État) — référence pour orages, vent,
+    # pluie, canicule, neige-verglas, grand froid sur 0-48 h. Si la clé
+    # API METEOFRANCE_TOKEN est absente, retourne None et le bloc est
+    # silencieusement skippé (mail livré sans Vigilance).
+    departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
+    vigilance = recuperer_vigilance(departement=departement)
     email = composer_email(
         ind,
         alertes,
         config,
         now_utc.to_pydatetime(),
         chart_48h_base64=chart,
-        carte_synoptique_base64=carte,
-        carte_synoptique_last_modified=carte_last_modified,
+        cartes_grille=cartes_grille,
+        vigilance=vigilance,
         prevision_horaire=prevision,
     )
 
