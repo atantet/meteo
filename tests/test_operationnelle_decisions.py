@@ -22,9 +22,12 @@ from apps.operationnelle.decisions import (  # noqa: E402
     _saison_active,
     degres_jours_negatifs,
     evaluer_decisions,
+    plus_longue_suite_consecutive,
     regle_aeration_nuit_tunnels,
     regle_deficit_plein_champ,
     regle_demande_evap_tunnel,
+    regle_fenetre_pluvieuse_travail_sol_ete,
+    regle_fenetre_seche_travail_sol_hiver,
     regle_fermeture_nuit_tunnels,
     regle_purge_irrigation_gel,
     regle_recolte_racines_avant_gel,
@@ -35,6 +38,8 @@ EXPLOITATION_DEFAUT: dict = {
     "saisons": {
         "tunnels_en_culture": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         "legumes_racine_au_champ": [10, 11, 12, 1, 2, 3],
+        "travail_sol_recherche_fenetre_seche": [11, 12, 1, 2, 3],
+        "travail_sol_recherche_fenetre_pluvieuse": [4, 5, 6, 7, 8, 9, 10],
     },
     "equipement": {"voiles_p17_disponibles": True},
     "seuils_gel": {
@@ -46,6 +51,12 @@ EXPLOITATION_DEFAUT: dict = {
         "aeration_nuit_nuits_min": 2,
         "fermeture_nuit_t_min_celsius": 3.0,
         "fermeture_nuit_nuits_min": 1,
+    },
+    "seuils_travail_sol": {
+        "fenetre_seche_pluie_max_mm_par_jour": 1.0,
+        "fenetre_seche_duree_min_jours": 3,
+        "fenetre_pluvieuse_pluie_min_mm_par_jour": 5.0,
+        "fenetre_pluvieuse_duree_min_jours": 2,
     },
     "seuils_hydrique": {
         "deficit_plein_champ_mm": -10.0,
@@ -257,6 +268,99 @@ def test_deficit_pc_inactif_si_colonnes_absentes() -> None:
     assert regle_deficit_plein_champ(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01")) is None
 
 
+# ---------- plus_longue_suite_consecutive ----------
+
+
+def test_plus_longue_suite_serie_vide() -> None:
+    assert plus_longue_suite_consecutive(pd.Series([], dtype=bool)) is None
+
+
+def test_plus_longue_suite_aucun_true() -> None:
+    assert plus_longue_suite_consecutive(pd.Series([False, False, False])) is None
+
+
+def test_plus_longue_suite_simple() -> None:
+    res = plus_longue_suite_consecutive(pd.Series([False, True, True, True, False]))
+    assert res == (1, 3, 3)
+
+
+def test_plus_longue_suite_choisit_la_plus_longue() -> None:
+    # 2 runs : 2 et 4 → on choisit la deuxième.
+    res = plus_longue_suite_consecutive(pd.Series([True, True, False, True, True, True, True]))
+    assert res == (3, 6, 4)
+
+
+# ---------- regle_fenetre_seche_travail_sol_hiver ----------
+
+
+def test_fenetre_seche_declenchee_si_3_jours_secs_en_hiver() -> None:
+    # 7 j : pluie 0 sur jours 0-2 (3 jours secs consécutifs), pluie après.
+    quot = _quotidien(pluie=[0.0, 0.5, 0.0, 6.0, 8.0, 5.0, 2.0])
+    carte = regle_fenetre_seche_travail_sol_hiver(
+        quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15")
+    )
+    assert isinstance(carte, Carte)
+    assert carte.niveau == NIVEAU_INFO
+    txt = _texte_complet(carte)
+    assert "sec" in txt or "sèche" in txt
+    assert carte.surlignage == {"pluie_24h_mm": ("≤", 1.0)}
+
+
+def test_fenetre_seche_inactive_hors_saison_hiver() -> None:
+    quot = _quotidien(pluie=[0.0] * 7)
+    # Juillet hors fenêtre hiver.
+    assert (
+        regle_fenetre_seche_travail_sol_hiver(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
+        is None
+    )
+
+
+def test_fenetre_seche_inactive_si_jamais_3_jours_secs() -> None:
+    # Pluie partout, jamais 3 jours secs consécutifs.
+    quot = _quotidien(pluie=[2.0, 0.0, 0.0, 3.0, 0.0, 0.0, 4.0])
+    assert (
+        regle_fenetre_seche_travail_sol_hiver(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+        is None
+    )
+
+
+# ---------- regle_fenetre_pluvieuse_travail_sol_ete ----------
+
+
+def test_fenetre_pluvieuse_declenchee_si_2_jours_pluvieux_en_ete() -> None:
+    quot = _quotidien(pluie=[0.0, 1.0, 8.0, 10.0, 2.0, 0.0, 0.0])
+    carte = regle_fenetre_pluvieuse_travail_sol_ete(
+        quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15")
+    )
+    assert isinstance(carte, Carte)
+    assert carte.niveau == NIVEAU_ANTICIPER
+    txt = _texte_complet(carte)
+    assert "pluvieuse" in txt or "pluie" in txt
+    assert carte.surlignage == {"pluie_24h_mm": ("≥", 5.0)}
+
+
+def test_fenetre_pluvieuse_inactive_hors_saison_ete() -> None:
+    quot = _quotidien(pluie=[10.0] * 7)
+    # Janvier hors fenêtre été.
+    assert (
+        regle_fenetre_pluvieuse_travail_sol_ete(
+            quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15")
+        )
+        is None
+    )
+
+
+def test_fenetre_pluvieuse_inactive_si_pluie_modeste() -> None:
+    # Pluie faible partout, jamais 2 jours ≥ 5 mm.
+    quot = _quotidien(pluie=[2.0, 3.0, 4.0, 1.0, 2.0, 3.0, 0.5])
+    assert (
+        regle_fenetre_pluvieuse_travail_sol_ete(
+            quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15")
+        )
+        is None
+    )
+
+
 # ---------- regle_demande_evap_tunnel ----------
 
 
@@ -341,6 +445,30 @@ def test_evaluer_decisions_printemps_calme_aucune_carte() -> None:
     )
     cartes = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-04-15"))
     assert cartes == [], f"Pas de carte attendue, obtenues : {[c.titre for c in cartes]}"
+
+
+def test_demo_hiver_couvre_5_cartes_attendues() -> None:
+    """Le scénario démo hiver doit déclencher purge, voiles, racines, fermeture, sèche."""
+    from apps.operationnelle.demo import quotidien_hiver, today_hiver
+
+    exploitation = EXPLOITATION_DEFAUT
+    cartes = evaluer_decisions(quotidien_hiver(), exploitation, today_hiver())
+    pictos = {c.picto for c in cartes}
+    attendus = {"❄️", "🛡️", "🥕", "🔒", "🚜"}
+    manquants = attendus - pictos
+    assert not manquants, f"Cartes hiver manquantes : {manquants} (obtenu : {pictos})"
+
+
+def test_demo_ete_couvre_4_cartes_attendues() -> None:
+    """Le scénario démo été doit déclencher aération, déficit, évap, pluvieuse."""
+    from apps.operationnelle.demo import quotidien_ete, today_ete
+
+    exploitation = EXPLOITATION_DEFAUT
+    cartes = evaluer_decisions(quotidien_ete(), exploitation, today_ete())
+    pictos = {c.picto for c in cartes}
+    attendus = {"🌬️", "💧", "🌡️", "🌧️"}
+    manquants = attendus - pictos
+    assert not manquants, f"Cartes été manquantes : {manquants} (obtenu : {pictos})"
 
 
 def test_evaluer_decisions_textes_jamais_imperatif_2pp() -> None:

@@ -46,6 +46,7 @@ NIVEAU_CRITIQUE = "critique"
 # footer générique : on n'annonce pas FAO 56 quand la carte n'utilise
 # que la T° min, par exemple.
 SOURCE_T_FORECAST = "Source : Open-Meteo · forecast best_match · T° agrégée par jour local."
+SOURCE_PLUIE_FORECAST = "Source : Open-Meteo · forecast best_match · pluie cumulée par jour local."
 SOURCE_ETP_SOCLE = (
     "Source : ETP socle FAO 56 Penman-Monteith horaire, calculée à "
     "partir d'Open-Meteo (T°, HR, vent, rayonnement)."
@@ -105,6 +106,30 @@ def degres_jours_negatifs(t_min: pd.Series) -> float:
     if sous_zero.empty:
         return 0.0
     return float(-sous_zero.sum())
+
+
+def plus_longue_suite_consecutive(masque: pd.Series) -> tuple[int, int, int] | None:
+    """Plus longue suite de True consécutifs dans un masque booléen.
+
+    Retourne ``(idx_debut, idx_fin, longueur)`` (positions entières dans
+    la série), ou ``None`` si aucun True.
+    """
+    if masque.empty or not masque.any():
+        return None
+    best: tuple[int, int, int] | None = None
+    cur_start: int | None = None
+    cur_len = 0
+    for i, v in enumerate(masque):
+        if v:
+            if cur_start is None:
+                cur_start = i
+            cur_len += 1
+            if best is None or cur_len > best[2]:
+                best = (cur_start, i, cur_len)
+        else:
+            cur_start = None
+            cur_len = 0
+    return best
 
 
 # ---------- Cartes gel ----------
@@ -352,6 +377,111 @@ def regle_demande_evap_tunnel(
     )
 
 
+# ---------- Cartes travail du sol (v2) ----------
+
+
+def _fmt_date_courte(ts: pd.Timestamp) -> str:
+    """Date courte ``lun. 02 juin`` pour les libellés de fenêtre."""
+    jours = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+    mois = [
+        "janv.",
+        "févr.",
+        "mars",
+        "avr.",
+        "mai",
+        "juin",
+        "juil.",
+        "août",
+        "sept.",
+        "oct.",
+        "nov.",
+        "déc.",
+    ]
+    return f"{jours[ts.weekday()]} {ts.day:02d} {mois[ts.month - 1]}"
+
+
+def regle_fenetre_seche_travail_sol_hiver(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,
+) -> Carte | None:
+    """Hiver : signaler une fenêtre sèche de plusieurs jours pour le travail."""
+    if not _saison_active(exploitation, "travail_sol_recherche_fenetre_seche", today.month):
+        return None
+    if "pluie_24h_mm" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_travail_sol", {})
+    seuil_pluie = float(s.get("fenetre_seche_pluie_max_mm_par_jour", 1.0))
+    duree_min = int(s.get("fenetre_seche_duree_min_jours", 3))
+
+    masque = quotidien["pluie_24h_mm"] <= seuil_pluie
+    suite = plus_longue_suite_consecutive(masque)
+    if suite is None or suite[2] < duree_min:
+        return None
+    i_debut, i_fin, longueur = suite
+    debut = quotidien.index[i_debut]
+    fin = quotidien.index[i_fin]
+
+    return Carte(
+        titre=(
+            f"Fenêtre sèche du {_fmt_date_courte(debut)} au {_fmt_date_courte(fin)} — "
+            f"{longueur} jours sans pluie significative "
+            "(envisager le travail du sol)"
+        ),
+        invitation="Pour la reprise en plein champ.",
+        niveau=NIVEAU_INFO,
+        picto="🚜",
+        detail_intro=(
+            f"Jour « sec » = pluie ≤ {seuil_pluie:.1f} mm. Durée minimale "
+            f"signalée : {duree_min} jours consécutifs."
+        ),
+        detail_df=quotidien[["pluie_24h_mm"]],
+        detail_source=SOURCE_PLUIE_FORECAST,
+        surlignage={"pluie_24h_mm": ("≤", seuil_pluie)},
+    )
+
+
+def regle_fenetre_pluvieuse_travail_sol_ete(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,
+) -> Carte | None:
+    """Été : alerter sur une fenêtre pluvieuse qui empêcherait le travail."""
+    if not _saison_active(exploitation, "travail_sol_recherche_fenetre_pluvieuse", today.month):
+        return None
+    if "pluie_24h_mm" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_travail_sol", {})
+    seuil_pluie = float(s.get("fenetre_pluvieuse_pluie_min_mm_par_jour", 5.0))
+    duree_min = int(s.get("fenetre_pluvieuse_duree_min_jours", 2))
+
+    masque = quotidien["pluie_24h_mm"] >= seuil_pluie
+    suite = plus_longue_suite_consecutive(masque)
+    if suite is None or suite[2] < duree_min:
+        return None
+    i_debut, i_fin, longueur = suite
+    debut = quotidien.index[i_debut]
+    fin = quotidien.index[i_fin]
+
+    return Carte(
+        titre=(
+            f"Fenêtre pluvieuse du {_fmt_date_courte(debut)} au {_fmt_date_courte(fin)} — "
+            f"{longueur} jours de pluie attendue "
+            "(anticiper le travail du sol avant)"
+        ),
+        invitation="Pour la reprise en plein champ.",
+        niveau=NIVEAU_ANTICIPER,
+        picto="🌧️",
+        detail_intro=(
+            f"Jour « pluvieux » = pluie ≥ {seuil_pluie:.1f} mm. Durée "
+            f"minimale signalée : {duree_min} jours consécutifs."
+        ),
+        detail_df=quotidien[["pluie_24h_mm"]],
+        detail_source=SOURCE_PLUIE_FORECAST,
+        surlignage={"pluie_24h_mm": ("≥", seuil_pluie)},
+    )
+
+
 # ---------- Orchestration ----------
 
 
@@ -383,6 +513,8 @@ def evaluer_decisions(
         lambda q, t: regle_fermeture_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_deficit_plein_champ(q, exploitation, t),
         lambda q, t: regle_demande_evap_tunnel(q, exploitation, t),
+        lambda q, t: regle_fenetre_seche_travail_sol_hiver(q, exploitation, t),
+        lambda q, t: regle_fenetre_pluvieuse_travail_sol_ete(q, exploitation, t),
     ):
         carte = regle(quotidien, today)
         if carte is not None:
