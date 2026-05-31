@@ -30,7 +30,11 @@ site:
 # planning du job sur cron-job.org, PAS ce fichier.
 planification:
   # Heure cible documentée du déclenchement externe (UTC).
-  cron_utc: "00 5 * * *"
+  # 04:15 UTC = 05:15 Paris hiver / 06:15 Paris été. Au plus tôt après
+  # diffusion AROME 00 UTC chez Open-Meteo (~03:30-04:00 UTC) avec
+  # une marge de 15-45 min. cron-job.org étant précis à la minute,
+  # pas besoin de minute non-ronde (contrairement à l'ancien cron GH).
+  cron_utc: "15 4 * * *"
   # Désactivable depuis cron-job.org (mettre le job en pause).
   actif: true
 
