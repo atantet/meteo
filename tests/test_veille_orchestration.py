@@ -92,7 +92,7 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     assert "Veille 2024-06-15 — RAS" in output  # pas d'alerte
     # Source appelée avec bons paramètres.
     mock_source.obtenir_prevision.assert_called_once_with(
-        latitude=48.5, longitude=-1.6, horizon_jours=2
+        latitude=48.5, longitude=-1.6, horizon_jours=2, past_days=1
     )
 
 

@@ -91,10 +91,16 @@ def executer_veille(
         horizon,
     )
     try:
+        # past_days=1 pour récupérer la portion 00 h 00 → T+0 du jour
+        # courant (heures déjà passées), afin que la grille Tendance et
+        # le graphique 48 h couvrent réellement [J0 00 h 00 ; J0+48 h]
+        # plutôt que [T+0 ; T+0+48 h]. Indicateurs et alertes filtrent
+        # par ailleurs sur le futur (>= now_utc).
         prevision = source.obtenir_prevision(
             latitude=site["latitude"],
             longitude=site["longitude"],
             horizon_jours=horizon,
+            past_days=1,
         )
     except requests.HTTPError as e:
         logger.error("Erreur HTTP source météo : %s", e)

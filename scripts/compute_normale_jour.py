@@ -34,7 +34,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from apps.climato.climatologie import agreger_quotidien  # noqa: E402
 from apps.climato.config import load_config  # noqa: E402
-from apps.climato.donnees import fetch_historique  # noqa: E402
+from apps.climato.donnees import charger_historique_cache, fetch_historique  # noqa: E402
 
 OUTPUT_CSV = REPO_ROOT / "data" / "climato" / "normale_jour_lapetiteclaye.csv"
 
@@ -47,24 +47,40 @@ def main() -> None:
     fin = config["periodes"]["normale_fin"]
     modele = config["source_meteo"]["modele"]
 
-    print(
-        f"Fetch archive ({modele}) {debut}-{fin} (normale OMM, {fin - debut + 1} ans) "
-        f"pour ({site['latitude']}, {site['longitude']})…"
-    )
-    horaire = fetch_historique(
-        latitude=site["latitude"],
-        longitude=site["longitude"],
-        annee_debut=debut,
-        annee_fin=fin,
-        modele=modele,
-    )
-    print(f"  {len(horaire):,} heures récupérées.")
+    # Préférer le cache parquet s'il couvre la fenêtre demandée — évite
+    # 30 appels HTTP successifs (~3-5 min).
+    horaire = None
+    try:
+        horaire = charger_historique_cache(annee_debut=debut, annee_fin=fin)
+        print(f"Cache parquet lu : {len(horaire):,} heures pour {debut}-{fin}.")
+    except (FileNotFoundError, ValueError, KeyError):
+        print(
+            f"Fetch archive ({modele}) {debut}-{fin} "
+            f"(normale OMM, {fin - debut + 1} ans) "
+            f"pour ({site['latitude']}, {site['longitude']})…"
+        )
+        horaire = fetch_historique(
+            latitude=site["latitude"],
+            longitude=site["longitude"],
+            annee_debut=debut,
+            annee_fin=fin,
+            modele=modele,
+        )
+        print(f"  {len(horaire):,} heures récupérées.")
 
     quot = agreger_quotidien(horaire, site["latitude"], site["longitude"], site["altitude"])
 
     # Jour de l'année (1-366) pour le groupby.
     quot["doy"] = pd.to_datetime(quot.index).dayofyear
     normale = quot.groupby("doy")[["t_min_celsius", "t_max_celsius", "t_moy_celsius"]].mean()
+
+    # Ajout normale HR moyenne (%) par jour de l'année, calculée
+    # directement depuis le DataFrame horaire (la HR n'est pas dans
+    # ``agreger_quotidien`` standard — sortie spécifique Veille).
+    horaire_hr = horaire.copy()
+    horaire_hr["doy"] = pd.DatetimeIndex(horaire_hr.index).dayofyear
+    normale["hr_moy_pct"] = horaire_hr.groupby("doy")["humidite_relative"].mean() * 100.0
+
     normale.index.name = "day_of_year"
 
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)

@@ -23,7 +23,12 @@ import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 import requests  # noqa: E402
+from matplotlib.ticker import FuncFormatter  # noqa: E402
 from PIL import Image  # noqa: E402
+
+# Abréviations FR pour l'axe X du graphique 48h — évite la dépendance
+# à ``locale.setlocale("fr_FR.UTF-8")`` (souvent absent en CI / containers).
+_JOURS_FR_COURT = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +51,20 @@ def _charger_normale_t_moy() -> pd.Series | None:
         return None
 
 
+def _charger_normale_hr() -> pd.Series | None:
+    """Charge la normale HR_moy (%) par jour-de-l'année (1-366). ``None`` si absent."""
+    if not NORMALE_JOUR_PATH.exists():
+        return None
+    try:
+        df = pd.read_csv(NORMALE_JOUR_PATH)
+        if "hr_moy_pct" not in df.columns:
+            return None
+        return df.set_index("day_of_year")["hr_moy_pct"]
+    except (OSError, KeyError) as e:
+        logger.warning("Normale HR illisible : %s", e)
+        return None
+
+
 # Analyse de surface DWD pour l'Atlantique nord / Europe — couvre la
 # situation synoptique productive de la météo locale Bretagne. Image
 # mise à jour 4 fois/jour (~00, 06, 12, 18 UTC).
@@ -59,9 +78,12 @@ KELVIN_OFFSET: float = 273.15
 # Couleurs alignées avec le HTML email.
 # Palette Bang Wong 2011 (Nature Methods) — distinguable par
 # daltoniens (deutéranopie, protanopie).
-COULEUR_T = "#D55E00"  # vermillon
+COULEUR_T = "#D55E00"  # vermillon — anomalie chaude
+COULEUR_T_FROID = "#0072B2"  # bleu profond — anomalie froide
 COULEUR_PLUIE = "#56B4E9"  # bleu ciel
 COULEUR_PROBA = "#009E73"  # vert bleuté
+COULEUR_HR = "#CC79A7"  # rose-violet — humidité relative
+COULEUR_NORMALE = "#7f8c8d"  # gris neutre pour la ligne climato
 
 
 def graphique_48h_base64(
@@ -90,26 +112,35 @@ def graphique_48h_base64(
         ``data:image/png;base64,...`` à insérer dans ``<img src=...>``.
         Si la prévision est vide, retourne une chaîne vide.
     """
-    df = prevision.loc[prevision.index >= now_utc].head(horizon_h).copy()
-    if df.empty:
-        return ""
-    df.index = df.index.tz_convert(tz_locale)
-
-    # Bornes axe X : du J0 00 h 00 (local) au J0+horizon, alignées sur
-    # la fenêtre couverte par le tableau Tendance et le libellé du mail.
-    x_min = df.index[0].normalize()
+    # Fenêtre calendaire [J0 00 h 00 ; J0+horizon] en heure locale,
+    # alignée sur le tableau Tendance et le libellé du mail. La
+    # prévision inclut désormais ``past_days=1`` pour couvrir la
+    # portion 00 h 00 → T+0 du jour courant.
+    now_loc = now_utc.tz_convert(tz_locale)
+    x_min = now_loc.normalize()
     x_max = x_min + pd.Timedelta(hours=horizon_h)
 
-    fig, (ax_t, ax_p) = plt.subplots(
-        2, 1, figsize=(7, 4), sharex=True, gridspec_kw={"height_ratios": [1, 1]}
+    prev_loc = prevision.copy()
+    prev_loc.index = prev_loc.index.tz_convert(tz_locale)
+    df = prev_loc.loc[(prev_loc.index >= x_min) & (prev_loc.index < x_max)].copy()
+    if df.empty:
+        return ""
+
+    fig, (ax_t, ax_p, ax_hr) = plt.subplots(
+        3,
+        1,
+        figsize=(7, 6),
+        sharex=True,
+        gridspec_kw={"height_ratios": [1.1, 1, 0.9]},
     )
 
-    # Bandeau T°.
+    # Bandeau T° : courbe de prévision + remplissage entre prévi et
+    # normale climato (rouge si au-dessus, bleu si en-dessous). Si la
+    # normale n'est pas disponible, fallback sur fill jusqu'à la borne
+    # basse (comportement v1).
     t_c = df["temperature_2m"] - KELVIN_OFFSET
     ax_t.plot(df.index, t_c, color=COULEUR_T, linewidth=1.6, label="Prévision")
-    ax_t.fill_between(df.index, t_c, color=COULEUR_T, alpha=0.15)
 
-    # Overlay climato T_moy par jour de l'année si disponible.
     normale = _charger_normale_t_moy()
     if normale is not None and not df.empty:
         doy = df.index.dayofyear
@@ -117,12 +148,32 @@ def graphique_48h_base64(
         ax_t.plot(
             df.index,
             normale_vals,
-            color="#7f8c8d",
+            color=COULEUR_NORMALE,
             linestyle="--",
             linewidth=1.2,
-            label="Normale OMM 1991-2020",
+            label="Normale 1991-2020",
+        )
+        ax_t.fill_between(
+            df.index,
+            t_c.values,
+            normale_vals,
+            where=t_c.values >= normale_vals,
+            color=COULEUR_T,
+            alpha=0.18,
+            interpolate=True,
+        )
+        ax_t.fill_between(
+            df.index,
+            t_c.values,
+            normale_vals,
+            where=t_c.values < normale_vals,
+            color=COULEUR_T_FROID,
+            alpha=0.18,
+            interpolate=True,
         )
         ax_t.legend(loc="best", fontsize=7, frameon=False)
+    else:
+        ax_t.fill_between(df.index, t_c, color=COULEUR_T, alpha=0.15)
 
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
@@ -157,16 +208,69 @@ def graphique_48h_base64(
         ax_p2.tick_params(axis="y", labelcolor=COULEUR_PROBA)
         ax_p2.set_ylim(0, 100)
 
-    # Ticks rotation 30° pour éviter le chevauchement, alignés à droite.
-    ax_p.xaxis.set_major_formatter(mdates.DateFormatter("%a %Hh", tz=df.index.tz))
-    ax_p.xaxis.set_major_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
-    plt.setp(ax_p.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=8)
     ax_p.grid(True, alpha=0.3)
-    # Bornes axe X fixées sur la fenêtre couverte par le tableau et le
-    # libellé "Prévision du JJ/MM/AAAA 00 h 00 au JJ/MM/AAAA 00 h 00".
+    ax_p.set_xlabel("")
+
+    # Bandeau HR — 3e subplot, même logique de shading vs normale que la T°.
+    if "humidite_relative" in df.columns:
+        hr_pct = df["humidite_relative"] * 100
+        ax_hr.plot(df.index, hr_pct, color=COULEUR_HR, linewidth=1.6, label="Prévision")
+        normale_hr = _charger_normale_hr()
+        if normale_hr is not None:
+            doy_hr = df.index.dayofyear
+            normale_hr_vals = normale_hr.reindex(doy_hr).values
+            ax_hr.plot(
+                df.index,
+                normale_hr_vals,
+                color=COULEUR_NORMALE,
+                linestyle="--",
+                linewidth=1.2,
+                label="Normale 1991-2020",
+            )
+            ax_hr.fill_between(
+                df.index,
+                hr_pct.values,
+                normale_hr_vals,
+                where=hr_pct.values >= normale_hr_vals,
+                color=COULEUR_HR,
+                alpha=0.18,
+                interpolate=True,
+            )
+            ax_hr.fill_between(
+                df.index,
+                hr_pct.values,
+                normale_hr_vals,
+                where=hr_pct.values < normale_hr_vals,
+                color=COULEUR_T,
+                alpha=0.18,
+                interpolate=True,
+            )
+            ax_hr.legend(loc="best", fontsize=7, frameon=False)
+        else:
+            # Fallback : remplissage simple jusqu'à 0 si la normale HR
+            # n'est pas (encore) calculée dans le CSV climato.
+            ax_hr.fill_between(df.index, hr_pct, 0, color=COULEUR_HR, alpha=0.12)
+        # Ligne de seuil 90 % = humectation (cf. alerte risque_maladies).
+        ax_hr.axhline(y=90, color=COULEUR_HR, linestyle=":", linewidth=0.8, alpha=0.6)
+        ax_hr.set_ylabel("HR (%)", color=COULEUR_HR)
+        ax_hr.tick_params(axis="y", labelcolor=COULEUR_HR)
+        ax_hr.set_ylim(0, 100)
+    ax_hr.grid(True, alpha=0.3)
+
+    # Ticks X formatés FR ("Lun 13h"), appliqués au dernier axe partagé.
+    def _fmt_x_fr(x: float, _pos: int) -> str:
+        dt = mdates.num2date(x, tz=df.index.tz)
+        return f"{_JOURS_FR_COURT[dt.weekday()]} {dt.hour}h"
+
+    ax_hr.xaxis.set_major_formatter(FuncFormatter(_fmt_x_fr))
+    ax_hr.xaxis.set_major_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
+    plt.setp(ax_hr.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=8)
+
+    # Bornes axe X fixées sur la fenêtre [J0 00 h 00 ; J0+horizon],
+    # alignées avec le tableau Tendance et le libellé du mail.
     ax_t.set_xlim(x_min, x_max)
     ax_p.set_xlim(x_min, x_max)
-    ax_p.set_xlabel("")
+    ax_hr.set_xlim(x_min, x_max)
 
     fig.tight_layout()
     buf = io.BytesIO()

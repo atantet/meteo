@@ -192,6 +192,21 @@ def _unite(texte: str) -> str:
     return f'<span style="color:#aaa;font-weight:400;font-size:11px;">&nbsp;{texte}</span>'
 
 
+# Flèche pointant dans la direction où va le vent (convention scientifique,
+# wind barbs). N (vent venant du nord) => air se déplace vers le sud =>
+# flèche pointe ↓. Le cardinal d'origine est rappelé en petit à côté.
+_FLECHE_DIRECTION_VENT = {
+    "N": "↓",
+    "NE": "↙",
+    "E": "←",
+    "SE": "↖",
+    "S": "↑",
+    "SO": "↗",
+    "O": "→",
+    "NO": "↘",
+}
+
+
 def _masque_fenetre(horaire_loc: pd.DataFrame, jour: pd.Timestamp, h_debut: int, h_fin: int):
     """Masque booléen pour une fenêtre intra-jour ``[h_debut, h_fin)`` en heure locale.
 
@@ -219,6 +234,7 @@ def _serie_fenetre(
 def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
     etp_horaire_48h: pd.Series | None = None,
+    now_utc: pd.Timestamp | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Grille unifiée J+0 / J+1 — pictos + T° + Pluie + Vent + HR.
@@ -242,7 +258,17 @@ def _bloc_grille_indicateurs_48h(
 
     horaire_loc = prevision_horaire.copy()
     horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-    horaire_48h = horaire_loc.head(48)
+
+    # Fenêtre calendaire [J0 00 h 00 ; J0+48 h] en heure locale, alignée
+    # sur le titre du mail. Si ``now_utc`` non fourni (rétro-compat),
+    # on prend les 48 premières heures du DataFrame.
+    if now_utc is not None:
+        now_loc = now_utc.tz_convert(tz_locale)
+        x_min = now_loc.normalize()
+        x_max = x_min + pd.Timedelta(hours=48)
+        horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
+    else:
+        horaire_48h = horaire_loc.head(48)
     if horaire_48h.empty:
         return ""
 
@@ -285,14 +311,14 @@ def _bloc_grille_indicateurs_48h(
                 else:
                     code = None
                 if code is None:
-                    cells.append('<td style="padding:4px;text-align:center;">—</td>')
+                    cells.append('<td style="padding:1px 4px;text-align:center;">—</td>')
                 else:
                     uri = icone_base64(code)
                     alt = libelle(code)
                     cells.append(
-                        '<td style="padding:4px;text-align:center;">'
+                        '<td style="padding:1px 4px;text-align:center;">'
                         f'<img src="{uri}" alt="{alt}" title="{alt}" '
-                        'style="width:40px;height:40px;display:inline-block;">'
+                        'style="width:56px;height:56px;display:block;margin:0 auto;">'
                         "</td>"
                     )
             # Bandeau continu : fond sombre sur le <tr> entier (mieux que
@@ -300,7 +326,7 @@ def _bloc_grille_indicateurs_48h(
             # pour rester lisible sur fond foncé.
             return (
                 '<tr style="background:#34495e;">'
-                '<td style="padding:4px 8px;color:#cfd6dc;font-size:11px;">Météo</td>'
+                '<td style="padding:4px 8px;color:#cfd6dc;font-size:13px;">Météo</td>'
                 + "".join(cells)
                 + "</tr>"
             )
@@ -325,7 +351,7 @@ def _bloc_grille_indicateurs_48h(
                     f'color:#34495e;">{val_str}</td>'
                 )
             return (
-                f'<tr><td style="padding:4px 8px;color:#888;font-size:11px;">{label}</td>'
+                f'<tr><td style="padding:4px 8px;color:#555;font-size:13px;">{label}</td>'
                 + "".join(cells)
                 + "</tr>"
             )
@@ -387,7 +413,12 @@ def _bloc_grille_indicateurs_48h(
             deg = direction_dominante_vecteur(sub)
             if pd.isna(deg):
                 return "—"
-            return degrees_to_cardinal(deg)
+            cardinal = degrees_to_cardinal(deg)
+            fleche = _FLECHE_DIRECTION_VENT.get(cardinal, "·")
+            return (
+                f'<span style="font-size:20px;color:#34495e;line-height:1;">{fleche}</span>'
+                f'<span style="color:#888;font-size:11px;">&nbsp;{cardinal}</span>'
+            )
 
         # ETP du jour : agrégation 24 h depuis la série ETP horaire socle
         # (FAO Penman-Monteith). Affichée en une seule cellule centrée
@@ -400,7 +431,7 @@ def _bloc_grille_indicateurs_48h(
                 serie = etp_loc.loc[masque_etp].dropna()
                 val = f"{serie.sum():.1f}{_unite('mm')}" if not serie.empty else "—"
             return (
-                '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
+                '<tr><td style="padding:4px 8px;color:#555;font-size:13px;">'
                 "ETP du jour</td>"
                 f'<td colspan="{len(FENETRES_VEILLE)}" '
                 'style="padding:4px;text-align:center;'
@@ -526,6 +557,7 @@ def _bloc_pictogrammes_veille(
 def _bloc_risque_maladies(
     prevision_horaire: pd.DataFrame | None,
     config: dict[str, Any],
+    now_utc: pd.Timestamp | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Bloc HTML "Risque maladies" — homogène en format avec la grille Tendance.
@@ -553,7 +585,15 @@ def _bloc_risque_maladies(
 
     horaire_loc = prevision_horaire.copy()
     horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-    horaire_48h = horaire_loc.head(48)
+    # Fenêtre calendaire [J0 00 h 00 ; J0+48 h] alignée sur la grille
+    # Tendance et le titre du mail.
+    if now_utc is not None:
+        now_loc = now_utc.tz_convert(tz_locale)
+        x_min = now_loc.normalize()
+        x_max = x_min + pd.Timedelta(hours=48)
+        horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
+    else:
+        horaire_48h = horaire_loc.head(48)
     if (
         horaire_48h.empty
         or "temperature_2m" not in horaire_48h.columns
@@ -720,11 +760,7 @@ def composer_texte(
             t0_loc = t0_loc.tz_localize("UTC")
         t0_loc = t0_loc.tz_convert(tz_locale)
         debut_fenetre = t0_loc.normalize()
-        fin_fenetre = debut_fenetre + pd.Timedelta(hours=48)
-        fenetre_label = (
-            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 "
-            f"au {fin_fenetre.strftime('%d/%m/%Y')} 00h00"
-        )
+        fenetre_label = f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 - 48h00"
     else:
         fenetre_label = "—"
     lignes.append(f"Prévision du {fenetre_label}")
@@ -835,15 +871,25 @@ def composer_html(
             "</tr>"
         )
 
+    # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
+    # les blocs Tendance, Risque maladies et le graphique. On le dérive
+    # de ``maintenant`` (qui peut être naïf ; on suppose UTC).
+    now_utc_ts = pd.Timestamp(maintenant)
+    if now_utc_ts.tzinfo is None:
+        now_utc_ts = now_utc_ts.tz_localize("UTC")
+    else:
+        now_utc_ts = now_utc_ts.tz_convert("UTC")
+
     # Bloc "Risque maladies" générique (remplace l'ancien Smith
     # spécifique tomate). Wrap config en dict pour le helper.
     config_pour_bloc = {"alertes": {"risque_maladies": risque_maladies_config or {}}}
     bloc_risque_maladies = _bloc_risque_maladies(
-        prevision_horaire, config_pour_bloc, tz_locale=tz_locale
+        prevision_horaire, config_pour_bloc, now_utc=now_utc_ts, tz_locale=tz_locale
     )
     bloc_grille = _bloc_grille_indicateurs_48h(
         prevision_horaire,
         etp_horaire_48h=ind.etp_horaire_48h,
+        now_utc=now_utc_ts,
         tz_locale=tz_locale,
     )
     bloc_carte = _bloc_carte_synoptique(
@@ -870,21 +916,23 @@ def composer_html(
         "</div>"
     )
 
-    # Fenêtre de prévision : du J0 00 h 00 locale au J0 + 48 h locale,
-    # alignée sur la couverture du tableau Tendance + axe X graphique.
+    # Fenêtre de prévision : du J0 00 h 00 locale + 48 h. Date présentée
+    # dans un format monospace + fond clair pour la rendre légèrement
+    # distinctive (police technique, vs corps du titre courant).
     if ind.prevision_t0_utc is not None:
         t0_loc = ind.prevision_t0_utc
         if t0_loc.tzinfo is None:
             t0_loc = t0_loc.tz_localize("UTC")
         t0_loc = t0_loc.tz_convert(tz_locale)
         debut_fenetre = t0_loc.normalize()
-        fin_fenetre = debut_fenetre + pd.Timedelta(hours=48)
-        fenetre_label = (
-            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 "
-            f"au {fin_fenetre.strftime('%d/%m/%Y')} 00h00"
+        date_html = (
+            '<span style="font-family:Menlo,Consolas,monospace;font-size:0.88em;'
+            'background:#f4f4f4;padding:1px 6px;border-radius:3px;color:#34495e;">'
+            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 - 48h00"
+            "</span>"
         )
     else:
-        fenetre_label = "—"
+        date_html = "—"
 
     return f"""<!DOCTYPE html>
 <html><head>
@@ -895,7 +943,7 @@ def composer_html(
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
   <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">
-    Prévision du {fenetre_label}
+    Prévision du {date_html}
   </h2>
   <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
     La Petite Claye, Pleine-Fougères

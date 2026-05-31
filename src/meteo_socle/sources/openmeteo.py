@@ -102,6 +102,7 @@ class OpenMeteoForecast:
         longitude: float,
         horizon_jours: int,
         variables: list[str] | None = None,
+        past_days: int = 0,
     ) -> pd.DataFrame:
         """Récupère la prévision horaire pour un point sur N jours.
 
@@ -117,6 +118,11 @@ class OpenMeteoForecast:
         variables :
             Liste de noms Open-Meteo. Défaut :
             ``HOURLY_VARIABLES_DEFAUT``.
+        past_days :
+            Nombre de jours passés à inclure dans la réponse (0-92).
+            0 par défaut = forecast pur. Utile pour les apps qui veulent
+            recouvrir la portion 00 h 00 → T+0 du jour courant (App 1
+            Veille).
 
         Returns
         -------
@@ -129,7 +135,7 @@ class OpenMeteoForecast:
         requests.HTTPError
             En cas de réponse non-200.
         """
-        params = self._build_params(latitude, longitude, horizon_jours, variables)
+        params = self._build_params(latitude, longitude, horizon_jours, variables, past_days)
         response = get_avec_retry(self.session, API_URL, params=params, timeout=30)
         return self._parse(response.json())
 
@@ -139,10 +145,11 @@ class OpenMeteoForecast:
         longitude: float,
         horizon_jours: int,
         variables: list[str] | None,
+        past_days: int = 0,
     ) -> dict[str, str]:
         """Construit les query parameters de la requête Open-Meteo."""
         vars_list = variables if variables is not None else HOURLY_VARIABLES_DEFAUT
-        return {
+        params = {
             "latitude": f"{latitude}",
             "longitude": f"{longitude}",
             "hourly": ",".join(vars_list),
@@ -153,6 +160,9 @@ class OpenMeteoForecast:
             "wind_speed_unit": "ms",
             "precipitation_unit": "mm",
         }
+        if past_days > 0:
+            params["past_days"] = str(past_days)
+        return params
 
     @staticmethod
     def _parse(payload: dict) -> pd.DataFrame:
