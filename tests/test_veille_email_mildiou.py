@@ -29,6 +29,7 @@ def _indicateurs_avec_mildiou(jours_risque: int, total_jours: int = 3):
         temperature_min_24h_celsius=12.0,
         temperature_max_24h_celsius=22.0,
         temperature_min_48h_celsius=11.0,
+        temperature_max_48h_celsius=23.0,
         cumul_pluie_24h_mm=0.0,
         cumul_pluie_48h_mm=0.0,
         vent_max_24h_kmh=15.0,
@@ -38,6 +39,7 @@ def _indicateurs_avec_mildiou(jours_risque: int, total_jours: int = 3):
         etp_jour_mm=4.0,
         prob_pluie_max_24h_pct=20.0,
         prob_pluie_max_48h_pct=30.0,
+        heures_humectation_24h=0,
         mildiou_smith_jours_a_risque=jours,
         mildiou_smith_detail=detail,
         prevision_t0_utc=pd.Timestamp("2026-07-01 00:00", tz="UTC"),
@@ -154,6 +156,7 @@ def test_bloc_mildiou_smith_vide_si_indicateur_non_calcule() -> None:
         temperature_min_24h_celsius=12.0,
         temperature_max_24h_celsius=22.0,
         temperature_min_48h_celsius=11.0,
+        temperature_max_48h_celsius=23.0,
         cumul_pluie_24h_mm=0.0,
         cumul_pluie_48h_mm=0.0,
         vent_max_24h_kmh=15.0,
@@ -163,6 +166,7 @@ def test_bloc_mildiou_smith_vide_si_indicateur_non_calcule() -> None:
         etp_jour_mm=4.0,
         prob_pluie_max_24h_pct=20.0,
         prob_pluie_max_48h_pct=30.0,
+        heures_humectation_24h=0,
         # Pas de détail → bloc doit être vide.
         prevision_t0_utc=pd.Timestamp("2026-07-01 00:00", tz="UTC"),
     )

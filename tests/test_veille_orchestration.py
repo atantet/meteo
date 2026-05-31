@@ -25,7 +25,14 @@ def _config_test() -> dict:
         "alertes": {
             "gel_irrigation": {"actif": True, "seuil_celsius": 4.0},
             "gel_cultures": {"actif": True, "seuil_celsius": -2.0},
-            "canicule": {"actif": True, "seuil_celsius": 32.0},
+            "canicule_aeration": {"actif": True, "seuil_celsius": 25.0},
+            "canicule_stress": {"actif": True, "seuil_celsius": 30.0},
+            "risque_maladies": {
+                "actif": True,
+                "t_min_nuit_celsius": 15.0,
+                "hr_seuil": 0.90,
+                "heures_min": 6,
+            },
             "pluie_intense": {"actif": True, "seuil_mm_24h": 20.0},
             "vent_fort": {"actif": True, "seuil_kmh": 60.0},
         },

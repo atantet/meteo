@@ -33,6 +33,7 @@ def _ind(**kwargs):
         temperature_min_24h_celsius=8.0,
         temperature_max_24h_celsius=18.0,
         temperature_min_48h_celsius=6.0,
+        temperature_max_48h_celsius=19.0,
         cumul_pluie_24h_mm=2.5,
         cumul_pluie_48h_mm=5.0,
         vent_max_24h_kmh=20.0,
@@ -42,6 +43,7 @@ def _ind(**kwargs):
         etp_jour_mm=3.2,
         prob_pluie_max_24h_pct=15.0,
         prob_pluie_max_48h_pct=30.0,
+        heures_humectation_24h=0,
         prevision_t0_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
     )
     defaults.update(kwargs)

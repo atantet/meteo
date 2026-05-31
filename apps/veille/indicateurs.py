@@ -86,9 +86,16 @@ class IndicateursVeille:
     temperature_min_24h_celsius: float
     temperature_max_24h_celsius: float
     temperature_min_48h_celsius: float
+    temperature_max_48h_celsius: float
 
     cumul_pluie_24h_mm: float
     cumul_pluie_48h_mm: float
+
+    # Nombre d'heures HR ≥ hr_seuil_humectation sur 0-24 h. Proxy
+    # d'humectation foliaire utilisé par l'alerte risque_maladies
+    # (générique, distinct du Smith mildiou). Seuil HR effectif lu
+    # dans la config (`alertes.risque_maladies.hr_seuil`).
+    heures_humectation_24h: int
 
     vent_max_24h_kmh: float
     rafales_max_24h_kmh: float
@@ -161,6 +168,15 @@ def calculer_indicateurs(
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
     temperature_celsius_48h = h48["temperature_2m"] - KELVIN_OFFSET
 
+    # Heures d'humectation sur 24 h : nombre d'heures où HR ≥ hr_seuil
+    # configuré dans `alertes.risque_maladies.hr_seuil` (défaut 0.90).
+    rm_cfg = config.get("alertes", {}).get("risque_maladies", {})
+    hr_seuil_humectation = float(rm_cfg.get("hr_seuil", 0.90))
+    h24_hr = h24["humidite_relative"] if "humidite_relative" in h24.columns else None
+    heures_humectation_24h = (
+        int((h24_hr >= hr_seuil_humectation).sum()) if h24_hr is not None else 0
+    )
+
     # ETP via le socle FAO Penman-Monteith (cohérence inter-apps).
     site = config["site"]
     etp_horaire_24h = calcul_etp(
@@ -217,8 +233,10 @@ def calculer_indicateurs(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
         temperature_min_48h_celsius=float(temperature_celsius_48h.min()),
+        temperature_max_48h_celsius=float(temperature_celsius_48h.max()),
         cumul_pluie_24h_mm=pluie_24h,
         cumul_pluie_48h_mm=float(h48["precipitation"].sum()),
+        heures_humectation_24h=heures_humectation_24h,
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
         direction_vent_dominante_deg=dir_deg if not np.isnan(dir_deg) else 0.0,

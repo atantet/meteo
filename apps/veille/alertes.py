@@ -89,16 +89,67 @@ def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Aler
             )
         )
 
-    c = cfg["canicule"]
-    if c["actif"] and ind.temperature_max_24h_celsius > c["seuil_celsius"]:
+    # Canicule aération : T° max 0-48 h ≥ seuil (palier où sous abri ça
+    # surchauffe). Warning, anticipation aération max dès le matin.
+    ca = cfg.get("canicule_aeration", {"actif": False})
+    if ca["actif"] and ind.temperature_max_48h_celsius >= ca["seuil_celsius"]:
         alertes.append(
             Alerte(
-                type="canicule",
+                type="canicule_aeration",
+                niveau="warning",
+                titre=(
+                    f"Chaleur sous 48 h — T° max prévue "
+                    f"{ind.temperature_max_48h_celsius:.1f} °C "
+                    "(aérer au max les tunnels dès le matin)"
+                ),
+                valeur=ind.temperature_max_48h_celsius,
+                unite="°C",
+                seuil=ca["seuil_celsius"],
+            )
+        )
+
+    # Canicule stress : T° max 0-24 h ≥ seuil (stress thermique
+    # cultures). Critique, bassinages midi + ombrage + travail tôt.
+    cs = cfg.get("canicule_stress", {"actif": False})
+    if cs["actif"] and ind.temperature_max_24h_celsius >= cs["seuil_celsius"]:
+        alertes.append(
+            Alerte(
+                type="canicule_stress",
                 niveau="critique",
-                titre=(f"Canicule — T° max prévue {ind.temperature_max_24h_celsius:.1f} °C"),
+                titre=(
+                    f"Stress thermique — T° max prévue "
+                    f"{ind.temperature_max_24h_celsius:.1f} °C "
+                    "(bassinages midi 3-4 min, ombrage, travail avant 10 h)"
+                ),
                 valeur=ind.temperature_max_24h_celsius,
                 unite="°C",
-                seuil=c["seuil_celsius"],
+                seuil=cs["seuil_celsius"],
+            )
+        )
+
+    # Risque maladies générique : nuit douce + humectation prolongée
+    # → conditions propices au développement de maladies sous abri
+    # mal aéré. PAS un modèle pathogène, juste un constat météo.
+    rm = cfg.get("risque_maladies", {"actif": False})
+    if (
+        rm["actif"]
+        and ind.temperature_min_24h_celsius >= rm["t_min_nuit_celsius"]
+        and ind.heures_humectation_24h >= rm["heures_min"]
+    ):
+        alertes.append(
+            Alerte(
+                type="risque_maladies",
+                niveau="warning",
+                titre=(
+                    f"Conditions propices aux maladies — "
+                    f"T° min {ind.temperature_min_24h_celsius:.1f} °C, "
+                    f"{ind.heures_humectation_24h} h HR ≥ "
+                    f"{rm['hr_seuil'] * 100:.0f} % "
+                    "(maintenir ouvrants la nuit)"
+                ),
+                valeur=ind.heures_humectation_24h,
+                unite="h",
+                seuil=rm["heures_min"],
             )
         )
 
