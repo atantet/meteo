@@ -1,16 +1,13 @@
 name: Veille email matinal
 
-# Cron 17 4 * * * UTC = 05:17 Paris hiver / 06:17 Paris été.
-# Justification : la Veille ne dépend plus que d'AROME France HD 1.3 km
-# (horizon 48 h). Le run 00 UTC d'AROME est diffusé par Open-Meteo vers
-# 03:30-04:00 UTC, on cible 04:17 UTC pour avoir la marge.
-# Minute non-ronde (17) pour éviter le pic top-of-the-hour des crons
-# GH Actions, où le lag observé peut atteindre 2-3 h.
-# Cf. config/veille.yaml.
+# Scheduling EXTERNALISÉ chez cron-job.org (compte Alexis).
+# Le service appelle POST /actions/workflows/veille.yml/dispatches
+# à l'heure prévue. GH Actions schedule a été abandonné le 2026-05-31
+# en raison d'un lag chronique de 2-4 h sur ce repo (mail arrivait
+# entre 8 h 30 et 10 h Paris au lieu de 6 h-7 h ciblé).
+# cron-job.org : précision ~minute, fiabilité éprouvée depuis 2007.
+# Cf. config/veille.yaml et docs planification.
 on:
-  schedule:
-    - cron: "17 4 * * *"
-  # Permet déclenchement manuel pour tests.
   workflow_dispatch:
 
 # Permissions minimales : juste lire le code (pas de push, pas d'issue

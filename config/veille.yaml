@@ -18,17 +18,20 @@ site:
   tz: Europe/Paris
 
 # ----- Planification -----
+#
+# Le scheduling EFFECTIF est externalisé chez cron-job.org depuis le
+# 2026-05-31 (abandon GH Actions schedule pour lag chronique 2-4 h).
+# Le job cron-job.org POST sur l'API GH /workflows/veille.yml/dispatches
+# avec un PAT fine-grained scope actions:write.
+#
+# Le champ ci-dessous reste pour mémoire / documentation — il n'est plus
+# consommé par .github/workflows/veille.yml (qui n'a plus que
+# workflow_dispatch). Pour modifier l'heure d'envoi du mail, éditer le
+# planning du job sur cron-job.org, PAS ce fichier.
 planification:
-  # Cron en UTC (GitHub Actions n'accepte que UTC).
-  # 04:17 UTC = 05:17 Paris hiver / 06:17 Paris été.
-  # Justification : la Veille ne consomme que la fenêtre 0-48 h
-  # (alertes + cumuls + mildiou + figure), donc seul AROME France HD
-  # 1.3 km est requis. Son run 00 UTC est diffusé par Open-Meteo vers
-  # 03:30-04:00 UTC ; on cible 04:17 UTC pour avoir la marge.
-  # Minute non-ronde (17) pour éviter le pic top-of-the-hour des
-  # crons GH Actions (lag observé jusqu'à 2-3 h sur "30 6 * * *").
-  cron_utc: "17 4 * * *"
-  # Désactivable temporairement (vacances, période sans activité).
+  # Heure cible documentée du déclenchement externe (UTC).
+  cron_utc: "00 5 * * *"
+  # Désactivable depuis cron-job.org (mettre le job en pause).
   actif: true
 
 # ----- Source météo -----
