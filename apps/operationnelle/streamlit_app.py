@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 # Permet l'import direct quand on lance via `streamlit run` (qui ne
@@ -40,6 +41,11 @@ from apps.operationnelle.charts import (  # noqa: E402
     figure_indicateur,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
+from apps.operationnelle.decisions import (  # noqa: E402
+    Carte,
+    evaluer_decisions,
+    load_exploitation,
+)
 from apps.operationnelle.indicateurs import (  # noqa: E402
     calculer_indicateurs_quotidiens,
     jours_complets_seulement,
@@ -48,8 +54,17 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     preparer_table_affichage,
     styler_ligne,
 )
-from apps.shared.dates_fr import format_horodatage_fr  # noqa: E402
+from apps.shared.dates_fr import format_date_fr  # noqa: E402
 from apps.shared.pictograms import codes_dominants_par_jour  # noqa: E402
+from apps.shared.style import (  # noqa: E402
+    COULEUR_CHAUD,
+    COULEUR_FROID,
+    COULEUR_NEUTRE,
+    COULEUR_OK,
+    COULEUR_PLUIE,
+    couleur_niveau,
+    unite_html,
+)
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
@@ -272,6 +287,209 @@ def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
         return json.load(f)
 
 
+# Specs de rendu par colonne pour le tableau jour × indicateur des
+# détails de cartes : label affiché, unité, formatter HTML stylé (couleurs
+# Wong cohérentes avec l'email Veille).
+_SPECS_COLONNES_DETAIL: dict[str, tuple[str, str, Callable[[float], str]]] = {
+    "t_min_celsius": (
+        "T° min",
+        "°C",
+        lambda v: f'<span style="color:{COULEUR_FROID};font-weight:700;">{v:.1f}</span>',
+    ),
+    "t_max_celsius": (
+        "T° max",
+        "°C",
+        lambda v: f'<span style="color:{COULEUR_CHAUD};font-weight:700;">{v:.1f}</span>',
+    ),
+    "t_moy_celsius": (
+        "T° moy",
+        "°C",
+        lambda v: f'<span style="color:{COULEUR_NEUTRE};font-weight:700;">{v:.1f}</span>',
+    ),
+    "pluie_24h_mm": (
+        "Pluie",
+        "mm",
+        lambda v: f'<span style="color:{COULEUR_PLUIE};font-weight:700;">{v:.1f}</span>',
+    ),
+    "etp_mm": (
+        "ETP",
+        "mm",
+        lambda v: f'<span style="font-weight:700;">{v:.1f}</span>',
+    ),
+    "bilan_eau_jour_mm": (
+        "Bilan",
+        "mm",
+        lambda v: (
+            f'<span style="color:{COULEUR_OK if v >= 0 else COULEUR_CHAUD};'
+            f'font-weight:700;">{v:+.1f}</span>'
+        ),
+    ),
+}
+
+
+def _surlignage_actif(surlignage: dict[str, tuple[str, float]], col: str, valeur: float) -> bool:
+    """True si ``valeur`` déclenche le surlignage pour cette colonne."""
+    if col not in surlignage:
+        return False
+    op, seuil = surlignage[col]
+    if pd.isna(valeur):
+        return False
+    if op == "≤":
+        return valeur <= seuil
+    if op == "<":
+        return valeur < seuil
+    if op == "≥":
+        return valeur >= seuil
+    if op == ">":
+        return valeur > seuil
+    return False
+
+
+def _rendre_tableau_detail(
+    df: pd.DataFrame,
+    surlignage: dict[str, tuple[str, float]] | None = None,
+) -> None:
+    """Tableau jour × indicateur stylé (cohérent grille variables).
+
+    Lignes = indicateurs présents dans ``df`` parmi les colonnes
+    formattables ; colonnes = dates. Style identique à la grille
+    variables affichée plus bas dans l'app (scroll horizontal mobile).
+
+    Si ``surlignage`` fourni, les cellules dont la valeur déclenche le
+    seuil sont mises en évidence (fond ambre clair + bordure).
+    """
+    if df is None or df.empty:
+        return
+    cols = [c for c in _SPECS_COLONNES_DETAIL if c in df.columns]
+    if not cols:
+        return
+    surlignage = surlignage or {}
+
+    en_tete = (
+        '<tr style="background:#fafafa;">'
+        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
+        'font-size:13px;position:sticky;left:0;background:#fafafa;">Indicateur</th>'
+        + "".join(
+            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
+            f'color:#888;white-space:nowrap;">'
+            f"{d.strftime('%a %d %b').capitalize()}</th>"
+            for d in df.index
+        )
+        + "</tr>"
+    )
+
+    style_surligne = "background:#fff3cd;box-shadow:inset 0 0 0 1px #E69F00;font-weight:700;"
+
+    body = []
+    for col in cols:
+        label, unite, fmt = _SPECS_COLONNES_DETAIL[col]
+        cellules = [
+            '<th style="padding:6px 8px;text-align:left;font-size:12px;'
+            'color:#34495e;position:sticky;left:0;background:white;">'
+            f"{label}{unite_html(unite)}</th>"
+        ]
+        for _date, row in df.iterrows():
+            try:
+                valeur = row[col]
+                contenu = fmt(valeur)
+                surligne = _surlignage_actif(surlignage, col, valeur)
+            except (KeyError, ValueError, TypeError):
+                contenu = "—"
+                surligne = False
+            extra = style_surligne if surligne else ""
+            cellules.append(
+                '<td style="padding:6px 8px;text-align:center;font-size:12px;'
+                "font-variant-numeric:tabular-nums;color:#34495e;"
+                f'white-space:nowrap;{extra}">{contenu}</td>'
+            )
+        body.append("<tr>" + "".join(cellules) + "</tr>")
+
+    html = (
+        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
+        "border:1px solid #eee;border-radius:4px;margin-top:8px;"
+        'margin-bottom:8px;">'
+        '<table style="border-collapse:collapse;min-width:100%;'
+        'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
+        + en_tete
+        + "".join(body)
+        + "</table></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _rendre_carte_decision(carte: Carte) -> None:
+    """Rend une carte : titre stylé + sous-titre lead + détail dépliable."""
+    couleur = couleur_niveau(carte.niveau)
+    with st.container(border=True):
+        col_picto, col_texte = st.columns([1, 11])
+        with col_picto:
+            st.markdown(
+                f"<div style='font-size:32px;line-height:1;padding-top:4px;'>{carte.picto}</div>",
+                unsafe_allow_html=True,
+            )
+        with col_texte:
+            # Titre h4-like : signal météo factuel court, couleur niveau.
+            st.markdown(
+                f"<div style='font-size:16px;font-weight:700;color:{couleur};"
+                f"margin-bottom:4px;line-height:1.3;'>{carte.titre}</div>",
+                unsafe_allow_html=True,
+            )
+            # Sous-titre / lead : invitation à vérifier, gris foncé,
+            # typographie plus discrète que le titre.
+            st.markdown(
+                f"<div style='font-size:14px;color:#4a4a4a;line-height:1.45;'>"
+                f"{carte.invitation}</div>",
+                unsafe_allow_html=True,
+            )
+            with st.expander("Détail météo & sources"):
+                if carte.detail_intro:
+                    st.markdown(carte.detail_intro)
+                _rendre_tableau_detail(carte.detail_df, carte.surlignage)
+                if carte.detail_source:
+                    st.caption(carte.detail_source)
+
+
+def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
+    """Section en tête : invitations basées sur la prévision 7 j."""
+    aide = (
+        "Invitations à vérifier sur le terrain, motivées par la météo "
+        "prévue à 7 j. Les détails et données sources sont accessibles "
+        "au clic sur chaque carte ; les sections météo complètes restent "
+        "consultables plus bas."
+    )
+    st.markdown(
+        '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
+        "Décisions de la semaine "
+        f'<span title="{aide}" style="cursor:help;color:#888;'
+        "font-size:15px;font-weight:normal;vertical-align:middle;"
+        'margin-left:4px;">ℹ️</span>'
+        "</h3>",
+        unsafe_allow_html=True,
+    )
+
+    try:
+        exploitation = load_exploitation()
+    except FileNotFoundError:
+        st.info(
+            "Configuration exploitation absente — section décisions "
+            "désactivée. Créer `config/exploitation.yaml` pour activer."
+        )
+        return
+
+    today = pd.Timestamp.now(tz=site_tz).normalize().tz_localize(None)
+    cartes = evaluer_decisions(quotidien, exploitation, today)
+
+    if not cartes:
+        st.success(
+            "Pas de signal météo notable cette semaine. Données détaillées "
+            "ci-dessous si besoin de vérifier."
+        )
+        return
+
+    for carte in cartes:
+        _rendre_carte_decision(carte)
+
+
 def main() -> None:
     config = load_config()
     site = config["site"]
@@ -282,11 +500,24 @@ def main() -> None:
         page_icon="🌦️",
         layout="wide",
     )
-    st.title(ui_cfg["titre"])
+
+    # En-tête aligné sur l'email Veille : titre = fenêtre de prévision
+    # en clair, sous-titre = lieu.
+    horizon_j = int(config["source_meteo"]["horizon_max_jours"])
+    tz_site = site.get("tz", "Europe/Paris")
     maintenant = pd.Timestamp.now(tz="UTC").to_pydatetime()
-    st.caption(
-        f"{format_horodatage_fr(maintenant, site.get('tz', 'Europe/Paris'))} · "
-        f"site {site['latitude']:.4f} N, {site['longitude']:.4f} W, alt {site['altitude']} m"
+    debut_loc = pd.Timestamp(maintenant).tz_convert(tz_site).to_pydatetime()
+    st.markdown(
+        '<h2 style="margin:0 0 4px 0;font-size:24px;color:#2c3e50;">'
+        f"Prévision du {format_date_fr(debut_loc)} pour {horizon_j} jours"
+        "</h2>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p style="margin:0 0 12px 0;font-size:13px;color:#888;">'
+        "La Petite Claye, Pleine-Fougères"
+        "</p>",
+        unsafe_allow_html=True,
     )
 
     horizon = config["source_meteo"]["horizon_max_jours"]
@@ -303,14 +534,15 @@ def main() -> None:
     quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc)
     quotidien = jours_complets_seulement(quotidien, prevision)
 
-    # Premier pas de prévision (T+0) affiché explicitement.
-    if not prevision.empty:
-        t0 = prevision.index[prevision.index >= now_utc][0]
-        t0_loc = t0.tz_convert(site.get("tz", "Europe/Paris"))
-        st.caption(
-            f"Premier pas de prévision (T+0) : "
-            f"**{t0.strftime('%H:%M')} UTC** ({t0_loc.strftime('%H:%M')} heure locale)"
-        )
+    # ----- Décisions de la semaine (cartes d'invitation) -----
+    _afficher_section_decisions(quotidien, site.get("tz", "Europe/Paris"))
+
+    st.divider()
+    st.markdown("### Données météo détaillées")
+    st.caption(
+        "Vue détaillée de la prévision, des bilans hydriques et des sources. "
+        "Utile pour vérifier ce qui motive les invitations ci-dessus."
+    )
 
     # ----- Bande pictogrammes 7 j ARPEGE vs IFS -----
     st.subheader("Tendance 7 jours — ARPEGE vs ECMWF IFS")

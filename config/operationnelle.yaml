@@ -19,9 +19,9 @@ source_meteo:
   # config/veille.yaml).
   modeles:
     - best_match
-  # Horizon plus long que la Veille : panorama prévoit 3-15 j pour
-  # l'opérationnel. Open-Meteo plafond pratique ~14 j sur ECMWF.
-  horizon_max_jours: 14
+  # Horizon 7 j : au-delà la fiabilité forecast s'effondre et les
+  # décisions hebdo n'en bénéficient pas.
+  horizon_max_jours: 7
   # Modèles affichés en parallèle pour la bande pictogrammes (haut du
   # dashboard). Permet visualiser l'accord/désaccord entre ARPEGE
   # Météo-France et ECMWF IFS. Identifiants Open-Meteo officiels.

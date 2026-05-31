@@ -135,6 +135,31 @@ def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
     )
 
 
+def test_pipeline_complete_evaluer_decisions_sans_erreur() -> None:
+    """Pipeline complet + evaluer_decisions tourne sans planter.
+
+    On utilise la prévision synthétique de début juin (climat doux, pas
+    de gel) : evaluer_decisions doit retourner une liste (vide ou non),
+    pas planter sur des colonnes manquantes ou un mismatch d'index.
+    """
+    from apps.operationnelle.decisions import evaluer_decisions, load_exploitation
+    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
+
+    prev = _prevision_realiste_open_meteo(n_jours=7)
+    config = _config_reelle()
+    quot = calculer_indicateurs_quotidiens(
+        prev, config, now_utc=pd.Timestamp("2026-06-01 00:00", tz="UTC")
+    )
+    exploitation = load_exploitation()
+    cartes = evaluer_decisions(quot, exploitation, pd.Timestamp("2026-06-01"))
+    assert isinstance(cartes, list)
+    # Climat doux début juin : pas de signal gel attendu sur cette prev.
+    titres_lower = " ".join(c.titre.lower() for c in cartes)
+    assert "gel" not in titres_lower, (
+        f"Pas de gel attendu sur prev début juin, mais : {[c.titre for c in cartes]}"
+    )
+
+
 def test_pipeline_complete_bilan_tunnel_marche_avec_data_realiste() -> None:
     """Le bilan tunnel doit pouvoir tourner sur la même prevision."""
     from apps.operationnelle.charts import bilan_culture_carry_over
