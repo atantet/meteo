@@ -33,6 +33,11 @@ COULEUR_NORMALE = "#888888"
 SMITH_HEURES_MIN = 11
 SMITH_FENETRE_J = 2
 
+# Largeur réservée pour la légende externe (en pouces). Étend la
+# figure sans empiéter sur la zone du plot, qui garde donc la même
+# largeur visible quel que soit l'onglet (cohérence visuelle).
+LARGEUR_LEGENDE_EXTERNE = 2.5
+
 
 @dataclass
 class Seuil:
@@ -63,6 +68,14 @@ class CourbeConfig:
     # alertes runtime). Pour des seuils dynamiques (gel, canicule), les
     # passer via ``figure_indicateur(seuils_extra=...)``.
     seuils: list[Seuil] = field(default_factory=list)
+    # Colonne secondaire à superposer sur la même figure (ex. proba
+    # pluie en overlay de la pluie, vent moy en overlay des rafales).
+    # Si ``unite_secondaire`` diffère de ``unite``, un axe Y droit est
+    # créé via twinx ; sinon, tracé sur le même axe.
+    colonne_secondaire: str | None = None
+    couleur_secondaire: str = "#888888"
+    label_secondaire: str = ""
+    unite_secondaire: str = ""
 
 
 def _decorer_mildiou_hr(ax, x, y) -> None:
@@ -193,7 +206,18 @@ def figure_indicateur(
     d'une période de Smith que si le min 2 j passe au-dessus du
     seuil — un seul jour à 15 h ne suffit pas.
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    # Si la légende est externe (à droite), on agrandit la figure de
+    # `LARGEUR_LEGENDE_EXTERNE` pouces pour loger la légende sans
+    # rétrécir la zone du plot. Ainsi la largeur visible du tracé reste
+    # constante quelle que soit la présence ou la largeur de la légende.
+    if legende_externe:
+        fs_total = (figsize[0] + LARGEUR_LEGENDE_EXTERNE, figsize[1])
+        rect_plot = (0.0, 0.0, figsize[0] / fs_total[0], 1.0)
+    else:
+        fs_total = figsize
+        rect_plot = None
+
+    fig, ax = plt.subplots(figsize=fs_total)
     x = quotidien.index
     y = quotidien[cfg.colonne]
 
@@ -265,6 +289,49 @@ def figure_indicateur(
     else:
         ax.plot(x, y, label="Prévision", **plot_kwargs_base)
 
+    # Colonne secondaire (proba pluie, vent moy…) — un seul trait
+    # pointillé pour ne pas surcharger ; pas de split archive / prévi.
+    handles_extra = []
+    labels_extra = []
+    if cfg.colonne_secondaire and cfg.colonne_secondaire in quotidien.columns:
+        y2 = quotidien[cfg.colonne_secondaire]
+        label2 = cfg.label_secondaire or cfg.colonne_secondaire
+        if cfg.unite_secondaire and cfg.unite_secondaire != cfg.unite:
+            # Unité différente → axe Y droit.
+            ax2 = ax.twinx()
+            (line2,) = ax2.plot(
+                x,
+                y2,
+                color=cfg.couleur_secondaire,
+                linewidth=1.4,
+                linestyle="--",
+                alpha=0.85,
+                label=label2,
+            )
+            ax2.set_ylabel(
+                f"{label2} ({cfg.unite_secondaire})",
+                color=cfg.couleur_secondaire,
+                fontsize=9,
+            )
+            ax2.tick_params(axis="y", labelcolor=cfg.couleur_secondaire, labelsize=8)
+            if cfg.unite_secondaire == "%":
+                ax2.set_ylim(0, 100)
+            handles_extra.append(line2)
+            labels_extra.append(label2)
+        else:
+            # Même unité → même axe.
+            (line2,) = ax.plot(
+                x,
+                y2,
+                color=cfg.couleur_secondaire,
+                linewidth=1.4,
+                linestyle="--",
+                alpha=0.85,
+                label=label2,
+            )
+            handles_extra.append(line2)
+            labels_extra.append(label2)
+
     # Seuils informatifs (statiques cfg.seuils + dynamiques seuils_extra).
     # Affichés uniquement si la courbe les traverse dans la fenêtre.
     seuils_tous: list[Seuil] = list(cfg.seuils) + list(seuils_extra or [])
@@ -286,20 +353,25 @@ def figure_indicateur(
         ax.grid(which="minor", axis="x", alpha=0.10, linestyle=":")
     ax.grid(which="major", axis="both", alpha=0.30)
 
+    # Légende : combine la série primaire et la colonne secondaire
+    # éventuelle, sinon laisse matplotlib gérer.
+    handles_prim, labels_prim = ax.get_legend_handles_labels()
+    handles_tous = handles_prim + handles_extra
+    labels_tous = labels_prim + labels_extra
     if legende_externe:
         ax.legend(
+            handles_tous,
+            labels_tous,
             bbox_to_anchor=(1.02, 1),
             loc="upper left",
             fontsize=8,
             frameon=False,
         )
     else:
-        ax.legend(loc="best", fontsize=8, frameon=False)
+        ax.legend(handles_tous, labels_tous, loc="best", fontsize=8, frameon=False)
     fig.autofmt_xdate(rotation=30, ha="right")
-    # Quand la légende est à droite, réserver ~25 % de la largeur
-    # pour qu'elle ne déborde pas hors de la figure exportée.
-    if legende_externe:
-        fig.tight_layout(rect=(0, 0, 0.76, 1))
+    if rect_plot is not None:
+        fig.tight_layout(rect=rect_plot)
     else:
         fig.tight_layout()
     return fig

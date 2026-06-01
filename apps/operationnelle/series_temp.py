@@ -112,6 +112,8 @@ def preparer_horaire(
         out["temperature_2m_c"] = horaire["temperature_2m"] - KELVIN_VERS_CELSIUS
     if "precipitation" in horaire.columns:
         out["precipitation"] = horaire["precipitation"]
+    if "probabilite_pluie_pct" in horaire.columns:
+        out["probabilite_pluie_pct"] = horaire["probabilite_pluie_pct"]
     if "vitesse_vent_10m" in horaire.columns:
         out["vent_moy_kmh"] = horaire["vitesse_vent_10m"] * MS_VERS_KMH
     if "rafales_vent_10m" in horaire.columns:
@@ -159,19 +161,24 @@ COURBES_HORAIRES: list[CourbeConfig] = [
     CourbeConfig(
         colonne="temperature_2m_c",
         colonne_normale="temperature_2m_c_normale",
-        titre="Température (horaire)",
+        titre="Température",
         unite="°C",
         couleur="#D55E00",
     ),
+    # Pluie + proba pluie (axe Y droit, même couleurs que la tendance §1).
     CourbeConfig(
         colonne="precipitation",
-        titre="Pluie horaire",
+        titre="Pluie",
         unite="mm/h",
         couleur="#56B4E9",
+        colonne_secondaire="probabilite_pluie_pct",
+        couleur_secondaire="#888888",
+        label_secondaire="Probabilité",
+        unite_secondaire="%",
     ),
     CourbeConfig(
         colonne="etp_horaire_mm",
-        titre="ET₀ horaire (FAO socle)",
+        titre="ET₀ (FAO socle)",
         unite="mm/h",
         couleur="#009E73",
     ),
@@ -181,10 +188,14 @@ COURBES_HORAIRES: list[CourbeConfig] = [
         unite="mm",
         couleur="#8e44ad",
     ),
+    # Rafales + vent moyen (même axe, même unité km/h).
     CourbeConfig(
         colonne="rafales_max_kmh",
-        titre="Rafales (horaire)",
+        titre="Vent",
         unite="km/h",
         couleur="#E69F00",
+        colonne_secondaire="vent_moy_kmh",
+        couleur_secondaire="#009E73",
+        label_secondaire="Vent moyen",
     ),
 ]

@@ -33,7 +33,6 @@ import streamlit as st  # noqa: E402
 
 from apps.operationnelle.charts import (  # noqa: E402
     COURBES,
-    CourbeConfig,
     Seuil,
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
@@ -994,39 +993,52 @@ def main() -> None:
         )
     seuils_par_colonne: dict[str, list[Seuil]] = {"temperature_2m_c": seuils_t_horaire}
 
-    # Onglets : courbes horaires d'abord, Smith (heures HR ≥ 90 %)
-    # ensuite — quotidien, car le critère biologique se définit par jour.
-    # Le pivot now_utc sépare archive (passé) et prévision (futur) sur
-    # les onglets horaires ; sur Smith (quotidien) il n'y a pas de split.
+    # Bloc 1 — onglets horaires (analyses du modèle + prévision).
+    # Pivot = now_utc pour le split visuel analyse / prévision.
     t_pivot_horaire = pd.Timestamp.now(tz="UTC")
     courbes_horaires_dispo = [c for c in COURBES_HORAIRES if c.colonne in horaire_courbes.columns]
+    if courbes_horaires_dispo:
+        onglets_h = st.tabs([c.titre for c in courbes_horaires_dispo])
+        for tab, cfg in zip(onglets_h, courbes_horaires_dispo, strict=False):
+            with tab:
+                fig = figure_indicateur(
+                    horaire_courbes,
+                    cfg,
+                    figsize=(5.5, 2.5),
+                    seuils_extra=seuils_par_colonne.get(cfg.colonne),
+                    t_pivot=t_pivot_horaire,
+                    legende_externe=True,
+                )
+                col_plot, _ = st.columns([2, 1])
+                with col_plot:
+                    st.pyplot(fig, use_container_width=True)
+
+    # Bloc 2 — indicateurs quotidiens (Smith, etc.). Pas de split
+    # analyse / prévision car le critère biologique se définit par jour.
     courbes_quot_smith = [
         c
         for c in COURBES
         if c.colonne == "mildiou_heures_humectation" and c.colonne in quotidien.columns
     ]
-    onglets_specs: list[tuple[CourbeConfig, pd.DataFrame, bool]] = [
-        (c, horaire_courbes, True) for c in courbes_horaires_dispo
-    ] + [(c, quotidien, False) for c in courbes_quot_smith]
-    onglets = st.tabs([c.titre for c, _, _ in onglets_specs])
-    for tab, (cfg, df, est_horaire) in zip(onglets, onglets_specs, strict=False):
-        with tab:
-            # Figsize plus généreux pour les onglets horaires : la
-            # légende externe consomme ~25 % de largeur, on compense.
-            fs = (8.5, 2.8) if est_horaire else (5.5, 2.5)
-            fig = figure_indicateur(
-                df,
-                cfg,
-                figsize=fs,
-                seuils_extra=seuils_par_colonne.get(cfg.colonne),
-                t_pivot=t_pivot_horaire if est_horaire else None,
-                legende_externe=est_horaire,
-            )
-            # Plot rendu dans 2/3 de la largeur de la page (le reste
-            # vide) pour ne pas étirer démesurément la figure.
-            col_plot, _ = st.columns([2, 1])
-            with col_plot:
-                st.pyplot(fig, use_container_width=True)
+    if courbes_quot_smith:
+        st.markdown(
+            '<h4 style="margin:18px 0 4px 0;font-size:15px;color:#34495e;">'
+            "Indicateurs quotidiens"
+            "</h4>",
+            unsafe_allow_html=True,
+        )
+        onglets_q = st.tabs([c.titre for c in courbes_quot_smith])
+        for tab, cfg in zip(onglets_q, courbes_quot_smith, strict=False):
+            with tab:
+                fig = figure_indicateur(
+                    quotidien,
+                    cfg,
+                    figsize=(5.5, 2.5),
+                    seuils_extra=seuils_par_colonne.get(cfg.colonne),
+                )
+                col_plot, _ = st.columns([2, 1])
+                with col_plot:
+                    st.pyplot(fig, use_container_width=True)
 
     # ----- Bilan hydrique sol complet (plein air + tunnel) -----
     st.markdown(
