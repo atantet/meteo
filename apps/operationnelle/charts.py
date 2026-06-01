@@ -36,7 +36,11 @@ SMITH_FENETRE_J = 2
 # Largeur réservée pour la légende externe (en pouces). Étend la
 # figure sans empiéter sur la zone du plot, qui garde donc la même
 # largeur visible quel que soit l'onglet (cohérence visuelle).
-LARGEUR_LEGENDE_EXTERNE = 2.5
+LARGEUR_LEGENDE_EXTERNE = 3.0
+# Largeur ajoutée pour l'axe Y secondaire (twinx) avec son ylabel.
+# Compense le « rétrécissement » visuel de la zone du plot quand
+# matplotlib place un 2e ylabel à droite (cas Pluie/probabilité).
+LARGEUR_AXE_SECONDAIRE = 0.6
 
 
 @dataclass
@@ -207,14 +211,21 @@ def figure_indicateur(
     seuil — un seul jour à 15 h ne suffit pas.
     """
     # Si la légende est externe (à droite), on agrandit la figure de
-    # `LARGEUR_LEGENDE_EXTERNE` pouces pour loger la légende sans
-    # rétrécir la zone du plot. Ainsi la largeur visible du tracé reste
-    # constante quelle que soit la présence ou la largeur de la légende.
+    # `LARGEUR_LEGENDE_EXTERNE` pouces (+ un peu pour l'ylabel de
+    # l'axe secondaire éventuel) pour loger la légende sans rétrécir
+    # la zone du plot. Ainsi la largeur visible du tracé principal
+    # reste identique entre les onglets.
+    a_axe_secondaire = (
+        cfg.colonne_secondaire is not None
+        and bool(cfg.unite_secondaire)
+        and cfg.unite_secondaire != cfg.unite
+    )
+    extra_ax2 = LARGEUR_AXE_SECONDAIRE if a_axe_secondaire else 0.0
     if legende_externe:
-        fs_total = (figsize[0] + LARGEUR_LEGENDE_EXTERNE, figsize[1])
-        rect_plot = (0.0, 0.0, figsize[0] / fs_total[0], 1.0)
+        fs_total = (figsize[0] + extra_ax2 + LARGEUR_LEGENDE_EXTERNE, figsize[1])
+        rect_plot = (0.0, 0.0, (figsize[0] + extra_ax2) / fs_total[0], 1.0)
     else:
-        fs_total = figsize
+        fs_total = (figsize[0] + extra_ax2, figsize[1])
         rect_plot = None
 
     fig, ax = plt.subplots(figsize=fs_total)
@@ -282,10 +293,11 @@ def figure_indicateur(
         y_archive = y[x <= t_pivot]
         x_prevu = x[x >= t_pivot]
         y_prevu = y[x >= t_pivot]
-        ax.plot(x_archive, y_archive, alpha=0.5, label="Analyse modèle", **plot_kwargs_base)
+        ax.plot(x_archive, y_archive, alpha=0.5, label="Analyse", **plot_kwargs_base)
         ax.plot(x_prevu, y_prevu, label="Prévision", **plot_kwargs_base)
-        # Trait vertical fin à l'heure pivot pour ancrer la lecture.
-        ax.axvline(t_pivot, color="#34495e", linestyle="-", linewidth=0.6, alpha=0.5)
+        # Shading gris léger sur toute la partie analyse, plus discret
+        # qu'un trait vertical et lisible d'un coup d'œil.
+        ax.axvspan(x.min(), t_pivot, color="#7f8c8d", alpha=0.07)
     else:
         ax.plot(x, y, label="Prévision", **plot_kwargs_base)
 
@@ -343,11 +355,19 @@ def figure_indicateur(
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
 
     # Grille : verticale jour par jour (xticks majeurs à 00 h local
-    # de chaque jour) + horizontale habituelle. Sur des séries
-    # horaires (>30 points), on ajoute des ticks mineurs toutes les
-    # 6 h pour aider la lecture intra-journalière.
+    # de chaque jour) + horizontale habituelle. Format jours abrégés
+    # en français (le locale système n'est pas forcément fr_FR sur
+    # Streamlit Cloud, donc on construit le label nous-mêmes).
+    from apps.shared.dates_fr import JOURS_FR
+
+    def _fmt_jour_fr(x_val, _pos=None) -> str:
+        dt = mdates.num2date(x_val)
+        return f"{JOURS_FR[dt.weekday()][:3]}. {dt.day:02d}/{dt.month:02d}"
+
     ax.xaxis.set_major_locator(mdates.DayLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%a %d/%m"))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(_fmt_jour_fr))
+    # Sur des séries horaires (>30 points), ticks mineurs toutes les
+    # 6 h pour aider la lecture intra-journalière.
     if len(x) > 30:
         ax.xaxis.set_minor_locator(mdates.HourLocator(byhour=(6, 12, 18)))
         ax.grid(which="minor", axis="x", alpha=0.10, linestyle=":")

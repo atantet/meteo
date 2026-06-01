@@ -96,46 +96,46 @@ def _fetch_prevision(
 
 
 @st.cache_data(ttl=3600)
-def _fetch_cartes_ecmwf():  # noqa: ANN202
-    """Cartes Météociel ECMWF (4 cibles), cache 1 h."""
+def _fetch_cartes_geo():  # noqa: ANN202
+    """Cartes Météociel ARPEGE-Europe résumé (4 cibles), cache 1 h."""
     from apps.operationnelle.cartes_geo import recuperer_cartes
 
     return recuperer_cartes()
 
 
 def _afficher_section_cartes_geo(tz_locale: str) -> None:
-    """Section §3 : 4 cartes ECMWF Météociel sur J+0 / J+2 / J+4 / J+6.
+    """Section §3 : 4 cartes ARPEGE-Europe Météociel résumé sur J+1 → J+4.
 
-    Visualisation spatiale du contexte synoptique à moyenne échéance,
-    complémentaire de la grille tendance §1 (variables ponctuelles).
-    Source unique ECMWF déterministe (pas de comparaison multi-modèles
-    ici pour éviter la surcharge visuelle).
+    Visualisation spatiale du contexte synoptique à court / moyen terme
+    (pression au sol + précipitations + nébulosité, mode 7 « Résumé »
+    Météociel), complémentaire de la grille tendance §1 (variables
+    ponctuelles à Pleine-Fougères).
     """
     from apps.shared.dates_fr import JOURS_FR
 
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        "Cartes géographiques ECMWF 7 jours"
+        "Cartes géographiques ARPEGE-Europe (résumé)"
         "</h3>",
         unsafe_allow_html=True,
     )
     st.caption(
-        "Géopotentiel 500 hPa + pression au sol (ECMWF déterministe via "
-        "Météociel). Quatre cibles à T+0, T+48, T+96, T+144 — la "
-        "circulation atmosphérique au-dessus de l'Europe pour anticiper "
-        "le régime des prochains jours (zonal, blocage, NAO+/NAO−)."
+        "ARPEGE-Europe Météo-France via Météociel, mode 7 « Résumé » "
+        "(pression au sol + précipitations + nébulosité). Quatre cibles "
+        "à T+24, T+48, T+72, T+96 — vue Europe pour anticiper la "
+        "circulation des prochains jours."
     )
 
     try:
-        serie = _fetch_cartes_ecmwf()
+        serie = _fetch_cartes_geo()
     except Exception as e:  # noqa: BLE001
-        st.warning(f"Cartes ECMWF indisponibles : {e}")
+        st.warning(f"Cartes ARPEGE-Europe indisponibles : {e}")
         return
 
     if serie.nb_disponibles == 0:
         st.info(
-            "Aucune carte ECMWF récupérable pour le moment (Météociel "
-            "n'a peut-être pas encore publié le run en cours)."
+            "Aucune carte ARPEGE-Europe récupérable pour le moment "
+            "(Météociel n'a peut-être pas encore publié le run en cours)."
         )
         return
 
@@ -146,7 +146,7 @@ def _afficher_section_cartes_geo(tz_locale: str) -> None:
         f"{JOURS_FR[run_loc.weekday()][:3]}. {run_loc.day:02d}/{run_loc.month:02d} "
         f"{run_loc.hour:02d} h"
     )
-    st.caption(f"Run ECMWF : {run_str} (heure locale) · cible affichée en heure locale.")
+    st.caption(f"Run ARPEGE-Europe : {run_str} (heure locale) · cible affichée en heure locale.")
 
     # Grille 2×2 sur desktop, empilée naturellement sur mobile via columns.
     cols = st.columns(2)
