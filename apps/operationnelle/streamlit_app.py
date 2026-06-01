@@ -241,12 +241,47 @@ def _afficher_grille_tendance(
         st.markdown("_Aucune donnée disponible pour les modèles sélectionnés._")
         return
 
+    # Pivot archive / prévision : index du 1er jour ≥ aujourd'hui local.
+    # Tout ce qui précède est de l'archive du modèle, le reste est de la
+    # prévision. On affiche une bordure verticale épaisse à ce pivot et
+    # un fond légèrement teinté sur les en-têtes des colonnes archive.
+    today_local = pd.Timestamp.now(tz=tz_locale).normalize().tz_localize(None)
+    idx_pivot = next(
+        (i for i, j in enumerate(jours_tous) if j.tz_localize(None) >= today_local),
+        len(jours_tous),
+    )
+    bordure_pivot = "border-left:3px solid #34495e;"
+    fond_th_archive = "#eef2f7"  # bleu-gris léger pour distinguer le passé
+    fond_th_prevu = "#fafafa"
+
     def _date_fr(d: pd.Timestamp) -> str:
         # Forme courte FR : "lun. 02/06" — abréviation 3 lettres + . + date.
         return f"{JOURS_FR[d.weekday()][:3]}. {d.day:02d}/{d.month:02d}"
 
     # En-tête : 2 colonnes fixes à gauche (Indicateur, Modèle) avec
     # rowspan=2, puis paires Jour/Nuit pour chaque date.
+    def _th_date(idx_j: int, jour: pd.Timestamp) -> str:
+        bordure = bordure_pivot if idx_j == idx_pivot else "border-left:1px solid #e8e8e8;"
+        fond = fond_th_archive if idx_j < idx_pivot else fond_th_prevu
+        return (
+            '<th colspan="2" style="padding:6px 4px;text-align:center;'
+            f"font-size:13px;color:#34495e;font-weight:600;background:{fond};"
+            f'{bordure}">'
+            f"{_date_fr(jour)}</th>"
+        )
+
+    def _th_fenetre(idx_j: int, nom: str, est_jour: bool) -> str:
+        if est_jour:
+            bordure = bordure_pivot if idx_j == idx_pivot else "border-left:1px solid #e8e8e8;"
+        else:
+            bordure = ""
+        fond = fond_th_archive if idx_j < idx_pivot else fond_th_prevu
+        return (
+            '<th style="padding:2px 4px;text-align:center;font-size:11px;'
+            f'color:#888;font-weight:400;background:{fond};{bordure}">'
+            f"{nom}</th>"
+        )
+
     en_tete_dates = (
         '<tr style="background:#fafafa;">'
         '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
@@ -256,23 +291,14 @@ def _afficher_grille_tendance(
         "font-size:13px;font-weight:600;position:sticky;left:110px;z-index:3;"
         "background:#fafafa;min-width:90px;border-right:1px solid #e8e8e8;"
         'box-shadow:1px 0 0 #e8e8e8;">Modèle</th>'
-        + "".join(
-            '<th colspan="2" style="padding:6px 4px;text-align:center;'
-            "font-size:13px;color:#34495e;font-weight:600;"
-            'border-left:1px solid #e8e8e8;">'
-            f"{_date_fr(jour)}</th>"
-            for jour in jours_tous
-        )
+        + "".join(_th_date(idx_j, jour) for idx_j, jour in enumerate(jours_tous))
         + "</tr>"
     )
     en_tete_fenetres = (
         '<tr style="background:#fafafa;">'
         + "".join(
-            '<th style="padding:2px 4px;text-align:center;font-size:11px;'
-            'color:#888;font-weight:400;border-left:1px solid #e8e8e8;">Jour</th>'
-            '<th style="padding:2px 4px;text-align:center;font-size:11px;'
-            'color:#888;font-weight:400;">Nuit</th>'
-            for _ in jours_tous
+            _th_fenetre(idx_j, "Jour", est_jour=True) + _th_fenetre(idx_j, "Nuit", est_jour=False)
+            for idx_j in range(len(jours_tous))
         )
         + "</tr>"
     )
@@ -299,30 +325,33 @@ def _afficher_grille_tendance(
             f"{modele}</td>"
         )
 
-    def _cellule_vide(bg: str) -> str:
+    def _cellule_vide(bg: str, est_pivot: bool = False) -> str:
+        bordure = bordure_pivot if est_pivot else "border-left:1px solid #e8e8e8;"
         return (
             '<td style="padding:4px;text-align:center;color:#ccc;'
-            f"font-size:13px;background:{bg};"
-            'border-left:1px solid #e8e8e8;">—</td>'
+            f'font-size:13px;background:{bg};{bordure}">—</td>'
         )
 
-    def _cellule_valeur(html_val: str, bg: str) -> str:
+    def _cellule_valeur(html_val: str, bg: str, est_pivot: bool = False) -> str:
+        bordure = bordure_pivot if est_pivot else "border-left:1px solid #e8e8e8;"
         return (
             '<td style="padding:4px;text-align:center;'
             "font-variant-numeric:tabular-nums;font-size:13px;"
-            f"font-weight:700;color:{_LABEL_COLOR};background:{bg};"
-            'border-left:1px solid #e8e8e8;">'
+            f'font-weight:700;color:{_LABEL_COLOR};background:{bg};{bordure}">'
             f"{html_val}</td>"
         )
 
-    def _cellule_picto(cellule, est_nuit: bool = False) -> str:
+    def _cellule_picto(cellule, est_nuit: bool = False, est_pivot: bool = False) -> str:
+        bordure = bordure_pivot if est_pivot else "border-left:1px solid #2c3e50;"
         if cellule is None or cellule.code_picto is None:
-            return _cellule_vide(_FOND_PICTO)
+            return (
+                '<td style="padding:4px;text-align:center;color:#ccc;font-size:13px;'
+                f'background:{_FOND_PICTO};{bordure}">—</td>'
+            )
         uri = icone_base64(cellule.code_picto, nuit=est_nuit)
         return (
             '<td style="padding:2px 4px;text-align:center;'
-            f"background:{_FOND_PICTO};"
-            'border-left:1px solid #2c3e50;">'
+            f'background:{_FOND_PICTO};{bordure}">'
             f'<img src="{uri}" alt="{cellule.libelle_picto}" '
             f'title="{cellule.libelle_picto}" '
             'style="width:56px;height:56px;display:block;margin:0 auto;">'
@@ -348,14 +377,15 @@ def _afficher_grille_tendance(
             if i == 0:
                 cellules.append(_td_variable(libelle))
             cellules.append(_td_modele(label, bg))
-            for jour in jours_tous:
-                for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
+            for idx_j, jour in enumerate(jours_tous):
+                for fenetre_idx, fenetre in enumerate((FENETRE_JOUR, FENETRE_NUIT)):
+                    est_pivot = idx_j == idx_pivot and fenetre_idx == 0
                     cellule = agg.get((jour, fenetre))
                     if cellule is None:
-                        cellules.append(_cellule_vide(bg))
+                        cellules.append(_cellule_vide(bg, est_pivot=est_pivot))
                     else:
                         val = format_fn(cellule, fenetre) if besoin_fenetre else format_fn(cellule)
-                        cellules.append(_cellule_valeur(val, bg))
+                        cellules.append(_cellule_valeur(val, bg, est_pivot=est_pivot))
             lignes.append("<tr>" + "".join(cellules) + "</tr>")
         return lignes
 
@@ -371,12 +401,14 @@ def _afficher_grille_tendance(
             if i == 0:
                 cellules.append(_td_variable("Météo", sur_fond_sombre=True))
             cellules.append(_td_modele(label, _FOND_PICTO, sur_fond_sombre=True))
-            for jour in jours_tous:
-                for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
+            for idx_j, jour in enumerate(jours_tous):
+                for fenetre_idx, fenetre in enumerate((FENETRE_JOUR, FENETRE_NUIT)):
+                    est_pivot = idx_j == idx_pivot and fenetre_idx == 0
                     cellules.append(
                         _cellule_picto(
                             agg.get((jour, fenetre)),
                             est_nuit=(fenetre == FENETRE_NUIT),
+                            est_pivot=est_pivot,
                         )
                     )
             lignes.append(f'<tr style="background:{_FOND_PICTO};">' + "".join(cellules) + "</tr>")
