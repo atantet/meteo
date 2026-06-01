@@ -250,11 +250,12 @@ def _afficher_grille_tendance(
     en_tete_dates = (
         '<tr style="background:#fafafa;">'
         '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
-        "font-size:13px;font-weight:600;position:sticky;left:0;"
+        "font-size:13px;font-weight:600;position:sticky;left:0;z-index:3;"
         'background:#fafafa;min-width:110px;">Indicateur</th>'
         '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
-        "font-size:13px;font-weight:600;background:#fafafa;"
-        'min-width:90px;border-right:1px solid #e8e8e8;">Modèle</th>'
+        "font-size:13px;font-weight:600;position:sticky;left:110px;z-index:3;"
+        "background:#fafafa;min-width:90px;border-right:1px solid #e8e8e8;"
+        'box-shadow:1px 0 0 #e8e8e8;">Modèle</th>'
         + "".join(
             '<th colspan="2" style="padding:6px 4px;text-align:center;'
             "font-size:13px;color:#34495e;font-weight:600;"
@@ -288,12 +289,13 @@ def _afficher_grille_tendance(
         )
 
     def _td_modele(modele: str, bg: str, sur_fond_sombre: bool = False) -> str:
-        """Cellule 2e colonne (modèle), une par sous-ligne."""
+        """Cellule 2e colonne (modèle), une par sous-ligne, sticky elle aussi."""
         col = _FOND_SOUS_LABEL if sur_fond_sombre else "#666"
         return (
             f'<td style="padding:4px 8px;font-size:12px;color:{col};'
-            f"background:{bg};white-space:nowrap;"
-            'border-right:1px solid #e8e8e8;">'
+            f"background:{bg};white-space:nowrap;position:sticky;left:110px;"
+            "z-index:2;border-right:1px solid #e8e8e8;"
+            'box-shadow:1px 0 0 #e8e8e8;">'
             f"{modele}</td>"
         )
 
@@ -389,10 +391,15 @@ def _afficher_grille_tendance(
         + _ligne_variable("ETP cumulée", _fmt_etp_cell)
     )
 
+    # `direction:rtl` sur le container place le scroll horizontal
+    # initial à droite (= colonnes futures visibles par défaut) ; faire
+    # défiler vers la gauche révèle le passé. La table interne reste en
+    # `direction:ltr` pour conserver l'ordre temporel naturel des
+    # colonnes (passé → futur de gauche à droite).
     html = (
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
-        'border:1px solid #e8e8e8;border-radius:4px;">'
-        '<table style="border-collapse:collapse;min-width:100%;'
+        'direction:rtl;border:1px solid #e8e8e8;border-radius:4px;">'
+        '<table style="border-collapse:collapse;min-width:100%;direction:ltr;'
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
         + en_tete_dates
         + en_tete_fenetres
@@ -776,10 +783,10 @@ def main() -> None:
     quotidien_long = calculer_indicateurs_quotidiens(prevision_longue, config, now_utc=now_utc)
     quotidien_long = jours_complets_seulement(quotidien_long, prevision_longue)
 
-    # ETP socle FAO Penman-Monteith horaire pour les 2 prévisions ;
-    # passée à la grille tendance pour cumul par fenêtre. Cohérence avec
-    # le principe « calcul scientifique = socle, jamais champ fournisseur ».
-    etp_court = etp_horaire_socle(prevision_courte, site)
+    # ETP socle FAO Penman-Monteith horaire pour ECMWF (la version
+    # étendue ARPEGE est calculée juste avant le rendu de la grille
+    # tendance). Cohérence avec le principe « calcul scientifique =
+    # socle, jamais champ fournisseur ».
     etp_long = etp_horaire_socle(prevision_longue, site)
 
     # Alias utilisé par les sections séries temporelles + bilan hydrique
@@ -798,39 +805,23 @@ def main() -> None:
         "Deux modèles en parallèle, deux fenêtres par jour (jour 7-19 h, "
         "nuit hors plage). ARPEGE Météo-France (~10 km, fiable "
         f"0-{horizon_court} j ; cellules « — » au-delà) et ECMWF IFS "
-        f"(~9 km, référence mondiale, 0-{horizon_long} j). Affichage en "
-        "paires : T° moy/extrême, pluie/probabilité, vent moy/rafales, "
-        "direction dominante, ETP socle FAO."
+        f"(~9 km, référence mondiale, 0-{horizon_long} j). Les "
+        f"{n_past_days * 24} h passées sont incluses sur la ligne ARPEGE "
+        "(archive du modèle) — faire défiler vers la gauche pour les "
+        "voir ; ECMWF n'expose pas d'archive dans Open-Meteo, ses "
+        "colonnes du passé restent vides."
     )
 
-    # Toggle 48 h passées — off par défaut (la vue centrée sur la
-    # prévision reste prioritaire). Activé, on prepend les colonnes
-    # J-2/J-1 sur la ligne ARPEGE uniquement (ECMWF n'a pas de passé
-    # dans Open-Meteo → cellules vides J-2/J-1 sur cette ligne).
-    afficher_passe = st.checkbox(
-        f"Afficher {n_past_days * 24} h passées",
-        value=False,
-        help=(
-            f"Ajoute {n_past_days} colonnes (J-2, J-1) en début de "
-            "grille via la réanalyse rapide ARPEGE Open-Meteo. La ligne "
-            "ECMWF reste vide pour ces colonnes."
-        ),
-    )
-    if afficher_passe:
-        prev_arpege_etendu = prevision_courte_etendue
-        etp_arpege_etendu = etp_horaire_socle(prev_arpege_etendu, site)
-        horizon_grille = horizon_long + n_past_days
-    else:
-        prev_arpege_etendu = prevision_courte
-        etp_arpege_etendu = etp_court
-        horizon_grille = horizon_long
-
+    # La ligne ARPEGE intègre toujours les N j passées (archive du
+    # modèle via `past_days`) ; ECMWF ne fournit pas d'archive donc on
+    # passe sa prévision telle quelle (cellules J-2/J-1 vides).
+    etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
     _afficher_grille_tendance(
         [
-            ("ARPEGE", prev_arpege_etendu, etp_arpege_etendu),
+            ("ARPEGE", prevision_courte_etendue, etp_arpege_etendu),
             ("ECMWF IFS", prevision_longue, etp_long),
         ],
-        horizon_jours=horizon_grille,
+        horizon_jours=horizon_long + n_past_days,
         tz_locale=tz_site,
     )
 
