@@ -815,15 +815,20 @@ def main() -> None:
     # Placeholder à venir.
 
     st.divider()
-    st.markdown("### Séries temporelles détaillées")
-    st.caption(
-        f"Courbes par indicateur sur {horizon_court} j (ARPEGE), bilans "
-        "hydriques et tableau détaillé. Utile pour creuser ce qui motive "
-        "la tendance et les guides ci-dessus."
+    st.markdown(
+        '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
+        "Séries temporelles détaillées"
+        "</h3>",
+        unsafe_allow_html=True,
     )
 
     # ----- Courbes 4 j (vue principale, en onglets) - ARPEGE court terme -----
-    st.subheader(f"Prévision {horizon_court} jours — courbes par indicateur")
+    st.markdown(
+        '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
+        f"Prévision {horizon_court} jours — courbes par indicateur"
+        "</h4>",
+        unsafe_allow_html=True,
+    )
     st.caption(
         "Pour les T° : courbe pointillée gris = normale OMM 1991-2020. "
         "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous."
@@ -855,12 +860,24 @@ def main() -> None:
     for tab, cfg in zip(onglets, courbes_dispo, strict=False):
         with tab:
             fig = figure_indicateur(
-                quotidien, cfg, seuils_extra=seuils_par_colonne.get(cfg.colonne)
+                quotidien,
+                cfg,
+                figsize=(5.5, 2.5),
+                seuils_extra=seuils_par_colonne.get(cfg.colonne),
             )
-            st.pyplot(fig, use_container_width=True)
+            # Largeur limitée : 2/3 environ de la zone, le reste vide
+            # pour ne pas étirer le plot et garder un format lisible.
+            col_plot, _ = st.columns([2, 1])
+            with col_plot:
+                st.pyplot(fig, use_container_width=True)
 
     # ----- Bilan hydrique sol complet (plein air + tunnel) -----
-    st.subheader("Bilan hydrique — modèle sol complet")
+    st.markdown(
+        '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
+        "Bilan hydrique — modèle sol complet"
+        "</h4>",
+        unsafe_allow_html=True,
+    )
     st.caption(
         "Itération FAO 56 jour par jour avec carry-over RU : si le déficit "
         "RFU dépasse le seuil, irrigation virtuelle à capacité au champ ; "
@@ -969,8 +986,11 @@ def main() -> None:
                     seuil_irrigation_mm,
                     titre_contexte="Bilan plein champ",
                     afficher_pluie=True,
+                    figsize=(5.5, 3.0),
                 )
-                st.pyplot(fig_pa, use_container_width=True)
+                col_p, _ = st.columns([2, 1])
+                with col_p:
+                    st.pyplot(fig_pa, use_container_width=True)
                 pluie_tot = float(bilan_pa["pluie_mm"].sum())
                 etm_tot = float(bilan_pa["etm_mm"].sum())
                 nb_irrig = int(bilan_pa["irrigation_declenchee"].sum())
@@ -1015,8 +1035,12 @@ def main() -> None:
             )
             try:
                 bilan_tu = bilan_tunnel_carry_over(quotidien, k_tunnel=k_tunnel, **params_sol)
-                fig_tu = figure_bilan_tunnel(bilan_tu, culture, stade, seuil_irrigation_mm)
-                st.pyplot(fig_tu, use_container_width=True)
+                fig_tu = figure_bilan_tunnel(
+                    bilan_tu, culture, stade, seuil_irrigation_mm, figsize=(5.5, 3.0)
+                )
+                col_t, _ = st.columns([2, 1])
+                with col_t:
+                    st.pyplot(fig_tu, use_container_width=True)
                 etm_tot = float(bilan_tu["etm_tunnel_mm"].sum())
                 nb_irrig = int(bilan_tu["irrigation_declenchee"].sum())
                 besoin_tot = float(bilan_tu["besoin_irrigation_mm"].sum())
