@@ -126,12 +126,15 @@ def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
     at = AppTest.from_file(str(app_path), default_timeout=60)
     at.run()
     assert not at.exception, f"Streamlit app a levé une exception : {list(at.exception)}"
-    # Au minimum un subheader devrait être rendu.
+    # Au minimum un subheader devrait être rendu (séries temporelles).
     titres = [s.value for s in at.subheader]
     assert any("courbes" in t.lower() for t in titres), f"Pas de section courbes : {titres}"
-    # Section pictogrammes ARPEGE vs IFS doit aussi être rendue.
-    assert any("ARPEGE" in t and "IFS" in t for t in titres), (
-        f"Section pictogrammes manquante : {titres}"
+    # La tendance ARPEGE vs IFS est rendue en markdown <h3> (pas subheader)
+    # pour aligner le style sur les autres sections de niveau §1-§4. On la
+    # cherche donc dans le markdown rendu.
+    md_blocs = "\n".join(m.value for m in at.markdown)
+    assert "ARPEGE" in md_blocs and "ECMWF IFS" in md_blocs, (
+        "Section tendance ARPEGE vs ECMWF IFS introuvable dans le markdown"
     )
 
 

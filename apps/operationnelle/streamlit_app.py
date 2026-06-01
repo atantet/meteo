@@ -57,7 +57,6 @@ from apps.operationnelle.ui_helpers import (  # noqa: E402
     styler_ligne,
 )
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
-from apps.shared.pictograms import codes_dominants_par_jour  # noqa: E402
 from apps.shared.style import (  # noqa: E402
     COULEUR_CHAUD,
     COULEUR_FROID,
@@ -85,73 +84,182 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
 
 
-def _afficher_bande_pictogrammes(
-    site: dict, horizon_jours: int, modeles: list[tuple[str, str]]
-) -> None:
-    """Rend une grille jour × modèle avec les pictos Open-Meteo + libellé.
+_FLECHE_DIRECTION_VENT = {
+    "N": "↓",
+    "NE": "↙",
+    "E": "←",
+    "SE": "↖",
+    "S": "↑",
+    "SO": "↗",
+    "O": "→",
+    "NO": "↘",
+}
 
-    Une ligne par jour, deux colonnes modèles (ARPEGE, IFS) +
-    une colonne accord (✓ / ⚠). Quand un modèle ne couvre pas un
-    jour (ARPEGE > 4j), affiche '—'.
-    """
+
+def _rendre_cellule_tendance(cellule, fenetre: str) -> str:  # type: CelluleFenetre
+    """Rend une cellule de tendance en HTML : picto + 4 paires de variables."""
     from apps.shared.pictograms import icone_base64
-    from apps.shared.pictograms import libelle as libelle_picto
 
-    tz_loc = site.get("tz", "Europe/Paris")
-    resultats: dict[str, list[tuple]] = {}
-    for nom_modele, code_modele in modeles:
-        try:
-            prev = _fetch_prevision(site["latitude"], site["longitude"], horizon_jours, code_modele)
-            resultats[nom_modele] = codes_dominants_par_jour(prev, tz_locale=tz_loc)
-        except Exception:  # noqa: BLE001
-            resultats[nom_modele] = []
+    if cellule.code_picto is None:
+        uri_picto = ""
+        bloc_picto = '<div style="color:#aaa;font-size:24px;">—</div>'
+    else:
+        uri_picto = icone_base64(cellule.code_picto)
+        bloc_picto = (
+            f'<img src="{uri_picto}" alt="{cellule.libelle_picto}" '
+            f'title="{cellule.libelle_picto}" '
+            'style="width:36px;height:36px;display:block;margin:0 auto;">'
+            f'<div style="font-size:10px;color:#888;margin-top:1px;'
+            f'white-space:nowrap;">{cellule.libelle_picto}</div>'
+        )
 
-    # Unifie les dates couvertes par au moins un modèle.
-    jours_tous = sorted({jour for codes in resultats.values() for jour, _ in codes})[:horizon_jours]
+    # T° : mean / max (jour) ou mean / min (nuit). Couleurs Wong neutres
+    # pour la moyenne, rouge pour max, bleu pour min.
+    couleur_extreme = COULEUR_CHAUD if fenetre == "jour" else COULEUR_FROID
+    libelle_extreme = "max" if fenetre == "jour" else "min"
+    if pd.isna(cellule.t_mean) or pd.isna(cellule.t_extreme):
+        ligne_t = '<div style="color:#aaa;">—</div>'
+    else:
+        ligne_t = (
+            '<div style="font-size:12px;">'
+            f'<span style="color:{COULEUR_NEUTRE};">'
+            f"{cellule.t_mean:.0f}</span>"
+            '<span style="color:#aaa;">/</span>'
+            f'<span style="color:{couleur_extreme};font-weight:600;" '
+            f'title="T° {libelle_extreme}">{cellule.t_extreme:.0f}</span>'
+            '<span style="color:#aaa;font-size:10px;">&nbsp;°C</span>'
+            "</div>"
+        )
+
+    if pd.isna(cellule.pluie_mm):
+        ligne_pluie = '<div style="color:#aaa;">—</div>'
+    else:
+        proba_html = (
+            '<span style="color:#aaa;">/</span>'
+            f'<span style="color:#888;font-size:11px;">'
+            f"{cellule.prob_pluie_pct:.0f}%</span>"
+            if not pd.isna(cellule.prob_pluie_pct)
+            else ""
+        )
+        ligne_pluie = (
+            '<div style="font-size:12px;">'
+            f'<span style="color:{COULEUR_PLUIE};">{cellule.pluie_mm:.1f}</span>'
+            '<span style="color:#aaa;font-size:10px;">&nbsp;mm</span>'
+            f"{proba_html}"
+            "</div>"
+        )
+
+    if pd.isna(cellule.vent_moy_kmh) or pd.isna(cellule.rafales_max_kmh):
+        ligne_vent = '<div style="color:#aaa;">—</div>'
+    else:
+        ligne_vent = (
+            '<div style="font-size:12px;">'
+            f'<span style="color:#16a085;">{cellule.vent_moy_kmh:.0f}</span>'
+            '<span style="color:#aaa;">/</span>'
+            f'<span style="color:#e67e22;font-weight:600;" title="rafales">'
+            f"{cellule.rafales_max_kmh:.0f}</span>"
+            '<span style="color:#aaa;font-size:10px;">&nbsp;km/h</span>'
+            "</div>"
+        )
+
+    if not cellule.direction_cardinal:
+        ligne_dir = '<div style="color:#aaa;">—</div>'
+    else:
+        fleche = _FLECHE_DIRECTION_VENT.get(cellule.direction_cardinal, "·")
+        ligne_dir = (
+            '<div style="font-size:12px;color:#34495e;">'
+            f'<span style="font-size:14px;">{fleche}</span>&nbsp;'
+            f'<span style="font-size:11px;color:#666;">'
+            f"{cellule.direction_cardinal}</span>"
+            "</div>"
+        )
+
+    return (
+        '<td style="padding:4px 6px;text-align:center;vertical-align:top;'
+        'border-left:1px solid #f0f0f0;">'
+        + bloc_picto
+        + ligne_t
+        + ligne_pluie
+        + ligne_vent
+        + ligne_dir
+        + "</td>"
+    )
+
+
+def _afficher_grille_tendance(
+    series: list[tuple[str, pd.DataFrame]],
+    horizon_jours: int,
+    tz_locale: str,
+) -> None:
+    """Grille tendance jour/nuit × N j × M modèles.
+
+    ``series`` est une liste de tuples ``(label_modele, prevision_horaire)``
+    à empiler (typiquement [("ARPEGE", prev_courte), ("ECMWF IFS",
+    prev_longue)]). Chaque modèle est rendu en 2 lignes (jour + nuit),
+    ses cellules manquantes (modèle ne couvrant pas un jour) restent
+    vides. Les jours affichés sont l'union des jours couverts par au
+    moins un modèle, plafonné à ``horizon_jours``.
+    """
+    from apps.operationnelle.tendances import (
+        FENETRE_JOUR,
+        FENETRE_NUIT,
+        agreger_par_fenetre,
+    )
+
+    agreges: list[tuple[str, dict]] = []
+    for label, horaire in series:
+        if horaire is None or horaire.empty:
+            agreges.append((label, {}))
+            continue
+        agreges.append((label, agreger_par_fenetre(horaire, tz_locale, horizon_jours)))
+
+    jours_tous: list[pd.Timestamp] = sorted({jour for _, agg in agreges for (jour, _f) in agg})[
+        :horizon_jours
+    ]
     if not jours_tous:
         st.markdown("_Aucune donnée disponible pour les modèles sélectionnés._")
         return
 
-    code_par_jour_modele: dict[str, dict[pd.Timestamp, int]] = {
-        nom: dict(codes) for nom, codes in resultats.items()
-    }
-
-    # Tableau HTML transposé : 1 ligne par modèle, 1 colonne par jour.
-    # Scroll horizontal automatique sur mobile via overflow-x.
     en_tete = (
         '<tr style="background:#fafafa;">'
         '<th style="padding:6px 8px;text-align:left;color:#34495e;'
-        'font-size:13px;position:sticky;left:0;background:#fafafa;">Modèle</th>'
+        "font-size:12px;position:sticky;left:0;background:#fafafa;"
+        'min-width:120px;">Modèle · fenêtre</th>'
         + "".join(
-            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
-            f'color:#888;white-space:nowrap;">{jour.strftime("%a %d %b").capitalize()}</th>'
+            '<th style="padding:6px 8px;text-align:center;font-size:11px;'
+            'color:#888;white-space:nowrap;border-left:1px solid #f0f0f0;">'
+            f"{jour.strftime('%a %d %b').capitalize()}</th>"
             for jour in jours_tous
         )
         + "</tr>"
     )
 
-    body = []
-    for nom_modele, _ in modeles:
-        cellules = [
-            '<th style="padding:6px 8px;text-align:left;font-size:13px;'
-            'color:#34495e;position:sticky;left:0;background:white;">'
-            f"{nom_modele}</th>"
-        ]
-        for jour in jours_tous:
-            code = code_par_jour_modele.get(nom_modele, {}).get(jour)
-            if code is None:
-                cellules.append('<td style="padding:6px 8px;text-align:center;color:#aaa;">—</td>')
-            else:
-                uri = icone_base64(code)
-                lib = libelle_picto(code)
-                cellules.append(
-                    '<td style="padding:6px 8px;text-align:center;">'
-                    f'<img src="{uri}" alt="{lib}" title="{lib}" '
-                    'style="width:42px;height:42px;display:block;margin:0 auto;">'
-                    f'<div style="font-size:10px;color:#888;margin-top:2px;'
-                    f'white-space:nowrap;">{lib}</div></td>'
-                )
-        body.append("<tr>" + "".join(cellules) + "</tr>")
+    cell_vide = (
+        '<td style="padding:4px 6px;text-align:center;color:#ccc;'
+        'border-left:1px solid #f0f0f0;">—</td>'
+    )
+
+    lignes_html = []
+    for label, agg in agreges:
+        for fenetre, libelle_fenetre in (
+            (FENETRE_JOUR, "Jour"),
+            (FENETRE_NUIT, "Nuit"),
+        ):
+            cellules = [
+                '<th style="padding:6px 8px;text-align:left;font-size:12px;'
+                "color:#34495e;position:sticky;left:0;background:white;"
+                'vertical-align:top;">'
+                f"{label}<br>"
+                f'<span style="color:#888;font-size:11px;">{libelle_fenetre}</span>'
+                "</th>"
+            ]
+            for jour in jours_tous:
+                cellule = agg.get((jour, fenetre))
+                if cellule is None:
+                    cellules.append(cell_vide)
+                else:
+                    cellules.append(_rendre_cellule_tendance(cellule, fenetre))
+            lignes_html.append("<tr>" + "".join(cellules) + "</tr>")
 
     html = (
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
@@ -159,124 +267,7 @@ def _afficher_bande_pictogrammes(
         '<table style="border-collapse:collapse;min-width:100%;'
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
         + en_tete
-        + "".join(body)
-        + "</table></div>"
-    )
-    st.markdown(html, unsafe_allow_html=True)
-
-
-def _afficher_grille_variables(quotidien: pd.DataFrame) -> None:
-    """Grille variables × jours (transposée, scroll horizontal).
-
-    Une ligne par variable (T° min/moy/max, Pluie+proba, ETP, bilan eau
-    du jour, Vent moy/raf, Vent direction), une colonne par jour. Source =
-    best_match (= quotidien déjà calculé dans main).
-    """
-    if quotidien.empty:
-        return
-
-    def fmt_t(row) -> str:
-        try:
-            return (
-                f'<span style="color:#2980b9;">{row["t_min_celsius"]:.0f}</span>'
-                '<span style="color:#aaa;">/</span>'
-                f'<span style="color:#7f8c8d;">{row["t_moy_celsius"]:.0f}</span>'
-                '<span style="color:#aaa;">/</span>'
-                f'<span style="color:#c0392b;">{row["t_max_celsius"]:.0f}</span>'
-            )
-        except (KeyError, ValueError):
-            return "—"
-
-    def fmt_pluie(row) -> str:
-        try:
-            mm = row["pluie_24h_mm"]
-            proba = row.get("prob_pluie_max_pct", None)
-            mm_html = f'<span style="color:#3498db;">{mm:.1f}</span>'
-            if pd.isna(proba):
-                return mm_html
-            return (
-                mm_html
-                + '<span style="color:#aaa;">/</span>'
-                + f'<span style="color:#888;">{proba:.0f}</span>'
-            )
-        except (KeyError, ValueError):
-            return "—"
-
-    def fmt_etp(row) -> str:
-        try:
-            return f"{row['etp_mm']:.1f}"
-        except (KeyError, ValueError):
-            return "—"
-
-    def fmt_bilan(row) -> str:
-        """Bilan eau du jour = pluie − ETP, colorisé selon signe."""
-        try:
-            v = row["pluie_24h_mm"] - row["etp_mm"]
-            couleur = "#27ae60" if v >= 0 else "#c0392b"
-            return f'<span style="color:{couleur};">{v:+.1f}</span>'
-        except (KeyError, ValueError):
-            return "—"
-
-    def fmt_vent(row) -> str:
-        try:
-            return (
-                f'<span style="color:#16a085;">{row["vent_moy_kmh"]:.0f}</span>'
-                '<span style="color:#aaa;">/</span>'
-                f'<span style="color:#e67e22;">{row["rafales_max_kmh"]:.0f}</span>'
-            )
-        except (KeyError, ValueError):
-            return "—"
-
-    def fmt_direction(row) -> str:
-        card = row.get("direction_vent_cardinal", "")
-        if not card or pd.isna(card):
-            return "—"
-        return str(card)
-
-    lignes = [
-        ("T° min/moy/max (°C)", fmt_t),
-        ("Pluie mm/proba %", fmt_pluie),
-        ("ETP (mm)", fmt_etp),
-        ("Bilan eau du jour (mm)", fmt_bilan),
-        ("Vent moy/raf (km/h)", fmt_vent),
-        ("Vent direction", fmt_direction),
-    ]
-
-    en_tete = (
-        '<tr style="background:#fafafa;">'
-        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
-        'font-size:13px;position:sticky;left:0;background:#fafafa;">Indicateur</th>'
-        + "".join(
-            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
-            f'color:#888;white-space:nowrap;">'
-            f"{date.strftime('%a %d %b').capitalize()}</th>"
-            for date in quotidien.index
-        )
-        + "</tr>"
-    )
-
-    body = []
-    for label, formatter in lignes:
-        cellules = [
-            '<th style="padding:6px 8px;text-align:left;font-size:12px;'
-            'color:#34495e;position:sticky;left:0;background:white;">'
-            f"{label}</th>"
-        ]
-        for _date, row in quotidien.iterrows():
-            cellules.append(
-                '<td style="padding:6px 8px;text-align:center;font-size:12px;'
-                f"font-variant-numeric:tabular-nums;color:#34495e;"
-                f'white-space:nowrap;">{formatter(row)}</td>'
-            )
-        body.append("<tr>" + "".join(cellules) + "</tr>")
-
-    html = (
-        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
-        'border:1px solid #eee;border-radius:4px;margin-top:8px;">'
-        '<table style="border-collapse:collapse;min-width:100%;'
-        'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
-        + en_tete
-        + "".join(body)
+        + "".join(lignes_html)
         + "</table></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -652,40 +643,45 @@ def main() -> None:
     quotidien_long = calculer_indicateurs_quotidiens(prevision_longue, config, now_utc=now_utc)
     quotidien_long = jours_complets_seulement(quotidien_long, prevision_longue)
 
-    # Alias utilisé par les sections existantes qui ne sont pas encore
-    # explicitement routées (séries temporelles, tableau détaillé, sources).
-    # Ces sections relèvent du court terme (4 j ARPEGE).
+    # Alias utilisé par les sections séries temporelles + bilan hydrique
+    # + tableau détaillé + sources : court terme (ARPEGE).
     prevision = prevision_courte
     quotidien = quotidien_court
 
-    # ----- Guides de décision de la semaine (horizon court ARPEGE) -----
+    # ----- §1 Tendance jour/nuit × N j × 2 modèles -----
+    st.markdown(
+        '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
+        f"Tendance {horizon_long} jours — ARPEGE vs ECMWF IFS"
+        "</h3>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Deux modèles en parallèle, deux fenêtres par jour (jour 7-19 h, "
+        "nuit hors plage). ARPEGE Météo-France (~10 km, fiable "
+        f"0-{horizon_court} j ; cellules « — » au-delà) et ECMWF IFS "
+        f"(~9 km, référence mondiale, 0-{horizon_long} j). Affichage en "
+        "paires : T° moy/extrême, pluie/probabilité, vent moy/rafales, "
+        "direction dominante."
+    )
+    _afficher_grille_tendance(
+        [("ARPEGE", prevision_courte), ("ECMWF IFS", prevision_longue)],
+        horizon_jours=horizon_long,
+        tz_locale=tz_site,
+    )
+
+    # ----- §2 Guides de décision de la semaine (horizon court ARPEGE) -----
     _afficher_section_decisions(quotidien_court, site.get("tz", "Europe/Paris"))
 
+    # ----- §3 Cartes géographiques (TODO C4) -----
+    # Placeholder à venir.
+
     st.divider()
-    st.markdown("### Données météo détaillées")
+    st.markdown("### Séries temporelles détaillées")
     st.caption(
-        "Vue détaillée de la prévision, des bilans hydriques et des sources. "
-        "Utile pour vérifier ce qui motive les guides ci-dessus."
+        f"Courbes par indicateur sur {horizon_court} j (ARPEGE), bilans "
+        "hydriques et tableau détaillé. Utile pour creuser ce qui motive "
+        "la tendance et les guides ci-dessus."
     )
-
-    # ----- Bande pictogrammes 7 j ARPEGE vs IFS (horizon long) -----
-    st.subheader(f"Tendance {horizon_long} jours — ARPEGE vs ECMWF IFS")
-    st.caption(
-        "Deux modèles en parallèle pour révéler l'accord (confiance haute) "
-        "ou le désaccord (incertitude) sur la prévision. ARPEGE Météo-France "
-        f"(~10 km, 0-{horizon_court} j fiable) vs ECMWF IFS "
-        f"(~9 km, modèle de référence mondial, 0-{horizon_long} j)."
-    )
-    modeles_pictos = [("ARPEGE", modele_court), ("ECMWF IFS", modele_long)]
-    with st.spinner(f"Récupération {' + '.join(m for m, _ in modeles_pictos)}…"):
-        try:
-            _afficher_bande_pictogrammes(site, horizon_long, modeles_pictos)
-        except Exception as e:  # noqa: BLE001
-            st.warning(f"Pictogrammes indisponibles : {e}")
-
-    # Grille variables détaillées sous les pictos, même structure
-    # transposée (variables en lignes, jours en colonnes).
-    _afficher_grille_variables(quotidien)
 
     # ----- Courbes 4 j (vue principale, en onglets) - ARPEGE court terme -----
     st.subheader(f"Prévision {horizon_court} jours — courbes par indicateur")
