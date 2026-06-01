@@ -32,7 +32,10 @@ from apps.operationnelle.demo import (  # noqa: E402
     today_ete,
     today_hiver,
 )
-from apps.operationnelle.streamlit_app import _rendre_carte_decision  # noqa: E402
+from apps.operationnelle.streamlit_app import (  # noqa: E402
+    _appliquer_overrides_session,
+    _rendre_carte_decision,
+)
 
 SCENARIOS = {
     "❄️ Hiver (gel + sec puis pluie)": (quotidien_hiver, today_hiver, "15 janvier 2026"),
@@ -71,19 +74,24 @@ def main() -> None:
     today = build_today()
 
     try:
-        exploitation = load_exploitation()
+        exploitation_base = load_exploitation()
     except FileNotFoundError:
         st.error(
             "Configuration `config/exploitation.yaml` absente — impossible de générer les cartes."
         )
         return
 
+    # Applique les overrides session_state (sliders) avant évaluation,
+    # comme dans la vue prod. Sans ça, bouger un slider ne change rien.
+    exploitation = _appliquer_overrides_session(exploitation_base)
     cartes = evaluer_decisions(quotidien, exploitation, today)
 
+    nb_actives = sum(1 for c in cartes if c.active)
     st.caption(
-        f"Date de référence : {libelle_date} · "
-        f"{len(cartes)} carte{'s' if len(cartes) > 1 else ''} affichée"
-        f"{'s' if len(cartes) > 1 else ''} sur 9 règles possibles."
+        f"Date de référence : {libelle_date} · {nb_actives} active"
+        f"{'s' if nb_actives > 1 else ''} sur {len(cartes)} applicable"
+        f"{'s' if len(cartes) > 1 else ''} (les inactives sont grisées ; "
+        "leurs seuils restent ajustables)."
     )
 
     if not cartes:
@@ -91,7 +99,7 @@ def main() -> None:
         return
 
     for carte in cartes:
-        _rendre_carte_decision(carte)
+        _rendre_carte_decision(carte, exploitation)
 
 
 if __name__ == "__main__":

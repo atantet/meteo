@@ -417,45 +417,132 @@ def _rendre_tableau_detail(
     st.markdown(html, unsafe_allow_html=True)
 
 
-def _rendre_carte_decision(carte: Carte) -> None:
-    """Rend une carte : titre stylé + sous-titre lead + détail dépliable."""
-    couleur = couleur_niveau(carte.niveau)
+_PREFIXE_OVERRIDE = "op_override__"
+
+
+def _cle_session_param(chemin: str) -> str:
+    """Clé canonique session_state (points convertis en ``__`` pour éviter
+    tout conflit silencieux avec l'attribute access de Streamlit)."""
+    return f"{_PREFIXE_OVERRIDE}{chemin.replace('.', '__')}"
+
+
+def _chemin_depuis_cle(cle: str) -> str:
+    """Inverse de ``_cle_session_param`` : reconstruit le chemin dot."""
+    return cle.removeprefix(_PREFIXE_OVERRIDE).replace("__", ".")
+
+
+def _appliquer_overrides_session(exploitation: dict) -> dict:
+    """Construit une exploitation effective en mergeant session_state.
+
+    Pour chaque clé override présente dans ``st.session_state``, écrit
+    la valeur au chemin dot correspondant dans une copie profonde de
+    l'exploitation.
+    """
+    from copy import deepcopy
+
+    from apps.operationnelle.decisions import set_chemin
+
+    effective = deepcopy(exploitation)
+    for k, v in dict(st.session_state).items():
+        if not isinstance(k, str) or not k.startswith(_PREFIXE_OVERRIDE):
+            continue
+        chemin = _chemin_depuis_cle(k)
+        try:
+            set_chemin(effective, chemin, v)
+        except (KeyError, TypeError):
+            continue
+    return effective
+
+
+def _rendre_sliders_carte(carte: Carte, exploitation: dict) -> None:
+    """Rend les sliders d'ajustement des seuils de la carte.
+
+    Pattern Streamlit canonique : on initialise ``session_state[cle]``
+    une fois (depuis l'exploitation effective au premier render), puis
+    le slider est créé avec ``key=cle`` uniquement (pas de ``value=``).
+    Streamlit lit/écrit alors directement dans session_state, et le
+    rerun déclenché par un changement de slider re-calcule les cartes
+    avec le nouveau seuil au cycle suivant.
+    """
+    from apps.operationnelle.decisions import get_chemin
+
+    if not carte.parametres_ajustables:
+        return
+    for p in carte.parametres_ajustables:
+        cle = _cle_session_param(p.chemin)
+        type_int = p.step >= 1.0
+        # Initialise une seule fois depuis l'exploitation effective.
+        if cle not in st.session_state:
+            try:
+                val_initiale = get_chemin(exploitation, p.chemin)
+            except (KeyError, TypeError):
+                continue
+            st.session_state[cle] = int(val_initiale) if type_int else float(val_initiale)
+        if type_int:
+            st.slider(
+                p.label,
+                int(p.min_value),
+                int(p.max_value),
+                step=int(p.step),
+                key=cle,
+                help=p.aide or None,
+            )
+        else:
+            st.slider(
+                p.label,
+                float(p.min_value),
+                float(p.max_value),
+                step=float(p.step),
+                key=cle,
+                help=p.aide or None,
+            )
+
+
+def _rendre_carte_decision(carte: Carte, exploitation: dict) -> None:
+    """Rend une carte : titre stylé + détail dépliable + sliders d'ajustement.
+
+    Les cartes inactives (seuil non franchi) sont affichées en gris,
+    avec opacité réduite ; les expanders détail / sliders restent
+    accessibles. Un changement de slider rerend la section décisions
+    avec les nouveaux seuils, ce qui peut faire basculer une carte
+    d'inactive à active (ou inversement).
+    """
+    if carte.active:
+        couleur_titre = couleur_niveau(carte.niveau)
+        opacity = "1.0"
+    else:
+        couleur_titre = "#8a8a8a"
+        opacity = "0.55"
+
     with st.container(border=True):
         col_picto, col_texte = st.columns([1, 11])
         with col_picto:
             st.markdown(
-                f"<div style='font-size:32px;line-height:1;padding-top:4px;'>{carte.picto}</div>",
+                f"<div style='font-size:32px;line-height:1;padding-top:4px;"
+                f"opacity:{opacity};'>{carte.picto}</div>",
                 unsafe_allow_html=True,
             )
         with col_texte:
-            # Titre h4-like : signal météo factuel court, couleur niveau.
             st.markdown(
-                f"<div style='font-size:16px;font-weight:700;color:{couleur};"
-                f"margin-bottom:4px;line-height:1.3;'>{carte.titre}</div>",
+                f"<div style='font-size:16px;font-weight:700;color:{couleur_titre};"
+                f"opacity:{opacity};margin-bottom:4px;line-height:1.3;'>"
+                f"{carte.titre}</div>",
                 unsafe_allow_html=True,
             )
-            # Sous-titre / lead : invitation à vérifier, gris foncé,
-            # typographie plus discrète que le titre.
-            st.markdown(
-                f"<div style='font-size:14px;color:#4a4a4a;line-height:1.45;'>"
-                f"{carte.invitation}</div>",
-                unsafe_allow_html=True,
-            )
-            with st.expander("Détail météo & sources"):
-                if carte.detail_intro:
-                    st.markdown(carte.detail_intro)
+            with st.expander("Détail jour par jour"):
                 _rendre_tableau_detail(carte.detail_df, carte.surlignage)
-                if carte.detail_source:
-                    st.caption(carte.detail_source)
+            if carte.parametres_ajustables:
+                with st.expander("Ajuster les seuils"):
+                    _rendre_sliders_carte(carte, exploitation)
 
 
 def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
     """Section en tête : invitations basées sur la prévision 7 j."""
     aide = (
         "Invitations à vérifier sur le terrain, motivées par la météo "
-        "prévue à 7 j. Les détails et données sources sont accessibles "
-        "au clic sur chaque carte ; les sections météo complètes restent "
-        "consultables plus bas."
+        "prévue à 7 j. Chaque carte expose son détail jour par jour et "
+        "permet d'ajuster ses seuils en direct ; les sections météo "
+        "complètes et les sources restent consultables plus bas."
     )
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
@@ -468,7 +555,7 @@ def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
     )
 
     try:
-        exploitation = load_exploitation()
+        exploitation_base = load_exploitation()
     except FileNotFoundError:
         st.info(
             "Configuration exploitation absente — section décisions "
@@ -476,18 +563,25 @@ def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
         )
         return
 
+    exploitation = _appliquer_overrides_session(exploitation_base)
     today = pd.Timestamp.now(tz=site_tz).normalize().tz_localize(None)
     cartes = evaluer_decisions(quotidien, exploitation, today)
 
     if not cartes:
-        st.success(
-            "Pas de signal météo notable cette semaine. Données détaillées "
-            "ci-dessous si besoin de vérifier."
+        st.info(
+            "Aucune carte applicable cette semaine (toutes hors saison ou données insuffisantes)."
         )
         return
 
+    nb_actives = sum(1 for c in cartes if c.active)
+    st.caption(
+        f"{nb_actives} carte{'s' if nb_actives > 1 else ''} active{'s' if nb_actives > 1 else ''} "
+        f"sur {len(cartes)} applicable{'s' if len(cartes) > 1 else ''} cette semaine "
+        "(les inactives sont grisées ; leurs seuils restent ajustables)."
+    )
+
     for carte in cartes:
-        _rendre_carte_decision(carte)
+        _rendre_carte_decision(carte, exploitation)
 
 
 def main() -> None:

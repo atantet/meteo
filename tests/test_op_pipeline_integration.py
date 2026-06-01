@@ -153,10 +153,16 @@ def test_pipeline_complete_evaluer_decisions_sans_erreur() -> None:
     exploitation = load_exploitation()
     cartes = evaluer_decisions(quot, exploitation, pd.Timestamp("2026-06-01"))
     assert isinstance(cartes, list)
-    # Climat doux début juin : pas de signal gel attendu sur cette prev.
-    titres_lower = " ".join(c.titre.lower() for c in cartes)
-    assert "gel" not in titres_lower, (
-        f"Pas de gel attendu sur prev début juin, mais : {[c.titre for c in cartes]}"
+    # Climat doux début juin : aucune carte gel ne doit être active
+    # (les cartes inactives apparaissent désormais grisées avec un titre
+    # "Pas de gel attendu — …", ce qui est attendu).
+    cartes_gel_actives = [
+        c
+        for c in cartes
+        if c.active and "gel" in c.titre.lower() and "pas de" not in c.titre.lower()
+    ]
+    assert not cartes_gel_actives, (
+        f"Pas de gel actif attendu début juin, mais : {[c.titre for c in cartes_gel_actives]}"
     )
 
 

@@ -2,27 +2,17 @@
 
 À partir d'un DataFrame ``quotidien`` (sortie
 ``calculer_indicateurs_quotidiens``) et d'une config exploitation, produit
-une liste de ``Carte`` qui suggèrent à l'utilisateur des vérifications
-terrain motivées par la météo prévue à 7 j.
+une liste de ``Carte`` pour les règles applicables à la période courante.
 
-Philosophie : on **invite** l'utilisateur à vérifier empiriquement, on ne
-**tranche** pas. Chaque carte suit le pattern hérité de l'App 1 Veille
-pour le titre : ``<Signal court> — <valeur unité> (<action courte>)``.
+Chaque carte porte un drapeau ``active`` :
+- ``True``  : le signal météo dépasse le seuil → carte mise en avant.
+- ``False`` : la règle est applicable (saison + données disponibles) mais
+  le signal n'est pas franchi → carte affichée grisée, avec un titre
+  neutre "Pas de … — <valeur observée>" et les sliders d'ajustement
+  toujours accessibles (l'utilisateur peut tester d'autres seuils).
 
-Structure d'une carte :
-- ``titre`` : signal + valeur + parenthèse action courte (style App 1)
-- ``invitation`` : rattachement métier court (sous-titre lead)
-- ``niveau`` : info | anticiper | critique (mapping couleur Wong)
-- ``picto`` : emoji court
-- ``detail_intro`` : commentaire markdown court, **uniquement** si ajoute
-  une info absente du titre/invitation. Vide sinon.
-- ``detail_df`` : **tous les jours** de la fenêtre 7 j (pas seulement
-  ceux qui déclenchent) — la mise en évidence visuelle des jours
-  déclencheurs se fait via ``surlignage``.
-- ``detail_source`` : footer court ajusté aux indicateurs réellement
-  utilisés par la carte (T° seule, ETP, pluie+ETP…).
-- ``surlignage`` : ``{colonne: (op, seuil)}`` pour marquer dans le
-  tableau les valeurs qui dépassent le seuil. ``op ∈ {"≤","<","≥",">"}``.
+Les règles à fenêtre saisonnière retournent ``None`` hors saison (carte
+non applicable, donc non affichée).
 """
 
 from __future__ import annotations
@@ -42,32 +32,30 @@ NIVEAU_INFO = "info"
 NIVEAU_ANTICIPER = "anticiper"
 NIVEAU_CRITIQUE = "critique"
 
-# Sources spécifiques par type d'indicateur utilisé. Plus précis que le
-# footer générique : on n'annonce pas FAO 56 quand la carte n'utilise
-# que la T° min, par exemple.
-SOURCE_T_FORECAST = "Source : Open-Meteo · forecast best_match · T° agrégée par jour local."
-SOURCE_PLUIE_FORECAST = "Source : Open-Meteo · forecast best_match · pluie cumulée par jour local."
-SOURCE_ETP_SOCLE = (
-    "Source : ETP socle FAO 56 Penman-Monteith horaire, calculée à "
-    "partir d'Open-Meteo (T°, HR, vent, rayonnement)."
-)
-SOURCE_PLUIE_ETP = (
-    "Source : Open-Meteo · forecast best_match (pluie) + ETP socle FAO 56 Penman-Monteith horaire."
-)
+
+@dataclass(frozen=True)
+class ParamAjustable:
+    """Spec d'un seuil ajustable depuis l'UI (rendu en slider)."""
+
+    label: str
+    chemin: str
+    min_value: float
+    max_value: float
+    step: float
+    aide: str = ""
 
 
 @dataclass(frozen=True)
 class Carte:
-    """Invitation à vérifier empiriquement, motivée par un signal météo."""
+    """Carte de décision (active ou inactive selon le signal)."""
 
     titre: str
-    invitation: str
     niveau: str
     picto: str
     detail_df: pd.DataFrame | None
-    detail_source: str
-    detail_intro: str = ""
+    active: bool = True
     surlignage: dict[str, tuple[str, float]] = field(default_factory=dict)
+    parametres_ajustables: list[ParamAjustable] = field(default_factory=list)
 
 
 def load_exploitation(
@@ -83,37 +71,46 @@ def load_exploitation(
     return config
 
 
+def get_chemin(d: dict, chemin: str) -> Any:
+    """Lit une valeur dans un dict imbriqué via chemin dot."""
+    cur: Any = d
+    for p in chemin.split("."):
+        cur = cur[p]
+    return cur
+
+
+def set_chemin(d: dict, chemin: str, val: Any) -> None:
+    """Écrit une valeur dans un dict imbriqué via chemin dot."""
+    parts = chemin.split(".")
+    cur: Any = d
+    for p in parts[:-1]:
+        cur = cur.setdefault(p, {})
+    cur[parts[-1]] = val
+
+
 def _saison_active(exploitation: dict[str, Any], cle: str, mois_courant: int) -> bool:
     """True si le mois courant tombe dans la fenêtre `saisons[cle]`.
 
     Liste vide ou clé absente = fenêtre active toute l'année.
     """
     mois = exploitation.get("saisons", {}).get(cle)
-    if not mois:  # None, [], absent → toujours actif
+    if not mois:
         return True
     return mois_courant in mois
 
 
-def degres_jours_negatifs(t_min: pd.Series) -> float:
-    """Somme des |T° min| pour les jours où T° min < 0, sur la fenêtre.
-
-    Mesure intégrée du froid attendu : 1 nuit à -3 °C ≡ 3 nuits à -1 °C
-    ≡ 3 degrés-jours négatifs. Plus discriminant qu'un seuil ponctuel.
-    """
+def degres_jours_sous_seuil(t_min: pd.Series, seuil: float = 0.0) -> float:
+    """Somme cumulée de l'écart sous ``seuil`` sur les jours t_min < seuil."""
     if t_min.empty:
         return 0.0
-    sous_zero = t_min[t_min < 0]
-    if sous_zero.empty:
+    sous = t_min[t_min < seuil]
+    if sous.empty:
         return 0.0
-    return float(-sous_zero.sum())
+    return float((seuil - sous).sum())
 
 
 def plus_longue_suite_consecutive(masque: pd.Series) -> tuple[int, int, int] | None:
-    """Plus longue suite de True consécutifs dans un masque booléen.
-
-    Retourne ``(idx_debut, idx_fin, longueur)`` (positions entières dans
-    la série), ou ``None`` si aucun True.
-    """
+    """Plus longue suite de True consécutifs dans un masque booléen."""
     if masque.empty or not masque.any():
         return None
     best: tuple[int, int, int] | None = None
@@ -132,256 +129,8 @@ def plus_longue_suite_consecutive(masque: pd.Series) -> tuple[int, int, int] | N
     return best
 
 
-# ---------- Cartes gel ----------
-
-
-def regle_purge_irrigation_gel(
-    quotidien: pd.DataFrame,
-    today: pd.Timestamp,  # noqa: ARG001
-) -> Carte | None:
-    """Gel attendu → invitation à purger l'irrigation extérieure.
-
-    Active toute l'année : dès qu'on annonce du gel, le rappel est utile
-    pour toute installation d'irrigation encore en eau.
-    """
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    masque = quotidien["t_min_celsius"] <= 0.0
-    if not masque.any():
-        return None
-    t_min_min = float(quotidien.loc[masque, "t_min_celsius"].min())
-
-    return Carte(
-        titre=(
-            f"Gel attendu sur 7 j — T° min prévue {t_min_min:.1f} °C (penser à purger l'irrigation)"
-        ),
-        invitation="Pour toute irrigation extérieure encore en eau.",
-        niveau=NIVEAU_ANTICIPER,
-        picto="❄️",
-        detail_df=quotidien[["t_min_celsius"]],
-        detail_source=SOURCE_T_FORECAST,
-        surlignage={"t_min_celsius": ("≤", 0.0)},
-    )
-
-
-def regle_voiles_p17(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,  # noqa: ARG001
-) -> Carte | None:
-    """Froid cumulé (degrés-jours négatifs) → invitation aux voiles P17."""
-    if not exploitation.get("equipement", {}).get("voiles_p17_disponibles", False):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    seuil_dj = float(exploitation.get("seuils_gel", {}).get("voiles_p17_degres_jours_neg_min", 2.0))
-    dj_neg = degres_jours_negatifs(quotidien["t_min_celsius"])
-    if dj_neg < seuil_dj:
-        return None
-
-    return Carte(
-        titre=(
-            f"Froid cumulé sur 7 j — {dj_neg:.1f} degrés-jours négatifs (envisager des voiles P17)"
-        ),
-        invitation="Pour les cultures sensibles au gel.",
-        niveau=NIVEAU_ANTICIPER,
-        picto="🛡️",
-        detail_intro=(
-            "Un *degré-jour négatif* = somme cumulée des |T° min| sur les "
-            f"jours où la T° min est sous 0 °C (seuil paramétré : {seuil_dj:.1f} DJ)."
-        ),
-        detail_df=quotidien[["t_min_celsius"]],
-        detail_source=SOURCE_T_FORECAST,
-        surlignage={"t_min_celsius": ("<", 0.0)},
-    )
-
-
-def regle_recolte_racines_avant_gel(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,
-) -> Carte | None:
-    """Froid cumulé sévère + racines en saison → invitation récolte."""
-    if not _saison_active(exploitation, "legumes_racine_au_champ", today.month):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    seuil_dj = float(
-        exploitation.get("seuils_gel", {}).get("recolte_racines_degres_jours_neg_min", 8.0)
-    )
-    dj_neg = degres_jours_negatifs(quotidien["t_min_celsius"])
-    if dj_neg < seuil_dj:
-        return None
-
-    return Carte(
-        titre=(
-            f"Froid sévère cumulé sur 7 j — {dj_neg:.1f} degrés-jours négatifs "
-            "(envisager une récolte de protection)"
-        ),
-        invitation="Pour les légumes racine encore au champ (conservation).",
-        niveau=NIVEAU_ANTICIPER,
-        picto="🥕",
-        detail_df=quotidien[["t_min_celsius"]],
-        detail_source=SOURCE_T_FORECAST,
-        surlignage={"t_min_celsius": ("<", 0.0)},
-    )
-
-
-# ---------- Cartes aération tunnels ----------
-
-
-def regle_aeration_nuit_tunnels(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,
-) -> Carte | None:
-    """Nuits chaudes → invitation à aérer les tunnels la nuit."""
-    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    s = exploitation.get("seuils_tunnel", {})
-    seuil_t = float(s.get("aeration_nuit_t_min_celsius", 12.0))
-    nuits_min = int(s.get("aeration_nuit_nuits_min", 2))
-
-    masque = quotidien["t_min_celsius"] >= seuil_t
-    if int(masque.sum()) < nuits_min:
-        return None
-    nb = int(masque.sum())
-    accord = "s" if nb > 1 else ""
-
-    return Carte(
-        titre=(
-            f"Nuits chaudes sur 7 j — {nb} nuit{accord} avec T° min ≥ "
-            f"{seuil_t:.0f} °C (laisser les portes ouvertes la nuit)"
-        ),
-        invitation="Pour limiter condensation et risque de maladies sous abri.",
-        niveau=NIVEAU_INFO,
-        picto="🌬️",
-        detail_df=quotidien[["t_min_celsius"]],
-        detail_source=SOURCE_T_FORECAST,
-        surlignage={"t_min_celsius": ("≥", seuil_t)},
-    )
-
-
-def regle_fermeture_nuit_tunnels(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,
-) -> Carte | None:
-    """Nuits froides → invitation à fermer les tunnels la nuit."""
-    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    s = exploitation.get("seuils_tunnel", {})
-    seuil_t = float(s.get("fermeture_nuit_t_min_celsius", 3.0))
-    nuits_min = int(s.get("fermeture_nuit_nuits_min", 1))
-
-    masque = quotidien["t_min_celsius"] <= seuil_t
-    if int(masque.sum()) < nuits_min:
-        return None
-    nb = int(masque.sum())
-    accord = "s" if nb > 1 else ""
-
-    return Carte(
-        titre=(
-            f"Nuits fraîches sur 7 j — {nb} nuit{accord} avec T° min ≤ "
-            f"{seuil_t:.0f} °C (fermer les portes la nuit)"
-        ),
-        invitation="Pour préserver les cultures sensibles sous abri.",
-        niveau=NIVEAU_INFO,
-        picto="🔒",
-        detail_df=quotidien[["t_min_celsius"]],
-        detail_source=SOURCE_T_FORECAST,
-        surlignage={"t_min_celsius": ("≤", seuil_t)},
-    )
-
-
-# ---------- Cartes bilan hydrique (v1) ----------
-
-
-def regle_deficit_plein_champ(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,  # noqa: ARG001
-) -> Carte | None:
-    """Bilan eau cumulé négatif → invitation à vérifier l'humidité du sol."""
-    cols_requises = {"pluie_24h_mm", "etp_mm"}
-    if not cols_requises.issubset(quotidien.columns) or quotidien.empty:
-        return None
-    seuil_mm = float(exploitation.get("seuils_hydrique", {}).get("deficit_plein_champ_mm", -10.0))
-    bilan_cumul = float((quotidien["pluie_24h_mm"] - quotidien["etp_mm"]).sum())
-    if bilan_cumul > seuil_mm:
-        return None
-
-    detail_df = quotidien[["pluie_24h_mm", "etp_mm"]].copy()
-    detail_df["bilan_eau_jour_mm"] = detail_df["pluie_24h_mm"] - detail_df["etp_mm"]
-
-    return Carte(
-        titre=(
-            f"Déficit hydrique sur 7 j — bilan pluie − ETP {bilan_cumul:+.1f} mm "
-            "(vérifier humidité du sol, anticiper irrigation)"
-        ),
-        invitation="Pour la reprise en plein champ et le remplissage du bassin.",
-        niveau=NIVEAU_ANTICIPER,
-        picto="💧",
-        detail_intro=(
-            "Indicateur brut sans réserve utile du sol. Pour le bilan "
-            "complet avec RU, voir « Bilan hydrique — modèle sol complet » "
-            "plus bas."
-        ),
-        detail_df=detail_df,
-        detail_source=SOURCE_PLUIE_ETP,
-        surlignage={"bilan_eau_jour_mm": ("<", 0.0)},
-    )
-
-
-def regle_demande_evap_tunnel(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,
-) -> Carte | None:
-    """ETP cumulée 7 j élevée → invitation à anticiper l'irrigation tunnel."""
-    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
-        return None
-    if "etp_mm" not in quotidien.columns or quotidien.empty:
-        return None
-    seuil_mm = float(
-        exploitation.get("seuils_hydrique", {}).get("demande_evap_tunnel_etp_cumul_mm", 20.0)
-    )
-    etp_cumul = float(quotidien["etp_mm"].sum())
-    if etp_cumul < seuil_mm:
-        return None
-    etp_moy = etp_cumul / max(1, len(quotidien))
-    # Surligne les jours où l'ETP est au-dessus de la moyenne hebdo —
-    # repère les pics de demande dans la semaine.
-    seuil_surlignage = etp_moy
-
-    return Carte(
-        titre=(
-            f"Forte demande évaporative sur 7 j — ETP {etp_cumul:.0f} mm cumulés "
-            "(anticiper irrigation et bassinage tunnel)"
-        ),
-        invitation="Pour les cultures sous tunnel (vérifier le stock d'eau).",
-        niveau=NIVEAU_ANTICIPER,
-        picto="🌡️",
-        detail_intro=(
-            "ETP **extérieure** : multiplier par *k_tunnel* "
-            "(~0.55 à 0.90 selon ventilation) pour estimer la demande "
-            "réelle sous abri."
-        ),
-        detail_df=quotidien[["etp_mm"]],
-        detail_source=SOURCE_ETP_SOCLE,
-        surlignage={"etp_mm": (">", seuil_surlignage)},
-    )
-
-
-# ---------- Cartes travail du sol (v2) ----------
-
-
 def _fmt_date_courte(ts: pd.Timestamp) -> str:
-    """Date courte ``lun. 02 juin`` pour les libellés de fenêtre."""
+    """Date courte ``lun. 02 juin``."""
     jours = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
     mois = [
         "janv.",
@@ -400,12 +149,431 @@ def _fmt_date_courte(ts: pd.Timestamp) -> str:
     return f"{jours[ts.weekday()]} {ts.day:02d} {mois[ts.month - 1]}"
 
 
+# ---------- Paramètres ajustables réutilisables par règle ----------
+
+_PARAMS_PURGE_GEL = [
+    ParamAjustable(
+        "Seuil T° min déclencheur (°C)",
+        "seuils_gel.purge_irrigation_t_seuil_celsius",
+        -5.0,
+        5.0,
+        0.5,
+        "Sous cette T° min, on signale l'épisode (défaut 0 °C = gel franc).",
+    ),
+]
+
+_PARAMS_VOILES = [
+    ParamAjustable(
+        "Seuil T° de comptage (°C)",
+        "seuils_gel.voiles_p17_t_seuil_celsius",
+        -10.0,
+        5.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "DJ cumulés déclencheurs",
+        "seuils_gel.voiles_p17_degres_jours_min",
+        0.5,
+        30.0,
+        0.5,
+    ),
+]
+
+_PARAMS_RACINES = [
+    ParamAjustable(
+        "Seuil T° sévère (°C)",
+        "seuils_gel.recolte_racines_t_seuil_celsius",
+        -15.0,
+        0.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "DJ sévères déclencheurs",
+        "seuils_gel.recolte_racines_degres_jours_min",
+        1.0,
+        30.0,
+        0.5,
+    ),
+]
+
+_PARAMS_AERATION = [
+    ParamAjustable(
+        "Seuil T° min nuit (°C)",
+        "seuils_tunnel.aeration_nuit_t_min_celsius",
+        5.0,
+        20.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "Nuits minimum",
+        "seuils_tunnel.aeration_nuit_nuits_min",
+        1.0,
+        7.0,
+        1.0,
+    ),
+]
+
+_PARAMS_FERMETURE = [
+    ParamAjustable(
+        "Seuil T° min nuit (°C)",
+        "seuils_tunnel.fermeture_nuit_t_min_celsius",
+        -5.0,
+        10.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "Nuits minimum",
+        "seuils_tunnel.fermeture_nuit_nuits_min",
+        1.0,
+        7.0,
+        1.0,
+    ),
+]
+
+_PARAMS_DEFICIT = [
+    ParamAjustable(
+        "Seuil bilan cumulé (mm)",
+        "seuils_hydrique.deficit_mm",
+        -50.0,
+        0.0,
+        1.0,
+    ),
+]
+
+_PARAMS_STRESS = [
+    ParamAjustable(
+        "Seuil T° max (°C)",
+        "seuils_thermique.stress_t_max_celsius",
+        20.0,
+        40.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "Jours minimum",
+        "seuils_thermique.stress_jours_min",
+        1.0,
+        7.0,
+        1.0,
+    ),
+]
+
+_PARAMS_FENETRE_SECHE = [
+    ParamAjustable(
+        "Seuil pluie « sèche » (mm/j)",
+        "seuils_travail_sol.fenetre_seche_pluie_max_mm_par_jour",
+        0.0,
+        5.0,
+        0.1,
+    ),
+    ParamAjustable(
+        "Durée minimale (jours)",
+        "seuils_travail_sol.fenetre_seche_duree_min_jours",
+        1.0,
+        7.0,
+        1.0,
+    ),
+]
+
+_PARAMS_FENETRE_PLUVIEUSE = [
+    ParamAjustable(
+        "Seuil pluie « pluvieuse » (mm/j)",
+        "seuils_travail_sol.fenetre_pluvieuse_pluie_min_mm_par_jour",
+        1.0,
+        20.0,
+        0.5,
+    ),
+    ParamAjustable(
+        "Durée minimale (jours)",
+        "seuils_travail_sol.fenetre_pluvieuse_duree_min_jours",
+        1.0,
+        7.0,
+        1.0,
+    ),
+]
+
+
+# ---------- Cartes gel ----------
+
+
+def regle_purge_irrigation_gel(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,  # noqa: ARG001
+) -> Carte | None:
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    seuil_t = float(exploitation.get("seuils_gel", {}).get("purge_irrigation_t_seuil_celsius", 0.0))
+    masque = quotidien["t_min_celsius"] <= seuil_t
+    if masque.any():
+        t_min_min = float(quotidien.loc[masque, "t_min_celsius"].min())
+        titre = (
+            f"Gel attendu sur 7 j — T° min prévue {t_min_min:.1f} °C (penser à purger l'irrigation)"
+        )
+        active = True
+    else:
+        t_min_observe = float(quotidien["t_min_celsius"].min())
+        titre = (
+            f"Pas de gel attendu — T° min mini +{t_min_observe:.1f} °C (seuil {seuil_t:+.1f} °C)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="❄️",
+        detail_df=quotidien[["t_min_celsius"]],
+        active=active,
+        surlignage={"t_min_celsius": ("≤", seuil_t)},
+        parametres_ajustables=_PARAMS_PURGE_GEL,
+    )
+
+
+def regle_voiles_p17(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,  # noqa: ARG001
+) -> Carte | None:
+    if not exploitation.get("equipement", {}).get("voiles_p17_disponibles", False):
+        return None
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_gel", {})
+    seuil_t = float(s.get("voiles_p17_t_seuil_celsius", 0.0))
+    seuil_dj = float(s.get("voiles_p17_degres_jours_min", 2.0))
+
+    dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
+    if dj >= seuil_dj:
+        titre = (
+            f"Froid cumulé sur 7 j — {dj:.1f} DJ sous {seuil_t:.0f} °C (envisager des voiles P17)"
+        )
+        active = True
+    else:
+        titre = (
+            f"Pas de froid cumulé notable — {dj:.1f} DJ sous {seuil_t:.0f} °C "
+            f"(seuil {seuil_dj:.1f} DJ)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="🛡️",
+        detail_df=quotidien[["t_min_celsius"]],
+        active=active,
+        surlignage={"t_min_celsius": ("<", seuil_t)},
+        parametres_ajustables=_PARAMS_VOILES,
+    )
+
+
+def regle_recolte_racines_avant_gel(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,
+) -> Carte | None:
+    if not _saison_active(exploitation, "legumes_racine_au_champ", today.month):
+        return None
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_gel", {})
+    seuil_t = float(s.get("recolte_racines_t_seuil_celsius", -5.0))
+    seuil_dj = float(s.get("recolte_racines_degres_jours_min", 4.0))
+
+    dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
+    if dj >= seuil_dj:
+        titre = (
+            f"Froid sévère cumulé sur 7 j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
+            "(envisager une récolte de protection)"
+        )
+        active = True
+    else:
+        titre = (
+            f"Pas de froid sévère cumulé — {dj:.1f} DJ sous {seuil_t:.0f} °C "
+            f"(seuil {seuil_dj:.1f} DJ)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="🥕",
+        detail_df=quotidien[["t_min_celsius"]],
+        active=active,
+        surlignage={"t_min_celsius": ("<", seuil_t)},
+        parametres_ajustables=_PARAMS_RACINES,
+    )
+
+
+# ---------- Cartes aération tunnels ----------
+
+
+def regle_aeration_nuit_tunnels(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,
+) -> Carte | None:
+    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
+        return None
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_tunnel", {})
+    seuil_t = float(s.get("aeration_nuit_t_min_celsius", 12.0))
+    nuits_min = int(s.get("aeration_nuit_nuits_min", 2))
+
+    masque = quotidien["t_min_celsius"] >= seuil_t
+    nb = int(masque.sum())
+    if nb >= nuits_min:
+        accord = "s" if nb > 1 else ""
+        titre = (
+            f"Nuits chaudes sur 7 j — {nb} nuit{accord} avec T° min ≥ "
+            f"{seuil_t:.0f} °C (laisser les portes ouvertes la nuit)"
+        )
+        active = True
+    else:
+        t_min_max = float(quotidien["t_min_celsius"].max())
+        titre = (
+            f"Pas de nuits chaudes — T° min max {t_min_max:.1f} °C "
+            f"(seuil {seuil_t:.0f} °C, {nb}/{nuits_min} nuits)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_INFO,
+        picto="🌬️",
+        detail_df=quotidien[["t_min_celsius"]],
+        active=active,
+        surlignage={"t_min_celsius": ("≥", seuil_t)},
+        parametres_ajustables=_PARAMS_AERATION,
+    )
+
+
+def regle_fermeture_nuit_tunnels(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,
+) -> Carte | None:
+    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
+        return None
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_tunnel", {})
+    seuil_t = float(s.get("fermeture_nuit_t_min_celsius", 3.0))
+    nuits_min = int(s.get("fermeture_nuit_nuits_min", 1))
+
+    masque = quotidien["t_min_celsius"] <= seuil_t
+    nb = int(masque.sum())
+    if nb >= nuits_min:
+        accord = "s" if nb > 1 else ""
+        titre = (
+            f"Nuits fraîches sur 7 j — {nb} nuit{accord} avec T° min ≤ "
+            f"{seuil_t:.0f} °C (fermer les portes la nuit)"
+        )
+        active = True
+    else:
+        t_min_min = float(quotidien["t_min_celsius"].min())
+        titre = f"Pas de nuits fraîches — T° min mini {t_min_min:+.1f} °C (seuil {seuil_t:.0f} °C)"
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_INFO,
+        picto="🔒",
+        detail_df=quotidien[["t_min_celsius"]],
+        active=active,
+        surlignage={"t_min_celsius": ("≤", seuil_t)},
+        parametres_ajustables=_PARAMS_FERMETURE,
+    )
+
+
+# ---------- Cartes hydrique & thermique ----------
+
+
+def regle_deficit_hydrique(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,  # noqa: ARG001
+) -> Carte | None:
+    cols_requises = {"pluie_24h_mm", "etp_mm"}
+    if not cols_requises.issubset(quotidien.columns) or quotidien.empty:
+        return None
+    seuil_mm = float(exploitation.get("seuils_hydrique", {}).get("deficit_mm", -10.0))
+    bilan_cumul = float((quotidien["pluie_24h_mm"] - quotidien["etp_mm"]).sum())
+
+    detail_df = quotidien[["pluie_24h_mm", "etp_mm"]].copy()
+    detail_df["bilan_eau_jour_mm"] = detail_df["pluie_24h_mm"] - detail_df["etp_mm"]
+
+    if bilan_cumul <= seuil_mm:
+        titre = (
+            f"Déficit hydrique sur 7 j — bilan pluie − ETP {bilan_cumul:+.1f} mm "
+            "(vérifier humidité du sol, anticiper irrigation)"
+        )
+        active = True
+    else:
+        titre = (
+            f"Bilan hydrique correct — {bilan_cumul:+.1f} mm sur 7 j "
+            f"(seuil déficit {seuil_mm:+.1f} mm)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="💧",
+        detail_df=detail_df,
+        active=active,
+        surlignage={"bilan_eau_jour_mm": ("<", 0.0)},
+        parametres_ajustables=_PARAMS_DEFICIT,
+    )
+
+
+def regle_stress_thermique(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,  # noqa: ARG001
+) -> Carte | None:
+    """Fortes chaleurs prolongées → bassinage / ombrage (Agrobio 35)."""
+    if "t_max_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    s = exploitation.get("seuils_thermique", {})
+    seuil_t = float(s.get("stress_t_max_celsius", 28.0))
+    jours_min = int(s.get("stress_jours_min", 2))
+
+    masque = quotidien["t_max_celsius"] >= seuil_t
+    nb = int(masque.sum())
+    if nb >= jours_min:
+        accord = "s" if nb > 1 else ""
+        titre = (
+            f"Fortes chaleurs sur 7 j — {nb} jour{accord} avec T° max ≥ "
+            f"{seuil_t:.0f} °C (anticiper bassinage, ombrage, aération max)"
+        )
+        active = True
+    else:
+        t_max_max = float(quotidien["t_max_celsius"].max())
+        titre = (
+            f"Pas de fortes chaleurs — T° max max {t_max_max:.1f} °C "
+            f"(seuil {seuil_t:.0f} °C, {nb}/{jours_min} jours)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="🌡️",
+        detail_df=quotidien[["t_max_celsius"]],
+        active=active,
+        surlignage={"t_max_celsius": ("≥", seuil_t)},
+        parametres_ajustables=_PARAMS_STRESS,
+    )
+
+
+# ---------- Cartes travail du sol ----------
+
+
 def regle_fenetre_seche_travail_sol_hiver(
     quotidien: pd.DataFrame,
     exploitation: dict[str, Any],
     today: pd.Timestamp,
 ) -> Carte | None:
-    """Hiver : signaler une fenêtre sèche de plusieurs jours pour le travail."""
     if not _saison_active(exploitation, "travail_sol_recherche_fenetre_seche", today.month):
         return None
     if "pluie_24h_mm" not in quotidien.columns or quotidien.empty:
@@ -416,28 +584,33 @@ def regle_fenetre_seche_travail_sol_hiver(
 
     masque = quotidien["pluie_24h_mm"] <= seuil_pluie
     suite = plus_longue_suite_consecutive(masque)
-    if suite is None or suite[2] < duree_min:
-        return None
-    i_debut, i_fin, longueur = suite
-    debut = quotidien.index[i_debut]
-    fin = quotidien.index[i_fin]
-
-    return Carte(
-        titre=(
+    longueur = suite[2] if suite else 0
+    if suite is not None and longueur >= duree_min:
+        i_debut, i_fin, _ = suite
+        debut = quotidien.index[i_debut]
+        fin = quotidien.index[i_fin]
+        titre = (
             f"Fenêtre sèche du {_fmt_date_courte(debut)} au {_fmt_date_courte(fin)} — "
             f"{longueur} jours sans pluie significative "
             "(envisager le travail du sol)"
-        ),
-        invitation="Pour la reprise en plein champ.",
+        )
+        active = True
+    else:
+        titre = (
+            f"Pas de fenêtre sèche de {duree_min} jours — "
+            f"plus longue suite {longueur} jour(s) "
+            f"(seuil pluie ≤ {seuil_pluie:.1f} mm)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
         niveau=NIVEAU_INFO,
         picto="🚜",
-        detail_intro=(
-            f"Jour « sec » = pluie ≤ {seuil_pluie:.1f} mm. Durée minimale "
-            f"signalée : {duree_min} jours consécutifs."
-        ),
         detail_df=quotidien[["pluie_24h_mm"]],
-        detail_source=SOURCE_PLUIE_FORECAST,
+        active=active,
         surlignage={"pluie_24h_mm": ("≤", seuil_pluie)},
+        parametres_ajustables=_PARAMS_FENETRE_SECHE,
     )
 
 
@@ -446,7 +619,6 @@ def regle_fenetre_pluvieuse_travail_sol_ete(
     exploitation: dict[str, Any],
     today: pd.Timestamp,
 ) -> Carte | None:
-    """Été : alerter sur une fenêtre pluvieuse qui empêcherait le travail."""
     if not _saison_active(exploitation, "travail_sol_recherche_fenetre_pluvieuse", today.month):
         return None
     if "pluie_24h_mm" not in quotidien.columns or quotidien.empty:
@@ -457,28 +629,33 @@ def regle_fenetre_pluvieuse_travail_sol_ete(
 
     masque = quotidien["pluie_24h_mm"] >= seuil_pluie
     suite = plus_longue_suite_consecutive(masque)
-    if suite is None or suite[2] < duree_min:
-        return None
-    i_debut, i_fin, longueur = suite
-    debut = quotidien.index[i_debut]
-    fin = quotidien.index[i_fin]
-
-    return Carte(
-        titre=(
+    longueur = suite[2] if suite else 0
+    if suite is not None and longueur >= duree_min:
+        i_debut, i_fin, _ = suite
+        debut = quotidien.index[i_debut]
+        fin = quotidien.index[i_fin]
+        titre = (
             f"Fenêtre pluvieuse du {_fmt_date_courte(debut)} au {_fmt_date_courte(fin)} — "
             f"{longueur} jours de pluie attendue "
-            "(anticiper le travail du sol avant)"
-        ),
-        invitation="Pour la reprise en plein champ.",
-        niveau=NIVEAU_ANTICIPER,
+            "(anticiper le travail du sol)"
+        )
+        active = True
+    else:
+        titre = (
+            f"Pas de fenêtre pluvieuse de {duree_min} jours — "
+            f"plus longue suite {longueur} jour(s) "
+            f"(seuil pluie ≥ {seuil_pluie:.1f} mm)"
+        )
+        active = False
+
+    return Carte(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
         picto="🌧️",
-        detail_intro=(
-            f"Jour « pluvieux » = pluie ≥ {seuil_pluie:.1f} mm. Durée "
-            f"minimale signalée : {duree_min} jours consécutifs."
-        ),
         detail_df=quotidien[["pluie_24h_mm"]],
-        detail_source=SOURCE_PLUIE_FORECAST,
+        active=active,
         surlignage={"pluie_24h_mm": ("≥", seuil_pluie)},
+        parametres_ajustables=_PARAMS_FENETRE_PLUVIEUSE,
     )
 
 
@@ -490,29 +667,24 @@ def evaluer_decisions(
     exploitation: dict[str, Any],
     today: pd.Timestamp,
 ) -> list[Carte]:
-    """Évalue toutes les règles et retourne les cartes actives.
+    """Retourne toutes les cartes applicables (actives ou inactives).
 
-    Parameters
-    ----------
-    quotidien :
-        Sortie de ``calculer_indicateurs_quotidiens`` (DataFrame indexé
-        par date locale, colonnes t_min/t_max/pluie/etp/etc.).
-    exploitation :
-        Dict chargé depuis ``config/exploitation.yaml``.
-    today :
-        Timestamp tz-naive représentant la date locale courante (utilisée
-        pour les fenêtres saisonnières).
+    Les règles à fenêtre saisonnière (racines, fenêtre sèche, fenêtre
+    pluvieuse, aération/fermeture tunnel hors saison de culture) sont
+    filtrées : si non applicables, elles renvoient ``None`` et ne sont
+    pas dans la liste. Les cartes applicables sont toutes incluses, avec
+    leur drapeau ``active`` selon que le signal franchit son seuil.
     """
     cartes: list[Carte] = []
 
     for regle in (
-        regle_purge_irrigation_gel,
+        lambda q, t: regle_purge_irrigation_gel(q, exploitation, t),
         lambda q, t: regle_voiles_p17(q, exploitation, t),
         lambda q, t: regle_recolte_racines_avant_gel(q, exploitation, t),
         lambda q, t: regle_aeration_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_fermeture_nuit_tunnels(q, exploitation, t),
-        lambda q, t: regle_deficit_plein_champ(q, exploitation, t),
-        lambda q, t: regle_demande_evap_tunnel(q, exploitation, t),
+        lambda q, t: regle_deficit_hydrique(q, exploitation, t),
+        lambda q, t: regle_stress_thermique(q, exploitation, t),
         lambda q, t: regle_fenetre_seche_travail_sol_hiver(q, exploitation, t),
         lambda q, t: regle_fenetre_pluvieuse_travail_sol_ete(q, exploitation, t),
     ):
