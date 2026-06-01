@@ -52,10 +52,6 @@ from apps.operationnelle.indicateurs import (  # noqa: E402
     calculer_indicateurs_quotidiens,
     jours_complets_seulement,
 )
-from apps.operationnelle.ui_helpers import (  # noqa: E402
-    preparer_table_affichage,
-    styler_ligne,
-)
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
 from apps.shared.style import (  # noqa: E402
     COULEUR_CHAUD,
@@ -84,6 +80,19 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
 
 
+# Couleurs Wong alignées sur le mail Veille (cf. `apps/veille/email.py`).
+_T_MIN_COLOR = "#0072B2"  # bleu
+_T_MAX_COLOR = "#D55E00"  # orange foncé
+_T_MOY_COLOR = "#7f8c8d"  # gris
+_PLUIE_COLOR = "#56B4E9"  # bleu clair
+_PROBA_COLOR = "#888888"  # gris
+_VENT_COLOR = "#009E73"  # vert
+_RAFALES_COLOR = "#E69F00"  # jaune-orange
+_LABEL_COLOR = "#34495e"  # gris foncé (valeurs)
+_LIGNE_LABEL_COLOR = "#555"  # gris (label de ligne)
+_FOND_PICTO = "#34495e"  # bandeau sombre derrière les pictos
+_FOND_SOUS_LABEL = "#cfd6dc"  # texte sur bandeau sombre
+
 _FLECHE_DIRECTION_VENT = {
     "N": "↓",
     "NE": "↙",
@@ -96,93 +105,65 @@ _FLECHE_DIRECTION_VENT = {
 }
 
 
-def _rendre_cellule_tendance(cellule, fenetre: str) -> str:  # type: CelluleFenetre
-    """Rend une cellule de tendance en HTML : picto + 4 paires de variables."""
-    from apps.shared.pictograms import icone_base64
+def _unite_inline(texte: str) -> str:
+    """Span unité discret (gris clair, plus petit) à coller après une valeur."""
+    return f'<span style="color:#aaa;font-weight:400;font-size:11px;">&nbsp;{texte}</span>'
 
-    if cellule.code_picto is None:
-        uri_picto = ""
-        bloc_picto = '<div style="color:#aaa;font-size:24px;">—</div>'
-    else:
-        uri_picto = icone_base64(cellule.code_picto)
-        bloc_picto = (
-            f'<img src="{uri_picto}" alt="{cellule.libelle_picto}" '
-            f'title="{cellule.libelle_picto}" '
-            'style="width:36px;height:36px;display:block;margin:0 auto;">'
-            f'<div style="font-size:10px;color:#888;margin-top:1px;'
-            f'white-space:nowrap;">{cellule.libelle_picto}</div>'
-        )
 
-    # T° : mean / max (jour) ou mean / min (nuit). Couleurs Wong neutres
-    # pour la moyenne, rouge pour max, bleu pour min.
-    couleur_extreme = COULEUR_CHAUD if fenetre == "jour" else COULEUR_FROID
-    libelle_extreme = "max" if fenetre == "jour" else "min"
+def _fmt_t_cell(cellule, fenetre: str) -> str:
+    """Cellule T° : mean / max (jour) ou mean / min (nuit), couleurs Veille."""
     if pd.isna(cellule.t_mean) or pd.isna(cellule.t_extreme):
-        ligne_t = '<div style="color:#aaa;">—</div>'
-    else:
-        ligne_t = (
-            '<div style="font-size:12px;">'
-            f'<span style="color:{COULEUR_NEUTRE};">'
-            f"{cellule.t_mean:.0f}</span>"
-            '<span style="color:#aaa;">/</span>'
-            f'<span style="color:{couleur_extreme};font-weight:600;" '
-            f'title="T° {libelle_extreme}">{cellule.t_extreme:.0f}</span>'
-            '<span style="color:#aaa;font-size:10px;">&nbsp;°C</span>'
-            "</div>"
-        )
-
-    if pd.isna(cellule.pluie_mm):
-        ligne_pluie = '<div style="color:#aaa;">—</div>'
-    else:
-        proba_html = (
-            '<span style="color:#aaa;">/</span>'
-            f'<span style="color:#888;font-size:11px;">'
-            f"{cellule.prob_pluie_pct:.0f}%</span>"
-            if not pd.isna(cellule.prob_pluie_pct)
-            else ""
-        )
-        ligne_pluie = (
-            '<div style="font-size:12px;">'
-            f'<span style="color:{COULEUR_PLUIE};">{cellule.pluie_mm:.1f}</span>'
-            '<span style="color:#aaa;font-size:10px;">&nbsp;mm</span>'
-            f"{proba_html}"
-            "</div>"
-        )
-
-    if pd.isna(cellule.vent_moy_kmh) or pd.isna(cellule.rafales_max_kmh):
-        ligne_vent = '<div style="color:#aaa;">—</div>'
-    else:
-        ligne_vent = (
-            '<div style="font-size:12px;">'
-            f'<span style="color:#16a085;">{cellule.vent_moy_kmh:.0f}</span>'
-            '<span style="color:#aaa;">/</span>'
-            f'<span style="color:#e67e22;font-weight:600;" title="rafales">'
-            f"{cellule.rafales_max_kmh:.0f}</span>"
-            '<span style="color:#aaa;font-size:10px;">&nbsp;km/h</span>'
-            "</div>"
-        )
-
-    if not cellule.direction_cardinal:
-        ligne_dir = '<div style="color:#aaa;">—</div>'
-    else:
-        fleche = _FLECHE_DIRECTION_VENT.get(cellule.direction_cardinal, "·")
-        ligne_dir = (
-            '<div style="font-size:12px;color:#34495e;">'
-            f'<span style="font-size:14px;">{fleche}</span>&nbsp;'
-            f'<span style="font-size:11px;color:#666;">'
-            f"{cellule.direction_cardinal}</span>"
-            "</div>"
-        )
-
+        return "—"
+    couleur_extreme = _T_MAX_COLOR if fenetre == "jour" else _T_MIN_COLOR
+    libelle = "max" if fenetre == "jour" else "min"
     return (
-        '<td style="padding:4px 6px;text-align:center;vertical-align:top;'
-        'border-left:1px solid #f0f0f0;">'
-        + bloc_picto
-        + ligne_t
-        + ligne_pluie
-        + ligne_vent
-        + ligne_dir
-        + "</td>"
+        f'<span style="color:{_T_MOY_COLOR};">{cellule.t_mean:.0f}</span>'
+        '<span style="color:#aaa;">/</span>'
+        f'<span style="color:{couleur_extreme};" title="T° {libelle}">'
+        f"{cellule.t_extreme:.0f}</span>"
+        f"{_unite_inline('°C')}"
+    )
+
+
+def _fmt_pluie_cell(cellule) -> str:
+    """Cellule pluie : cumul mm / proba max %, couleurs Veille."""
+    if pd.isna(cellule.pluie_mm):
+        return "—"
+    base = f'<span style="color:{_PLUIE_COLOR};">{cellule.pluie_mm:.1f}</span>' + _unite_inline(
+        "mm"
+    )
+    if pd.isna(cellule.prob_pluie_pct):
+        return base
+    proba_int = int(round(cellule.prob_pluie_pct))
+    return (
+        base
+        + '<span style="color:#aaa;"> / </span>'
+        + f'<span style="color:{_PROBA_COLOR};">{proba_int:02d}</span>'
+        + _unite_inline("%")
+    )
+
+
+def _fmt_vent_cell(cellule) -> str:
+    """Cellule vent : moy / rafales km/h, couleurs Veille."""
+    if pd.isna(cellule.vent_moy_kmh) or pd.isna(cellule.rafales_max_kmh):
+        return "—"
+    return (
+        f'<span style="color:{_VENT_COLOR};">{cellule.vent_moy_kmh:.0f}</span>'
+        '<span style="color:#aaa;">/</span>'
+        f'<span style="color:{_RAFALES_COLOR};" title="rafales">'
+        f"{cellule.rafales_max_kmh:.0f}</span>"
+        f"{_unite_inline('km/h')}"
+    )
+
+
+def _fmt_dir_cell(cellule) -> str:
+    """Cellule direction : flèche grande + cardinal discret."""
+    if not cellule.direction_cardinal:
+        return "—"
+    fleche = _FLECHE_DIRECTION_VENT.get(cellule.direction_cardinal, "·")
+    return (
+        f'<span style="font-size:20px;color:{_LABEL_COLOR};line-height:1;">{fleche}</span>'
+        f'<span style="color:#888;font-size:11px;">&nbsp;{cellule.direction_cardinal}</span>'
     )
 
 
@@ -191,20 +172,23 @@ def _afficher_grille_tendance(
     horizon_jours: int,
     tz_locale: str,
 ) -> None:
-    """Grille tendance jour/nuit × N j × M modèles.
+    """Grille tendance : colonnes dédoublées jour/nuit × N j, lignes par variable.
 
-    ``series`` est une liste de tuples ``(label_modele, prevision_horaire)``
-    à empiler (typiquement [("ARPEGE", prev_courte), ("ECMWF IFS",
-    prev_longue)]). Chaque modèle est rendu en 2 lignes (jour + nuit),
-    ses cellules manquantes (modèle ne couvrant pas un jour) restent
-    vides. Les jours affichés sont l'union des jours couverts par au
-    moins un modèle, plafonné à ``horizon_jours``.
+    Format : pour chaque jour civil, deux colonnes côte-à-côte (jour
+    puis nuit). Pour chaque variable (picto, T°, pluie, vent, direction),
+    deux sous-lignes empilées (ARPEGE puis ECMWF IFS) — paires de modèles
+    regroupées par variable, dans l'esprit de la grille Veille.
+
+    ``series`` : liste ``[(label, prevision_horaire), …]`` à empiler.
+    Si un modèle ne couvre pas un jour (horizon court ARPEGE > 4 j), les
+    cellules concernées affichent « — » discret.
     """
     from apps.operationnelle.tendances import (
         FENETRE_JOUR,
         FENETRE_NUIT,
         agreger_par_fenetre,
     )
+    from apps.shared.pictograms import icone_base64
 
     agreges: list[tuple[str, dict]] = []
     for label, horaire in series:
@@ -220,54 +204,122 @@ def _afficher_grille_tendance(
         st.markdown("_Aucune donnée disponible pour les modèles sélectionnés._")
         return
 
-    en_tete = (
+    # En-tête deux étages : ligne 1 = date (colspan 2 = jour+nuit),
+    # ligne 2 = libellés jour/nuit.
+    en_tete_dates = (
         '<tr style="background:#fafafa;">'
-        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
-        "font-size:12px;position:sticky;left:0;background:#fafafa;"
-        'min-width:120px;">Modèle · fenêtre</th>'
+        '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
+        "font-size:13px;font-weight:600;position:sticky;left:0;"
+        'background:#fafafa;min-width:140px;">Indicateur · modèle</th>'
         + "".join(
-            '<th style="padding:6px 8px;text-align:center;font-size:11px;'
-            'color:#888;white-space:nowrap;border-left:1px solid #f0f0f0;">'
-            f"{jour.strftime('%a %d %b').capitalize()}</th>"
+            '<th colspan="2" style="padding:6px 4px;text-align:center;'
+            "font-size:13px;color:#34495e;font-weight:600;"
+            'border-left:1px solid #e8e8e8;">'
+            f"{jour.strftime('%a %d/%m').capitalize()}</th>"
             for jour in jours_tous
         )
         + "</tr>"
     )
-
-    cell_vide = (
-        '<td style="padding:4px 6px;text-align:center;color:#ccc;'
-        'border-left:1px solid #f0f0f0;">—</td>'
+    en_tete_fenetres = (
+        '<tr style="background:#fafafa;">'
+        + "".join(
+            '<th style="padding:2px 4px;text-align:center;font-size:11px;'
+            'color:#888;font-weight:400;border-left:1px solid #e8e8e8;">Jour</th>'
+            '<th style="padding:2px 4px;text-align:center;font-size:11px;'
+            'color:#888;font-weight:400;">Nuit</th>'
+            for _ in jours_tous
+        )
+        + "</tr>"
     )
 
-    lignes_html = []
-    for label, agg in agreges:
-        for fenetre, libelle_fenetre in (
-            (FENETRE_JOUR, "Jour"),
-            (FENETRE_NUIT, "Nuit"),
-        ):
-            cellules = [
-                '<th style="padding:6px 8px;text-align:left;font-size:12px;'
-                "color:#34495e;position:sticky;left:0;background:white;"
-                'vertical-align:top;">'
-                f"{label}<br>"
-                f'<span style="color:#888;font-size:11px;">{libelle_fenetre}</span>'
-                "</th>"
-            ]
+    def _label_ligne(libelle: str, modele: str, sur_fond_sombre: bool = False) -> str:
+        col_lib = _FOND_SOUS_LABEL if sur_fond_sombre else _LIGNE_LABEL_COLOR
+        col_mod = _FOND_SOUS_LABEL if sur_fond_sombre else "#888"
+        bg = _FOND_PICTO if sur_fond_sombre else "white"
+        return (
+            f'<td style="padding:4px 8px;font-size:13px;color:{col_lib};'
+            f'position:sticky;left:0;background:{bg};white-space:nowrap;">'
+            f"{libelle} "
+            f'<span style="color:{col_mod};font-size:11px;">· {modele}</span>'
+            "</td>"
+        )
+
+    def _cellule_vide(sur_fond_sombre: bool = False) -> str:
+        bg = "" if not sur_fond_sombre else f";background:{_FOND_PICTO}"
+        return (
+            '<td style="padding:4px;text-align:center;color:#ccc;'
+            f'font-size:13px{bg};border-left:1px solid #e8e8e8;">—</td>'
+        )
+
+    def _cellule_valeur(html_val: str) -> str:
+        return (
+            '<td style="padding:4px;text-align:center;'
+            "font-variant-numeric:tabular-nums;font-size:13px;"
+            f'font-weight:700;color:{_LABEL_COLOR};border-left:1px solid #e8e8e8;">'
+            f"{html_val}</td>"
+        )
+
+    def _cellule_picto(cellule, sur_fond_sombre: bool = True) -> str:
+        if cellule is None or cellule.code_picto is None:
+            return _cellule_vide(sur_fond_sombre=sur_fond_sombre)
+        uri = icone_base64(cellule.code_picto)
+        return (
+            '<td style="padding:2px 4px;text-align:center;'
+            f"background:{_FOND_PICTO};"
+            'border-left:1px solid #2c3e50;">'
+            f'<img src="{uri}" alt="{cellule.libelle_picto}" '
+            f'title="{cellule.libelle_picto}" '
+            'style="width:56px;height:56px;display:block;margin:0 auto;">'
+            "</td>"
+        )
+
+    def _ligne_variable(
+        libelle: str,
+        format_fn,
+        besoin_fenetre: bool = False,
+    ) -> list[str]:
+        """Construit 2 lignes (une par modèle) pour une variable donnée."""
+        lignes = []
+        for label, agg in agreges:
+            cellules = [_label_ligne(libelle, label)]
             for jour in jours_tous:
-                cellule = agg.get((jour, fenetre))
-                if cellule is None:
-                    cellules.append(cell_vide)
-                else:
-                    cellules.append(_rendre_cellule_tendance(cellule, fenetre))
-            lignes_html.append("<tr>" + "".join(cellules) + "</tr>")
+                for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
+                    cellule = agg.get((jour, fenetre))
+                    if cellule is None:
+                        cellules.append(_cellule_vide())
+                    else:
+                        val = format_fn(cellule, fenetre) if besoin_fenetre else format_fn(cellule)
+                        cellules.append(_cellule_valeur(val))
+            lignes.append("<tr>" + "".join(cellules) + "</tr>")
+        return lignes
+
+    def _lignes_picto() -> list[str]:
+        """Bandeau picto sombre, 2 sous-lignes (une par modèle)."""
+        lignes = []
+        for label, agg in agreges:
+            cellules = [_label_ligne("Météo", label, sur_fond_sombre=True)]
+            for jour in jours_tous:
+                for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
+                    cellules.append(_cellule_picto(agg.get((jour, fenetre))))
+            lignes.append(f'<tr style="background:{_FOND_PICTO};">' + "".join(cellules) + "</tr>")
+        return lignes
+
+    corps = (
+        _lignes_picto()
+        + _ligne_variable("T° moy/extr.", _fmt_t_cell, besoin_fenetre=True)
+        + _ligne_variable("Pluie / proba", _fmt_pluie_cell)
+        + _ligne_variable("Vent moy / raf.", _fmt_vent_cell)
+        + _ligne_variable("Vent direction", _fmt_dir_cell)
+    )
 
     html = (
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
-        'border:1px solid #eee;border-radius:4px;">'
+        'border:1px solid #e8e8e8;border-radius:4px;">'
         '<table style="border-collapse:collapse;min-width:100%;'
         'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
-        + en_tete
-        + "".join(lignes_html)
+        + en_tete_dates
+        + en_tete_fenetres
+        + "".join(corps)
         + "</table></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -890,20 +942,9 @@ def main() -> None:
             except KeyError as e:
                 st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
-    # ----- Tableau détaillé (replié par défaut) -----
-    with st.expander("Tableau détaillé jour par jour", expanded=False):
-        st.caption(
-            "Coloration : T° rouge si gel/canicule franchi · "
-            "rafales orange si vent fort · pluie bleu si intense · "
-            "Smith mildiou orange info."
-        )
-        table = preparer_table_affichage(quotidien, tz=site["tz"])
-        styler = table.style.apply(lambda row: styler_ligne(row, config["alertes"]), axis=1)
-        st.dataframe(styler, use_container_width=True)
-
     # ----- Transparence sources (principe #5) -----
     if ui_cfg.get("inclure_sources_brutes", True):
-        with st.expander("Vérifier les sources (transparence — principe #5)"):
+        with st.expander("Vérifier les sources"):
             st.markdown(
                 f"""
 - **Sources de données** : Open-Meteo (REST, sans authentification),

@@ -49,6 +49,10 @@ FENETRE_NUIT = "nuit"
 # Conversion vent : Open-Meteo livre en m/s (cf. socle), grille affiche km/h.
 MS_VERS_KMH = 3.6
 
+# Conversion T° : socle Open-Meteo stocke en K (+ 273.15 à l'ingestion,
+# cf. `meteo_socle.sources.openmeteo`). La grille affiche en °C.
+KELVIN_VERS_CELSIUS = 273.15
+
 # Secteurs cardinaux 8 directions (N, NE, E, SE, S, SO, O, NO).
 _CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
 
@@ -115,13 +119,18 @@ def _masque_fenetre(index: pd.DatetimeIndex, jour: pd.Timestamp, fenetre: str) -
 
 
 def _agreger_cellule(group: pd.DataFrame, fenetre: str) -> CelluleFenetre:
-    """Agrège un sous-DataFrame horaire (déjà filtré sur une fenêtre)."""
-    t = group.get("temperature_2m")
-    t_mean = float(t.mean()) if t is not None and not t.empty else float("nan")
+    """Agrège un sous-DataFrame horaire (déjà filtré sur une fenêtre).
+
+    La T° est convertie K → °C : la socle Open-Meteo stocke en kelvin
+    (+ 273.15 à l'ingestion), mais l'utilisateur lit des °C.
+    """
+    t_k = group.get("temperature_2m")
+    t_c = (t_k - KELVIN_VERS_CELSIUS) if t_k is not None else None
+    t_mean = float(t_c.mean()) if t_c is not None and not t_c.empty else float("nan")
     if fenetre == FENETRE_JOUR:
-        t_extreme = float(t.max()) if t is not None and not t.empty else float("nan")
+        t_extreme = float(t_c.max()) if t_c is not None and not t_c.empty else float("nan")
     else:
-        t_extreme = float(t.min()) if t is not None and not t.empty else float("nan")
+        t_extreme = float(t_c.min()) if t_c is not None and not t_c.empty else float("nan")
 
     pluie_mm = (
         float(group["precipitation"].sum()) if "precipitation" in group.columns else float("nan")

@@ -26,6 +26,7 @@ from apps.operationnelle.tendances import (  # noqa: E402
     FENETRE_JOUR_DEBUT,
     FENETRE_JOUR_FIN,
     FENETRE_NUIT,
+    KELVIN_VERS_CELSIUS,
     MS_VERS_KMH,
     _direction_cardinal,
     _direction_moyenne_ponderee,
@@ -35,13 +36,20 @@ from apps.operationnelle.tendances import (  # noqa: E402
 
 
 def _horaire_synthetique(jours: int = 2, tz: str = "Europe/Paris") -> pd.DataFrame:
-    """Prévision synthétique tz-aware UTC sur `jours` jours civils locaux."""
+    """Prévision synthétique tz-aware UTC sur `jours` jours civils locaux.
+
+    Convention socle : `temperature_2m` est en kelvin (cf.
+    `meteo_socle.sources.openmeteo`). On stocke donc en K et les tests
+    vérifient que la sortie agrégée est bien en °C.
+    """
     start_utc = pd.Timestamp("2026-06-01 00:00", tz="UTC")
     idx = pd.date_range(start_utc, periods=24 * jours, freq="h")
     n = len(idx)
-    # T° : sinusoïde diurne, min vers 6 h local, max vers 15 h local.
+    # T° en °C : sinusoïde diurne, min vers 6 h local, max vers 15 h local.
+    # On convertit en K pour respecter la convention socle.
     heure_loc = idx.tz_convert(tz).hour
-    t = 15 + 7 * np.sin((heure_loc - 9) * np.pi / 12)
+    t_celsius = 15 + 7 * np.sin((heure_loc - 9) * np.pi / 12)
+    t = t_celsius + KELVIN_VERS_CELSIUS
     # Pluie : 1 mm/h sur heures 6-9 du J0, sinon 0.
     pluie = np.zeros(n)
     masque_pluie = (idx.tz_convert(tz).normalize() == idx.tz_convert(tz).normalize()[0]) & (
@@ -141,6 +149,12 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     # T_mean borné par les extrêmes.
     assert cell_jour.t_extreme >= cell_jour.t_mean
     assert cell_nuit.t_extreme <= cell_nuit.t_mean
+    # T° en °C en sortie (entrée en K) : sinusoïde 15 ± 7 °C → toutes les
+    # valeurs sont dans [-20, 50] °C. Si la conversion K→°C est oubliée,
+    # on aurait des valeurs ~288 K → ce test fait fail.
+    for c in (cell_jour, cell_nuit):
+        assert -20.0 < c.t_mean < 50.0, f"t_mean hors plage °C : {c.t_mean}"
+        assert -20.0 < c.t_extreme < 50.0, f"t_extreme hors plage °C : {c.t_extreme}"
 
     # Vent : moyenne 5 m/s → 18 km/h, rafales 10 m/s en aprem → 36 km/h.
     assert cell_jour.vent_moy_kmh == pytest.approx(5.0 * MS_VERS_KMH, abs=1e-6)
@@ -163,6 +177,27 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     # Tous deux non-None.
     assert cell_jour.code_picto is not None
     assert cell_nuit.code_picto is not None
+
+
+def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:
+    """Entrée 288.15 K constante → sortie 15.00 °C exact (delta < 1e-6)."""
+    idx = pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC")
+    horaire = pd.DataFrame(
+        {
+            "temperature_2m": [288.15] * 24,
+            "precipitation": [0.0] * 24,
+            "probabilite_pluie_pct": [0.0] * 24,
+            "vitesse_vent_10m": [0.0] * 24,
+            "rafales_vent_10m": [0.0] * 24,
+            "direction_vent_deg": [180.0] * 24,
+            "weather_code": [0] * 24,
+        },
+        index=idx,
+    )
+    cellules = agreger_par_fenetre(horaire, tz_locale="Europe/Paris")
+    for cell in cellules.values():
+        assert cell.t_mean == pytest.approx(15.0, abs=1e-6)
+        assert cell.t_extreme == pytest.approx(15.0, abs=1e-6)
 
 
 def test_agreger_par_fenetre_horaire_vide_retourne_dict_vide() -> None:
