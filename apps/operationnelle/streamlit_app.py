@@ -875,23 +875,28 @@ def main() -> None:
 
     # Onglets : courbes horaires d'abord, Smith (heures HR ≥ 90 %)
     # ensuite — quotidien, car le critère biologique se définit par jour.
+    # Le pivot now_utc sépare archive (passé) et prévision (futur) sur
+    # les onglets horaires ; sur Smith (quotidien) il n'y a pas de split.
+    t_pivot_horaire = pd.Timestamp.now(tz="UTC")
     courbes_horaires_dispo = [c for c in COURBES_HORAIRES if c.colonne in horaire_courbes.columns]
     courbes_quot_smith = [
         c
         for c in COURBES
         if c.colonne == "mildiou_heures_humectation" and c.colonne in quotidien.columns
     ]
-    onglets_specs: list[tuple[CourbeConfig, pd.DataFrame]] = [
-        (c, horaire_courbes) for c in courbes_horaires_dispo
-    ] + [(c, quotidien) for c in courbes_quot_smith]
-    onglets = st.tabs([c.titre for c, _ in onglets_specs])
-    for tab, (cfg, df) in zip(onglets, onglets_specs, strict=False):
+    onglets_specs: list[tuple[CourbeConfig, pd.DataFrame, bool]] = [
+        (c, horaire_courbes, True) for c in courbes_horaires_dispo
+    ] + [(c, quotidien, False) for c in courbes_quot_smith]
+    onglets = st.tabs([c.titre for c, _, _ in onglets_specs])
+    for tab, (cfg, df, est_horaire) in zip(onglets, onglets_specs, strict=False):
         with tab:
             fig = figure_indicateur(
                 df,
                 cfg,
-                figsize=(5.5, 2.5),
+                figsize=(6.5, 2.5),
                 seuils_extra=seuils_par_colonne.get(cfg.colonne),
+                t_pivot=t_pivot_horaire if est_horaire else None,
+                legende_externe=est_horaire,
             )
             col_plot, _ = st.columns([2, 1])
             with col_plot:
@@ -1086,10 +1091,20 @@ def main() -> None:
                 f"""
 - **Sources de données** : Open-Meteo (REST, sans authentification),
   deux modèles distincts par échéance :
-  - **Court terme** ({horizon_court} j) — guides + séries temp + tableau
-    détaillé : ``{modele_court}`` (ARPEGE Météo-France, ~10 km).
+  - **Court terme** ({horizon_court} j) — guides + séries temp :
+    ``{modele_court}`` (ARPEGE Météo-France, ~10 km).
   - **Long terme** ({horizon_long} j) — tendance + cartes : ``{modele_long}``
     (ECMWF IFS, ~9 km, référence mondiale).
+- **Archive modèle ({n_past_days} j passés)** : récupérée via le
+  paramètre ``past_days`` d'Open-Meteo Forecast. **Ce ne sont pas des
+  observations** ni une vraie réanalyse type ERA5 : ce sont les
+  sorties archivées du même modèle pour les heures qui sont
+  maintenant dans le passé (= ce qu'ARPEGE prévoyait depuis ses runs
+  précédents). Avantage : cohérence avec la prévision actuelle, pas
+  de mélange entre sources. Limite : sur des phénomènes locaux non
+  capturés par le modèle, l'archive peut s'écarter de la réalité
+  terrain. Distingué dans les courbes par un trait translucide
+  (« Archive modèle ») vs opaque (« Prévision »).
 - **ETP** : calculée par le socle FAO Penman-Monteith horaire
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec

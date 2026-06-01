@@ -177,6 +177,8 @@ def figure_indicateur(
     figsize: tuple[float, float] = (8.0, 3.2),
     seuils_extra: list[Seuil] | None = None,
     marker: str | None = "auto",
+    t_pivot: pd.Timestamp | None = None,
+    legende_externe: bool = False,
 ) -> plt.Figure:
     """Construit une figure matplotlib pour un indicateur donné.
 
@@ -241,10 +243,22 @@ def figure_indicateur(
     # sur 4-7 j), désactivé pour les séries horaires (96+ points devient
     # illisible avec un marker par point).
     marker_effectif = ("o" if len(x) <= 30 else None) if marker == "auto" else marker
-    plot_kwargs = {"color": cfg.couleur, "linewidth": 2.2, "label": "Prévision"}
+    plot_kwargs_base = {"color": cfg.couleur, "linewidth": 2.2}
     if marker_effectif:
-        plot_kwargs["marker"] = marker_effectif
-    ax.plot(x, y, **plot_kwargs)
+        plot_kwargs_base["marker"] = marker_effectif
+
+    if t_pivot is not None and x.min() < t_pivot < x.max():
+        # Split en deux segments : archive du modèle (passé translucide)
+        # et prévision (futur opaque). Les deux segments partagent une
+        # heure (le pivot) pour rester continus.
+        x_archive = x[x <= t_pivot]
+        y_archive = y[x <= t_pivot]
+        x_prevu = x[x >= t_pivot]
+        y_prevu = y[x >= t_pivot]
+        ax.plot(x_archive, y_archive, alpha=0.5, label="Archive modèle", **plot_kwargs_base)
+        ax.plot(x_prevu, y_prevu, label="Prévision", **plot_kwargs_base)
+    else:
+        ax.plot(x, y, label="Prévision", **plot_kwargs_base)
 
     # Seuils informatifs (statiques cfg.seuils + dynamiques seuils_extra).
     # Affichés uniquement si la courbe les traverse dans la fenêtre.
@@ -256,9 +270,22 @@ def figure_indicateur(
     ax.set_ylabel(cfg.unite)
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
     ax.grid(axis="y", alpha=0.25)
-    ax.legend(loc="best", fontsize=8, frameon=False)
+    if legende_externe:
+        ax.legend(
+            bbox_to_anchor=(1.02, 1),
+            loc="upper left",
+            fontsize=8,
+            frameon=False,
+        )
+    else:
+        ax.legend(loc="best", fontsize=8, frameon=False)
     fig.autofmt_xdate(rotation=30, ha="right")
-    fig.tight_layout()
+    # Quand la légende est à droite, réserver ~25 % de la largeur
+    # pour qu'elle ne déborde pas hors de la figure exportée.
+    if legende_externe:
+        fig.tight_layout(rect=(0, 0, 0.76, 1))
+    else:
+        fig.tight_layout()
     return fig
 
 
