@@ -1,10 +1,14 @@
 """Tests offline du module cartes_synoptiques.
 
 Couvre :
+
 - Construction d'URL pour Met Office (format ISO ``YYYY-MM-DDTHHMM``)
-  et Météociel AROME (format ``YYYYMMDDHH``).
+  et Météociel AROME (format ``YYYYMMDDHH`` pour un run quelconque).
+- Choix des runs : Met Office = 00 UTC jour ; AROME = 18 UTC veille
+  (run 00 UTC pas dispo avant ~08 UTC sur Météociel).
 - Robustesse à un fetch HTTP échoué (cartes individuelles → data_uri vide).
-- Format de la grille retournée (3 metoffice + 3 arome, labels alignés).
+- Format de la grille retournée (3 metoffice + 3 arome).
+- Cibles correctement calculées (run + ech).
 """
 
 from __future__ import annotations
@@ -17,7 +21,6 @@ import requests
 
 from apps.veille.cartes_synoptiques import (
     AROME_ECHEANCES,
-    LABELS_3,
     METOFFICE_ECHEANCES,
     _url_arome,
     _url_metoffice,
@@ -40,16 +43,17 @@ def test_url_metoffice_padding_zero() -> None:
     assert url.endswith("FSXX00T_00.gif")
 
 
-def test_url_arome_format() -> None:
-    """L'URL Météociel utilise le format ``YYYYMMDDHH`` (heure run = 00 UTC)."""
-    url = _url_arome(date(2026, 5, 31), ech=24)
+def test_url_arome_format_run_18z() -> None:
+    """L'URL Météociel encode l'heure du run (18Z veille pour AROME)."""
+    run = pd.Timestamp("2026-05-31 18:00", tz="UTC")
+    url = _url_arome(run, ech=6)
     assert url == (
-        "https://modeles7.meteociel.fr/modeles/arome/archives/2026053100/arome-24-24-0.png"
+        "https://modeles7.meteociel.fr/modeles/arome/archives/2026053118/arome-24-6-0.png"
     )
 
 
-def test_recuperer_cartes_grille_complete() -> None:
-    """Avec session mockée renvoyant un PNG valide, on obtient 6 cartes encodées."""
+def test_recuperer_cartes_choisit_runs_distincts() -> None:
+    """Met Office utilise 00 UTC du jour, AROME utilise 18 UTC de la veille."""
     import io
 
     from PIL import Image
@@ -64,21 +68,53 @@ def test_recuperer_cartes_grille_complete() -> None:
     fake_session = MagicMock()
     fake_session.get.return_value = fake_response
 
-    now = pd.Timestamp("2026-05-31 04:15", tz="UTC")
+    now = pd.Timestamp("2026-06-01 05:30", tz="UTC")
     grille = recuperer_cartes(now_utc=now, session=fake_session)
 
-    assert len(grille.metoffice) == 3
-    assert len(grille.arome) == 3
-    assert grille.run_utc.tz_convert("UTC").strftime("%Y-%m-%d %H:%M") == "2026-05-31 00:00"
-    assert grille.nb_disponibles == 6
+    assert len(grille.metoffice) == 4
+    assert len(grille.arome) == 4
+    assert grille.nb_disponibles == 8
 
-    # Labels alignés sur les 3 échéances visées.
-    assert [c.label for c in grille.metoffice] == list(LABELS_3)
-    assert [c.label for c in grille.arome] == list(LABELS_3)
+    # Met Office : run 00 UTC du jour courant.
+    for c in grille.metoffice:
+        assert c.run_utc == pd.Timestamp("2026-06-01 00:00", tz="UTC")
+
+    # AROME : run 18 UTC de la veille.
+    for c in grille.arome:
+        assert c.run_utc == pd.Timestamp("2026-05-31 18:00", tz="UTC")
 
     # Toutes les cartes ont leur data_uri encodée en JPEG.
     for c in grille.metoffice + grille.arome:
         assert c.data_uri.startswith("data:image/jpeg;base64,")
+
+
+def test_recuperer_cartes_cibles_synchrones_entre_sources() -> None:
+    """Les 4 cibles UTC sont identiques entre MetOffice et AROME."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (255, 255, 255)).save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+
+    fake_response = MagicMock()
+    fake_response.content = png_bytes
+    fake_response.raise_for_status = MagicMock()
+    fake_session = MagicMock()
+    fake_session.get.return_value = fake_response
+
+    now = pd.Timestamp("2026-06-01 05:30", tz="UTC")
+    grille = recuperer_cartes(now_utc=now, session=fake_session)
+
+    cibles_attendues = [
+        pd.Timestamp("2026-06-01 00:00", tz="UTC"),  # 00 UTC J
+        pd.Timestamp("2026-06-01 12:00", tz="UTC"),  # 12 UTC J
+        pd.Timestamp("2026-06-02 00:00", tz="UTC"),  # 00 UTC J+1
+        pd.Timestamp("2026-06-02 12:00", tz="UTC"),  # 12 UTC J+1
+    ]
+    assert [c.cible_utc for c in grille.metoffice] == cibles_attendues
+    assert [c.cible_utc for c in grille.arome] == cibles_attendues
 
 
 def test_recuperer_cartes_robuste_aux_fetch_echoues() -> None:
@@ -86,20 +122,20 @@ def test_recuperer_cartes_robuste_aux_fetch_echoues() -> None:
     fake_session = MagicMock()
     fake_session.get.side_effect = requests.ConnectionError("connexion fermée")
 
-    now = pd.Timestamp("2026-05-31 04:15", tz="UTC")
+    now = pd.Timestamp("2026-06-01 05:30", tz="UTC")
     grille = recuperer_cartes(now_utc=now, session=fake_session)
 
-    assert len(grille.metoffice) == 3
-    assert len(grille.arome) == 3
+    assert len(grille.metoffice) == 4
+    assert len(grille.arome) == 4
     assert grille.nb_disponibles == 0
     assert all(not c.data_uri for c in grille.metoffice + grille.arome)
 
 
-def test_echeances_metoffice_et_arome_alignees() -> None:
-    """Les 2 sources doivent partager le même nombre d'échéances que les labels."""
-    assert len(METOFFICE_ECHEANCES) == len(LABELS_3) == 3
-    assert len(AROME_ECHEANCES) == len(LABELS_3) == 3
-    # AROME démarre à ech=1 car ech=0 n'est pas publié par Météociel.
-    assert AROME_ECHEANCES[0] == 1
-    # Met Office démarre bien à ech=0 (analyse).
-    assert METOFFICE_ECHEANCES[0] == 0
+def test_echeances_metoffice_et_arome_synchrones() -> None:
+    """Les 2 séries pointent sur les mêmes cibles : décalage AROME = MetOffice + 6 h."""
+    assert METOFFICE_ECHEANCES == (0, 12, 24, 36)
+    assert AROME_ECHEANCES == (6, 18, 30, 42)
+    # Synchro : run AROME 18Z veille + ech_arome = run MetOffice 00Z jour + ech_metoffice.
+    # 18 - 24 + ech_arome = 0 + ech_metoffice  →  ech_arome - 6 = ech_metoffice.
+    for ech_metoffice, ech_arome in zip(METOFFICE_ECHEANCES, AROME_ECHEANCES, strict=True):
+        assert ech_arome - 6 == ech_metoffice

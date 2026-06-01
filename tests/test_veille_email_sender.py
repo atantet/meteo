@@ -199,22 +199,39 @@ def test_envoyer_envoi_reel_sans_secrets_raise() -> None:
 
 
 def _cartes_grille_factice():
-    """Fixture CartesGrille avec 6 placeholders data_uri non vides."""
+    """Fixture CartesGrille avec 8 placeholders data_uri non vides.
+
+    - Met Office : run 2026-06-01 00 UTC, échéances 0/12/24/36 h.
+    - AROME : run 2026-05-31 18 UTC (veille), échéances 6/18/30/42 h.
+
+    Les 4 cibles UTC sont identiques entre les 2 sources.
+    """
     import pandas as pd
 
     from apps.veille.cartes_synoptiques import CartesGrille, CarteSynoptique
 
     placeholder = "data:image/jpeg;base64,iVBORw0KGgoAAAANSU"  # tronqué, valide pour test HTML
-    labels = ["Analyse 00 UTC", "Prévi +24 h", "Prévi +48 h"]
+    run_metoffice = pd.Timestamp("2026-06-01 00:00", tz="UTC")
+    run_arome = pd.Timestamp("2026-05-31 18:00", tz="UTC")
     metoffice = [
-        CarteSynoptique(label=label, source="metoffice", data_uri=placeholder) for label in labels
+        CarteSynoptique(
+            source="metoffice",
+            run_utc=run_metoffice,
+            cible_utc=run_metoffice + pd.Timedelta(hours=ech),
+            data_uri=placeholder,
+        )
+        for ech in (0, 12, 24, 36)
     ]
-    arome = [CarteSynoptique(label=label, source="arome", data_uri=placeholder) for label in labels]
-    return CartesGrille(
-        run_utc=pd.Timestamp("2026-05-31 00:00", tz="UTC"),
-        metoffice=metoffice,
-        arome=arome,
-    )
+    arome = [
+        CarteSynoptique(
+            source="arome",
+            run_utc=run_arome,
+            cible_utc=run_arome + pd.Timedelta(hours=ech),
+            data_uri=placeholder,
+        )
+        for ech in (6, 18, 30, 42)
+    ]
+    return CartesGrille(metoffice=metoffice, arome=arome)
 
 
 def _vigilance_jaune_orages():
@@ -244,23 +261,32 @@ def _vigilance_jaune_orages():
     )
 
 
-def test_composer_html_avec_cartes_grille_contient_les_2_sources() -> None:
-    """Le HTML produit doit contenir les sections Met Office + Météociel AROME."""
+def test_composer_html_avec_cartes_grille_contient_les_2_sections() -> None:
+    """Le HTML doit contenir les sections Met Office + AROME, avec runs et cibles synchrones."""
     from apps.veille.email import composer_html
 
     html = composer_html(
         _ind(),
         [],
-        datetime(2026, 5, 31, 7, 0),
+        datetime(2026, 6, 1, 5, 30),
         cartes_grille=_cartes_grille_factice(),
     )
     assert "Situation synoptique" in html
     assert "Met Office" in html
     assert "AROME" in html
-    # Les 3 labels d'échéances apparaissent au moins 1 fois par section (×2 = 6).
-    assert html.count("Analyse 00 UTC") >= 2
-    assert html.count("Prévi +24 h") >= 2
-    assert html.count("Prévi +48 h") >= 2
+    # Les 2 sections affichent leur run (Met Office = 02h locale, AROME veille = 20h locale).
+    assert "Run lun. 01/06 02 h" in html
+    assert "Run dim. 31/05 20 h" in html
+    assert "(veille)" in html
+    # Les 4 cibles UTC (00Z J / 12Z J / 00Z J+1 / 12Z J+1) en heure locale Paris été (UTC+2).
+    # Chaque cible apparaît dans les 2 sections → au moins 2 occurrences chacune.
+    for cible in (
+        "Cible : lun. 01/06 02 h",  # 00 UTC J
+        "Cible : lun. 01/06 14 h",  # 12 UTC J
+        "Cible : mar. 02/06 02 h",  # 00 UTC J+1
+        "Cible : mar. 02/06 14 h",  # 12 UTC J+1
+    ):
+        assert html.count(cible) >= 2, f"Cible absente ou non répétée : {cible!r}"
 
 
 def test_composer_html_sans_cartes_grille_nempeche_pas_le_rendu() -> None:

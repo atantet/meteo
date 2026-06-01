@@ -90,7 +90,7 @@ class EmailComposed:
 # (cf. config/veille.yaml ``source_meteo.modeles``).
 SOURCE_DEFAUT = "Open-Meteo · AROME France HD 1.3 km (Météo-France)"
 METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
-CRON_EXPLAIN = "17 4 * * * UTC = 05:17 Paris hiver / 06:17 Paris été"
+CRON_EXPLAIN = "30 5 * * * UTC = 06:30 Paris hiver / 07:30 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
 
 
@@ -241,61 +241,87 @@ def _bloc_vigilance_mf(
     )
 
 
+def _format_dt_court_fr(dt: pd.Timestamp) -> str:
+    """Formate un instant en français court : ``lun. 01/06 08 h``."""
+    jour_court = JOURS_FR[dt.weekday()][:3] + "."
+    return f"{jour_court} {dt.day:02d}/{dt.month:02d} {dt.hour:02d} h"
+
+
 def _bloc_cartes_synoptiques(
     grille: CartesGrille | None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Bloc HTML 2 sections empilées — Met Office puis AROME, 1 colonne.
 
-    Vide si ``grille`` est ``None`` ou si aucune carte n'a été récupérée
-    avec succès. Les cartes individuelles manquantes sont silencieusement
-    sautées.
+    Chaque section indique le **run** dont les cartes sont issues ;
+    chaque image porte sa **cible** (heure de validité) en heure locale.
+    L'utilisateur sait donc toujours de quand date la prévi et pour
+    quelle heure elle vaut.
+
+    Vide si ``grille`` est ``None`` ou si aucune carte n'a été
+    récupérée avec succès. Les cartes individuelles manquantes sont
+    silencieusement sautées.
 
     Layout :
 
     +---------------- Situation synoptique --------------------+
     | Met Office UK — surface (Atlantique nord / Europe)        |
-    |   Analyse 00 UTC                                          |
+    | Run lun. 01/06 02 h                                       |
+    |   Cible : lun. 01/06 02 h                                 |
     |   [carte 1]                                               |
-    |   Prévi +24 h                                             |
+    |   Cible : mar. 02/06 02 h                                 |
     |   [carte 2]                                               |
-    |   Prévi +48 h                                             |
+    |   Cible : mer. 03/06 02 h                                 |
     |   [carte 3]                                               |
     +-----------------------------------------------------------+
     | Météociel AROME 1.3 km — France (précip + iso + nébu)     |
-    |   Analyse 00 UTC ≈                                        |
+    | Run dim. 31/05 20 h (veille)                              |
+    |   Cible : lun. 01/06 08 h                                 |
     |   [carte 4]                                               |
-    |   Prévi +24 h                                             |
+    |   Cible : mar. 02/06 02 h                                 |
     |   [carte 5]                                               |
-    |   Prévi +48 h                                             |
+    |   Cible : mar. 02/06 20 h                                 |
     |   [carte 6]                                               |
     +-----------------------------------------------------------+
     """
     if grille is None or grille.nb_disponibles == 0:
         return ""
 
-    def cartes_section(cartes, titre: str, source_url: str, alt_prefix: str) -> str:
+    def cartes_section(
+        cartes,
+        titre: str,
+        source_url: str,
+        alt_prefix: str,
+        run_suffixe: str = "",
+    ) -> str:
+        if not cartes:
+            return ""
+        run_loc = cartes[0].run_utc.tz_convert(tz_locale)
+        sous_titre = f"Run {_format_dt_court_fr(run_loc)}{run_suffixe} (heure locale)"
         lignes: list[str] = [
             '<div style="margin:10px 0 6px 0;">'
-            '<h4 style="margin:0 0 4px 0;font-size:13px;color:#34495e;'
+            '<h4 style="margin:0 0 2px 0;font-size:13px;color:#34495e;'
             'font-weight:600;">'
             f'<a href="{source_url}" style="color:#34495e;text-decoration:none;">'
             f"{titre}</a></h4>"
+            f'<div style="font-size:11px;color:#888;margin-bottom:4px;">{sous_titre}</div>'
             "</div>"
         ]
         for c in cartes:
+            cible_loc = c.cible_utc.tz_convert(tz_locale)
+            cible_label = f"Cible : {_format_dt_court_fr(cible_loc)}"
             if not c.data_uri:
                 lignes.append(
                     '<p style="text-align:center;color:#bbb;font-size:11px;'
-                    f'margin:6px 0;">{c.label} — carte indisponible</p>'
+                    f'margin:6px 0;">{cible_label} — carte indisponible</p>'
                 )
                 continue
             lignes.append(
                 '<div style="text-align:center;margin:6px 0 10px 0;">'
                 '<div style="font-size:11px;color:#888;margin-bottom:2px;">'
-                f"{c.label}"
+                f"{cible_label}"
                 "</div>"
-                f'<img src="{c.data_uri}" alt="{alt_prefix} — {c.label}" '
+                f'<img src="{c.data_uri}" alt="{alt_prefix} — {cible_label}" '
                 'style="max-width:100%;height:auto;border-radius:4px;'
                 'border:1px solid #eee;">'
                 "</div>"
@@ -313,10 +339,8 @@ def _bloc_cartes_synoptiques(
         titre="Météociel AROME 1.3 km — France (précip + pression + nébulosité)",
         source_url=METEOCIEL_PAGE_AFFICHEE,
         alt_prefix="AROME résumé France",
+        run_suffixe=" (veille)",
     )
-
-    run_loc = grille.run_utc.tz_convert(tz_locale)
-    legende = f"run {run_loc.strftime('%d/%m %Hh%M %Z')}"
 
     return (
         '<div style="margin:18px 0 6px 0;">'
@@ -324,9 +348,6 @@ def _bloc_cartes_synoptiques(
         "Situation synoptique</h3>"
         f"{section_metoffice}"
         f"{section_arome}"
-        '<p style="margin:4px 0 0 0;font-size:11px;color:#888;text-align:center;">'
-        f"{legende}"
-        "</p>"
         "</div>"
     )
 
