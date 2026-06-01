@@ -59,6 +59,47 @@ def test_icone_base64_code_inconnu_renvoie_fallback() -> None:
     assert uri.startswith("data:image/png;base64,")
 
 
+def test_nom_icone_variante_nuit() -> None:
+    """Codes 0/1/2/3/45 jour vs nuit doivent différer (soleil → lune)."""
+    from apps.shared.pictograms import nom_icone
+
+    assert nom_icone(0) == "clear-day"
+    assert nom_icone(0, nuit=True) == "clear-night"
+    assert nom_icone(2, nuit=True) == "partly-cloudy-night"
+    assert nom_icone(3, nuit=True) == "overcast-night"
+    assert nom_icone(45, nuit=True) == "fog-night"
+    assert nom_icone(61, nuit=True) == "partly-cloudy-night-rain"
+    assert nom_icone(71, nuit=True) == "partly-cloudy-night-snow"
+
+
+def test_nom_icone_nuit_fallback_pour_codes_sans_variante() -> None:
+    """Les codes sans variante nuit (pluie forte, orages) gardent l'icône jour."""
+    from apps.shared.pictograms import nom_icone
+
+    # 63 (pluie modérée) → pas de variante nuit, retombe sur "rain"
+    assert nom_icone(63, nuit=True) == "rain"
+    # 95 (orage) → pas de variante nuit
+    assert nom_icone(95, nuit=True) == "thunderstorms"
+
+
+def test_icone_base64_nuit_renvoie_svg_data_uri() -> None:
+    """Les variantes nuit sont des SVG → mime image/svg+xml."""
+    from apps.shared.pictograms import icone_base64
+
+    uri = icone_base64(0, nuit=True)
+    assert uri.startswith("data:image/svg+xml;base64,")
+    assert len(uri) > 100
+
+
+def test_chemin_icone_nuit_existe_pour_codes_principaux() -> None:
+    """Toutes les variantes nuit déclarées doivent exister sur disque."""
+    from apps.shared.pictograms import WMO_VERS_ICONE_NUIT, chemin_icone
+
+    for code in WMO_VERS_ICONE_NUIT:
+        chemin = chemin_icone(code, nuit=True)
+        assert chemin.exists(), f"Variante nuit absente pour code {code} : {chemin}"
+
+
 def test_code_dominant_fenetre_prend_max_severite() -> None:
     from apps.shared.pictograms import code_dominant_fenetre
 

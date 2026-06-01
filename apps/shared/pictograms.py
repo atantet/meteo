@@ -75,6 +75,24 @@ WMO_VERS_ICONE: dict[int, str] = {
     99: "thunderstorms-rain",
 }
 
+# Variantes nuit : remplacent le soleil par la lune pour les codes où la
+# distinction visuelle a du sens (ciel clair, peu nuageux, brouillard,
+# couvert avec éclaircies, averses sous nuages partiels). Les codes
+# franchement « pluie/neige/orage » n'ont pas de variante nuit officielle
+# Meteocons — on garde l'icône jour qui reste lisible.
+WMO_VERS_ICONE_NUIT: dict[int, str] = {
+    0: "clear-night",
+    1: "partly-cloudy-night",
+    2: "partly-cloudy-night",
+    3: "overcast-night",
+    45: "fog-night",
+    48: "fog-night",
+    61: "partly-cloudy-night-rain",
+    71: "partly-cloudy-night-snow",
+    80: "partly-cloudy-night-rain",
+    85: "partly-cloudy-night-snow",
+}
+
 # Libellés FR par code WMO (info-bulle / texte alt).
 WMO_VERS_LIBELLE: dict[int, str] = {
     0: "Ciel clair",
@@ -141,9 +159,17 @@ WMO_SEVERITE: dict[int, int] = {
 }
 
 
-def nom_icone(code: int) -> str:
-    """Renvoie le nom de fichier icône Meteocons pour un code WMO."""
-    return WMO_VERS_ICONE.get(int(code), "not-available")
+def nom_icone(code: int, nuit: bool = False) -> str:
+    """Renvoie le nom de fichier icône Meteocons pour un code WMO.
+
+    Si ``nuit=True`` et qu'une variante nuit existe (`WMO_VERS_ICONE_NUIT`),
+    la variante nuit est utilisée (soleil → lune). Sinon, fallback sur
+    l'icône jour (les rains/snows/orages n'ont pas de variante nuit).
+    """
+    code_int = int(code)
+    if nuit and code_int in WMO_VERS_ICONE_NUIT:
+        return WMO_VERS_ICONE_NUIT[code_int]
+    return WMO_VERS_ICONE.get(code_int, "not-available")
 
 
 def libelle(code: int) -> str:
@@ -151,37 +177,55 @@ def libelle(code: int) -> str:
     return WMO_VERS_LIBELLE.get(int(code), f"Code météo {code}")
 
 
-def chemin_icone(code: int) -> Path:
-    """Chemin absolu du PNG icône pour un code WMO."""
-    return ICONES_DIR / f"{nom_icone(code)}.png"
+def chemin_icone(code: int, nuit: bool = False) -> Path:
+    """Chemin absolu du fichier icône (PNG si dispo, sinon SVG).
+
+    Les icônes jour sont en PNG 128×128 (cf. `assets/meteocons/`) ; les
+    variantes nuit sont fournies en SVG (téléchargées depuis le repo
+    `basmilius/weather-icons`). Cette fonction renvoie le PNG en priorité
+    pour la cohérence d'affichage, et bascule sur SVG si le PNG manque.
+    """
+    nom = nom_icone(code, nuit=nuit)
+    png = ICONES_DIR / f"{nom}.png"
+    if png.exists():
+        return png
+    svg = ICONES_DIR / f"{nom}.svg"
+    if svg.exists():
+        return svg
+    return ICONES_DIR / "not-available.png"
 
 
-def icone_bytes(code: int) -> bytes | None:
-    """Renvoie les bytes du PNG icône pour st.image() ou équivalent.
+def _mime_pour_chemin(chemin: Path) -> str:
+    """Renvoie le type MIME utile à un data URI selon l'extension."""
+    return "image/svg+xml" if chemin.suffix.lower() == ".svg" else "image/png"
+
+
+def icone_bytes(code: int, nuit: bool = False) -> bytes | None:
+    """Renvoie les bytes de l'icône pour st.image() ou équivalent.
 
     Évite les soucis de résolution de chemin (notamment sur Streamlit
     Cloud où ``Path.exists()`` peut être trompeur). Retourne None si
     l'icône n'existe pas, dans ce cas l'appelant doit fallback texte.
     """
-    chemin = chemin_icone(code)
-    if not chemin.exists():
-        chemin = ICONES_DIR / "not-available.png"
+    chemin = chemin_icone(code, nuit=nuit)
     if not chemin.exists():
         return None
     return chemin.read_bytes()
 
 
-def icone_base64(code: int) -> str:
-    """Renvoie le PNG icône encodé base64 prêt pour ``<img src="data:...">``.
+def icone_base64(code: int, nuit: bool = False) -> str:
+    """Renvoie l'icône encodée base64 prête pour ``<img src="data:...">``.
 
-    Retourne une chaîne du type
-    ``data:image/png;base64,iVBORw0KGgo...``.
+    Retourne une chaîne du type ``data:image/png;base64,…`` (ou
+    ``data:image/svg+xml;base64,…`` selon l'extension du fichier
+    source). Quand l'icône demandée n'existe pas, fallback vers
+    ``not-available.png``.
     """
-    chemin = chemin_icone(code)
+    chemin = chemin_icone(code, nuit=nuit)
     if not chemin.exists():
         chemin = ICONES_DIR / "not-available.png"
     data = base64.b64encode(chemin.read_bytes()).decode("ascii")
-    return f"data:image/png;base64,{data}"
+    return f"data:{_mime_pour_chemin(chemin)};base64,{data}"
 
 
 def codes_dominants_par_jour(

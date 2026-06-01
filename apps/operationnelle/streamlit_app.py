@@ -323,10 +323,10 @@ def _afficher_grille_tendance(
             f"{html_val}</td>"
         )
 
-    def _cellule_picto(cellule) -> str:
+    def _cellule_picto(cellule, est_nuit: bool = False) -> str:
         if cellule is None or cellule.code_picto is None:
             return _cellule_vide(_FOND_PICTO)
-        uri = icone_base64(cellule.code_picto)
+        uri = icone_base64(cellule.code_picto, nuit=est_nuit)
         return (
             '<td style="padding:2px 4px;text-align:center;'
             f"background:{_FOND_PICTO};"
@@ -368,7 +368,11 @@ def _afficher_grille_tendance(
         return lignes
 
     def _lignes_picto() -> list[str]:
-        """Bandeau picto sombre, 2 sous-lignes (une par modèle)."""
+        """Bandeau picto sombre, 2 sous-lignes (une par modèle).
+
+        Pour la cellule « nuit », on passe `est_nuit=True` au rendu picto
+        pour utiliser la variante lune Meteocons (clear-night, etc.).
+        """
         lignes = []
         for i, (label, agg) in enumerate(agreges):
             cellules: list[str] = []
@@ -377,7 +381,12 @@ def _afficher_grille_tendance(
             cellules.append(_td_modele(label, _FOND_PICTO, sur_fond_sombre=True))
             for jour in jours_tous:
                 for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
-                    cellules.append(_cellule_picto(agg.get((jour, fenetre))))
+                    cellules.append(
+                        _cellule_picto(
+                            agg.get((jour, fenetre)),
+                            est_nuit=(fenetre == FENETRE_NUIT),
+                        )
+                    )
             lignes.append(f'<tr style="background:{_FOND_PICTO};">' + "".join(cellules) + "</tr>")
         return lignes
 
