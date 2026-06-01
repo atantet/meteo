@@ -606,14 +606,18 @@ def main() -> None:
     )
 
     # En-tête aligné sur l'email Veille : titre = fenêtre de prévision
-    # en clair, sous-titre = lieu.
-    horizon_j = int(config["source_meteo"]["horizon_max_jours"])
+    # en clair, sous-titre = lieu. On affiche l'horizon long (7 j) car
+    # c'est le plus étendu visible sur le dashboard (tendance + cartes).
+    horizon_court = int(config["source_meteo"]["horizon_court_jours"])
+    horizon_long = int(config["source_meteo"]["horizon_long_jours"])
+    modele_court = config["source_meteo"]["modele_court"]
+    modele_long = config["source_meteo"]["modele_long"]
     tz_site = site.get("tz", "Europe/Paris")
     maintenant = pd.Timestamp.now(tz="UTC").to_pydatetime()
     debut_loc = pd.Timestamp(maintenant).tz_convert(tz_site).to_pydatetime()
     st.markdown(
         '<h2 style="margin:0 0 4px 0;font-size:24px;color:#2c3e50;">'
-        f"Prévision du {format_date_fr(debut_loc)} pour {horizon_j} jours"
+        f"Prévision du {format_date_fr(debut_loc)} pour {horizon_long} jours"
         "</h2>",
         unsafe_allow_html=True,
     )
@@ -624,22 +628,38 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    horizon = config["source_meteo"]["horizon_max_jours"]
-    modele = config["source_meteo"]["modeles"][0]
-
-    with st.spinner(f"Récupération prévision Open-Meteo ({modele}, {horizon} j)…"):
+    # Double fetch : ARPEGE court (4 j) pour guides + séries temp,
+    # ECMWF long (7 j) pour tendance + cartes. Cachés séparément par
+    # `_fetch_prevision` (clé = modele + horizon).
+    with st.spinner(
+        f"Récupération prévisions Open-Meteo ({modele_court} {horizon_court} j "
+        f"+ {modele_long} {horizon_long} j)…"
+    ):
         try:
-            prevision = _fetch_prevision(site["latitude"], site["longitude"], horizon, modele)
+            prevision_courte = _fetch_prevision(
+                site["latitude"], site["longitude"], horizon_court, modele_court
+            )
+            prevision_longue = _fetch_prevision(
+                site["latitude"], site["longitude"], horizon_long, modele_long
+            )
         except Exception as e:  # noqa: BLE001
-            st.error(f"Erreur de récupération de la prévision : {e}")
+            st.error(f"Erreur de récupération des prévisions : {e}")
             st.stop()
 
     now_utc = pd.Timestamp.now(tz="UTC")
-    quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc)
-    quotidien = jours_complets_seulement(quotidien, prevision)
+    quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
+    quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
+    quotidien_long = calculer_indicateurs_quotidiens(prevision_longue, config, now_utc=now_utc)
+    quotidien_long = jours_complets_seulement(quotidien_long, prevision_longue)
 
-    # ----- Guides de décision de la semaine -----
-    _afficher_section_decisions(quotidien, site.get("tz", "Europe/Paris"))
+    # Alias utilisé par les sections existantes qui ne sont pas encore
+    # explicitement routées (séries temporelles, tableau détaillé, sources).
+    # Ces sections relèvent du court terme (4 j ARPEGE).
+    prevision = prevision_courte
+    quotidien = quotidien_court
+
+    # ----- Guides de décision de la semaine (horizon court ARPEGE) -----
+    _afficher_section_decisions(quotidien_court, site.get("tz", "Europe/Paris"))
 
     st.divider()
     st.markdown("### Données météo détaillées")
@@ -648,26 +668,18 @@ def main() -> None:
         "Utile pour vérifier ce qui motive les guides ci-dessus."
     )
 
-    # ----- Bande pictogrammes 7 j ARPEGE vs IFS -----
-    st.subheader("Tendance 7 jours — ARPEGE vs ECMWF IFS")
+    # ----- Bande pictogrammes 7 j ARPEGE vs IFS (horizon long) -----
+    st.subheader(f"Tendance {horizon_long} jours — ARPEGE vs ECMWF IFS")
     st.caption(
         "Deux modèles en parallèle pour révéler l'accord (confiance haute) "
         "ou le désaccord (incertitude) sur la prévision. ARPEGE Météo-France "
-        "(~10 km, 0-4 j fiable) vs ECMWF IFS (~9 km, modèle de référence "
-        "mondial, 0-10 j)."
+        f"(~10 km, 0-{horizon_court} j fiable) vs ECMWF IFS "
+        f"(~9 km, modèle de référence mondial, 0-{horizon_long} j)."
     )
-    # Config modèles : liste de dicts {label, modele} → liste de tuples.
-    modeles_pictos_cfg = config["source_meteo"].get(
-        "modeles_pictogrammes",
-        [
-            {"label": "ARPEGE", "modele": "meteofrance_arpege_europe"},
-            {"label": "ECMWF IFS", "modele": "ecmwf_ifs025"},
-        ],
-    )
-    modeles_pictos = [(m["label"], m["modele"]) for m in modeles_pictos_cfg]
+    modeles_pictos = [("ARPEGE", modele_court), ("ECMWF IFS", modele_long)]
     with st.spinner(f"Récupération {' + '.join(m for m, _ in modeles_pictos)}…"):
         try:
-            _afficher_bande_pictogrammes(site, horizon, modeles_pictos)
+            _afficher_bande_pictogrammes(site, horizon_long, modeles_pictos)
         except Exception as e:  # noqa: BLE001
             st.warning(f"Pictogrammes indisponibles : {e}")
 
@@ -675,8 +687,8 @@ def main() -> None:
     # transposée (variables en lignes, jours en colonnes).
     _afficher_grille_variables(quotidien)
 
-    # ----- Courbes 7 j (vue principale, en onglets) -----
-    st.subheader("Prévision 7 jours — courbes par indicateur")
+    # ----- Courbes 4 j (vue principale, en onglets) - ARPEGE court terme -----
+    st.subheader(f"Prévision {horizon_court} jours — courbes par indicateur")
     st.caption(
         "Pour les T° : courbe pointillée gris = normale OMM 1991-2020. "
         "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous."
@@ -898,9 +910,12 @@ def main() -> None:
         with st.expander("Vérifier les sources (transparence — principe #5)"):
             st.markdown(
                 f"""
-- **Source de données** : Open-Meteo (REST, sans authentification).
-  Modèle ``{modele}`` compose AROME France HD 1.3 km (0-2 j),
-  ICON-EU ou ARPEGE (2-4 j), ECMWF IFS 9 km (4-{horizon} j).
+- **Sources de données** : Open-Meteo (REST, sans authentification),
+  deux modèles distincts par échéance :
+  - **Court terme** ({horizon_court} j) — guides + séries temp + tableau
+    détaillé : ``{modele_court}`` (ARPEGE Météo-France, ~10 km).
+  - **Long terme** ({horizon_long} j) — tendance + cartes : ``{modele_long}``
+    (ECMWF IFS, ~9 km, référence mondiale).
 - **ETP** : calculée par le socle FAO Penman-Monteith horaire
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec
@@ -924,8 +939,8 @@ def main() -> None:
   ``meteo_socle.indices.bilan_hydrique.calcul_bilan``.
 - **Site** : {site["latitude"]:.4f}°N, {site["longitude"]:.4f}°W,
   altitude {site["altitude"]} m, fuseau {site["tz"]}.
-- **Cache** : 1 h sur la requête. Rafraîchir = recharger la page.
-- **Horizon** : {horizon} jours plafonné par la config.
+- **Cache** : 1 h sur chaque requête (court + long). Rafraîchir = recharger la page.
+- **Horizons** : court {horizon_court} j (ARPEGE), long {horizon_long} j (ECMWF).
                 """
             )
             st.markdown("**Prévision horaire brute (12 premières heures)** :")

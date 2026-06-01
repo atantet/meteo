@@ -324,12 +324,14 @@ def regle_purge_irrigation_gel(
 ) -> GuideDecision | None:
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     seuil_t = float(exploitation.get("seuils_gel", {}).get("purge_irrigation_t_seuil_celsius", 0.0))
     masque = quotidien["t_min_celsius"] <= seuil_t
     if masque.any():
         t_min_min = float(quotidien.loc[masque, "t_min_celsius"].min())
         titre = (
-            f"Gel attendu sur 7 j — T° min prévue {t_min_min:.1f} °C (penser à purger l'irrigation)"
+            f"Gel attendu sur {n_jours} j — T° min prévue {t_min_min:.1f} °C "
+            "(penser à purger l'irrigation)"
         )
         active = True
     else:
@@ -360,6 +362,7 @@ def regle_voiles_p17(
         return None
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     s = exploitation.get("seuils_gel", {})
     seuil_t = float(s.get("voiles_p17_t_seuil_celsius", 0.0))
     seuil_dj = float(s.get("voiles_p17_degres_jours_min", 2.0))
@@ -367,7 +370,8 @@ def regle_voiles_p17(
     dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
     if dj >= seuil_dj:
         titre = (
-            f"Froid cumulé sur 7 j — {dj:.1f} DJ sous {seuil_t:.0f} °C (envisager des voiles P17)"
+            f"Froid cumulé sur {n_jours} j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
+            "(envisager des voiles P17)"
         )
         active = True
     else:
@@ -398,6 +402,7 @@ def regle_recolte_racines_avant_gel(
         return None
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     s = exploitation.get("seuils_gel", {})
     seuil_t = float(s.get("recolte_racines_t_seuil_celsius", -5.0))
     seuil_dj = float(s.get("recolte_racines_degres_jours_min", 4.0))
@@ -405,7 +410,7 @@ def regle_recolte_racines_avant_gel(
     dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
     if dj >= seuil_dj:
         titre = (
-            f"Froid sévère cumulé sur 7 j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
+            f"Froid sévère cumulé sur {n_jours} j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
             "(envisager une récolte de protection)"
         )
         active = True
@@ -440,6 +445,7 @@ def regle_aeration_nuit_tunnels(
         return None
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     s = exploitation.get("seuils_tunnel", {})
     seuil_t = float(s.get("aeration_nuit_t_min_celsius", 12.0))
     nuits_min = int(s.get("aeration_nuit_nuits_min", 2))
@@ -449,7 +455,7 @@ def regle_aeration_nuit_tunnels(
     if nb >= nuits_min:
         accord = "s" if nb > 1 else ""
         titre = (
-            f"Nuits chaudes sur 7 j — {nb} nuit{accord} avec T° min ≥ "
+            f"Nuits chaudes sur {n_jours} j — {nb} nuit{accord} avec T° min ≥ "
             f"{seuil_t:.0f} °C (laisser les portes ouvertes la nuit)"
         )
         active = True
@@ -482,6 +488,7 @@ def regle_fermeture_nuit_tunnels(
         return None
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     s = exploitation.get("seuils_tunnel", {})
     seuil_t = float(s.get("fermeture_nuit_t_min_celsius", 3.0))
     nuits_min = int(s.get("fermeture_nuit_nuits_min", 1))
@@ -491,7 +498,7 @@ def regle_fermeture_nuit_tunnels(
     if nb >= nuits_min:
         accord = "s" if nb > 1 else ""
         titre = (
-            f"Nuits fraîches sur 7 j — {nb} nuit{accord} avec T° min ≤ "
+            f"Nuits fraîches sur {n_jours} j — {nb} nuit{accord} avec T° min ≤ "
             f"{seuil_t:.0f} °C (fermer les portes la nuit)"
         )
         active = True
@@ -523,6 +530,7 @@ def regle_deficit_hydrique(
     cols_requises = {"pluie_24h_mm", "etp_mm"}
     if not cols_requises.issubset(quotidien.columns) or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     seuil_mm = float(exploitation.get("seuils_hydrique", {}).get("deficit_mm", -10.0))
     bilan_cumul = float((quotidien["pluie_24h_mm"] - quotidien["etp_mm"]).sum())
 
@@ -531,13 +539,13 @@ def regle_deficit_hydrique(
 
     if bilan_cumul <= seuil_mm:
         titre = (
-            f"Déficit hydrique sur 7 j — bilan pluie − ETP {bilan_cumul:+.1f} mm "
+            f"Déficit hydrique sur {n_jours} j — bilan pluie − ETP {bilan_cumul:+.1f} mm "
             "(vérifier humidité du sol, anticiper irrigation)"
         )
         active = True
     else:
         titre = (
-            f"Bilan hydrique correct — {bilan_cumul:+.1f} mm sur 7 j "
+            f"Bilan hydrique correct — {bilan_cumul:+.1f} mm sur {n_jours} j "
             f"(seuil déficit {seuil_mm:+.1f} mm)"
         )
         active = False
@@ -562,6 +570,7 @@ def regle_stress_thermique(
     """Fortes chaleurs prolongées → bassinage / ombrage (Agrobio 35)."""
     if "t_max_celsius" not in quotidien.columns or quotidien.empty:
         return None
+    n_jours = len(quotidien)
     s = exploitation.get("seuils_thermique", {})
     seuil_t = float(s.get("stress_t_max_celsius", 28.0))
     jours_min = int(s.get("stress_jours_min", 2))
@@ -571,7 +580,7 @@ def regle_stress_thermique(
     if nb >= jours_min:
         accord = "s" if nb > 1 else ""
         titre = (
-            f"Fortes chaleurs sur 7 j — {nb} jour{accord} avec T° max ≥ "
+            f"Fortes chaleurs sur {n_jours} j — {nb} jour{accord} avec T° max ≥ "
             f"{seuil_t:.0f} °C (anticiper bassinage, ombrage, aération max)"
         )
         active = True
