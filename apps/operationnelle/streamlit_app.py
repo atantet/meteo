@@ -96,6 +96,90 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours, past_days=past_days)
 
 
+@st.cache_data(ttl=3600)
+def _fetch_cartes_ecmwf():  # noqa: ANN202
+    """Cartes Météociel ECMWF (4 cibles), cache 1 h."""
+    from apps.operationnelle.cartes_geo import recuperer_cartes
+
+    return recuperer_cartes()
+
+
+def _afficher_section_cartes_geo(tz_locale: str) -> None:
+    """Section §3 : 4 cartes ECMWF Météociel sur J+0 / J+2 / J+4 / J+6.
+
+    Visualisation spatiale du contexte synoptique à moyenne échéance,
+    complémentaire de la grille tendance §1 (variables ponctuelles).
+    Source unique ECMWF déterministe (pas de comparaison multi-modèles
+    ici pour éviter la surcharge visuelle).
+    """
+    from apps.shared.dates_fr import JOURS_FR
+
+    st.markdown(
+        '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
+        "Cartes géographiques ECMWF 7 jours"
+        "</h3>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Géopotentiel 500 hPa + pression au sol (ECMWF déterministe via "
+        "Météociel). Quatre cibles à T+0, T+48, T+96, T+144 — la "
+        "circulation atmosphérique au-dessus de l'Europe pour anticiper "
+        "le régime des prochains jours (zonal, blocage, NAO+/NAO−)."
+    )
+
+    try:
+        serie = _fetch_cartes_ecmwf()
+    except Exception as e:  # noqa: BLE001
+        st.warning(f"Cartes ECMWF indisponibles : {e}")
+        return
+
+    if serie.nb_disponibles == 0:
+        st.info(
+            "Aucune carte ECMWF récupérable pour le moment (Météociel "
+            "n'a peut-être pas encore publié le run en cours)."
+        )
+        return
+
+    # Légende du run en français, en heure locale.
+    run_utc = serie.cartes[0].run_utc
+    run_loc = run_utc.tz_convert(tz_locale)
+    run_str = (
+        f"{JOURS_FR[run_loc.weekday()][:3]}. {run_loc.day:02d}/{run_loc.month:02d} "
+        f"{run_loc.hour:02d} h"
+    )
+    st.caption(f"Run ECMWF : {run_str} (heure locale) · cible affichée en heure locale.")
+
+    # Grille 2×2 sur desktop, empilée naturellement sur mobile via columns.
+    cols = st.columns(2)
+    for idx, carte in enumerate(serie.cartes):
+        col = cols[idx % 2]
+        with col:
+            cible_loc = carte.cible_utc.tz_convert(tz_locale)
+            cible_str = (
+                f"{JOURS_FR[cible_loc.weekday()][:3]}. {cible_loc.day:02d}/"
+                f"{cible_loc.month:02d} {cible_loc.hour:02d} h"
+            )
+            st.markdown(
+                f'<div style="font-size:13px;color:#34495e;font-weight:600;'
+                f'margin-top:12px;margin-bottom:4px;">'
+                f"T+{carte.echeance_h} h · cible {cible_str}"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            if carte.data_uri:
+                st.markdown(
+                    f'<img src="{carte.data_uri}" '
+                    'style="width:100%;border:1px solid #e8e8e8;border-radius:4px;">',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    '<div style="color:#888;font-size:12px;padding:8px;">'
+                    "Carte indisponible pour cette échéance.</div>",
+                    unsafe_allow_html=True,
+                )
+
+
 # Couleurs Wong alignées sur le mail Veille (cf. `apps/veille/email.py`).
 _T_MIN_COLOR = "#0072B2"  # bleu
 _T_MAX_COLOR = "#D55E00"  # orange foncé
@@ -860,8 +944,8 @@ def main() -> None:
     # ----- §2 Guides de décision de la semaine (horizon court ARPEGE) -----
     _afficher_section_decisions(quotidien_court, site.get("tz", "Europe/Paris"))
 
-    # ----- §3 Cartes géographiques (TODO C4) -----
-    # Placeholder à venir.
+    # ----- §3 Cartes géographiques ECMWF 7 j (Météociel) -----
+    _afficher_section_cartes_geo(tz_site)
 
     st.divider()
     st.markdown(
