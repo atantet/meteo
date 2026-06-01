@@ -186,15 +186,19 @@ def _bloc_vigilance_mf(
         f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
     )
 
-    # Tous verts : ligne unique compacte (pas de bruit visuel).
+    # Tous verts : on garde le titre de section (cohérence avec le cas
+    # "alerte présente") puis une ligne "rien à signaler" sur 48 h.
     if vigilance.niveau_max_global <= 1:
         return (
-            '<div style="margin:12px 0 6px 0;padding:8px 12px;'
-            'background:#f4f4f4;border-radius:4px;font-size:12px;color:#555;">'
-            "<strong>Vigilance Météo-France</strong> : aucun phénomène en cours "
-            f"(département {vigilance.departement})."
+            '<div style="margin:12px 0 6px 0;">'
+            '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+            "Vigilance Météo-France</h3>"
+            '<div style="padding:8px 12px;background:#f4f4f4;border-radius:4px;'
+            'font-size:12px;color:#555;">'
+            f"Aucune alerte sur les 48 h (département {vigilance.departement})."
             '<div style="font-size:11px;color:#888;margin-top:4px;">'
             f"{legende}</div>"
+            "</div>"
             "</div>"
         )
 
@@ -238,6 +242,49 @@ def _bloc_vigilance_mf(
         f"{legende}"
         "</p>"
         "</div>"
+    )
+
+
+def _bloc_vigilance_exploitation(alertes: list[Alerte]) -> str:
+    """Bloc HTML Vigilance exploitation — seuils agronomiques configurés.
+
+    Pendant local de la Vigilance Météo-France : seuils propres à
+    l'exploitation (gel irrigation/cultures, canicule, pluie, vent…).
+    Affiché juste après la Vigilance MF pour que les deux "rien à
+    signaler" soient explicitement séparés — pas de bandeau vert global
+    qui laisserait croire à un « tout va bien » alors que MF peut être
+    en vigilance orages (incohérence constatée 2026-06-01).
+
+    - Aucune alerte → on garde le titre de section + ligne grise
+      "Aucune alerte sur les 48 h" (même style que le cas MF vide).
+    - ≥ 1 alerte → items colorés par niveau (warning / critique).
+    """
+    if not alertes:
+        return (
+            '<div style="margin:12px 0 6px 0;">'
+            '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+            "Vigilance exploitation</h3>"
+            '<div style="padding:8px 12px;background:#f4f4f4;border-radius:4px;'
+            'font-size:12px;color:#555;">Aucune alerte sur les 48 h.</div>'
+            "</div>"
+        )
+
+    couleur_niveau = {"critique": "#D55E00", "warning": "#E69F00"}
+    items: list[str] = []
+    for a in alertes:
+        c = couleur_niveau.get(a.niveau, "#7f8c8d")
+        items.append(
+            f'<div style="margin:6px 0;padding:8px 12px;background:{c};'
+            f'color:white;border-radius:4px;">'
+            f"<strong>{a.titre}</strong>"
+            f'<div style="font-size:0.85em;opacity:0.9;">'
+            f"seuil configuré : {a.seuil} {a.unite}</div>"
+            f"</div>"
+        )
+    return (
+        '<div style="margin:12px 0 6px 0;">'
+        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+        "Vigilance exploitation</h3>" + "".join(items) + "</div>"
     )
 
 
@@ -980,15 +1027,14 @@ def composer_texte(
     lignes.append(f"Prévision du {fenetre_label}")
     lignes.append("")
 
+    lignes.append("VIGILANCE EXPLOITATION :")
     if alertes:
-        lignes.append("ALERTES :")
         for a in alertes:
             lignes.append(f"  [{a.niveau.upper()}] {a.titre}")
             lignes.append(f"      seuil configuré : {a.seuil} {a.unite}")
-        lignes.append("")
     else:
-        lignes.append("Aucune alerte seuil franchi sur les prochaines 24 h.")
-        lignes.append("")
+        lignes.append("  Aucune alerte sur les 48 h.")
+    lignes.append("")
 
     # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
     tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
@@ -1050,29 +1096,6 @@ def composer_html(
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
-    couleur_niveau = {"critique": "#D55E00", "warning": "#E69F00"}
-
-    bandeau = ""
-    if alertes:
-        bandeau_items = []
-        for a in alertes:
-            c = couleur_niveau.get(a.niveau, "#7f8c8d")
-            bandeau_items.append(
-                f'<div style="margin:6px 0;padding:8px 12px;background:{c};'
-                f'color:white;border-radius:4px;">'
-                f"<strong>{a.titre}</strong>"
-                f'<div style="font-size:0.85em;opacity:0.9;">'
-                f"seuil configuré : {a.seuil} {a.unite}</div>"
-                f"</div>"
-            )
-        bandeau = "".join(bandeau_items)
-    else:
-        bandeau = (
-            '<div style="margin:6px 0;padding:8px 12px;background:#009E73;'
-            'color:white;border-radius:4px;">'
-            "Aucune alerte seuil franchi sur les prochaines 24 h."
-            "</div>"
-        )
 
     def row(label: str, valeur: str, fenetre: str) -> str:
         return (
@@ -1108,6 +1131,7 @@ def composer_html(
     )
     bloc_carte = _bloc_cartes_synoptiques(cartes_grille, tz_locale=tz_locale)
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale)
+    bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -1159,8 +1183,8 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
     La Petite Claye, Pleine-Fougères
   </p>
-  {bandeau}
   {bloc_vigilance}
+  {bloc_vigilance_exploitation}
   {bloc_grille}
   {bloc_risque_maladies}
   {bloc_carte}

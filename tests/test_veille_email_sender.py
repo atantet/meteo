@@ -79,7 +79,7 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     from apps.veille.email import composer_texte
 
     txt = composer_texte(_ind(), [_alerte_gel()], datetime(2024, 6, 15, 7, 30))
-    assert "ALERTES" in txt
+    assert "VIGILANCE EXPLOITATION" in txt
     assert "Gel" in txt
     assert "INDICATEURS" in txt
     # Valeurs présentes.
@@ -98,7 +98,8 @@ def test_composer_texte_aucune_alerte() -> None:
     from apps.veille.email import composer_texte
 
     txt = composer_texte(_ind(), [], datetime(2024, 6, 15, 7, 30))
-    assert "Aucune alerte" in txt
+    assert "Vigilance exploitation".upper() in txt
+    assert "Aucune alerte sur les 48 h" in txt
 
 
 def test_composer_html_structure() -> None:
@@ -319,3 +320,66 @@ def test_composer_html_sans_vigilance_pas_de_bloc() -> None:
 
     html = composer_html(_ind(), [], datetime(2026, 5, 31, 7, 0), vigilance=None)
     assert "Vigilance Météo-France" not in html
+
+
+def test_composer_html_sans_alerte_section_exploitation_separee() -> None:
+    """Sans alerte exploitation : section dédiée, pas de bandeau vert global.
+
+    Le bandeau « Aucune alerte seuil franchi » trompait quand MF était en
+    vigilance orages : on a désormais une section « Vigilance exploitation »
+    distincte qui annonce séparément l'absence de seuil franchi.
+    """
+    from apps.veille.email import composer_html
+
+    html = composer_html(
+        _ind(),
+        [],
+        datetime(2026, 5, 31, 7, 0),
+        vigilance=_vigilance_jaune_orages(),
+    )
+    # Section exploitation présente (titre conservé) et son "rien à signaler".
+    assert "Vigilance exploitation" in html
+    assert "Aucune alerte sur les 48 h" in html
+    # Plus de bandeau vert "tout va bien" global trompeur, plus de "prochaines 24 h".
+    assert "prochaines 24 h" not in html
+    # La Vigilance MF (orages) reste bien affichée à côté.
+    assert "Vigilance Météo-France" in html
+    assert "Orages" in html
+
+
+def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
+    """Sans alerte ET MF tout vert : les 2 titres <h3> restent affichés."""
+    import pandas as pd
+
+    from apps.veille.email import composer_html
+    from meteo_socle.sources.meteofrance_vigilance import (
+        PHENOMENES_NOMS,
+        PHENOMENES_PERTINENTS,
+        VigilanceDepartement,
+        VigilancePhenomene,
+    )
+
+    vigilance_verte = VigilanceDepartement(
+        departement="35",
+        update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
+        phenomenes=[
+            VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau_j=1, niveau_j1=1)
+            for pid in PHENOMENES_PERTINENTS
+        ],
+    )
+    html = composer_html(_ind(), [], datetime(2026, 5, 31, 7, 0), vigilance=vigilance_verte)
+    # Les deux titres de section sont rendus en <h3> même sans alerte.
+    assert ">Vigilance Météo-France</h3>" in html
+    assert ">Vigilance exploitation</h3>" in html
+    # Et chacun annonce séparément l'absence d'alerte sur 48 h.
+    assert html.count("Aucune alerte sur les 48 h") >= 2
+
+
+def test_composer_html_avec_alerte_section_exploitation_colorée() -> None:
+    """Avec une alerte gel : la section exploitation affiche l'item coloré."""
+    from apps.veille.email import composer_html
+
+    html = composer_html(_ind(), [_alerte_gel()], datetime(2026, 5, 31, 7, 0))
+    assert "Vigilance exploitation" in html
+    assert "Gel" in html
+    assert "seuil configuré" in html
