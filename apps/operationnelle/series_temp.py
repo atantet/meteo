@@ -27,6 +27,7 @@ from __future__ import annotations
 import pandas as pd
 
 from apps.operationnelle.charts import CourbeConfig
+from apps.operationnelle.indicateurs import _charger_normales_journalieres
 from meteo_socle.indices.etp_fao import calcul_etp
 
 KELVIN_VERS_CELSIUS = 273.15
@@ -126,6 +127,16 @@ def preparer_horaire(
         out["bilan_eau_horaire_mm"] = out["precipitation"] - out["etp_horaire_mm"]
         out["bilan_eau_cumul_mm"] = out["bilan_eau_horaire_mm"].cumsum()
 
+    # Normales OMM 1991-2020 (indexées par day-of-year quotidien) :
+    # broadcastées sur l'index horaire pour permettre l'overlay shading
+    # chaud/froid dans `figure_indicateur`. Une normale est constante
+    # sur un jour civil — l'utilisateur voit la prévision horaire qui
+    # oscille autour de la moyenne climatologique du jour.
+    normales = _charger_normales_journalieres()
+    if normales is not None and "temperature_2m_c" in out.columns:
+        doy_index = out.index.dayofyear
+        out["temperature_2m_c_normale"] = normales["t_moy_celsius"].reindex(doy_index).to_numpy()
+
     return out
 
 
@@ -134,6 +145,7 @@ def preparer_horaire(
 COURBES_HORAIRES: list[CourbeConfig] = [
     CourbeConfig(
         colonne="temperature_2m_c",
+        colonne_normale="temperature_2m_c_normale",
         titre="Température (horaire)",
         unite="°C",
         couleur="#D55E00",

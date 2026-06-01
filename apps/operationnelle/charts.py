@@ -176,6 +176,7 @@ def figure_indicateur(
     cfg: CourbeConfig,
     figsize: tuple[float, float] = (8.0, 3.2),
     seuils_extra: list[Seuil] | None = None,
+    marker: str | None = "auto",
 ) -> plt.Figure:
     """Construit une figure matplotlib pour un indicateur donné.
 
@@ -236,7 +237,14 @@ def figure_indicateur(
             label="Normale 1991-2020 OMM",
         )
 
-    ax.plot(x, y, color=cfg.couleur, linewidth=2.2, marker="o", label="Prévision")
+    # Marker auto : actif pour les séries courtes (≤ 30 points = quotidien
+    # sur 4-7 j), désactivé pour les séries horaires (96+ points devient
+    # illisible avec un marker par point).
+    marker_effectif = ("o" if len(x) <= 30 else None) if marker == "auto" else marker
+    plot_kwargs = {"color": cfg.couleur, "linewidth": 2.2, "label": "Prévision"}
+    if marker_effectif:
+        plot_kwargs["marker"] = marker_effectif
+    ax.plot(x, y, **plot_kwargs)
 
     # Seuils informatifs (statiques cfg.seuils + dynamiques seuils_extra).
     # Affichés uniquement si la courbe les traverse dans la fenêtre.

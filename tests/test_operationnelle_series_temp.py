@@ -129,6 +129,19 @@ def test_courbes_horaires_colonnes_existent_apres_preparation() -> None:
         assert cfg.colonne in out.columns, f"Colonne manquante : {cfg.colonne}"
 
 
+def test_preparer_horaire_injecte_normale_t_moy() -> None:
+    """La normale OMM t_moy doit être broadcastée par heure depuis le CSV."""
+    df = _prevision_horaire_synthetique(n_jours=2)
+    out = preparer_horaire(df, SITE_TEST)
+    # La colonne peut être absente si le CSV des normales est absent ;
+    # dans ce cas on skip — c'est un environnement de dev.
+    if "temperature_2m_c_normale" not in out.columns:
+        return
+    # La normale doit être constante sur un jour civil donné.
+    par_jour = out.groupby(out.index.normalize())["temperature_2m_c_normale"].nunique()
+    assert (par_jour == 1).all(), "Normale doit être constante par jour"
+
+
 def test_etp_horaire_socle_robuste_au_concat_heterogene() -> None:
     """Reproduit le scénario du toggle « 48 h passées » :
 
