@@ -27,6 +27,7 @@ from apps.operationnelle.tendances import (  # noqa: E402
     FENETRE_JOUR_FIN,
     FENETRE_NUIT,
     KELVIN_VERS_CELSIUS,
+    MIN_HEURES_PAR_FENETRE,
     MS_VERS_KMH,
     _direction_cardinal,
     _direction_moyenne_ponderee,
@@ -198,6 +199,55 @@ def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:
     for cell in cellules.values():
         assert cell.t_mean == pytest.approx(15.0, abs=1e-6)
         assert cell.t_extreme == pytest.approx(15.0, abs=1e-6)
+
+
+def test_agreger_par_fenetre_etp_cumul() -> None:
+    """ETP socle (mm/h) sur 24 h × 0.1 → cumul 1.2 mm sur fenêtre jour (12 h)."""
+    horaire = _horaire_synthetique(jours=1)
+    etp = pd.Series(
+        [0.1] * 24,
+        index=pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC"),
+    )
+    cellules = agreger_par_fenetre(horaire, tz_locale="UTC", etp_horaire=etp)
+    j0 = sorted({j for (j, _) in cellules})[0]
+    cell_jour = cellules[(j0, FENETRE_JOUR)]
+    cell_nuit = cellules[(j0, FENETRE_NUIT)]
+    # Fenêtre jour = 12 heures × 0.1 mm/h = 1.2 mm
+    assert cell_jour.etp_mm == pytest.approx(1.2, abs=1e-6)
+    # Fenêtre nuit = 12 heures × 0.1 mm/h = 1.2 mm
+    assert cell_nuit.etp_mm == pytest.approx(1.2, abs=1e-6)
+
+
+def test_agreger_par_fenetre_sans_etp_donne_nan() -> None:
+    """Sans série ETP, l'ETP de chaque cellule est NaN."""
+    horaire = _horaire_synthetique(jours=1)
+    cellules = agreger_par_fenetre(horaire, tz_locale="UTC")
+    for cell in cellules.values():
+        assert np.isnan(cell.etp_mm)
+
+
+def test_agreger_par_fenetre_filtre_fenetres_trop_courtes() -> None:
+    """Une fenêtre couvrant < MIN_HEURES_PAR_FENETRE est écartée."""
+    # Crée une prévision ne couvrant que MIN-1 heures sur la fenêtre jour
+    # du 01/06 (heures 7h-9h locales soit 3 heures si MIN=4).
+    n_couvert = MIN_HEURES_PAR_FENETRE - 1
+    debut = pd.Timestamp(f"2026-06-01 0{FENETRE_JOUR_DEBUT}:00", tz="UTC")
+    idx = pd.date_range(debut, periods=n_couvert, freq="h")
+    horaire = pd.DataFrame(
+        {
+            "temperature_2m": [288.15] * n_couvert,
+            "precipitation": [0.0] * n_couvert,
+            "probabilite_pluie_pct": [0.0] * n_couvert,
+            "vitesse_vent_10m": [1.0] * n_couvert,
+            "rafales_vent_10m": [1.0] * n_couvert,
+            "direction_vent_deg": [180.0] * n_couvert,
+            "weather_code": [0] * n_couvert,
+        },
+        index=idx,
+    )
+    cellules = agreger_par_fenetre(horaire, tz_locale="UTC")
+    # Aucune cellule créée car < MIN heures couvertes sur la fenêtre jour.
+    assert (pd.Timestamp("2026-06-01"), FENETRE_JOUR) not in cellules
 
 
 def test_agreger_par_fenetre_horaire_vide_retourne_dict_vide() -> None:

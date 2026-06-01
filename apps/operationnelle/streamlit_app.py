@@ -80,6 +80,32 @@ def _fetch_prevision(
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
 
 
+# Colonnes requises par le calcul ETP socle (cf. `apps.operationnelle.indicateurs`).
+_INPUTS_ETP_TENDANCE = (
+    "temperature_2m",
+    "humidite_relative",
+    "vitesse_vent_10m",
+    "rayonnement_global",
+)
+
+
+def _calculer_etp_horaire(prevision: pd.DataFrame, site: dict) -> pd.Series | None:
+    """ETP socle FAO Penman-Monteith horaire (mm/h), ou None si entrées manquantes."""
+    from meteo_socle.indices.etp_fao import calcul_etp
+
+    if not all(c in prevision.columns for c in _INPUTS_ETP_TENDANCE):
+        return None
+    try:
+        return calcul_etp(
+            prevision[list(_INPUTS_ETP_TENDANCE)],
+            site["latitude"],
+            site["longitude"],
+            site["altitude"],
+        )
+    except (KeyError, ValueError):
+        return None
+
+
 # Couleurs Wong alignées sur le mail Veille (cf. `apps/veille/email.py`).
 _T_MIN_COLOR = "#0072B2"  # bleu
 _T_MAX_COLOR = "#D55E00"  # orange foncé
@@ -156,6 +182,13 @@ def _fmt_vent_cell(cellule) -> str:
     )
 
 
+def _fmt_etp_cell(cellule) -> str:
+    """Cellule ETP : cumul mm sur la fenêtre (socle FAO Penman-Monteith)."""
+    if pd.isna(cellule.etp_mm):
+        return "—"
+    return f'<span style="color:{_LABEL_COLOR};">{cellule.etp_mm:.1f}</span>{_unite_inline("mm")}'
+
+
 def _fmt_dir_cell(cellule) -> str:
     """Cellule direction : flèche grande + cardinal discret."""
     if not cellule.direction_cardinal:
@@ -168,34 +201,48 @@ def _fmt_dir_cell(cellule) -> str:
 
 
 def _afficher_grille_tendance(
-    series: list[tuple[str, pd.DataFrame]],
+    series: list[tuple[str, pd.DataFrame, pd.Series | None]],
     horizon_jours: int,
     tz_locale: str,
 ) -> None:
     """Grille tendance : colonnes dédoublées jour/nuit × N j, lignes par variable.
 
     Format : pour chaque jour civil, deux colonnes côte-à-côte (jour
-    puis nuit). Pour chaque variable (picto, T°, pluie, vent, direction),
-    deux sous-lignes empilées (ARPEGE puis ECMWF IFS) — paires de modèles
-    regroupées par variable, dans l'esprit de la grille Veille.
+    puis nuit). Pour chaque variable (picto, T°, pluie, vent, direction,
+    ETP), deux sous-lignes empilées (ARPEGE puis ECMWF IFS) — paires de
+    modèles regroupées par variable, dans l'esprit de la grille Veille.
 
-    ``series`` : liste ``[(label, prevision_horaire), …]`` à empiler.
-    Si un modèle ne couvre pas un jour (horizon court ARPEGE > 4 j), les
-    cellules concernées affichent « — » discret.
+    Lignes ECMWF rendues sur un fond légèrement grisé pour mieux
+    séparer visuellement les blocs « indicateur » entre eux.
+
+    ``series`` : liste de tuples ``(label, prevision_horaire, etp_horaire)``
+    où ``etp_horaire`` est la série ETP socle (mm/h) ou ``None``. Si un
+    modèle ne couvre pas un jour (ARPEGE > 4 j), les cellules concernées
+    affichent « — » discret.
     """
     from apps.operationnelle.tendances import (
         FENETRE_JOUR,
         FENETRE_NUIT,
         agreger_par_fenetre,
     )
+    from apps.shared.dates_fr import JOURS_FR
     from apps.shared.pictograms import icone_base64
 
+    # Fond légèrement grisé pour la 2e sous-ligne (ECMWF) — meilleure
+    # séparation des blocs « indicateur » que des traits plus épais.
+    fond_modeles = ["white", "#f6f7f9"]
+
     agreges: list[tuple[str, dict]] = []
-    for label, horaire in series:
+    for label, horaire, etp_horaire in series:
         if horaire is None or horaire.empty:
             agreges.append((label, {}))
             continue
-        agreges.append((label, agreger_par_fenetre(horaire, tz_locale, horizon_jours)))
+        agreges.append(
+            (
+                label,
+                agreger_par_fenetre(horaire, tz_locale, horizon_jours, etp_horaire),
+            )
+        )
 
     jours_tous: list[pd.Timestamp] = sorted({jour for _, agg in agreges for (jour, _f) in agg})[
         :horizon_jours
@@ -204,18 +251,25 @@ def _afficher_grille_tendance(
         st.markdown("_Aucune donnée disponible pour les modèles sélectionnés._")
         return
 
-    # En-tête deux étages : ligne 1 = date (colspan 2 = jour+nuit),
-    # ligne 2 = libellés jour/nuit.
+    def _date_fr(d: pd.Timestamp) -> str:
+        # Forme courte FR : "lun. 02/06" — abréviation 3 lettres + . + date.
+        return f"{JOURS_FR[d.weekday()][:3]}. {d.day:02d}/{d.month:02d}"
+
+    # En-tête : 2 colonnes fixes à gauche (Indicateur, Modèle) avec
+    # rowspan=2, puis paires Jour/Nuit pour chaque date.
     en_tete_dates = (
         '<tr style="background:#fafafa;">'
         '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
         "font-size:13px;font-weight:600;position:sticky;left:0;"
-        'background:#fafafa;min-width:140px;">Indicateur · modèle</th>'
+        'background:#fafafa;min-width:110px;">Indicateur</th>'
+        '<th rowspan="2" style="padding:6px 8px;text-align:left;color:#34495e;'
+        "font-size:13px;font-weight:600;background:#fafafa;"
+        'min-width:90px;border-right:1px solid #e8e8e8;">Modèle</th>'
         + "".join(
             '<th colspan="2" style="padding:6px 4px;text-align:center;'
             "font-size:13px;color:#34495e;font-weight:600;"
             'border-left:1px solid #e8e8e8;">'
-            f"{jour.strftime('%a %d/%m').capitalize()}</th>"
+            f"{_date_fr(jour)}</th>"
             for jour in jours_tous
         )
         + "</tr>"
@@ -232,36 +286,46 @@ def _afficher_grille_tendance(
         + "</tr>"
     )
 
-    def _label_ligne(libelle: str, modele: str, sur_fond_sombre: bool = False) -> str:
-        col_lib = _FOND_SOUS_LABEL if sur_fond_sombre else _LIGNE_LABEL_COLOR
-        col_mod = _FOND_SOUS_LABEL if sur_fond_sombre else "#888"
+    def _td_variable(libelle: str, sur_fond_sombre: bool = False) -> str:
+        """Cellule 1ère colonne, fusionnée verticalement sur 2 sous-lignes."""
+        col = _FOND_SOUS_LABEL if sur_fond_sombre else _LIGNE_LABEL_COLOR
         bg = _FOND_PICTO if sur_fond_sombre else "white"
         return (
-            f'<td style="padding:4px 8px;font-size:13px;color:{col_lib};'
-            f'position:sticky;left:0;background:{bg};white-space:nowrap;">'
-            f"{libelle} "
-            f'<span style="color:{col_mod};font-size:11px;">· {modele}</span>'
-            "</td>"
+            f'<td rowspan="2" style="padding:4px 8px;font-size:13px;'
+            f"color:{col};font-weight:600;position:sticky;left:0;"
+            f'background:{bg};white-space:nowrap;vertical-align:middle;">'
+            f"{libelle}</td>"
         )
 
-    def _cellule_vide(sur_fond_sombre: bool = False) -> str:
-        bg = "" if not sur_fond_sombre else f";background:{_FOND_PICTO}"
+    def _td_modele(modele: str, bg: str, sur_fond_sombre: bool = False) -> str:
+        """Cellule 2e colonne (modèle), une par sous-ligne."""
+        col = _FOND_SOUS_LABEL if sur_fond_sombre else "#666"
+        return (
+            f'<td style="padding:4px 8px;font-size:12px;color:{col};'
+            f"background:{bg};white-space:nowrap;"
+            'border-right:1px solid #e8e8e8;">'
+            f"{modele}</td>"
+        )
+
+    def _cellule_vide(bg: str) -> str:
         return (
             '<td style="padding:4px;text-align:center;color:#ccc;'
-            f'font-size:13px{bg};border-left:1px solid #e8e8e8;">—</td>'
+            f"font-size:13px;background:{bg};"
+            'border-left:1px solid #e8e8e8;">—</td>'
         )
 
-    def _cellule_valeur(html_val: str) -> str:
+    def _cellule_valeur(html_val: str, bg: str) -> str:
         return (
             '<td style="padding:4px;text-align:center;'
             "font-variant-numeric:tabular-nums;font-size:13px;"
-            f'font-weight:700;color:{_LABEL_COLOR};border-left:1px solid #e8e8e8;">'
+            f"font-weight:700;color:{_LABEL_COLOR};background:{bg};"
+            'border-left:1px solid #e8e8e8;">'
             f"{html_val}</td>"
         )
 
-    def _cellule_picto(cellule, sur_fond_sombre: bool = True) -> str:
+    def _cellule_picto(cellule) -> str:
         if cellule is None or cellule.code_picto is None:
-            return _cellule_vide(sur_fond_sombre=sur_fond_sombre)
+            return _cellule_vide(_FOND_PICTO)
         uri = icone_base64(cellule.code_picto)
         return (
             '<td style="padding:2px 4px;text-align:center;'
@@ -278,26 +342,39 @@ def _afficher_grille_tendance(
         format_fn,
         besoin_fenetre: bool = False,
     ) -> list[str]:
-        """Construit 2 lignes (une par modèle) pour une variable donnée."""
+        """Construit 2 lignes (une par modèle) pour une variable.
+
+        La cellule libellé de variable est rendue une seule fois en
+        ``rowspan=2`` sur la 1ère sous-ligne ; les 2 sous-lignes portent
+        chacune leur cellule modèle. Fond ECMWF (2e sous-ligne) légèrement
+        grisé pour mieux délimiter les blocs « indicateur ».
+        """
         lignes = []
-        for label, agg in agreges:
-            cellules = [_label_ligne(libelle, label)]
+        for i, (label, agg) in enumerate(agreges):
+            bg = fond_modeles[i % len(fond_modeles)]
+            cellules: list[str] = []
+            if i == 0:
+                cellules.append(_td_variable(libelle))
+            cellules.append(_td_modele(label, bg))
             for jour in jours_tous:
                 for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
                     cellule = agg.get((jour, fenetre))
                     if cellule is None:
-                        cellules.append(_cellule_vide())
+                        cellules.append(_cellule_vide(bg))
                     else:
                         val = format_fn(cellule, fenetre) if besoin_fenetre else format_fn(cellule)
-                        cellules.append(_cellule_valeur(val))
+                        cellules.append(_cellule_valeur(val, bg))
             lignes.append("<tr>" + "".join(cellules) + "</tr>")
         return lignes
 
     def _lignes_picto() -> list[str]:
         """Bandeau picto sombre, 2 sous-lignes (une par modèle)."""
         lignes = []
-        for label, agg in agreges:
-            cellules = [_label_ligne("Météo", label, sur_fond_sombre=True)]
+        for i, (label, agg) in enumerate(agreges):
+            cellules: list[str] = []
+            if i == 0:
+                cellules.append(_td_variable("Météo", sur_fond_sombre=True))
+            cellules.append(_td_modele(label, _FOND_PICTO, sur_fond_sombre=True))
             for jour in jours_tous:
                 for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
                     cellules.append(_cellule_picto(agg.get((jour, fenetre))))
@@ -310,6 +387,7 @@ def _afficher_grille_tendance(
         + _ligne_variable("Pluie / proba", _fmt_pluie_cell)
         + _ligne_variable("Vent moy / raf.", _fmt_vent_cell)
         + _ligne_variable("Vent direction", _fmt_dir_cell)
+        + _ligne_variable("ETP cumulée", _fmt_etp_cell)
     )
 
     html = (
@@ -616,15 +694,6 @@ def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
         st.info("Aucun guide applicable cette semaine (tout hors saison ou données insuffisantes).")
         return
 
-    nb_actifs = sum(1 for g in guides if g.active)
-    accord_actif = "s" if nb_actifs > 1 else ""
-    accord_appl = "s" if len(guides) > 1 else ""
-    st.caption(
-        f"{nb_actifs} guide{accord_actif} actif{accord_actif} "
-        f"sur {len(guides)} applicable{accord_appl} cette semaine "
-        "(les inactifs sont grisés ; leurs seuils restent ajustables)."
-    )
-
     for theme, guides_theme in grouper_par_theme(guides):
         st.markdown(
             '<h4 style="margin:18px 0 6px 0;font-size:16px;color:#34495e;'
@@ -695,8 +764,14 @@ def main() -> None:
     quotidien_long = calculer_indicateurs_quotidiens(prevision_longue, config, now_utc=now_utc)
     quotidien_long = jours_complets_seulement(quotidien_long, prevision_longue)
 
+    # ETP socle FAO Penman-Monteith horaire pour les 2 prévisions ;
+    # passée à la grille tendance pour cumul par fenêtre. Cohérence avec
+    # le principe « calcul scientifique = socle, jamais champ fournisseur ».
+    etp_court = _calculer_etp_horaire(prevision_courte, site)
+    etp_long = _calculer_etp_horaire(prevision_longue, site)
+
     # Alias utilisé par les sections séries temporelles + bilan hydrique
-    # + tableau détaillé + sources : court terme (ARPEGE).
+    # + sources : court terme (ARPEGE).
     prevision = prevision_courte
     quotidien = quotidien_court
 
@@ -713,10 +788,13 @@ def main() -> None:
         f"0-{horizon_court} j ; cellules « — » au-delà) et ECMWF IFS "
         f"(~9 km, référence mondiale, 0-{horizon_long} j). Affichage en "
         "paires : T° moy/extrême, pluie/probabilité, vent moy/rafales, "
-        "direction dominante."
+        "direction dominante, ETP socle FAO."
     )
     _afficher_grille_tendance(
-        [("ARPEGE", prevision_courte), ("ECMWF IFS", prevision_longue)],
+        [
+            ("ARPEGE", prevision_courte, etp_court),
+            ("ECMWF IFS", prevision_longue, etp_long),
+        ],
         horizon_jours=horizon_long,
         tz_locale=tz_site,
     )

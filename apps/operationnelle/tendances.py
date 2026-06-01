@@ -53,6 +53,12 @@ MS_VERS_KMH = 3.6
 # cf. `meteo_socle.sources.openmeteo`). La grille affiche en °C.
 KELVIN_VERS_CELSIUS = 273.15
 
+# Nombre minimal d'heures couvertes par fenêtre pour créer une cellule.
+# Évite l'effet "1 heure de couverture" en fin d'horizon ARPEGE (où le
+# décalage UTC fait déborder 1 ou 2 heures sur un jour local supplémentaire,
+# affichées comme une cellule complète tout en n'étant pas représentatives).
+MIN_HEURES_PAR_FENETRE = 4
+
 # Secteurs cardinaux 8 directions (N, NE, E, SE, S, SO, O, NO).
 _CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
 
@@ -71,6 +77,7 @@ class CelluleFenetre:
     rafales_max_kmh: float
     direction_cardinal: str
     direction_deg: float
+    etp_mm: float  # cumul ETP socle FAO sur la fenêtre, NaN si non fourni
 
 
 def _direction_cardinal(deg: float) -> str:
@@ -118,11 +125,17 @@ def _masque_fenetre(index: pd.DatetimeIndex, jour: pd.Timestamp, fenetre: str) -
     return base & plage
 
 
-def _agreger_cellule(group: pd.DataFrame, fenetre: str) -> CelluleFenetre:
+def _agreger_cellule(
+    group: pd.DataFrame,
+    fenetre: str,
+    etp_fenetre: pd.Series | None = None,
+) -> CelluleFenetre:
     """Agrège un sous-DataFrame horaire (déjà filtré sur une fenêtre).
 
     La T° est convertie K → °C : la socle Open-Meteo stocke en kelvin
     (+ 273.15 à l'ingestion), mais l'utilisateur lit des °C.
+    ``etp_fenetre`` est une série ETP horaire (mm/h) déjà filtrée sur
+    la même fenêtre ; sa somme donne l'ETP cumulée de la fenêtre.
     """
     t_k = group.get("temperature_2m")
     t_c = (t_k - KELVIN_VERS_CELSIUS) if t_k is not None else None
@@ -156,6 +169,12 @@ def _agreger_cellule(group: pd.DataFrame, fenetre: str) -> CelluleFenetre:
     code = code_dominant_fenetre(group["weather_code"]) if "weather_code" in group.columns else None
     lib = libelle_picto(code) if code is not None else ""
 
+    etp_mm = (
+        float(etp_fenetre.dropna().sum())
+        if etp_fenetre is not None and not etp_fenetre.dropna().empty
+        else float("nan")
+    )
+
     return CelluleFenetre(
         code_picto=code,
         libelle_picto=lib,
@@ -167,6 +186,7 @@ def _agreger_cellule(group: pd.DataFrame, fenetre: str) -> CelluleFenetre:
         rafales_max_kmh=rafales_max_kmh,
         direction_cardinal=_direction_cardinal(direction_deg),
         direction_deg=direction_deg,
+        etp_mm=etp_mm,
     )
 
 
@@ -174,6 +194,7 @@ def agreger_par_fenetre(
     horaire: pd.DataFrame,
     tz_locale: str = "Europe/Paris",
     horizon_jours: int | None = None,
+    etp_horaire: pd.Series | None = None,
 ) -> dict[tuple[pd.Timestamp, str], CelluleFenetre]:
     """Agrège la prévision horaire en cellules (date locale, fenêtre).
 
@@ -186,20 +207,30 @@ def agreger_par_fenetre(
         Fuseau de présentation (par défaut Europe/Paris).
     horizon_jours :
         Si fourni, plafonne au nombre de jours locaux couverts.
+    etp_horaire :
+        Série ETP horaire (mm/h) socle FAO calculée en amont, indexée
+        tz-aware UTC. Si fournie, chaque cellule porte la somme ETP de
+        sa fenêtre ; sinon `etp_mm` reste à NaN.
 
     Returns
     -------
     dict
         Clé = ``(jour_local_minuit, fenetre)`` où ``fenetre`` ∈
         {"jour", "nuit"} ; valeur = ``CelluleFenetre`` agrégée.
-        Les jours sans aucune heure couverte par la fenêtre sont
-        absents du résultat (pas de cellule vide).
+        Les fenêtres couvertes par moins de
+        ``MIN_HEURES_PAR_FENETRE`` heures sont écartées pour éviter
+        l'affichage de cellules peu représentatives.
     """
     if horaire.empty:
         return {}
 
     df = horaire.copy()
     df.index = pd.DatetimeIndex(df.index).tz_convert(tz_locale)
+
+    etp_loc = None
+    if etp_horaire is not None and not etp_horaire.empty:
+        etp_loc = etp_horaire.copy()
+        etp_loc.index = pd.DatetimeIndex(etp_loc.index).tz_convert(tz_locale)
 
     jours_uniques = pd.DatetimeIndex(df.index).normalize().unique().sort_values()
     if horizon_jours is not None:
@@ -209,8 +240,12 @@ def agreger_par_fenetre(
     for jour in jours_uniques:
         for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
             masque = _masque_fenetre(df.index, jour, fenetre)
-            if not masque.any():
+            if int(masque.sum()) < MIN_HEURES_PAR_FENETRE:
                 continue
-            cellules[(jour, fenetre)] = _agreger_cellule(df.loc[masque], fenetre)
+            etp_fenetre = None
+            if etp_loc is not None:
+                masque_etp = _masque_fenetre(etp_loc.index, jour, fenetre)
+                etp_fenetre = etp_loc.loc[masque_etp]
+            cellules[(jour, fenetre)] = _agreger_cellule(df.loc[masque], fenetre, etp_fenetre)
 
     return cellules
