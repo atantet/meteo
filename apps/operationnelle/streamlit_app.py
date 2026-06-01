@@ -33,6 +33,7 @@ import streamlit as st  # noqa: E402
 
 from apps.operationnelle.charts import (  # noqa: E402
     COURBES,
+    CourbeConfig,
     Seuil,
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
@@ -51,6 +52,10 @@ from apps.operationnelle.decisions import (  # noqa: E402
 from apps.operationnelle.indicateurs import (  # noqa: E402
     calculer_indicateurs_quotidiens,
     jours_complets_seulement,
+)
+from apps.operationnelle.series_temp import (  # noqa: E402
+    COURBES_HORAIRES,
+    preparer_horaire,
 )
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
 from apps.shared.style import (  # noqa: E402
@@ -78,6 +83,30 @@ def _fetch_prevision(
     """Fetch Open-Meteo, cache 1 h pour limiter les requêtes."""
     src = OpenMeteoForecast(modele=modele)
     return src.obtenir_prevision(latitude, longitude, horizon_jours)
+
+
+@st.cache_data(ttl=3600)
+def _fetch_era5_passe(
+    latitude: float,
+    longitude: float,
+    nb_jours: int = 2,
+    modele: str = "era5_land",
+) -> pd.DataFrame | None:
+    """ERA5 archive sur les ``nb_jours`` jours civils UTC précédant aujourd'hui.
+
+    Retourne ``None`` si le fetch échoue (réseau, indispo) — la grille
+    s'affiche alors sans le contexte passé, sans planter.
+    """
+    from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
+
+    today = pd.Timestamp.now(tz="UTC").normalize()
+    start = (today - pd.Timedelta(days=nb_jours)).strftime("%Y-%m-%d")
+    end = (today - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    try:
+        src = OpenMeteoArchive(modele=modele)
+        return src.obtenir_historique(latitude, longitude, start, end)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 # Colonnes requises par le calcul ETP socle (cf. `apps.operationnelle.indicateurs`).
@@ -822,51 +851,63 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # ----- Courbes 4 j (vue principale, en onglets) - ARPEGE court terme -----
+    # ----- Courbes horaires (vue principale, en onglets) -----
+    # Source : ARPEGE 4 j (prévision) + ERA5 48 h passées (contexte
+    # « d'où on vient »). Smith heures HR reste quotidien (granularité du
+    # calcul biologique).
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
-        f"Prévision {horizon_court} jours — courbes par indicateur"
+        f"Prévision horaire — 48 h passées (ERA5) + {horizon_court} j ARPEGE"
         "</h4>",
         unsafe_allow_html=True,
     )
-    st.caption(
-        "Pour les T° : courbe pointillée gris = normale OMM 1991-2020. "
-        "Zone ombrée rouge = au-dessus de la normale, bleu = en-dessous."
-    )
 
-    # Seuils dynamiques tirés de la config alertes : gel sur T_min,
-    # canicule sur T_max. Affichés seulement si la courbe les traverse.
+    era5_passe = _fetch_era5_passe(site["latitude"], site["longitude"], nb_jours=2)
+    horaire_courbes = preparer_horaire(prevision_courte, site, passe=era5_passe)
+
+    # Seuils dynamiques tirés de la config alertes : la courbe T° horaire
+    # est unique et traverse les deux régimes (gel et canicule), donc on
+    # affiche les deux seuils sur la même courbe.
     alertes_cfg = config["alertes"]
-    seuils_par_colonne: dict[str, list[Seuil]] = {}
+    seuils_t_horaire: list[Seuil] = []
     if alertes_cfg.get("gel", {}).get("actif"):
-        seuils_par_colonne["t_min_celsius"] = [
+        seuils_t_horaire.append(
             Seuil(
                 float(alertes_cfg["gel"]["seuil_celsius"]),
                 f"Seuil gel ({alertes_cfg['gel']['seuil_celsius']:g} °C)",
                 "#2980b9",
             )
-        ]
+        )
     if alertes_cfg.get("canicule", {}).get("actif"):
-        seuils_par_colonne["t_max_celsius"] = [
+        seuils_t_horaire.append(
             Seuil(
                 float(alertes_cfg["canicule"]["seuil_celsius"]),
                 f"Seuil canicule ({alertes_cfg['canicule']['seuil_celsius']:g} °C)",
                 "#c0392b",
             )
-        ]
+        )
+    seuils_par_colonne: dict[str, list[Seuil]] = {"temperature_2m_c": seuils_t_horaire}
 
-    courbes_dispo = [c for c in COURBES if c.colonne in quotidien.columns]
-    onglets = st.tabs([c.titre for c in courbes_dispo])
-    for tab, cfg in zip(onglets, courbes_dispo, strict=False):
+    # Onglets : courbes horaires d'abord, Smith (heures HR ≥ 90 %)
+    # ensuite — quotidien, car le critère biologique se définit par jour.
+    courbes_horaires_dispo = [c for c in COURBES_HORAIRES if c.colonne in horaire_courbes.columns]
+    courbes_quot_smith = [
+        c
+        for c in COURBES
+        if c.colonne == "mildiou_heures_humectation" and c.colonne in quotidien.columns
+    ]
+    onglets_specs: list[tuple[CourbeConfig, pd.DataFrame]] = [
+        (c, horaire_courbes) for c in courbes_horaires_dispo
+    ] + [(c, quotidien) for c in courbes_quot_smith]
+    onglets = st.tabs([c.titre for c, _ in onglets_specs])
+    for tab, (cfg, df) in zip(onglets, onglets_specs, strict=False):
         with tab:
             fig = figure_indicateur(
-                quotidien,
+                df,
                 cfg,
                 figsize=(5.5, 2.5),
                 seuils_extra=seuils_par_colonne.get(cfg.colonne),
             )
-            # Largeur limitée : 2/3 environ de la zone, le reste vide
-            # pour ne pas étirer le plot et garder un format lisible.
             col_plot, _ = st.columns([2, 1])
             with col_plot:
                 st.pyplot(fig, use_container_width=True)

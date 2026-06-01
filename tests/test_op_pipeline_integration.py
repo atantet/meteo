@@ -134,11 +134,11 @@ def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
     assert "ARPEGE" in md_blocs and "ECMWF IFS" in md_blocs, (
         "Section tendance ARPEGE vs ECMWF IFS introuvable dans le markdown"
     )
-    # Section séries temporelles §4 + sous-section courbes.
+    # Section séries temporelles §4 + sous-section prévision horaire.
     assert "Séries temporelles détaillées" in md_blocs, f"Section §4 absente : {md_blocs[:500]}"
-    assert "courbes par indicateur" in md_blocs.lower(), (
-        "Sous-section 'courbes par indicateur' absente"
-    )
+    # Le sous-titre courbes est désormais « Prévision horaire — 48 h
+    # passées (ERA5) + N j ARPEGE » (et plus « courbes par indicateur »).
+    assert "prévision horaire" in md_blocs.lower(), "Sous-section 'Prévision horaire' absente"
 
 
 def test_pipeline_complete_evaluer_decisions_sans_erreur() -> None:
