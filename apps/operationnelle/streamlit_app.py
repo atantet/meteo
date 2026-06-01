@@ -1221,16 +1221,16 @@ def main() -> None:
     ``{modele_court}`` (ARPEGE Météo-France, ~10 km).
   - **Long terme** ({horizon_long} j) — tendance + cartes : ``{modele_long}``
     (ECMWF IFS, ~9 km, référence mondiale).
-- **Archive modèle ({n_past_days} j passés)** : récupérée via le
-  paramètre ``past_days`` d'Open-Meteo Forecast. **Ce ne sont pas des
-  observations** ni une vraie réanalyse type ERA5 : ce sont les
-  sorties archivées du même modèle pour les heures qui sont
-  maintenant dans le passé (= ce qu'ARPEGE prévoyait depuis ses runs
-  précédents). Avantage : cohérence avec la prévision actuelle, pas
-  de mélange entre sources. Limite : sur des phénomènes locaux non
-  capturés par le modèle, l'archive peut s'écarter de la réalité
-  terrain. Distingué dans les courbes par un trait translucide
-  (« Archive modèle ») vs opaque (« Prévision »).
+- **Analyse modèle ({n_past_days} j passés)** : récupérée via le
+  paramètre ``past_days`` d'Open-Meteo Forecast — chaque heure passée
+  correspond à la sortie T+0 du run ARPEGE le plus récent qui la
+  couvrait (typiquement les analyses 00 Z / 06 Z / 12 Z / 18 Z).
+  **Ce ne sont pas des observations directes** ni une vraie réanalyse
+  type ERA5 : ce sont les états initiaux du modèle pour ces heures,
+  donc cohérents avec la prévision en cours mais sujets à un éventuel
+  biais du modèle sur des phénomènes locaux mal capturés. Distingué
+  dans les courbes par un trait translucide (« Analyse modèle ») vs
+  opaque (« Prévision »).
 - **ETP** : calculée par le socle FAO Penman-Monteith horaire
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec

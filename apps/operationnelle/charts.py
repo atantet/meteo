@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -248,15 +249,19 @@ def figure_indicateur(
         plot_kwargs_base["marker"] = marker_effectif
 
     if t_pivot is not None and x.min() < t_pivot < x.max():
-        # Split en deux segments : archive du modèle (passé translucide)
-        # et prévision (futur opaque). Les deux segments partagent une
-        # heure (le pivot) pour rester continus.
+        # Split en deux segments : analyses successives du modèle
+        # (passé, translucide) et prévision (futur, opaque). Les deux
+        # segments partagent une heure (le pivot) pour rester continus.
+        # « Analyse » = sortie T+0 du modèle pour chaque heure passée,
+        # récupérée via `past_days` d'Open-Meteo (≠ réanalyse ERA5).
         x_archive = x[x <= t_pivot]
         y_archive = y[x <= t_pivot]
         x_prevu = x[x >= t_pivot]
         y_prevu = y[x >= t_pivot]
-        ax.plot(x_archive, y_archive, alpha=0.5, label="Archive modèle", **plot_kwargs_base)
+        ax.plot(x_archive, y_archive, alpha=0.5, label="Analyse modèle", **plot_kwargs_base)
         ax.plot(x_prevu, y_prevu, label="Prévision", **plot_kwargs_base)
+        # Trait vertical fin à l'heure pivot pour ancrer la lecture.
+        ax.axvline(t_pivot, color="#34495e", linestyle="-", linewidth=0.6, alpha=0.5)
     else:
         ax.plot(x, y, label="Prévision", **plot_kwargs_base)
 
@@ -269,7 +274,18 @@ def figure_indicateur(
 
     ax.set_ylabel(cfg.unite)
     ax.set_title(cfg.titre, fontsize=11, loc="left", color="#34495e")
-    ax.grid(axis="y", alpha=0.25)
+
+    # Grille : verticale jour par jour (xticks majeurs à 00 h local
+    # de chaque jour) + horizontale habituelle. Sur des séries
+    # horaires (>30 points), on ajoute des ticks mineurs toutes les
+    # 6 h pour aider la lecture intra-journalière.
+    ax.xaxis.set_major_locator(mdates.DayLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%a %d/%m"))
+    if len(x) > 30:
+        ax.xaxis.set_minor_locator(mdates.HourLocator(byhour=(6, 12, 18)))
+        ax.grid(which="minor", axis="x", alpha=0.10, linestyle=":")
+    ax.grid(which="major", axis="both", alpha=0.30)
+
     if legende_externe:
         ax.legend(
             bbox_to_anchor=(1.02, 1),

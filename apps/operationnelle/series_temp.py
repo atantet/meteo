@@ -125,7 +125,20 @@ def preparer_horaire(
 
     if "precipitation" in out.columns and "etp_horaire_mm" in out.columns:
         out["bilan_eau_horaire_mm"] = out["precipitation"] - out["etp_horaire_mm"]
-        out["bilan_eau_cumul_mm"] = out["bilan_eau_horaire_mm"].cumsum()
+        cumul = out["bilan_eau_horaire_mm"].cumsum()
+        # Référence : 0 mm à 00 UTC du jour courant (« 0Z » en notation
+        # synoptique). Tout ce qui précède est négatif ou positif selon
+        # le bilan de la nuit passée ; la prévision démarre à 0 à 0 UTC
+        # et progresse en fonction de l'apport / consommation horaire.
+        now_utc = pd.Timestamp.now(tz="UTC")
+        today_00z = now_utc.normalize()
+        try:
+            ref = cumul.asof(today_00z)
+        except (KeyError, TypeError):
+            ref = 0.0
+        if pd.isna(ref):
+            ref = 0.0
+        out["bilan_eau_cumul_mm"] = cumul - ref
 
     # Normales OMM 1991-2020 (indexées par day-of-year quotidien) :
     # broadcastées sur l'index horaire pour permettre l'overlay shading
