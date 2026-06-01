@@ -79,35 +79,21 @@ KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi
 
 @st.cache_data(ttl=3600)
 def _fetch_prevision(
-    latitude: float, longitude: float, horizon_jours: int, modele: str
-) -> pd.DataFrame:
-    """Fetch Open-Meteo, cache 1 h pour limiter les requêtes."""
-    src = OpenMeteoForecast(modele=modele)
-    return src.obtenir_prevision(latitude, longitude, horizon_jours)
-
-
-@st.cache_data(ttl=3600)
-def _fetch_era5_passe(
     latitude: float,
     longitude: float,
-    nb_jours: int = 2,
-    modele: str = "era5_land",
-) -> pd.DataFrame | None:
-    """ERA5 archive sur les ``nb_jours`` jours civils UTC précédant aujourd'hui.
+    horizon_jours: int,
+    modele: str,
+    past_days: int = 0,
+) -> pd.DataFrame:
+    """Fetch Open-Meteo, cache 1 h pour limiter les requêtes.
 
-    Retourne ``None`` si le fetch échoue (réseau, indispo) — la grille
-    s'affiche alors sans le contexte passé, sans planter.
+    Avec ``past_days > 0``, la prévision inclut ``past_days`` jours
+    civils en amont (réanalyse rapide). Cohérent avec le modèle
+    courant — pas de mélange ERA5/forecast — et sans le retard 5 j
+    d'ERA5-Land sur les dernières heures.
     """
-    from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
-
-    today = pd.Timestamp.now(tz="UTC").normalize()
-    start = (today - pd.Timedelta(days=nb_jours)).strftime("%Y-%m-%d")
-    end = (today - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    try:
-        src = OpenMeteoArchive(modele=modele)
-        return src.obtenir_historique(latitude, longitude, start, end)
-    except Exception:  # noqa: BLE001
-        return None
+    src = OpenMeteoForecast(modele=modele)
+    return src.obtenir_prevision(latitude, longitude, horizon_jours, past_days=past_days)
 
 
 # Couleurs Wong alignées sur le mail Veille (cf. `apps/veille/email.py`).
@@ -753,9 +739,15 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Double fetch : ARPEGE court (4 j) pour guides + séries temp,
-    # ECMWF long (7 j) pour tendance + cartes. Cachés séparément par
-    # `_fetch_prevision` (clé = modele + horizon).
+    # Fetches Open-Meteo cachés séparément (clé = modele + horizon + past_days) :
+    # - ARPEGE court (4 j) sans passé pour §2 guides + indicateurs quotidiens.
+    # - ARPEGE étendu (4 j + 2 j de réanalyse rapide) pour §4 courbes
+    #   horaires + §1 tendance étendue quand le toggle « 48 h passées »
+    #   est activé. La réanalyse rapide via `past_days` est plus fiable
+    #   qu'ERA5-Land (pas de retard 5 j) et cohérente avec le modèle
+    #   courant.
+    # - ECMWF long (7 j) pour §1 tendance.
+    n_past_days = 2
     with st.spinner(
         f"Récupération prévisions Open-Meteo ({modele_court} {horizon_court} j "
         f"+ {modele_long} {horizon_long} j)…"
@@ -763,6 +755,13 @@ def main() -> None:
         try:
             prevision_courte = _fetch_prevision(
                 site["latitude"], site["longitude"], horizon_court, modele_court
+            )
+            prevision_courte_etendue = _fetch_prevision(
+                site["latitude"],
+                site["longitude"],
+                horizon_court,
+                modele_court,
+                past_days=n_past_days,
             )
             prevision_longue = _fetch_prevision(
                 site["latitude"], site["longitude"], horizon_long, modele_long
@@ -804,35 +803,23 @@ def main() -> None:
         "direction dominante, ETP socle FAO."
     )
 
-    # Toggle ERA5 48 h passées — off par défaut (la vue centrée sur la
+    # Toggle 48 h passées — off par défaut (la vue centrée sur la
     # prévision reste prioritaire). Activé, on prepend les colonnes
-    # J-2/J-1 sur la ligne ARPEGE uniquement (ECMWF n'a pas d'observation
-    # passée → cellules vides J-2/J-1).
-    afficher_era5 = st.checkbox(
-        "Afficher 48 h passées (ERA5)",
+    # J-2/J-1 sur la ligne ARPEGE uniquement (ECMWF n'a pas de passé
+    # dans Open-Meteo → cellules vides J-2/J-1 sur cette ligne).
+    afficher_passe = st.checkbox(
+        f"Afficher {n_past_days * 24} h passées",
         value=False,
         help=(
-            "Ajoute deux colonnes J-2 et J-1 en début de grille. La "
-            "ligne ARPEGE y affiche l'observé ERA5-Land ; la ligne "
+            f"Ajoute {n_past_days} colonnes (J-2, J-1) en début de "
+            "grille via la réanalyse rapide ARPEGE Open-Meteo. La ligne "
             "ECMWF reste vide pour ces colonnes."
         ),
     )
-    if afficher_era5:
-        era5_tendance = _fetch_era5_passe(site["latitude"], site["longitude"], nb_jours=2)
-    else:
-        era5_tendance = None
-
-    if era5_tendance is not None and not era5_tendance.empty:
-        # Concat ERA5 + ARPEGE pour la ligne ARPEGE ; recalcule l'ETP
-        # socle sur la série étendue pour cohérence.
-        prev_arpege_etendu = (
-            pd.concat([era5_tendance, prevision_courte])
-            .sort_index()
-            .pipe(lambda d: d[~d.index.duplicated(keep="first")])
-        )
+    if afficher_passe:
+        prev_arpege_etendu = prevision_courte_etendue
         etp_arpege_etendu = etp_horaire_socle(prev_arpege_etendu, site)
-        # Horizon agrandi pour inclure J-2, J-1 dans la grille.
-        horizon_grille = horizon_long + 2
+        horizon_grille = horizon_long + n_past_days
     else:
         prev_arpege_etendu = prevision_courte
         etp_arpege_etendu = etp_court
@@ -862,18 +849,15 @@ def main() -> None:
     )
 
     # ----- Courbes horaires (vue principale, en onglets) -----
-    # Source : ARPEGE 4 j (prévision) + ERA5 48 h passées (contexte
-    # « d'où on vient »). Smith heures HR reste quotidien (granularité du
-    # calcul biologique).
+    # Source : ARPEGE étendu = N j passés (réanalyse rapide via
+    # `past_days`) + N j de prévision. Smith heures HR reste quotidien.
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
-        f"Prévision horaire — 48 h passées (ERA5) + {horizon_court} j ARPEGE"
+        f"Prévision horaire — {n_past_days * 24} h passées + {horizon_court} j ARPEGE"
         "</h4>",
         unsafe_allow_html=True,
     )
-
-    era5_passe = _fetch_era5_passe(site["latitude"], site["longitude"], nb_jours=2)
-    horaire_courbes = preparer_horaire(prevision_courte, site, passe=era5_passe)
+    horaire_courbes = preparer_horaire(prevision_courte_etendue, site)
 
     # Seuils dynamiques tirés de la config alertes : la courbe T° horaire
     # est unique et traverse les deux régimes (gel et canicule), donc on
