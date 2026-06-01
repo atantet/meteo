@@ -828,12 +828,47 @@ def main() -> None:
         "paires : T° moy/extrême, pluie/probabilité, vent moy/rafales, "
         "direction dominante, ETP socle FAO."
     )
+
+    # Toggle ERA5 48 h passées — off par défaut (la vue centrée sur la
+    # prévision reste prioritaire). Activé, on prepend les colonnes
+    # J-2/J-1 sur la ligne ARPEGE uniquement (ECMWF n'a pas d'observation
+    # passée → cellules vides J-2/J-1).
+    afficher_era5 = st.checkbox(
+        "Afficher 48 h passées (ERA5)",
+        value=False,
+        help=(
+            "Ajoute deux colonnes J-2 et J-1 en début de grille. La "
+            "ligne ARPEGE y affiche l'observé ERA5-Land ; la ligne "
+            "ECMWF reste vide pour ces colonnes."
+        ),
+    )
+    if afficher_era5:
+        era5_tendance = _fetch_era5_passe(site["latitude"], site["longitude"], nb_jours=2)
+    else:
+        era5_tendance = None
+
+    if era5_tendance is not None and not era5_tendance.empty:
+        # Concat ERA5 + ARPEGE pour la ligne ARPEGE ; recalcule l'ETP
+        # socle sur la série étendue pour cohérence.
+        prev_arpege_etendu = (
+            pd.concat([era5_tendance, prevision_courte])
+            .sort_index()
+            .pipe(lambda d: d[~d.index.duplicated(keep="first")])
+        )
+        etp_arpege_etendu = _calculer_etp_horaire(prev_arpege_etendu, site)
+        # Horizon agrandi pour inclure J-2, J-1 dans la grille.
+        horizon_grille = horizon_long + 2
+    else:
+        prev_arpege_etendu = prevision_courte
+        etp_arpege_etendu = etp_court
+        horizon_grille = horizon_long
+
     _afficher_grille_tendance(
         [
-            ("ARPEGE", prevision_courte, etp_court),
+            ("ARPEGE", prev_arpege_etendu, etp_arpege_etendu),
             ("ECMWF IFS", prevision_longue, etp_long),
         ],
-        horizon_jours=horizon_long,
+        horizon_jours=horizon_grille,
         tz_locale=tz_site,
     )
 
