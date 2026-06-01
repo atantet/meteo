@@ -55,6 +55,7 @@ from apps.operationnelle.indicateurs import (  # noqa: E402
 )
 from apps.operationnelle.series_temp import (  # noqa: E402
     COURBES_HORAIRES,
+    etp_horaire_socle,
     preparer_horaire,
 )
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
@@ -106,32 +107,6 @@ def _fetch_era5_passe(
         src = OpenMeteoArchive(modele=modele)
         return src.obtenir_historique(latitude, longitude, start, end)
     except Exception:  # noqa: BLE001
-        return None
-
-
-# Colonnes requises par le calcul ETP socle (cf. `apps.operationnelle.indicateurs`).
-_INPUTS_ETP_TENDANCE = (
-    "temperature_2m",
-    "humidite_relative",
-    "vitesse_vent_10m",
-    "rayonnement_global",
-)
-
-
-def _calculer_etp_horaire(prevision: pd.DataFrame, site: dict) -> pd.Series | None:
-    """ETP socle FAO Penman-Monteith horaire (mm/h), ou None si entrées manquantes."""
-    from meteo_socle.indices.etp_fao import calcul_etp
-
-    if not all(c in prevision.columns for c in _INPUTS_ETP_TENDANCE):
-        return None
-    try:
-        return calcul_etp(
-            prevision[list(_INPUTS_ETP_TENDANCE)],
-            site["latitude"],
-            site["longitude"],
-            site["altitude"],
-        )
-    except (KeyError, ValueError):
         return None
 
 
@@ -805,8 +780,8 @@ def main() -> None:
     # ETP socle FAO Penman-Monteith horaire pour les 2 prévisions ;
     # passée à la grille tendance pour cumul par fenêtre. Cohérence avec
     # le principe « calcul scientifique = socle, jamais champ fournisseur ».
-    etp_court = _calculer_etp_horaire(prevision_courte, site)
-    etp_long = _calculer_etp_horaire(prevision_longue, site)
+    etp_court = etp_horaire_socle(prevision_courte, site)
+    etp_long = etp_horaire_socle(prevision_longue, site)
 
     # Alias utilisé par les sections séries temporelles + bilan hydrique
     # + sources : court terme (ARPEGE).
@@ -855,7 +830,7 @@ def main() -> None:
             .sort_index()
             .pipe(lambda d: d[~d.index.duplicated(keep="first")])
         )
-        etp_arpege_etendu = _calculer_etp_horaire(prev_arpege_etendu, site)
+        etp_arpege_etendu = etp_horaire_socle(prev_arpege_etendu, site)
         # Horizon agrandi pour inclure J-2, J-1 dans la grille.
         horizon_grille = horizon_long + 2
     else:

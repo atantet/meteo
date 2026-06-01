@@ -41,13 +41,20 @@ _INPUTS_ETP = (
 )
 
 
-def _etp_horaire_socle(horaire: pd.DataFrame, site: dict) -> pd.Series | None:
-    """ETP socle FAO Penman-Monteith (mm/h), None si entrées manquantes."""
+def etp_horaire_socle(horaire: pd.DataFrame, site: dict) -> pd.Series | None:
+    """ETP socle FAO Penman-Monteith (mm/h), None si entrées manquantes.
+
+    Force le cast float sur les colonnes d'entrée : un DataFrame issu de
+    `pd.concat` (ex. ERA5 + forecast) peut avoir des dtypes `object`
+    quand les colonnes diffèrent entre les morceaux, ce qui fait échouer
+    `np.exp` dans `calcul_etp` (TypeError « loop of ufunc »).
+    """
     if not all(c in horaire.columns for c in _INPUTS_ETP):
         return None
+    inputs = horaire[list(_INPUTS_ETP)].apply(pd.to_numeric, errors="coerce")
     try:
         return calcul_etp(
-            horaire[list(_INPUTS_ETP)],
+            inputs,
             site["latitude"],
             site["longitude"],
             site["altitude"],
@@ -111,7 +118,7 @@ def preparer_horaire(
     if "humidite_relative" in horaire.columns:
         out["humidite_relative"] = horaire["humidite_relative"]
 
-    etp = _etp_horaire_socle(horaire, site)
+    etp = etp_horaire_socle(horaire, site)
     if etp is not None:
         out["etp_horaire_mm"] = etp.reindex(out.index)
 

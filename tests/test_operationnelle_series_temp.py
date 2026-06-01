@@ -16,6 +16,7 @@ from apps.operationnelle.series_temp import (  # noqa: E402
     COURBES_HORAIRES,
     KELVIN_VERS_CELSIUS,
     MS_VERS_KMH,
+    etp_horaire_socle,
     preparer_horaire,
 )
 
@@ -126,3 +127,34 @@ def test_courbes_horaires_colonnes_existent_apres_preparation() -> None:
     out = preparer_horaire(df, SITE_TEST)
     for cfg in COURBES_HORAIRES:
         assert cfg.colonne in out.columns, f"Colonne manquante : {cfg.colonne}"
+
+
+def test_etp_horaire_socle_robuste_au_concat_heterogene() -> None:
+    """Reproduit le scénario du toggle « 48 h passées » :
+
+    `pd.concat([ERA5, forecast])` peut produire un DataFrame dont
+    certaines colonnes sont en dtype `object` (ex. NaN injectés par
+    pandas pour les colonnes présentes seulement d'un côté). Le
+    `calcul_etp` socle utilise `np.exp` et planterait alors avec
+    « loop of ufunc does not support argument 0 of type float ».
+    `etp_horaire_socle` doit caster en float avant de déléguer.
+    """
+    idx = pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC")
+    # Simule un DataFrame mixte : T° en object (NaN dans une colonne),
+    # vent en float. Le cast `pd.to_numeric` doit nettoyer ça.
+    df_object = pd.DataFrame(
+        {
+            "temperature_2m": pd.Series([288.15] * 24, dtype="object"),
+            "humidite_relative": pd.Series([0.6] * 24, dtype="object"),
+            "vitesse_vent_10m": pd.Series([2.0] * 24, dtype="object"),
+            "rayonnement_global": pd.Series(
+                [0.0 if h < 6 or h > 20 else 500_000.0 for h in range(24)],
+                dtype="object",
+            ),
+        },
+        index=idx,
+    )
+    # Le point clé : pas d'exception ufunc, retour numérique.
+    etp = etp_horaire_socle(df_object, SITE_TEST)
+    assert etp is not None
+    assert pd.api.types.is_numeric_dtype(etp)
