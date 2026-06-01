@@ -1,9 +1,9 @@
-"""Tests des règles de décisions pour l'App 2 Opérationnelle.
+"""Tests des règles de guides de décision pour l'App 2 Opérationnelle.
 
-Couvre les règles (gel, tunnels, hydrique, thermique, travail sol) sur
-DataFrames synthétiques + helpers. Une carte peut être *active* (signal
-franchi) ou *inactive* (signal sous seuil) ; hors saison la règle renvoie
-toujours ``None`` (carte non applicable).
+Couvre les règles (froid, tunnels, hydrique, thermique, travail sol) sur
+DataFrames synthétiques + helpers. Un guide peut être *actif* (signal
+franchi) ou *inactif* (signal sous seuil) ; hors saison la règle renvoie
+toujours ``None`` (guide non applicable).
 """
 
 from __future__ import annotations
@@ -19,11 +19,16 @@ sys.path.insert(0, str(REPO_ROOT))
 from apps.operationnelle.decisions import (  # noqa: E402
     NIVEAU_ANTICIPER,
     NIVEAU_INFO,
-    Carte,
+    THEME_FROID,
+    THEME_IRRIGATION,
+    THEME_TRAVAIL_SOL,
+    THEME_TUNNEL,
+    GuideDecision,
     _saison_active,
     degres_jours_sous_seuil,
     evaluer_decisions,
     get_chemin,
+    grouper_par_theme,
     plus_longue_suite_consecutive,
     regle_aeration_nuit_tunnels,
     regle_deficit_hydrique,
@@ -149,25 +154,25 @@ def test_saison_active_cle_absente_signifie_toujours() -> None:
 
 def test_purge_gel_active_quand_t_min_negative() -> None:
     quot = _quotidien(t_min=[5.0, 2.0, -1.0, 3.0])
-    carte = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-01"))
-    assert isinstance(carte, Carte)
-    assert carte.active is True
-    assert carte.niveau == NIVEAU_ANTICIPER
-    assert "purger" in carte.titre.lower()
-    assert carte.surlignage == {"t_min_celsius": ("≤", 0.0)}
+    guide = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-01"))
+    assert isinstance(guide, GuideDecision)
+    assert guide.active is True
+    assert guide.niveau == NIVEAU_ANTICIPER
+    assert "purger" in guide.titre.lower()
+    assert guide.surlignage == {"t_min_celsius": ("≤", 0.0)}
 
 
 def test_purge_gel_inactive_sans_gel() -> None:
-    """Désormais la carte est rendue grisée plutôt que None."""
+    """Désormais la guide est rendue grisée plutôt que None."""
     quot = _quotidien(t_min=[5.0, 6.0, 7.0])
-    carte = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-01"))
-    assert isinstance(carte, Carte)
-    assert carte.active is False
-    assert "pas de gel" in carte.titre.lower()
+    guide = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-01"))
+    assert isinstance(guide, GuideDecision)
+    assert guide.active is False
+    assert "pas de gel" in guide.titre.lower()
     # Paramètres ajustables toujours présents pour modifier les seuils.
     assert any(
         p.chemin == "seuils_gel.purge_irrigation_t_seuil_celsius"
-        for p in carte.parametres_ajustables
+        for p in guide.parametres_ajustables
     )
 
 
@@ -175,9 +180,9 @@ def test_purge_gel_seuil_relevable_pour_anticiper() -> None:
     expl = {**EXPLOITATION_DEFAUT}
     expl["seuils_gel"] = {**expl["seuils_gel"], "purge_irrigation_t_seuil_celsius": 2.0}
     quot = _quotidien(t_min=[5.0, 1.5, 4.0])
-    carte = regle_purge_irrigation_gel(quot, expl, pd.Timestamp("2026-01-15"))
-    assert carte is not None and carte.active is True
-    assert carte.surlignage == {"t_min_celsius": ("≤", 2.0)}
+    guide = regle_purge_irrigation_gel(quot, expl, pd.Timestamp("2026-01-15"))
+    assert guide is not None and guide.active is True
+    assert guide.surlignage == {"t_min_celsius": ("≤", 2.0)}
 
 
 # ---------- regle_voiles_p17 ----------
@@ -185,19 +190,19 @@ def test_purge_gel_seuil_relevable_pour_anticiper() -> None:
 
 def test_voiles_active_si_dj_au_dessus_seuil() -> None:
     quot = _quotidien(t_min=[5.0, -3.0, 4.0])
-    carte = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
-    assert carte is not None and carte.active is True
-    assert "p17" in carte.titre.lower()
+    guide = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
+    assert guide is not None and guide.active is True
+    assert "p17" in guide.titre.lower()
 
 
 def test_voiles_inactive_si_dj_sous_seuil() -> None:
     quot = _quotidien(t_min=[5.0, -1.0, 4.0])
-    carte = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
-    assert carte is not None and carte.active is False
+    guide = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
+    assert guide is not None and guide.active is False
 
 
 def test_voiles_filtree_si_voiles_non_disponibles() -> None:
-    """Pas d'équipement → on cache la carte (None)."""
+    """Pas d'équipement → on cache la guide (None)."""
     expl = {**EXPLOITATION_DEFAUT, "equipement": {"voiles_p17_disponibles": False}}
     quot = _quotidien(t_min=[-5.0, -3.0, -2.0])
     assert regle_voiles_p17(quot, expl, pd.Timestamp("2026-01-15")) is None
@@ -208,14 +213,14 @@ def test_voiles_filtree_si_voiles_non_disponibles() -> None:
 
 def test_racines_active_si_dj_severe_en_saison() -> None:
     quot = _quotidien(t_min=[0.0, -7.0, -8.0, -3.0])
-    carte = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
-    assert carte is not None and carte.active is True
+    guide = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+    assert guide is not None and guide.active is True
 
 
 def test_racines_inactive_en_saison_sans_gel_severe() -> None:
     quot = _quotidien(t_min=[-4.0, -4.0, -4.0])
-    carte = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
-    assert carte is not None and carte.active is False
+    guide = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+    assert guide is not None and guide.active is False
 
 
 def test_racines_filtree_hors_saison() -> None:
@@ -231,15 +236,15 @@ def test_racines_filtree_hors_saison() -> None:
 
 def test_aeration_active_si_2_nuits_chaudes() -> None:
     quot = _quotidien(t_min=[14.0, 13.0, 10.0, 8.0])
-    carte = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
-    assert carte is not None and carte.active is True
-    assert carte.niveau == NIVEAU_INFO
+    guide = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
+    assert guide is not None and guide.active is True
+    assert guide.niveau == NIVEAU_INFO
 
 
 def test_aeration_inactive_si_pas_assez_de_nuits_chaudes() -> None:
     quot = _quotidien(t_min=[14.0, 10.0, 8.0])
-    carte = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
-    assert carte is not None and carte.active is False
+    guide = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
+    assert guide is not None and guide.active is False
 
 
 # ---------- regle_fermeture_nuit_tunnels ----------
@@ -247,14 +252,14 @@ def test_aeration_inactive_si_pas_assez_de_nuits_chaudes() -> None:
 
 def test_fermeture_active_des_la_premiere_nuit_fraiche() -> None:
     quot = _quotidien(t_min=[2.0, 8.0, 10.0])
-    carte = regle_fermeture_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-04-15"))
-    assert carte is not None and carte.active is True
+    guide = regle_fermeture_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-04-15"))
+    assert guide is not None and guide.active is True
 
 
 def test_fermeture_inactive_si_toutes_nuits_clementes() -> None:
     quot = _quotidien(t_min=[8.0, 10.0, 12.0])
-    carte = regle_fermeture_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-04-15"))
-    assert carte is not None and carte.active is False
+    guide = regle_fermeture_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-04-15"))
+    assert guide is not None and guide.active is False
 
 
 # ---------- plus_longue_suite_consecutive ----------
@@ -283,18 +288,18 @@ def test_plus_longue_suite_choisit_la_plus_longue() -> None:
 
 def test_fenetre_seche_active_si_3_jours_secs() -> None:
     quot = _quotidien(pluie=[0.0, 0.5, 0.0, 6.0, 8.0, 5.0, 2.0])
-    carte = regle_fenetre_seche_travail_sol_hiver(
+    guide = regle_fenetre_seche_travail_sol_hiver(
         quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15")
     )
-    assert carte is not None and carte.active is True
+    assert guide is not None and guide.active is True
 
 
 def test_fenetre_seche_inactive_si_jamais_3_jours_secs_en_saison() -> None:
     quot = _quotidien(pluie=[2.0, 0.0, 3.0, 0.0, 4.0])
-    carte = regle_fenetre_seche_travail_sol_hiver(
+    guide = regle_fenetre_seche_travail_sol_hiver(
         quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15")
     )
-    assert carte is not None and carte.active is False
+    assert guide is not None and guide.active is False
 
 
 def test_fenetre_seche_filtree_hors_saison_hiver() -> None:
@@ -310,19 +315,19 @@ def test_fenetre_seche_filtree_hors_saison_hiver() -> None:
 
 def test_fenetre_pluvieuse_active_si_2_jours_pluvieux() -> None:
     quot = _quotidien(pluie=[0.0, 1.0, 8.0, 10.0, 2.0, 0.0, 0.0])
-    carte = regle_fenetre_pluvieuse_travail_sol_ete(
+    guide = regle_fenetre_pluvieuse_travail_sol_ete(
         quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15")
     )
-    assert carte is not None and carte.active is True
+    assert guide is not None and guide.active is True
 
 
 def test_fenetre_pluvieuse_titre_sans_avant_quand_active() -> None:
     quot = _quotidien(pluie=[8.0, 10.0, 12.0])
-    carte = regle_fenetre_pluvieuse_travail_sol_ete(
+    guide = regle_fenetre_pluvieuse_travail_sol_ete(
         quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15")
     )
-    assert carte is not None and carte.active is True
-    assert "avant" not in carte.titre
+    assert guide is not None and guide.active is True
+    assert "avant" not in guide.titre
 
 
 # ---------- regle_deficit_hydrique ----------
@@ -330,14 +335,14 @@ def test_fenetre_pluvieuse_titre_sans_avant_quand_active() -> None:
 
 def test_deficit_active_si_bilan_negatif() -> None:
     quot = _quotidien(pluie=[0.0] * 7, etp=[3.0] * 7)
-    carte = regle_deficit_hydrique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
-    assert carte is not None and carte.active is True
+    guide = regle_deficit_hydrique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
+    assert guide is not None and guide.active is True
 
 
 def test_deficit_inactive_si_bilan_positif() -> None:
     quot = _quotidien(pluie=[5.0] * 7, etp=[1.0] * 7)
-    carte = regle_deficit_hydrique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
-    assert carte is not None and carte.active is False
+    guide = regle_deficit_hydrique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
+    assert guide is not None and guide.active is False
 
 
 # ---------- regle_stress_thermique ----------
@@ -345,38 +350,38 @@ def test_deficit_inactive_si_bilan_positif() -> None:
 
 def test_stress_thermique_active_si_3_jours_chauds() -> None:
     quot = _quotidien(t_max=[25.0, 30.0, 32.0, 28.5, 22.0])
-    carte = regle_stress_thermique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
-    assert carte is not None and carte.active is True
+    guide = regle_stress_thermique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
+    assert guide is not None and guide.active is True
 
 
 def test_stress_thermique_inactive_si_1_seul_jour() -> None:
     quot = _quotidien(t_max=[30.0, 22.0, 20.0])
-    carte = regle_stress_thermique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
-    assert carte is not None and carte.active is False
+    guide = regle_stress_thermique(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-01"))
+    assert guide is not None and guide.active is False
 
 
 # ---------- Démo (toutes règles applicables s'affichent, active=True attendu) ----------
 
 
-def test_demo_hiver_a_les_cartes_actives_attendues() -> None:
+def test_demo_hiver_a_les_guides_actifs_attendus() -> None:
     from apps.operationnelle.demo import quotidien_hiver, today_hiver
 
-    cartes = evaluer_decisions(quotidien_hiver(), EXPLOITATION_DEFAUT, today_hiver())
-    pictos_actifs = {c.picto for c in cartes if c.active}
+    guides = evaluer_decisions(quotidien_hiver(), EXPLOITATION_DEFAUT, today_hiver())
+    pictos_actifs = {g.picto for g in guides if g.active}
     attendus = {"❄️", "🛡️", "🥕", "🔒", "🚜"}
     assert attendus.issubset(pictos_actifs), (
-        f"Cartes hiver actives manquantes : {attendus - pictos_actifs}"
+        f"Guides hiver actifs manquants : {attendus - pictos_actifs}"
     )
 
 
-def test_demo_ete_a_les_cartes_actives_attendues() -> None:
+def test_demo_ete_a_les_guides_actifs_attendus() -> None:
     from apps.operationnelle.demo import quotidien_ete, today_ete
 
-    cartes = evaluer_decisions(quotidien_ete(), EXPLOITATION_DEFAUT, today_ete())
-    pictos_actifs = {c.picto for c in cartes if c.active}
+    guides = evaluer_decisions(quotidien_ete(), EXPLOITATION_DEFAUT, today_ete())
+    pictos_actifs = {g.picto for g in guides if g.active}
     attendus = {"🌬️", "💧", "🌡️", "🌧️"}
     assert attendus.issubset(pictos_actifs), (
-        f"Cartes été actives manquantes : {attendus - pictos_actifs}"
+        f"Guides été actifs manquants : {attendus - pictos_actifs}"
     )
 
 
@@ -390,8 +395,8 @@ def test_titres_jamais_imperatif_2pp() -> None:
         pluie=[0.0] * 7,
         etp=[4.0] * 7,
     )
-    cartes = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
-    assert len(cartes) > 0
+    guides = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+    assert len(guides) > 0
     bannis = [
         "il faut",
         "vous devez",
@@ -403,7 +408,43 @@ def test_titres_jamais_imperatif_2pp() -> None:
         "aérez",
         "purgez",
     ]
-    for c in cartes:
-        t = c.titre.lower()
+    for g in guides:
+        t = g.titre.lower()
         for mot in bannis:
-            assert mot not in t, f"Ton impératif détecté : « {c.titre} »"
+            assert mot not in t, f"Ton impératif détecté : « {g.titre} »"
+
+
+# ---------- Regroupement par thème ----------
+
+
+def test_chaque_regle_a_un_theme_valide() -> None:
+    """Tout guide retourné par les règles porte un thème dans `THEMES_ORDRE`."""
+    quot = _quotidien(
+        t_min=[-6.0, -7.0, -3.0, 0.0, 5.0, 12.0, 15.0],
+        t_max=[30.0, 31.0, 25.0, 18.0, 14.0, 22.0, 25.0],
+        pluie=[0.0] * 7,
+        etp=[4.0] * 7,
+    )
+    guides = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+    themes_valides = {THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_TRAVAIL_SOL}
+    for g in guides:
+        assert g.theme in themes_valides, f"Thème inconnu : « {g.theme} » pour « {g.titre} »"
+
+
+def test_grouper_par_theme_respecte_ordre() -> None:
+    """`grouper_par_theme` renvoie les thèmes dans l'ordre canonique."""
+    quot = _quotidien(
+        t_min=[-6.0, -7.0, -3.0, 0.0, 5.0, 12.0, 15.0],
+        t_max=[30.0, 31.0, 25.0, 18.0, 14.0, 22.0, 25.0],
+        pluie=[0.0] * 7,
+        etp=[4.0] * 7,
+    )
+    guides = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
+    groupes = grouper_par_theme(guides)
+    themes = [t for t, _ in groupes]
+    # L'ordre dans la liste retournée doit être : froid puis tunnel
+    # puis irrigation puis travail_sol (l'ordre canonique de THEMES_ORDRE),
+    # même si certains thèmes sont absents.
+    ordre_canonique = [THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_TRAVAIL_SOL]
+    positions = [ordre_canonique.index(t) for t in themes]
+    assert positions == sorted(positions), f"Ordre des thèmes incorrect : {themes}"

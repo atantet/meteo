@@ -42,8 +42,10 @@ from apps.operationnelle.charts import (  # noqa: E402
 )
 from apps.operationnelle.config import load_config  # noqa: E402
 from apps.operationnelle.decisions import (  # noqa: E402
-    Carte,
+    THEMES_LIBELLES,
+    GuideDecision,
     evaluer_decisions,
+    grouper_par_theme,
     load_exploitation,
 )
 from apps.operationnelle.indicateurs import (  # noqa: E402
@@ -454,21 +456,21 @@ def _appliquer_overrides_session(exploitation: dict) -> dict:
     return effective
 
 
-def _rendre_sliders_carte(carte: Carte, exploitation: dict) -> None:
-    """Rend les sliders d'ajustement des seuils de la carte.
+def _rendre_sliders_guide(guide: GuideDecision, exploitation: dict) -> None:
+    """Rend les sliders d'ajustement des seuils du guide.
 
     Pattern Streamlit canonique : on initialise ``session_state[cle]``
     une fois (depuis l'exploitation effective au premier render), puis
     le slider est créé avec ``key=cle`` uniquement (pas de ``value=``).
     Streamlit lit/écrit alors directement dans session_state, et le
-    rerun déclenché par un changement de slider re-calcule les cartes
+    rerun déclenché par un changement de slider re-calcule les guides
     avec le nouveau seuil au cycle suivant.
     """
     from apps.operationnelle.decisions import get_chemin
 
-    if not carte.parametres_ajustables:
+    if not guide.parametres_ajustables:
         return
-    for p in carte.parametres_ajustables:
+    for p in guide.parametres_ajustables:
         cle = _cle_session_param(p.chemin)
         type_int = p.step >= 1.0
         # Initialise une seule fois depuis l'exploitation effective.
@@ -498,17 +500,17 @@ def _rendre_sliders_carte(carte: Carte, exploitation: dict) -> None:
             )
 
 
-def _rendre_carte_decision(carte: Carte, exploitation: dict) -> None:
-    """Rend une carte : titre stylé + détail dépliable + sliders d'ajustement.
+def _rendre_guide_decision(guide: GuideDecision, exploitation: dict) -> None:
+    """Rend un guide : titre stylé + détail dépliable + sliders d'ajustement.
 
-    Les cartes inactives (seuil non franchi) sont affichées en gris,
+    Les guides inactifs (seuil non franchi) sont affichés en gris,
     avec opacité réduite ; les expanders détail / sliders restent
     accessibles. Un changement de slider rerend la section décisions
-    avec les nouveaux seuils, ce qui peut faire basculer une carte
-    d'inactive à active (ou inversement).
+    avec les nouveaux seuils, ce qui peut faire basculer un guide
+    d'inactif à actif (ou inversement).
     """
-    if carte.active:
-        couleur_titre = couleur_niveau(carte.niveau)
+    if guide.active:
+        couleur_titre = couleur_niveau(guide.niveau)
         opacity = "1.0"
     else:
         couleur_titre = "#8a8a8a"
@@ -519,34 +521,34 @@ def _rendre_carte_decision(carte: Carte, exploitation: dict) -> None:
         with col_picto:
             st.markdown(
                 f"<div style='font-size:32px;line-height:1;padding-top:4px;"
-                f"opacity:{opacity};'>{carte.picto}</div>",
+                f"opacity:{opacity};'>{guide.picto}</div>",
                 unsafe_allow_html=True,
             )
         with col_texte:
             st.markdown(
                 f"<div style='font-size:16px;font-weight:700;color:{couleur_titre};"
                 f"opacity:{opacity};margin-bottom:4px;line-height:1.3;'>"
-                f"{carte.titre}</div>",
+                f"{guide.titre}</div>",
                 unsafe_allow_html=True,
             )
             with st.expander("Détail jour par jour"):
-                _rendre_tableau_detail(carte.detail_df, carte.surlignage)
-            if carte.parametres_ajustables:
+                _rendre_tableau_detail(guide.detail_df, guide.surlignage)
+            if guide.parametres_ajustables:
                 with st.expander("Ajuster les seuils"):
-                    _rendre_sliders_carte(carte, exploitation)
+                    _rendre_sliders_guide(guide, exploitation)
 
 
 def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
-    """Section en tête : invitations basées sur la prévision 7 j."""
+    """Section en tête : guides de décision basés sur la prévision 7 j."""
     aide = (
         "Invitations à vérifier sur le terrain, motivées par la météo "
-        "prévue à 7 j. Chaque carte expose son détail jour par jour et "
+        "prévue à 7 j. Chaque guide expose son détail jour par jour et "
         "permet d'ajuster ses seuils en direct ; les sections météo "
         "complètes et les sources restent consultables plus bas."
     )
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        "Décisions de la semaine "
+        "Guides de décision de la semaine "
         f'<span title="{aide}" style="cursor:help;color:#888;'
         "font-size:15px;font-weight:normal;vertical-align:middle;"
         'margin-left:4px;">ℹ️</span>'
@@ -558,30 +560,38 @@ def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
         exploitation_base = load_exploitation()
     except FileNotFoundError:
         st.info(
-            "Configuration exploitation absente — section décisions "
+            "Configuration exploitation absente — section guides de décision "
             "désactivée. Créer `config/exploitation.yaml` pour activer."
         )
         return
 
     exploitation = _appliquer_overrides_session(exploitation_base)
     today = pd.Timestamp.now(tz=site_tz).normalize().tz_localize(None)
-    cartes = evaluer_decisions(quotidien, exploitation, today)
+    guides = evaluer_decisions(quotidien, exploitation, today)
 
-    if not cartes:
-        st.info(
-            "Aucune carte applicable cette semaine (toutes hors saison ou données insuffisantes)."
-        )
+    if not guides:
+        st.info("Aucun guide applicable cette semaine (tout hors saison ou données insuffisantes).")
         return
 
-    nb_actives = sum(1 for c in cartes if c.active)
+    nb_actifs = sum(1 for g in guides if g.active)
+    accord_actif = "s" if nb_actifs > 1 else ""
+    accord_appl = "s" if len(guides) > 1 else ""
     st.caption(
-        f"{nb_actives} carte{'s' if nb_actives > 1 else ''} active{'s' if nb_actives > 1 else ''} "
-        f"sur {len(cartes)} applicable{'s' if len(cartes) > 1 else ''} cette semaine "
-        "(les inactives sont grisées ; leurs seuils restent ajustables)."
+        f"{nb_actifs} guide{accord_actif} actif{accord_actif} "
+        f"sur {len(guides)} applicable{accord_appl} cette semaine "
+        "(les inactifs sont grisés ; leurs seuils restent ajustables)."
     )
 
-    for carte in cartes:
-        _rendre_carte_decision(carte, exploitation)
+    for theme, guides_theme in grouper_par_theme(guides):
+        st.markdown(
+            '<h4 style="margin:18px 0 6px 0;font-size:16px;color:#34495e;'
+            'border-bottom:1px solid #eee;padding-bottom:4px;">'
+            f"{THEMES_LIBELLES[theme]}"
+            "</h4>",
+            unsafe_allow_html=True,
+        )
+        for guide in guides_theme:
+            _rendre_guide_decision(guide, exploitation)
 
 
 def main() -> None:
@@ -628,14 +638,14 @@ def main() -> None:
     quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc)
     quotidien = jours_complets_seulement(quotidien, prevision)
 
-    # ----- Décisions de la semaine (cartes d'invitation) -----
+    # ----- Guides de décision de la semaine -----
     _afficher_section_decisions(quotidien, site.get("tz", "Europe/Paris"))
 
     st.divider()
     st.markdown("### Données météo détaillées")
     st.caption(
         "Vue détaillée de la prévision, des bilans hydriques et des sources. "
-        "Utile pour vérifier ce qui motive les invitations ci-dessus."
+        "Utile pour vérifier ce qui motive les guides ci-dessus."
     )
 
     # ----- Bande pictogrammes 7 j ARPEGE vs IFS -----
