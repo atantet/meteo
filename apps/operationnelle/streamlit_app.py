@@ -425,8 +425,13 @@ def _afficher_grille_tendance(
             f"{html_val}</td>"
         )
 
+    # Bordure pivot adaptée au fond sombre du bandeau picto : la
+    # couleur `#34495e` se confond avec le fond ; on bascule sur un
+    # jaune-orange contrasté (cohérent avec les rafales Veille).
+    bordure_pivot_picto = "border-left:3px solid #f2c14e;"
+
     def _cellule_picto(cellule, est_nuit: bool = False, est_pivot: bool = False) -> str:
-        bordure = bordure_pivot if est_pivot else "border-left:1px solid #2c3e50;"
+        bordure = bordure_pivot_picto if est_pivot else "border-left:1px solid #2c3e50;"
         if cellule is None or cellule.code_picto is None:
             return (
                 '<td style="padding:4px;text-align:center;color:#ccc;font-size:13px;'
@@ -1006,14 +1011,19 @@ def main() -> None:
     onglets = st.tabs([c.titre for c, _, _ in onglets_specs])
     for tab, (cfg, df, est_horaire) in zip(onglets, onglets_specs, strict=False):
         with tab:
+            # Figsize plus généreux pour les onglets horaires : la
+            # légende externe consomme ~25 % de largeur, on compense.
+            fs = (8.5, 2.8) if est_horaire else (5.5, 2.5)
             fig = figure_indicateur(
                 df,
                 cfg,
-                figsize=(6.5, 2.5),
+                figsize=fs,
                 seuils_extra=seuils_par_colonne.get(cfg.colonne),
                 t_pivot=t_pivot_horaire if est_horaire else None,
                 legende_externe=est_horaire,
             )
+            # Plot rendu dans 2/3 de la largeur de la page (le reste
+            # vide) pour ne pas étirer démesurément la figure.
             col_plot, _ = st.columns([2, 1])
             with col_plot:
                 st.pyplot(fig, use_container_width=True)
