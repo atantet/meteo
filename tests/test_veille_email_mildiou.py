@@ -84,6 +84,27 @@ def test_bloc_pictogrammes_veille_grille_2j_3fenetres() -> None:
     assert "Soir" in html
 
 
+def test_grille_picto_nuit_pour_fenetre_0_6() -> None:
+    """La grille 48 h utilise l'icône nuit (lune) pour la fenêtre [0, 6) seulement."""
+    from apps.shared.pictograms import icone_base64
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    # 48 h de ciel clair (weather_code=0). tz=UTC pour que les heures
+    # locales == heures UTC (fenêtre Nuit 0-6 peuplée dès le 1er jour).
+    idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.zeros(48, dtype=int)}, index=idx)
+    now_utc = pd.Timestamp("2026-06-15 00:00", tz="UTC")
+    html = _bloc_grille_indicateurs_48h(df, now_utc=now_utc, tz_locale="UTC")
+
+    uri_nuit = icone_base64(0, nuit=True)  # clear-night
+    uri_jour = icone_base64(0, nuit=False)  # clear-day
+    # Les deux variantes sont bien distinctes (lune ≠ soleil).
+    assert uri_nuit != uri_jour
+    # La fenêtre Nuit déclenche l'icône nuit ; les autres l'icône jour.
+    assert uri_nuit in html
+    assert uri_jour in html
+
+
 def test_bloc_pictogrammes_veille_vide_sans_weather_code() -> None:
     """Si la prévision n'a pas weather_code, le bloc retourne ''."""
     from apps.veille.email import _bloc_pictogrammes_veille

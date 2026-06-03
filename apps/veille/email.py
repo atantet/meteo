@@ -447,6 +447,13 @@ FENETRES_VEILLE = (
     ("Soir", 18, 24),
 )
 
+# Choix du picto : la nuit (lune au lieu du soleil) est définie par la
+# période locale [0, 6) pour l'App 1 — c.-à-d. la seule fenêtre "Nuit".
+# (L'App 2 utilise sa propre convention [0, 7) ∪ [19, 24) ; les deux
+# apps gardent volontairement leur découpage.) Un créneau est "nuit"
+# si toutes ses heures tombent dans [0, FENETRE_NUIT_PICTO_FIN).
+FENETRE_NUIT_PICTO_FIN = 6
+
 
 def _unite(texte: str) -> str:
     """Span unité discret (gris clair, plus petit) à coller après une valeur."""
@@ -574,7 +581,9 @@ def _bloc_grille_indicateurs_48h(
                 if code is None:
                     cells.append('<td style="padding:1px 4px;text-align:center;">—</td>')
                 else:
-                    uri = icone_base64(code)
+                    # Variante nuit (lune) pour la fenêtre [0, 6).
+                    est_nuit = h_fin <= FENETRE_NUIT_PICTO_FIN
+                    uri = icone_base64(code, nuit=est_nuit)
                     alt = libelle(code)
                     cells.append(
                         '<td style="padding:1px 4px;text-align:center;">'
