@@ -88,6 +88,16 @@ class OpenMeteoForecast:
         compose automatiquement plusieurs modèles selon l'horizon ;
         des modèles spécifiques sont disponibles (par exemple
         ``"meteofrance_arome_france_hd"``, ``"ecmwf_ifs025"``).
+
+        **Multi-modèles explicites** : une chaîne séparée par des
+        virgules (ex. ``"meteofrance_arome_france_hd,meteofrance_arpege_europe"``)
+        demande plusieurs modèles et les **fusionne par priorité** —
+        pour chaque variable et chaque heure, la valeur du 1er modèle
+        (ordre de la liste) disponible est retenue, les suivants ne
+        comblant que les trous (NaN). Cas d'usage : AROME France HD ne
+        fournit pas le rayonnement (``shortwave_radiation`` NaN), comblé
+        par ARPEGE. Permet une attribution déterministe (pas de boîte
+        noire ``best_match``).
     session :
         Session HTTP réutilisable. Auto-créée si non fournie ; injecter
         une session mock dans les tests.
@@ -165,7 +175,43 @@ class OpenMeteoForecast:
         return params
 
     @staticmethod
-    def _parse(payload: dict) -> pd.DataFrame:
+    def _fusionner_modeles(df: pd.DataFrame, modeles: list[str]) -> pd.DataFrame:
+        """Fusionne les colonnes suffixées ``<var>_<modele>`` par priorité.
+
+        En multi-modèles, Open-Meteo renvoie une colonne par couple
+        (variable, modèle), suffixée du nom de modèle. On reconstruit les
+        colonnes de base en prenant, cellule par cellule, la valeur du
+        **1er modèle de ``modeles``** qui en a une (``combine_first`` en
+        cascade) ; les modèles suivants ne comblent que les NaN. Ainsi
+        AROME (prioritaire) fournit tout sauf le rayonnement, comblé par
+        ARPEGE.
+        """
+        bases: list[str] = []
+        for col in df.columns:
+            for m in modeles:
+                suffixe = f"_{m}"
+                if col.endswith(suffixe):
+                    base = col[: -len(suffixe)]
+                    if base not in bases:
+                        bases.append(base)
+                    break
+        fusion: dict[str, pd.Series] = {}
+        for base in bases:
+            serie: pd.Series | None = None
+            for m in modeles:  # ordre = priorité décroissante
+                col = f"{base}_{m}"
+                if col in df.columns:
+                    serie = df[col] if serie is None else serie.combine_first(df[col])
+            if serie is not None:
+                # Force float : une colonne tout-None (ex. rayonnement AROME)
+                # arrive en dtype object ; après combine_first le résultat
+                # peut rester object, ce qui fait tomber les ufuncs numpy
+                # aval sur une division Python (0.0/0.0 → ZeroDivisionError
+                # au lieu de NaN). Coercition = sécurité.
+                fusion[base] = pd.to_numeric(serie, errors="coerce")
+        return pd.DataFrame(fusion, index=df.index)
+
+    def _parse(self, payload: dict) -> pd.DataFrame:
         """Convertit la réponse JSON Open-Meteo en DataFrame socle.
 
         Applique les conversions d'unités :
@@ -175,12 +221,19 @@ class OpenMeteoForecast:
         - rayonnement : W/m² → J/m²/h (× 3600)
         - autres : identité (vent en m/s, pluie en mm, ETP en mm/h)
 
-        Renomme les colonnes selon ``RENAME_VERS_SOCLE``.
+        En multi-modèles (``modele`` contient des virgules), fusionne
+        d'abord les colonnes suffixées par priorité (cf.
+        ``_fusionner_modeles``). Renomme les colonnes selon
+        ``RENAME_VERS_SOCLE``.
         """
         hourly = payload["hourly"]
         df = pd.DataFrame(hourly)
         df["time"] = pd.to_datetime(df["time"], utc=True)
         df = df.set_index("time")
+
+        modeles = [m.strip() for m in self.modele.split(",") if m.strip()]
+        if len(modeles) > 1:
+            df = self._fusionner_modeles(df, modeles)
 
         if "temperature_2m" in df.columns:
             df["temperature_2m"] = df["temperature_2m"] + 273.15

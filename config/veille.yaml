@@ -42,25 +42,25 @@ planification:
 source_meteo:
   # En v0 : Open-Meteo (gratuit, pas d'auth). Voir ADR-0002.
   prevision: openmeteo
-  # best_match avec horizon 2 j = AROME France HD 1.3 km nativement
-  # sur 0-48 h (best_match compose AROME sur cette fenêtre). On garde
-  # best_match plutôt que meteofrance_arome_france_hd explicite parce
-  # qu'AROME seul ne renvoie pas shortwave_radiation (NaN), ce qui
-  # casse le calcul ETP socle (FAO Penman-Monteith). best_match
-  # complète automatiquement les variables manquantes (rayonnement
-  # global typiquement via ICON-EU ou IFS) tout en gardant AROME
-  # pour T/HR/vent/pluie.
-  # NB : la fraîcheur du rayonnement_global peut traîner d'1 run
-  # (= ~12 h) si IFS 00 UTC n'est pas encore diffusé à l'heure du
-  # cron — impact opérationnel marginal car le rayonnement attendu
-  # est dominé par la prévision de couverture nuageuse, pas par le
-  # delta entre 2 runs.
+  # Modèles explicites (pas best_match, qui est une boîte noire ne
+  # révélant pas quel modèle alimente quelle variable — cf. principe
+  # « pas de boîte noire »). Fusion par priorité = ordre de la liste
+  # (1er prioritaire ; les suivants ne comblent que les NaN). Cf.
+  # OpenMeteoForecast._fusionner_modeles.
+  #   1. meteofrance_arome_france_hd (1,3 km, MF) : T/HR/vent/pluie/temps.
+  #   2. meteofrance_arpege_europe (~0,1°, MF) : COMBLE le rayonnement,
+  #      qu'AROME ne fournit pas (shortwave_radiation NaN → casserait
+  #      l'ETP socle FAO).
+  #   3. ecmwf_ifs025 (ECMWF, 0,25°) : COMBLE la probabilité de pluie,
+  #      qu'aucun modèle déterministe MF ne fournit (produit d'ensemble
+  #      IFS ENS). ECMWF = modèle global de référence. C'est une donnée
+  #      NON Météo-France, signalée comme telle dans le label « Source »
+  #      du mail (cf. construire_label_source).
   modeles:
-    - best_match
-  # Horizon plafond Veille = 48 h. La fenêtre 48-72 h a été retirée
-  # délibérément (cumuls, mildiou, figure) pour rester sur AROME
-  # France HD sur tout l'horizon (best_match bascule sur ICON-EU /
-  # ARPEGE au-delà de 48 h).
+    - meteofrance_arome_france_hd
+    - meteofrance_arpege_europe
+    - ecmwf_ifs025
+  # Horizon plafond Veille = 48 h (AROME France HD couvre 0-48 h).
   horizon_max_jours: 2
 
 # ----- Alertes seuils -----

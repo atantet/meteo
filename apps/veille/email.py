@@ -86,9 +86,50 @@ class EmailComposed:
     html: str
 
 
-# Source explicite — adapté à la config par défaut de l'App 1 Veille
-# (cf. config/veille.yaml ``source_meteo.modeles``).
-SOURCE_DEFAUT = "Open-Meteo · AROME France HD 1.3 km (Météo-France)"
+# Libellés humains des modèles Open-Meteo (transparence, principe #5).
+MODELES_LABELS: dict[str, str] = {
+    "meteofrance_arome_france_hd": "AROME France HD 1,3 km (Météo-France)",
+    "meteofrance_arpege_europe": "ARPEGE Europe (Météo-France)",
+    "ecmwf_ifs025": "ECMWF IFS 0,25° (hors Météo-France)",
+    "icon_seamless": "ICON (DWD, hors Météo-France)",
+    "best_match": "best_match (composite Open-Meteo)",
+    "dwd_icon_eu": "ICON-EU (DWD)",
+}
+
+# Rôle de chaque modèle complémentaire (au-delà du principal) — ce qu'il
+# comble que le principal ne fournit pas. Sert à un label « Source »
+# transparent (ex. la proba de pluie vient d'ICON, pas de Météo-France).
+MODELES_ROLES: dict[str, str] = {
+    "meteofrance_arpege_europe": "le rayonnement",
+    "ecmwf_ifs025": "la probabilité de pluie",
+    "icon_seamless": "la probabilité de pluie",
+}
+
+
+def construire_label_source(modeles: list[str]) -> str:
+    """Construit le libellé « Source » du mail à partir des modèles configurés.
+
+    Reflète honnêtement les modèles *effectivement demandés* (cf. principe
+    « pas de boîte noire »). Le 1er modèle est le principal ; chaque modèle
+    suivant ne comble que ce que le principal ne fournit pas, annoté de son
+    rôle (cf. ``MODELES_ROLES``) pour la transparence — typiquement le
+    rayonnement (ARPEGE) et la probabilité de pluie (ICON, non-MF).
+    """
+    if not modeles:
+        return "Open-Meteo · —"
+    parts = [MODELES_LABELS.get(modeles[0], modeles[0])]
+    for m in modeles[1:]:
+        nom = MODELES_LABELS.get(m, m)
+        role = MODELES_ROLES.get(m)
+        parts.append(f"{nom} pour {role}" if role else nom)
+    corps = parts[0] if len(parts) == 1 else parts[0] + " ; " + " ; ".join(parts[1:])
+    return f"Open-Meteo · {corps}"
+
+
+# Source par défaut = config Veille (AROME + ARPEGE rayonnement + ECMWF proba).
+SOURCE_DEFAUT = construire_label_source(
+    ["meteofrance_arome_france_hd", "meteofrance_arpege_europe", "ecmwf_ifs025"]
+)
 METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
 CRON_EXPLAIN = "30 5 * * * UTC = 06:30 Paris hiver / 07:30 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
@@ -1235,12 +1276,17 @@ def composer_email(
     """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
+    # Label « Source » dérivé des modèles réellement configurés (ne peut
+    # pas diverger de la config). Cf. construire_label_source.
+    modeles = config.get("source_meteo", {}).get("modeles", [])
+    source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"])
     texte = composer_texte(
         ind,
         alertes,
         maintenant,
         url_fiches=url_fiches,
+        source=source,
         prevision_horaire=prevision_horaire,
     )
     alertes_config = config.get("alertes", {})
@@ -1250,6 +1296,7 @@ def composer_email(
         alertes,
         maintenant,
         url_fiches=url_fiches,
+        source=source,
         chart_48h_base64=chart_48h_base64,
         cartes_grille=cartes_grille,
         vigilance=vigilance,

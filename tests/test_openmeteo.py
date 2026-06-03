@@ -172,3 +172,39 @@ def test_obtenir_prevision_colonnes_seulement_demandees(fake_payload: dict) -> N
         variables=["temperature_2m", "precipitation"],
     )
     assert set(df.columns) == {"temperature_2m", "precipitation"}
+
+
+def test_fusion_multi_modeles_priorite_arome_rayonnement_arpege() -> None:
+    """Multi-modèles : AROME prioritaire, ARPEGE comble le rayonnement (NaN AROME)."""
+    from meteo_socle.sources.openmeteo import OpenMeteoForecast
+
+    # Open-Meteo suffixe chaque colonne du nom de modèle quand on en
+    # demande plusieurs. AROME ne fournit pas le rayonnement (None).
+    payload = {
+        "hourly": {
+            "time": ["2024-06-15T00:00", "2024-06-15T01:00", "2024-06-15T02:00"],
+            "temperature_2m_meteofrance_arome_france_hd": [10.5, 10.0, 9.5],
+            "shortwave_radiation_meteofrance_arome_france_hd": [None, None, None],
+            "temperature_2m_meteofrance_arpege_europe": [11.0, 11.0, 11.0],
+            "shortwave_radiation_meteofrance_arpege_europe": [0.0, 100.0, 200.0],
+        }
+    }
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = payload
+    mock_session.get.return_value = mock_response
+
+    client = OpenMeteoForecast(
+        modele="meteofrance_arome_france_hd,meteofrance_arpege_europe",
+        session=mock_session,
+    )
+    df = client.obtenir_prevision(latitude=48.54, longitude=-1.62, horizon_jours=1)
+
+    # Température : AROME (prioritaire) gagne, pas ARPEGE (11 °C).
+    assert df["temperature_2m"].iloc[0] == pytest.approx(10.5 + 273.15)
+    # Rayonnement : AROME NaN → comblé par ARPEGE (W/m² → J/m²/h ×3600).
+    assert df["rayonnement_global"].iloc[1] == pytest.approx(100.0 * 3600.0)
+    assert df["rayonnement_global"].iloc[2] == pytest.approx(200.0 * 3600.0)
+    # Une virgule dans `models` est transmise telle quelle à Open-Meteo.
+    params = mock_session.get.call_args.kwargs["params"]
+    assert params["models"] == "meteofrance_arome_france_hd,meteofrance_arpege_europe"

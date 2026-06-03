@@ -79,8 +79,11 @@ def executer_veille(
         Code de retour (0 succès, 2 HTTP source, 3 SMTP / écriture).
     """
     if source is None:
-        modele = config["source_meteo"]["modeles"][0]
-        source = OpenMeteoForecast(modele=modele)
+        # Liste de modèles → chaîne séparée par des virgules : Open-Meteo
+        # renvoie les colonnes par modèle, le socle les fusionne par
+        # priorité (1er = prioritaire). Cf. config source_meteo.modeles.
+        modeles = config["source_meteo"]["modeles"]
+        source = OpenMeteoForecast(modele=",".join(modeles))
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
 
