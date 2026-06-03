@@ -24,9 +24,16 @@ SITE_TEST = {"latitude": 48.5420, "longitude": -1.6155, "altitude": 30}
 
 
 def _prevision_horaire_synthetique(n_jours: int = 4) -> pd.DataFrame:
-    """Reproduit la signature `OpenMeteoForecast.obtenir_prevision`."""
+    """Reproduit la signature `OpenMeteoForecast.obtenir_prevision`.
+
+    La série démarre au 00 UTC du jour courant (et non à une date fixe) :
+    `preparer_horaire` recentre le bilan hydrique cumulé sur le 0Z
+    d'aujourd'hui ; avec une date figée dans le passé, ce point de
+    référence tomberait hors de la fenêtre et le bilan serait décalé.
+    """
     n_h = 24 * n_jours
-    idx = pd.date_range("2026-06-01 00:00", periods=n_h, freq="h", tz="UTC")
+    debut = pd.Timestamp.now(tz="UTC").normalize()
+    idx = pd.date_range(debut, periods=n_h, freq="h")
     t_c = 13.0 + 5.0 * np.sin(np.linspace(0, 2 * np.pi * n_jours, n_h))
     hr = np.clip(0.55 + 0.30 * np.cos(np.linspace(0, 2 * np.pi * n_jours, n_h)), 0.4, 0.95)
     return pd.DataFrame(
@@ -66,7 +73,8 @@ def test_preparer_horaire_bilan_eau_cumul_monotone_si_pluie_egale_etp() -> None:
     df = _prevision_horaire_synthetique(n_jours=2)
     out = preparer_horaire(df, SITE_TEST)
     assert "bilan_eau_cumul_mm" in out.columns
-    # Le cumul commence à pluie[0] - etp[0] (1 heure), pas exactement 0.
+    # La série démarre au 0Z courant, qui est justement le point de
+    # recentrage : le bilan cumulé y vaut ~0 (au cumul de la 1ʳᵉ heure près).
     assert abs(out["bilan_eau_cumul_mm"].iloc[0]) < 1.0
 
 
