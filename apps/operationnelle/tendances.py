@@ -15,18 +15,23 @@ de tendance :
 - ``direction_cardinal`` (vecteur moyen pondéré vitesse, en secteur 8)
 
 Vu côté UI, deux modèles (ARPEGE court terme + ECMWF moyen terme) sont
-empilés en 4 lignes : ARPEGE jour, ARPEGE nuit, ECMWF jour, ECMWF nuit ;
-les colonnes sont les jours civils.
+empilés ; pour chaque jour civil deux colonnes côte-à-côte : Nuit J puis
+Jour J (ordre chronologique en partant de minuit).
 
-Convention « jour » / « nuit » (v0) :
+Convention « jour » / « nuit » :
 - ``jour`` : heures locales [FENETRE_JOUR_DEBUT, FENETRE_JOUR_FIN)
-- ``nuit`` : heures locales [0, FENETRE_JOUR_DEBUT) ∪ [FENETRE_JOUR_FIN, 24)
+- ``nuit`` : **nuit contiguë** = soirée de la veille [FENETRE_JOUR_FIN, 24)
+  du jour civil J-1 + matinée [0, FENETRE_JOUR_DEBUT) du jour J.
 
-La nuit du jour civil J est donc la **soirée + matinée du même jour J**
-local — pas la nuit calendaire J-1 → J. Ce choix garde l'agrégation
-bornée à un jour civil, simple à indexer ; on perd un peu de fidélité
-sémantique (mélange soir J et nuit J) mais c'est cohérent avec la
-granularité « 1 colonne par jour » de la grille.
+La nuit J est donc la vraie nuit calendaire qui *précède* le jour J
+(elle « mène » au jour J). En partant de minuit on rencontre d'abord la
+fin de cette nuit (la matinée), d'où l'ordre d'affichage Nuit J puis
+Jour J. La soirée [19, 24) d'un jour est rattachée à la nuit du
+lendemain ; pour qu'une nuit soit complète il faut donc disposer de la
+soirée de la veille dans la prévision (assurée par ``past_days`` côté
+appelant). À la toute première date couverte la soirée J-1 manque : la
+nuit n'a alors que sa matinée (cellule partielle, bord gauche de la
+grille).
 """
 
 from __future__ import annotations
@@ -115,14 +120,23 @@ def _masque_fenetre(index: pd.DatetimeIndex, jour: pd.Timestamp, fenetre: str) -
 
     ``index`` doit être tz-aware sur la zone locale (heures lues directement).
     ``jour`` est attendu à minuit local, même tz que ``index``.
+
+    « jour » = [DEBUT, FIN) du jour civil J. « nuit » = nuit contiguë qui
+    précède J : soirée [FIN, 24) de la veille J-1 + matinée [0, DEBUT) de J.
+    Le jour précédent est calculé avec ``DateOffset(days=1)`` (et non
+    ``Timedelta``) pour rester correct au passage à l'heure : retrancher
+    24 h à un minuit tomberait sur 23 h ou 01 h les jours de bascule DST.
     """
-    base = np.asarray(index.normalize() == jour)
+    jours_norm = index.normalize()
     heure = np.asarray(index.hour)
     if fenetre == FENETRE_JOUR:
+        est_jour = np.asarray(jours_norm == jour)
         plage = (heure >= FENETRE_JOUR_DEBUT) & (heure < FENETRE_JOUR_FIN)
-    else:  # nuit = complément du jour, borné au jour civil
-        plage = (heure < FENETRE_JOUR_DEBUT) | (heure >= FENETRE_JOUR_FIN)
-    return base & plage
+        return est_jour & plage
+    veille = jour - pd.DateOffset(days=1)
+    soir_veille = np.asarray(jours_norm == veille) & (heure >= FENETRE_JOUR_FIN)
+    matin = np.asarray(jours_norm == jour) & (heure < FENETRE_JOUR_DEBUT)
+    return soir_veille | matin
 
 
 def _agreger_cellule(
@@ -226,10 +240,20 @@ def agreger_par_fenetre(
 
     df = horaire.copy()
     df.index = pd.DatetimeIndex(df.index).tz_convert(tz_locale)
+    # Cast float sur toutes les colonnes numériques : un `pd.concat`
+    # entre ERA5 et forecast (toggle « 48 h passées ») peut produire
+    # des dtypes `object` quand les colonnes diffèrent entre les
+    # morceaux, ce qui fait ensuite échouer `np.deg2rad`, `np.exp`,
+    # etc. avec « loop of ufunc does not support argument 0 of type
+    # int/float ». `weather_code` reste tel quel (catégoriel int).
+    for col in df.columns:
+        if col == "weather_code":
+            continue
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
     etp_loc = None
     if etp_horaire is not None and not etp_horaire.empty:
-        etp_loc = etp_horaire.copy()
+        etp_loc = pd.to_numeric(etp_horaire, errors="coerce").copy()
         etp_loc.index = pd.DatetimeIndex(etp_loc.index).tz_convert(tz_locale)
 
     jours_uniques = pd.DatetimeIndex(df.index).normalize().unique().sort_values()

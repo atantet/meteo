@@ -124,14 +124,28 @@ def test_masque_fenetre_jour() -> None:
     assert (horaire_loc.index[masque].normalize() == jour).all()
 
 
-def test_masque_fenetre_nuit_complement() -> None:
+def test_masque_fenetre_nuit_contigue() -> None:
+    """La nuit J = soirée [19,24) de J-1 + matinée [0,7) de J (contiguë)."""
     horaire = _horaire_synthetique(jours=2)
     horaire_loc = horaire.copy()
     horaire_loc.index = horaire_loc.index.tz_convert("Europe/Paris")
-    jour = horaire_loc.index.normalize()[0]
-    masque_nuit = _masque_fenetre(horaire_loc.index, jour, FENETRE_NUIT)
-    heures = horaire_loc.index[masque_nuit].hour
+    # On vise la nuit du 2e jour (J1) : sa soirée de veille (J0) est dans
+    # les données, donc la nuit doit être complète (soir J0 + matin J1).
+    jours = horaire_loc.index.normalize().unique().sort_values()
+    j1 = jours[1]
+    masque_nuit = _masque_fenetre(horaire_loc.index, j1, FENETRE_NUIT)
+    idx_nuit = horaire_loc.index[masque_nuit]
+    heures = idx_nuit.hour
+    # Toutes les heures sont bien hors de la plage jour.
     assert all(h < FENETRE_JOUR_DEBUT or h >= FENETRE_JOUR_FIN for h in heures)
+    # Les heures de soirée (>= 19 h) appartiennent à J-1 (= J0)...
+    soir = idx_nuit[idx_nuit.hour >= FENETRE_JOUR_FIN]
+    assert (soir.normalize() == jours[0]).all()
+    # ...et les heures de matinée (< 7 h) appartiennent à J1.
+    matin = idx_nuit[idx_nuit.hour < FENETRE_JOUR_DEBUT]
+    assert (matin.normalize() == j1).all()
+    # Nuit complète : 5 h de soirée (19-23) + 7 h de matinée (0-6) = 12 h.
+    assert len(idx_nuit) == 12
 
 
 def test_agreger_par_fenetre_cellules_j0_complete() -> None:
@@ -202,20 +216,27 @@ def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:
 
 
 def test_agreger_par_fenetre_etp_cumul() -> None:
-    """ETP socle (mm/h) sur 24 h × 0.1 → cumul 1.2 mm sur fenêtre jour (12 h)."""
-    horaire = _horaire_synthetique(jours=1)
+    """ETP socle (mm/h) × 0.1 : cumul jour 1.2 mm (12 h) et nuit selon couverture.
+
+    Nuit contiguë : nuit J = soirée [19,24) de J-1 (5 h) + matinée [0,7) de
+    J (7 h). La nuit du 1ᵉʳ jour n'a pas de soirée de veille (données
+    commencent à 00 h) → 7 h seulement → 0.7 mm. La nuit du 2ᵉ jour est
+    complète (5 h + 7 h = 12 h) → 1.2 mm.
+    """
+    horaire = _horaire_synthetique(jours=2)
     etp = pd.Series(
-        [0.1] * 24,
-        index=pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC"),
+        [0.1] * 48,
+        index=pd.date_range("2026-06-01 00:00", periods=48, freq="h", tz="UTC"),
     )
     cellules = agreger_par_fenetre(horaire, tz_locale="UTC", etp_horaire=etp)
-    j0 = sorted({j for (j, _) in cellules})[0]
-    cell_jour = cellules[(j0, FENETRE_JOUR)]
-    cell_nuit = cellules[(j0, FENETRE_NUIT)]
-    # Fenêtre jour = 12 heures × 0.1 mm/h = 1.2 mm
-    assert cell_jour.etp_mm == pytest.approx(1.2, abs=1e-6)
-    # Fenêtre nuit = 12 heures × 0.1 mm/h = 1.2 mm
-    assert cell_nuit.etp_mm == pytest.approx(1.2, abs=1e-6)
+    jours = sorted({j for (j, _) in cellules})
+    j0, j1 = jours[0], jours[1]
+    # Fenêtre jour J0 = 12 heures × 0.1 mm/h = 1.2 mm
+    assert cellules[(j0, FENETRE_JOUR)].etp_mm == pytest.approx(1.2, abs=1e-6)
+    # Nuit J0 = matinée seule (7 h, pas de soirée J-1) = 0.7 mm
+    assert cellules[(j0, FENETRE_NUIT)].etp_mm == pytest.approx(0.7, abs=1e-6)
+    # Nuit J1 = soirée J0 (5 h) + matinée J1 (7 h) = 12 h = 1.2 mm
+    assert cellules[(j1, FENETRE_NUIT)].etp_mm == pytest.approx(1.2, abs=1e-6)
 
 
 def test_agreger_par_fenetre_sans_etp_donne_nan() -> None:
@@ -248,6 +269,44 @@ def test_agreger_par_fenetre_filtre_fenetres_trop_courtes() -> None:
     cellules = agreger_par_fenetre(horaire, tz_locale="UTC")
     # Aucune cellule créée car < MIN heures couvertes sur la fenêtre jour.
     assert (pd.Timestamp("2026-06-01"), FENETRE_JOUR) not in cellules
+
+
+def test_agreger_par_fenetre_robuste_au_concat_heterogene() -> None:
+    """Reproduit le scénario du toggle « 48 h passées » côté tendance.
+
+    `pd.concat([ERA5, forecast])` peut produire un DataFrame dont
+    certaines colonnes sont en dtype `object` (NaN ajoutés par pandas
+    pour les colonnes présentes seulement d'un côté). `np.deg2rad`,
+    `np.exp` etc. dans les calculs de tendance plantent alors avec
+    « loop of ufunc does not support argument 0 of type ... ».
+    `agreger_par_fenetre` doit caster en float toutes les colonnes
+    numériques en interne, avant tout calcul.
+    """
+    idx = pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC")
+    # Forçage du dtype object après création (Series avec index personnalisé
+    # passées au constructeur reindexent et nullifient les valeurs).
+    df_object = pd.DataFrame(
+        {
+            "temperature_2m": [288.15] * 24,
+            "precipitation": [0.0] * 24,
+            "probabilite_pluie_pct": [0.0] * 24,
+            "vitesse_vent_10m": [2.0] * 24,
+            "rafales_vent_10m": [3.0] * 24,
+            "direction_vent_deg": [180.0] * 24,
+            "weather_code": [0] * 24,
+        },
+        index=idx,
+    )
+    for col in df_object.columns:
+        if col != "weather_code":
+            df_object[col] = df_object[col].astype("object")
+    cellules = agreger_par_fenetre(df_object, tz_locale="UTC")
+    # Ne doit pas planter ; au moins une cellule jour produite avec
+    # des valeurs numériques cohérentes.
+    assert cellules
+    cell_jour = next(c for (_, f), c in cellules.items() if f == FENETRE_JOUR)
+    assert cell_jour.t_mean == pytest.approx(15.0, abs=1e-6)
+    assert cell_jour.direction_cardinal == "S"
 
 
 def test_agreger_par_fenetre_horaire_vide_retourne_dict_vide() -> None:

@@ -353,8 +353,10 @@ def _afficher_grille_tendance(
             f"{_date_fr(jour)}</th>"
         )
 
-    def _th_fenetre(idx_j: int, nom: str, est_jour: bool) -> str:
-        if est_jour:
+    def _th_fenetre(idx_j: int, nom: str, est_premiere: bool) -> str:
+        # La 1ʳᵉ fenêtre du jour (Nuit) porte la bordure de séparation
+        # entre jours civils (et la bordure pivot si c'est aujourd'hui).
+        if est_premiere:
             bordure = bordure_pivot if idx_j == idx_pivot else "border-left:1px solid #e8e8e8;"
         else:
             bordure = ""
@@ -380,7 +382,8 @@ def _afficher_grille_tendance(
     en_tete_fenetres = (
         '<tr style="background:#fafafa;">'
         + "".join(
-            _th_fenetre(idx_j, "Jour", est_jour=True) + _th_fenetre(idx_j, "Nuit", est_jour=False)
+            _th_fenetre(idx_j, "Nuit", est_premiere=True)
+            + _th_fenetre(idx_j, "Jour", est_premiere=False)
             for idx_j in range(len(jours_tous))
         )
         + "</tr>"
@@ -466,7 +469,7 @@ def _afficher_grille_tendance(
                 cellules.append(_td_variable(libelle))
             cellules.append(_td_modele(label, bg))
             for idx_j, jour in enumerate(jours_tous):
-                for fenetre_idx, fenetre in enumerate((FENETRE_JOUR, FENETRE_NUIT)):
+                for fenetre_idx, fenetre in enumerate((FENETRE_NUIT, FENETRE_JOUR)):
                     est_pivot = idx_j == idx_pivot and fenetre_idx == 0
                     cellule = agg.get((jour, fenetre))
                     if cellule is None:
@@ -490,7 +493,7 @@ def _afficher_grille_tendance(
                 cellules.append(_td_variable("Météo", sur_fond_sombre=True))
             cellules.append(_td_modele(label, _FOND_PICTO, sur_fond_sombre=True))
             for idx_j, jour in enumerate(jours_tous):
-                for fenetre_idx, fenetre in enumerate((FENETRE_JOUR, FENETRE_NUIT)):
+                for fenetre_idx, fenetre in enumerate((FENETRE_NUIT, FENETRE_JOUR)):
                     est_pivot = idx_j == idx_pivot and fenetre_idx == 0
                     cellules.append(
                         _cellule_picto(
@@ -891,7 +894,11 @@ def main() -> None:
                 past_days=n_past_days,
             )
             prevision_longue = _fetch_prevision(
-                site["latitude"], site["longitude"], horizon_long, modele_long
+                site["latitude"],
+                site["longitude"],
+                horizon_long,
+                modele_long,
+                past_days=n_past_days,
             )
         except Exception as e:  # noqa: BLE001
             st.error(f"Erreur de récupération des prévisions : {e}")
@@ -900,8 +907,6 @@ def main() -> None:
     now_utc = pd.Timestamp.now(tz="UTC")
     quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
     quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
-    quotidien_long = calculer_indicateurs_quotidiens(prevision_longue, config, now_utc=now_utc)
-    quotidien_long = jours_complets_seulement(quotidien_long, prevision_longue)
 
     # ETP socle FAO Penman-Monteith horaire pour ECMWF (la version
     # étendue ARPEGE est calculée juste avant le rendu de la grille
@@ -922,19 +927,19 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.caption(
-        "Deux modèles en parallèle, deux fenêtres par jour (jour 7-19 h, "
-        "nuit hors plage). ARPEGE Météo-France (~10 km, fiable "
-        f"0-{horizon_court} j ; cellules « — » au-delà) et ECMWF IFS "
-        f"(~9 km, référence mondiale, 0-{horizon_long} j). Les "
-        f"{n_past_days * 24} h passées sont incluses sur la ligne ARPEGE "
-        "(archive du modèle) — faire défiler vers la gauche pour les "
-        "voir ; ECMWF n'expose pas d'archive dans Open-Meteo, ses "
-        "colonnes du passé restent vides."
+        "Deux modèles en parallèle, deux fenêtres par jour affichées dans "
+        "l'ordre chronologique : Nuit (soirée de la veille dès 19 h + "
+        "matinée jusqu'à 7 h) puis Jour (7-19 h). ARPEGE Météo-France "
+        f"(~10 km, fiable 0-{horizon_court} j ; cellules « — » au-delà) "
+        f"et ECMWF IFS (~9 km, référence mondiale, 0-{horizon_long} j). "
+        f"Les {n_past_days * 24} h passées (analyse des deux modèles) sont "
+        "incluses — faire défiler vers la gauche pour les voir."
     )
 
-    # La ligne ARPEGE intègre toujours les N j passées (archive du
-    # modèle via `past_days`) ; ECMWF ne fournit pas d'archive donc on
-    # passe sa prévision telle quelle (cellules J-2/J-1 vides).
+    # Les deux lignes intègrent les N j passées (analyse du modèle via
+    # `past_days`) ; côté ECMWF cela complète aussi la nuit d'aujourd'hui
+    # (soirée d'hier). Seule la nuit la plus à gauche reste partielle
+    # (pas de soirée J-1 disponible avant le début des données).
     etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
     _afficher_grille_tendance(
         [
