@@ -2,8 +2,8 @@
 
 À partir des indicateurs calculés (cf. ``indicateurs.py``) et des
 seuils de la config, identifie les alertes déclenchées :
-gel irrigation (purge), gel cultures (protection), canicule, pluie
-intense, vent fort.
+gel (purge irrigation + voilage), canicule, pluie intense, vent fort,
+risque maladies (nuit douce).
 
 Le ton des messages reste **informationnel** (cf. principe n°1 — ne pas
 prescrire d'action, exposer le signal). Chaque alerte porte sa source
@@ -22,7 +22,7 @@ from .indicateurs import IndicateursVeille
 class Alerte:
     """Une alerte déclenchée par un seuil franchi."""
 
-    type: str  # gel_irrigation | gel_cultures | canicule | pluie_intense | vent_fort
+    type: str  # gel | canicule_* | pluie_intense | vent_fort | risque_maladies
     niveau: str  # warning | critique
     titre: str  # texte court ("Gel attendu cette nuit")
     valeur: float  # valeur observée/prévue
@@ -45,47 +45,30 @@ def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Aler
     -------
     list[Alerte]
         Liste des alertes effectivement déclenchées, ordre fixe
-        (gel_irrigation, gel_cultures, canicule, pluie, vent).
-        Liste vide si aucune.
+        (gel, canicule aération, canicule stress, risque maladies,
+        pluie, vent). Liste vide si aucune.
     """
     cfg = config["alertes"]
     alertes: list[Alerte] = []
 
-    # Gel irrigation : T° min 0-48 h ≤ seuil (marge de sécurité avant
-    # purge). Warning, anticipation saisonnière.
-    gi = cfg.get("gel_irrigation", {"actif": False})
-    if gi["actif"] and ind.temperature_min_48h_celsius <= gi["seuil_celsius"]:
+    # Gel : T° min ≤ seuil sur une plage de 6 h des 0-48 h (les 4 plages
+    # pavant la journée, c'est équivalent au min sur 48 h). Couvre les
+    # deux actions terrain : purge du réseau d'irrigation ET voilage des
+    # cultures sensibles (P17). Warning, anticipation.
+    g = cfg.get("gel", {"actif": False})
+    if g["actif"] and ind.temperature_min_48h_celsius <= g["seuil_celsius"]:
         alertes.append(
             Alerte(
-                type="gel_irrigation",
+                type="gel",
                 niveau="warning",
                 titre=(
                     f"Risque de gel sous 48 h — T° min prévue "
                     f"{ind.temperature_min_48h_celsius:.1f} °C "
-                    "(penser à purger le système d'irrigation)"
+                    "(purger l'irrigation et voiler les cultures sensibles)"
                 ),
                 valeur=ind.temperature_min_48h_celsius,
                 unite="°C",
-                seuil=gi["seuil_celsius"],
-            )
-        )
-
-    # Gel cultures : T° min 0-24 h ≤ seuil (gel franc nuit prochaine).
-    # Critique, action immédiate (protéger ou récolter).
-    gc = cfg.get("gel_cultures", {"actif": False})
-    if gc["actif"] and ind.temperature_min_24h_celsius <= gc["seuil_celsius"]:
-        alertes.append(
-            Alerte(
-                type="gel_cultures",
-                niveau="critique",
-                titre=(
-                    f"Gel cette nuit — T° min prévue "
-                    f"{ind.temperature_min_24h_celsius:.1f} °C "
-                    "(protéger ou récolter les cultures sensibles)"
-                ),
-                valeur=ind.temperature_min_24h_celsius,
-                unite="°C",
-                seuil=gc["seuil_celsius"],
+                seuil=g["seuil_celsius"],
             )
         )
 
@@ -127,29 +110,25 @@ def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Aler
             )
         )
 
-    # Risque maladies générique : nuit douce + humectation prolongée
-    # → conditions propices au développement de maladies sous abri
-    # mal aéré. PAS un modèle pathogène, juste un constat météo.
+    # Risque maladies générique : nuit douce (T° min de la nuit à venir
+    # ≥ seuil) → conditions propices au développement de maladies sous
+    # abri mal aéré. PAS un modèle pathogène, juste un constat météo.
+    # Condition unique sur la température nocturne (l'humidité n'est plus
+    # un critère ; le mildiou tomate garde son propre critère via Smith).
     rm = cfg.get("risque_maladies", {"actif": False})
-    if (
-        rm["actif"]
-        and ind.temperature_min_24h_celsius >= rm["t_min_nuit_celsius"]
-        and ind.heures_humectation_24h >= rm["heures_min"]
-    ):
+    if rm["actif"] and ind.temperature_min_nuit_prochaine_celsius >= rm["t_min_nuit_celsius"]:
         alertes.append(
             Alerte(
                 type="risque_maladies",
                 niveau="warning",
                 titre=(
                     f"Conditions propices aux maladies — "
-                    f"T° min {ind.temperature_min_24h_celsius:.1f} °C, "
-                    f"{ind.heures_humectation_24h} h HR ≥ "
-                    f"{rm['hr_seuil'] * 100:.0f} % "
+                    f"T° min nuit {ind.temperature_min_nuit_prochaine_celsius:.1f} °C "
                     "(maintenir ouvrants la nuit)"
                 ),
-                valeur=ind.heures_humectation_24h,
-                unite="h",
-                seuil=rm["heures_min"],
+                valeur=ind.temperature_min_nuit_prochaine_celsius,
+                unite="°C",
+                seuil=rm["t_min_nuit_celsius"],
             )
         )
 

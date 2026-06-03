@@ -71,29 +71,17 @@ source_meteo:
 # justifiés ordre de grandeur mais le seuil pertinent pour VOTRE
 # exploitation est à raffiner après une saison de retour terrain.
 alertes:
-  # Le gel se découpe en deux besoins distincts (cf. terrain) :
-  #   1. Purge du système d'irrigation : action *saisonnière*, déclenchée
-  #      à la première prévision de gel léger (marge de sécurité 4 °C).
-  #      Une fois la purge effectuée, mettre `actif: false` jusqu'à la
-  #      remise en eau de printemps.
-  #   2. Protection / récolte des cultures sensibles : action *ponctuelle*
-  #      à chaque épisode de gel franc (seuil −2 °C, plage où le voile
-  #      P17 protège encore).
-  gel_irrigation:
+  # Gel : un seul signal couvrant les deux actions terrain — purge du
+  # réseau d'irrigation ET voilage des cultures sensibles (P17).
+  # Déclenché dès qu'une plage de 6 h (nuit/matin/midi/soir) sur les
+  # 48 h atteint le seuil ; comme les 4 plages pavent la journée, cela
+  # revient au min sur 48 h ≤ seuil. 4 °C = marge de sécurité avant le
+  # premier gel (laisse le temps de purger et de poser les voiles).
+  # Une fois purge faite et hors période sensible, mettre actif: false.
+  gel:
     actif: true
-    # Seuil sur T° min sur 0-48 h (°C). 4 °C = marge de sécurité avant
-    # le premier gel — laisse une journée pleine pour purger.
-    # NB : pour anticipation plus longue (3-7 j à l'automne), utiliser
-    # plutôt l'App Op (vue Semaine) — la Veille est plafonnée à 48 h.
+    # Seuil sur T° min d'une plage de 6 h sur 0-48 h (°C).
     seuil_celsius: 4.0
-
-  gel_cultures:
-    actif: true
-    # Seuil sur T° min nuit prochaine 0-24 h (°C). −2 °C couvre la plage
-    # où le voile P17 protège encore ; cultures sensibles (tomate,
-    # basilic) gèlent dès 0 °C, rustiques (épinard, chou) tolèrent −5 °C.
-    # Sources : fiches GRAB, CIVAM bio, CTIFL protections antigel.
-    seuil_celsius: -2.0
 
   # ----- Alertes archivées 2026-05-31 -----
   #
@@ -136,23 +124,17 @@ alertes:
     seuil_kmh: 60.0
 
   # Risque maladies générique (oïdium, botrytis, alternaria, etc.) —
-  # déclenché par des conditions nocturnes propices (nuit douce + forte
-  # humectation). Ce n'est PAS un modèle pathogène mais un constat
-  # météo : T° nocturne élevée + HR ≥ 90 % plusieurs heures = activité
-  # microbienne et risque général de maladies sous abri si pas aération
-  # nocturne. Le risque mildiou tomate spécifique reste couvert par
-  # Smith (indicateurs.mildiou_smith). Doctrine Agrobio35.
+  # déclenché par une nuit douce (constat météo, PAS un modèle
+  # pathogène). Doctrine Agrobio35 : les nuits douces sous abri mal
+  # aéré favorisent l'activité microbienne. Condition unique = T° min
+  # de la nuit à venir. Le risque mildiou tomate spécifique reste
+  # couvert par Smith (indicateurs.mildiou_smith), qui garde son propre
+  # critère d'humectation.
   risque_maladies:
     actif: true
     # Seuil T° min nuit prochaine (°C). 15 °C correspond à la borne
     # basse des "nuits douces" citée Agrobio35 (15-20 °C propices).
     t_min_nuit_celsius: 15.0
-    # Seuil HR (fraction) considéré comme "humectation".
-    hr_seuil: 0.90
-    # Nombre minimum d'heures HR ≥ hr_seuil sur la fenêtre 24 h pour
-    # déclencher le signal. Critère inspiré de Smith mais relâché
-    # (Smith demande 11 h sur 2 jours consécutifs ; ici 6 h sur 24 h).
-    heures_min: 6
 
 # ----- Indicateurs envoyés (info, pas alerte forte) -----
 indicateurs:

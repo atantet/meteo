@@ -43,7 +43,6 @@ def _ind(**kwargs):
         etp_jour_mm=3.2,
         prob_pluie_max_24h_pct=15.0,
         prob_pluie_max_48h_pct=30.0,
-        heures_humectation_24h=0,
         prevision_t0_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
     )
     defaults.update(kwargs)
@@ -373,6 +372,35 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
     assert ">Vigilance exploitation</h3>" in html
     # Et chacun annonce séparément l'absence d'alerte sur 48 h.
     assert html.count("Aucune alerte sur les 48 h") >= 2
+
+
+def test_composer_html_section_seuils_vigilance_en_pied() -> None:
+    """Section seuils de Vigilance exploitation en pied, valeurs réelles de la config."""
+    from apps.veille.email import composer_html
+
+    seuils = {
+        "gel": {"actif": True, "seuil_celsius": 4.0},
+        "risque_maladies": {"actif": True, "t_min_nuit_celsius": 15.0},
+        "canicule_aeration": {"actif": False, "seuil_celsius": 25.0},
+    }
+    html = composer_html(_ind(), [], datetime(2026, 6, 1, 5, 30), seuils_config=seuils)
+    assert "Seuils de Vigilance exploitation" in html
+    # Pas de bloc "Définition des indicateurs" (retiré sur demande).
+    assert "Définition des indicateurs" not in html
+    # Gel unifié (purge + voilage) sur une plage de 6 h.
+    assert "Gel</strong> : T° min ≤ 4 °C sur une plage de 6 h" in html
+    assert "purge eau & voilage" in html
+    # Plus d'alertes séparées irrigation/cultures.
+    assert "Gel irrigation" not in html
+    assert "Gel cultures" not in html
+    # Risque maladies : température nocturne seule (plus de critère HR).
+    assert "T° min nuit prochaine ≥ 15 °C." in html
+    assert "& HR" not in html
+    assert "pendant au moins" not in html
+    # Seuil archivé (actif=False) absent.
+    assert "25 °C" not in html
+    # Phénomènes délégués à la Vigilance d'État (sans le titre de bloc exact).
+    assert "Vigilance d'État" in html
 
 
 def test_composer_html_avec_alerte_section_exploitation_colorée() -> None:

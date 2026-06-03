@@ -250,7 +250,8 @@ def graphique_48h_base64(
             # Fallback : remplissage simple jusqu'à 0 si la normale HR
             # n'est pas (encore) calculée dans le CSV climato.
             ax_hr.fill_between(df.index, hr_pct, 0, color=COULEUR_HR, alpha=0.12)
-        # Ligne de seuil 90 % = humectation (cf. alerte risque_maladies).
+        # Ligne repère 90 % = humectation foliaire (contexte maladies ;
+        # n'est plus un critère d'alerte, cf. alertes.py risque_maladies).
         ax_hr.axhline(y=90, color=COULEUR_HR, linestyle=":", linewidth=0.8, alpha=0.6)
         ax_hr.set_ylabel("HR (%)", color=COULEUR_HR)
         ax_hr.tick_params(axis="y", labelcolor=COULEUR_HR)

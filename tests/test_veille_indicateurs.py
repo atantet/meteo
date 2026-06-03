@@ -135,7 +135,7 @@ def test_calculer_indicateurs_proba_pluie_colonne_absente() -> None:
 
 
 def test_calculer_indicateurs_alerte_gel_canicule() -> None:
-    """Variation T° dans les 24h prochaines → min nuit / max jour distinctes."""
+    """Variation T° sur 24 h → min (gel) et max (canicule) distincts."""
     from apps.veille.indicateurs import calculer_indicateurs
 
     prevision = _prevision_synthetique()
@@ -159,16 +159,47 @@ def test_calculer_indicateurs_cumuls_pluie() -> None:
     assert ind.cumul_pluie_48h_mm == pytest.approx(48.0)
 
 
-def test_calculer_indicateurs_filtre_past() -> None:
-    """Les heures antérieures à now sont ignorées."""
+def test_calculer_indicateurs_min_nuit_prochaine_cible_j1_0_6h() -> None:
+    """Le min nuit à venir ne regarde que J+1 [0, 6 h) local, pas tout le 24/48 h."""
     from apps.veille.indicateurs import calculer_indicateurs
 
-    prevision = _prevision_synthetique(duree_h=48, t_celsius=15.0)
-    prevision.loc[prevision.index[:24], "temperature_2m"] = -10.0 + 273.15
-    now = pd.Timestamp("2024-06-16 00:00:00+00:00")
+    # 72 h depuis 2024-06-15 00:00 UTC. tz Europe/Paris (été, UTC+2).
+    prevision = _prevision_synthetique(duree_h=72, t_celsius=15.0)
+    now = pd.Timestamp("2024-06-15 09:00", tz="Europe/Paris").tz_convert("UTC")
+    idx_local = prevision.index.tz_convert("Europe/Paris")
+    # J+1 [0,6 h) locale = nuit à venir → 11 °C.
+    masque = (
+        (idx_local.normalize() == pd.Timestamp("2024-06-16", tz="Europe/Paris"))
+        & (idx_local.hour >= 0)
+        & (idx_local.hour < 6)
+    )
+    prevision.loc[masque, "temperature_2m"] = 11.0 + 273.15
+    # Heure très froide HORS nuit J+1 (après-midi J0) : ne doit PAS compter.
+    idx_pm = (idx_local.normalize() == pd.Timestamp("2024-06-15", tz="Europe/Paris")) & (
+        idx_local.hour == 15
+    )
+    prevision.loc[idx_pm, "temperature_2m"] = -5.0 + 273.15
+    with _patch_etp(0.1):
+        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
+    assert ind.temperature_min_nuit_prochaine_celsius == pytest.approx(11.0)
+
+
+def test_calculer_indicateurs_fenetre_ancree_minuit_local() -> None:
+    """La fenêtre démarre à minuit local du jour de now (heures avant ignorées)."""
+    from apps.veille.indicateurs import calculer_indicateurs
+
+    # 72 h depuis le 2024-06-15 00:00 UTC. now = matin du 16 (comme l'envoi
+    # réel) ; minuit local du 16 (Europe/Paris été) = 2024-06-15 22:00 UTC.
+    prevision = _prevision_synthetique(duree_h=72, t_celsius=15.0)
+    now = pd.Timestamp("2024-06-16 09:00", tz="Europe/Paris").tz_convert("UTC")
+    debut_utc = now.tz_convert("Europe/Paris").normalize().tz_convert("UTC")
+    # Tout ce qui précède minuit local du 16 est très froid → doit être exclu.
+    prevision.loc[prevision.index < debut_utc, "temperature_2m"] = -10.0 + 273.15
     with _patch_etp(0.1):
         ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
     assert ind.temperature_min_24h_celsius == pytest.approx(15.0)
+    # t0 = minuit local, pas l'heure d'envoi.
+    assert ind.prevision_t0_utc == debut_utc
 
 
 def test_calculer_indicateurs_vide_raise() -> None:

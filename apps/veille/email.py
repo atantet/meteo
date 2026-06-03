@@ -249,7 +249,7 @@ def _bloc_vigilance_exploitation(alertes: list[Alerte]) -> str:
     """Bloc HTML Vigilance exploitation — seuils agronomiques configurés.
 
     Pendant local de la Vigilance Météo-France : seuils propres à
-    l'exploitation (gel irrigation/cultures, canicule, pluie, vent…).
+    l'exploitation (gel, risque maladies…).
     Affiché juste après la Vigilance MF pour que les deux "rien à
     signaler" soient explicitement séparés — pas de bandeau vert global
     qui laisserait croire à un « tout va bien » alors que MF peut être
@@ -285,6 +285,55 @@ def _bloc_vigilance_exploitation(alertes: list[Alerte]) -> str:
         '<div style="margin:12px 0 6px 0;">'
         '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
         "Vigilance exploitation</h3>" + "".join(items) + "</div>"
+    )
+
+
+def _bloc_definitions(seuils: dict[str, Any] | None) -> str:
+    """Seuils de Vigilance exploitation en pied de mail (11 px gris, comme les sources).
+
+    Transparence (principe #5) : les seuils EXACTS qui déclenchent la
+    Vigilance exploitation, lus dans la config (pas en dur). Les
+    phénomènes dangereux (canicule, pluie, vent, orages) sont délégués à
+    la Vigilance d'État (une seule méthode par phénomène).
+    """
+    seuils = seuils or {}
+
+    def _def(terme: str, texte: str) -> str:
+        return (
+            f'<div style="margin:2px 0;">'
+            f'<strong style="color:#555;">{terme}</strong> : {texte}</div>'
+        )
+
+    seuils_lignes: list[str] = []
+    g = seuils.get("gel", {})
+    if g.get("actif"):
+        seuils_lignes.append(
+            _def(
+                "Gel",
+                f"T° min ≤ {g['seuil_celsius']:.0f} °C sur une plage de 6 h "
+                "(nuit/matin/midi/soir) — purge eau & voilage.",
+            )
+        )
+    rm = seuils.get("risque_maladies", {})
+    if rm.get("actif"):
+        seuils_lignes.append(
+            _def(
+                "Risque maladies",
+                f"T° min nuit prochaine ≥ {rm['t_min_nuit_celsius']:.0f} °C.",
+            )
+        )
+    seuils_lignes.append(
+        _def(
+            "Canicule, pluie, vent, orages",
+            "relèvent de la Vigilance d'État (Météo-France) affichée plus haut.",
+        )
+    )
+
+    return (
+        '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;'
+        'font-size:11px;color:#888;line-height:1.5;">'
+        '<div style="font-weight:600;color:#555;margin-bottom:4px;">'
+        "Seuils de Vigilance exploitation</div>" + "".join(seuils_lignes) + "</div>"
     )
 
 
@@ -833,9 +882,10 @@ def _bloc_risque_maladies(
     """Bloc HTML "Risque maladies" — homogène en format avec la grille Tendance.
 
     Pour chaque jour affiché (J0, J+1) : un mini-tableau avec colonnes
-    Nuit / Matin / Après-midi / Soir et 2 lignes (T° min, h HR ≥ seuil).
-    Un bandeau coloré par jour synthétise la condition globale 24 h
-    (T_min ≥ seuil_T ET ≥ heures_min HR au-dessus du seuil HR).
+    Nuit / Matin / Après-midi / Soir et une ligne T° min. Un bandeau
+    coloré par jour synthétise la condition (nuit douce = T° min sur la
+    nuit [0, 6 h) ≥ seuil). Condition unique sur la température nocturne
+    (l'humidité n'est plus un critère, cf. alertes.py).
 
     Sémantique : constat météo générique (oïdium, botrytis, alternaria,
     mildiou…) pour orienter la décision d'aération nocturne, **pas** un
@@ -843,15 +893,13 @@ def _bloc_risque_maladies(
     arrière-plan dans IndicateursVeille pour cross-check ultérieur.
 
     Vide si ``risque_maladies`` désactivé dans config ou si la prévision
-    n'a pas les colonnes nécessaires (humidité relative, température).
+    n'a pas la colonne température.
     """
     rm_cfg = config.get("alertes", {}).get("risque_maladies", {})
     if not rm_cfg.get("actif", False) or prevision_horaire is None:
         return ""
 
     t_min_seuil = float(rm_cfg.get("t_min_nuit_celsius", 15.0))
-    hr_seuil = float(rm_cfg.get("hr_seuil", 0.90))
-    heures_min_24h = int(rm_cfg.get("heures_min", 6))
 
     horaire_loc = prevision_horaire.copy()
     horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
@@ -864,11 +912,7 @@ def _bloc_risque_maladies(
         horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
     else:
         horaire_48h = horaire_loc.head(48)
-    if (
-        horaire_48h.empty
-        or "temperature_2m" not in horaire_48h.columns
-        or "humidite_relative" not in horaire_48h.columns
-    ):
+    if horaire_48h.empty or "temperature_2m" not in horaire_48h.columns:
         return ""
 
     jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
@@ -880,34 +924,28 @@ def _bloc_risque_maladies(
             JOURS_FR[jour_loc.weekday()].capitalize() + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
         )
 
-        # Agrégation 24 h pour le bandeau du jour : utilise les mêmes
-        # règles que l'alerte ``risque_maladies`` (cf. alertes.py).
-        masque_jour = horaire_48h.index.normalize() == jour
-        t_jour = horaire_48h.loc[masque_jour, "temperature_2m"].dropna() - 273.15
-        hr_jour = horaire_48h.loc[masque_jour, "humidite_relative"].dropna()
-        if t_jour.empty or hr_jour.empty:
-            t_min_24h: float | None = None
-            h_hum_24h = 0
+        # Bandeau du jour : même règle que l'alerte ``risque_maladies``
+        # (cf. alertes.py) — nuit douce = T° min sur la nuit [0, 6 h)
+        # ≥ seuil. Condition unique sur la température nocturne.
+        serie_nuit_k = _serie_fenetre(
+            horaire_48h, jour, "temperature_2m", 0, FENETRE_NUIT_PICTO_FIN
+        )
+        if serie_nuit_k.empty:
+            t_min_nuit: float | None = None
             condition_propice = False
         else:
-            t_min_24h = float(t_jour.min())
-            h_hum_24h = int((hr_jour >= hr_seuil).sum())
-            condition_propice = t_min_24h >= t_min_seuil and h_hum_24h >= heures_min_24h
+            t_min_nuit = float(serie_nuit_k.min()) - 273.15
+            condition_propice = t_min_nuit >= t_min_seuil
         couleur = "#E69F00" if condition_propice else "#009E73"
-        if t_min_24h is None:
-            bandeau_titre = f"{jour_label} — données insuffisantes pour le jour entier"
+        if t_min_nuit is None:
+            bandeau_titre = f"{jour_label} — nuit [0-6 h) non couverte par la prévision"
         elif condition_propice:
             bandeau_titre = (
-                f"{jour_label} — conditions propices : "
-                f"T° min {t_min_24h:.1f} °C, "
-                f"{h_hum_24h} h HR ≥ {hr_seuil * 100:.0f} %"
+                f"{jour_label} — nuit douce : T° min nuit "
+                f"{t_min_nuit:.1f} °C ≥ {t_min_seuil:.0f} °C"
             )
         else:
-            bandeau_titre = (
-                f"{jour_label} — pas de signal marqué : "
-                f"T° min {t_min_24h:.1f} °C, "
-                f"{h_hum_24h} h HR ≥ {hr_seuil * 100:.0f} %"
-            )
+            bandeau_titre = f"{jour_label} — pas de signal : T° min nuit {t_min_nuit:.1f} °C"
 
         # En-tête de mini-tableau aligné sur la grille Tendance.
         en_tete = (
@@ -949,26 +987,6 @@ def _bloc_risque_maladies(
             + "</tr>"
         )
 
-        # h HR ≥ seuil par fenêtre
-        cells_hr: list[str] = []
-        for _nom, h_debut, h_fin in FENETRES_VEILLE:
-            serie = _serie_fenetre(horaire_48h, jour, "humidite_relative", h_debut, h_fin)
-            if serie.empty:
-                cells_hr.append(_cellule_valeur("—"))
-            else:
-                n_h = int((serie >= hr_seuil).sum())
-                # Mise en évidence si la fenêtre est majoritairement
-                # humectée (≥ 3 h sur 6 h = moitié).
-                if n_h >= 3:
-                    valeur = f'<span style="color:#E69F00;">{n_h}</span>{_unite("h")}'
-                else:
-                    valeur = f"{n_h}{_unite('h')}"
-                cells_hr.append(_cellule_valeur(valeur))
-        ligne_hr = (
-            f'<tr><td style="padding:4px 8px;color:#888;font-size:11px;">'
-            f"h HR ≥ {hr_seuil * 100:.0f} %</td>" + "".join(cells_hr) + "</tr>"
-        )
-
         tableau_jour = (
             f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
             f'color:white;border-radius:4px;font-size:13px;">{bandeau_titre}</div>'
@@ -976,7 +994,6 @@ def _bloc_risque_maladies(
             'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
             + en_tete
             + ligne_tmin
-            + ligne_hr
             + "</table>"
         )
         tableaux_html.append(tableau_jour)
@@ -986,11 +1003,10 @@ def _bloc_risque_maladies(
         "Risque maladies — conditions d'aération</h3>"
         + "".join(tableaux_html)
         + '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
-        f"Constat météo informationnel : T° min ≥ {t_min_seuil:.0f} °C "
-        f"ET ≥ {heures_min_24h} h HR ≥ {hr_seuil * 100:.0f} % sur 24 h "
-        "= conditions propices au développement de maladies (oïdium, botrytis, "
-        "alternaria, mildiou…) sous abri mal aéré la nuit. Pas un modèle "
-        "pathogène — décision d'aération vous revient."
+        f"Constat météo informationnel : une nuit douce (T° min sur la nuit "
+        f"[0-6 h) ≥ {t_min_seuil:.0f} °C) favorise le développement de maladies "
+        "(oïdium, botrytis, alternaria, mildiou…) sous abri mal aéré. Pas un "
+        "modèle pathogène — décision d'aération vous revient."
         "</p>"
     )
 
@@ -1058,8 +1074,8 @@ def composer_texte(
     direction = ind.direction_vent_dominante_cardinal or "—"
 
     lignes.append("INDICATEURS :")
-    lignes.append(fmt("T° min nuit", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
-    lignes.append(fmt("T° max jour", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
+    lignes.append(fmt("T° min", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
+    lignes.append(fmt("T° max", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
     lignes.append(fmt("Cumul pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h"))
     lignes.append(fmt("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h"))
     lignes.append(fmt("Proba. pluie 24 h", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire"))
@@ -1102,21 +1118,10 @@ def composer_html(
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     risque_maladies_config: dict[str, Any] | None = None,
+    seuils_config: dict[str, Any] | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
-
-    def row(label: str, valeur: str, fenetre: str) -> str:
-        return (
-            "<tr>"
-            f'<td style="padding:4px 8px;color:#555;">{label}'
-            f'<span style="font-size:0.75em;color:#aaa;margin-left:6px;">[{fenetre}]</span>'
-            "</td>"
-            f'<td style="padding:4px 8px;text-align:right;'
-            f'font-variant-numeric:tabular-nums;font-weight:600;">{valeur}</td>'
-            "</tr>"
-        )
-
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
     # les blocs Tendance, Risque maladies et le graphique. On le dérive
     # de ``maintenant`` (qui peut être naïf ; on suppose UTC).
@@ -1141,6 +1146,7 @@ def composer_html(
     bloc_carte = _bloc_cartes_synoptiques(cartes_grille, tz_locale=tz_locale)
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale)
     bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
+    bloc_definitions = _bloc_definitions(seuils_config)
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -1205,6 +1211,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     Les seuils sont des défauts opérationnels, ajustables dans la config.
   </p>
   {footer}
+  {bloc_definitions}
 </div>
 </body></html>"""
 
@@ -1236,7 +1243,8 @@ def composer_email(
         url_fiches=url_fiches,
         prevision_horaire=prevision_horaire,
     )
-    rm_config = config.get("alertes", {}).get("risque_maladies")
+    alertes_config = config.get("alertes", {})
+    rm_config = alertes_config.get("risque_maladies")
     html = composer_html(
         ind,
         alertes,
@@ -1247,5 +1255,6 @@ def composer_email(
         vigilance=vigilance,
         prevision_horaire=prevision_horaire,
         risque_maladies_config=rm_config,
+        seuils_config=alertes_config,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

@@ -4,7 +4,7 @@
 de ``meteo_socle.sources.openmeteo.OpenMeteoForecast``), calcule les
 indicateurs envoyés dans l'email matinal :
 
-- Température min / max sur les prochaines 24 h (proxy nuit / jour)
+- Température min / max sur 24 h et 48 h (fenêtre ancrée à minuit local)
 - Cumuls de pluie 24 / 48 h
 - Vent moyen et rafales maximaux 24 h (km/h)
 - ETP cumulée 24 h (caractère séchant du jour) + série horaire 48 h
@@ -20,10 +20,15 @@ maîtrise des hypothèses (R_so via pvlib, clearness, G jour/nuit).
 ``etp_open_meteo`` reste un cross-check possible mais n'est pas utilisé
 en production.
 
-Note v0 : la "nuit" et le "jour" sont approximés par "les prochaines
-24 h" (le minimum atterrit naturellement en nuit, le maximum en
-journée). Une discrimination plus fine (fenêtres horaires explicites)
-peut être ajoutée en v1 si nécessaire.
+Température : min et max sur chaque fenêtre (24 h et 48 h) **sans
+découpage nuit/jour** pour les risques de **gel** (min : irrigation
+48 h, cultures 24 h) et de **canicule** (max : aération 48 h, stress
+24 h) — ces risques se surveillent à toute heure. **Exception** : le
+**risque maladies** (« nuit douce ») utilise un min restreint à la
+**nuit à venir** (J+1, heures locales [0, 6)),
+``temperature_min_nuit_prochaine_celsius``. Le découpage nuit/jour
+visuel (Nuit / Matin / Après-midi / Soir) vit dans la grille du mail.
+La fenêtre démarre à **minuit local** (et non à l'heure d'envoi).
 """
 
 from __future__ import annotations
@@ -91,12 +96,6 @@ class IndicateursVeille:
     cumul_pluie_24h_mm: float
     cumul_pluie_48h_mm: float
 
-    # Nombre d'heures HR ≥ hr_seuil_humectation sur 0-24 h. Proxy
-    # d'humectation foliaire utilisé par l'alerte risque_maladies
-    # (générique, distinct du Smith mildiou). Seuil HR effectif lu
-    # dans la config (`alertes.risque_maladies.hr_seuil`).
-    heures_humectation_24h: int
-
     vent_max_24h_kmh: float
     rafales_max_24h_kmh: float
     direction_vent_dominante_deg: float
@@ -106,6 +105,12 @@ class IndicateursVeille:
 
     prob_pluie_max_24h_pct: float
     prob_pluie_max_48h_pct: float
+
+    # Min de température sur la nuit À VENIR (J+1, heures locales [0, 6)),
+    # pour l'alerte risque_maladies (« nuit douce »). Distinct des min
+    # 24/48 h qui portent sur toute la fenêtre (risques de gel, à toute
+    # heure). NaN si la prévision ne couvre pas cette nuit.
+    temperature_min_nuit_prochaine_celsius: float = float("nan")
 
     # Série ETP horaire 48 h (mm/h) calculée par le socle. Permet à
     # email.py de reconstruire ETP du jour J+0 / J+1 et le bilan eau
@@ -139,8 +144,9 @@ def calculer_indicateurs(
         socle (``temperature_2m`` K, ``precipitation`` mm,
         ``vitesse_vent_10m`` et ``rafales_vent_10m`` m/s).
     now_utc :
-        Référence temporelle. Les lignes du DataFrame antérieures sont
-        ignorées.
+        Référence temporelle. La fenêtre démarre à **minuit local** du
+        jour de ``now_utc`` (les heures antérieures sont ignorées) ;
+        ``config["site"]["tz"]`` donne le fuseau.
     config :
         Configuration Veille (cf. ``apps.veille.config.load_config``).
 
@@ -154,10 +160,17 @@ def calculer_indicateurs(
     ValueError
         Si la prévision ne contient aucune heure ≥ ``now_utc``.
     """
-    df = prevision.loc[prevision.index >= now_utc].copy()
+    # Fenêtre ancrée à minuit local du jour de ``now_utc`` (et non à
+    # ``now_utc`` lui-même), pour coïncider avec la grille du mail
+    # (« 00h00 – 48h00 ») et inclure les heures déjà écoulées du jour
+    # (observées via ``past_days=1`` au fetch). h24 = [J0 00h ; J0+24h],
+    # h48 = [J0 00h ; J0+48h] en heure locale.
+    tz = config["site"].get("tz", "Europe/Paris")
+    debut = now_utc.tz_convert(tz).normalize().tz_convert("UTC")
+    df = prevision.loc[prevision.index >= debut].copy()
     if df.empty:
         raise ValueError(
-            "La prévision ne contient aucune heure ≥ now_utc — "
+            "La prévision ne contient aucune heure ≥ minuit local — "
             "vérifier la fraîcheur du fetch Open-Meteo."
         )
     df = df.sort_index()
@@ -168,14 +181,15 @@ def calculer_indicateurs(
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
     temperature_celsius_48h = h48["temperature_2m"] - KELVIN_OFFSET
 
-    # Heures d'humectation sur 24 h : nombre d'heures où HR ≥ hr_seuil
-    # configuré dans `alertes.risque_maladies.hr_seuil` (défaut 0.90).
-    rm_cfg = config.get("alertes", {}).get("risque_maladies", {})
-    hr_seuil_humectation = float(rm_cfg.get("hr_seuil", 0.90))
-    h24_hr = h24["humidite_relative"] if "humidite_relative" in h24.columns else None
-    heures_humectation_24h = (
-        int((h24_hr >= hr_seuil_humectation).sum()) if h24_hr is not None else 0
-    )
+    # Min de la nuit À VENIR (J+1, heures locales [0, 6)) — pour le
+    # risque maladies (« nuit douce »). Le mail part le matin : la nuit
+    # actionnable est celle de la nuit prochaine (demain 00-06 h), pas
+    # celle déjà écoulée. NaN si non couverte.
+    jour_j1 = now_utc.tz_convert(tz).normalize() + pd.Timedelta(days=1)
+    idx_local = df.index.tz_convert(tz)
+    masque_nuit = (idx_local.normalize() == jour_j1) & (idx_local.hour >= 0) & (idx_local.hour < 6)
+    t_nuit_celsius = df.loc[masque_nuit, "temperature_2m"] - KELVIN_OFFSET
+    t_min_nuit_prochaine = float(t_nuit_celsius.min()) if not t_nuit_celsius.empty else float("nan")
 
     # ETP via le socle FAO Penman-Monteith (cohérence inter-apps).
     site = config["site"]
@@ -234,9 +248,9 @@ def calculer_indicateurs(
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
         temperature_min_48h_celsius=float(temperature_celsius_48h.min()),
         temperature_max_48h_celsius=float(temperature_celsius_48h.max()),
+        temperature_min_nuit_prochaine_celsius=t_min_nuit_prochaine,
         cumul_pluie_24h_mm=pluie_24h,
         cumul_pluie_48h_mm=float(h48["precipitation"].sum()),
-        heures_humectation_24h=heures_humectation_24h,
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
         direction_vent_dominante_deg=dir_deg if not np.isnan(dir_deg) else 0.0,

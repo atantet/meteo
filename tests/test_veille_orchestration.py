@@ -23,15 +23,12 @@ def _config_test() -> dict:
             "horizon_max_jours": 2,
         },
         "alertes": {
-            "gel_irrigation": {"actif": True, "seuil_celsius": 4.0},
-            "gel_cultures": {"actif": True, "seuil_celsius": -2.0},
+            "gel": {"actif": True, "seuil_celsius": 4.0},
             "canicule_aeration": {"actif": True, "seuil_celsius": 25.0},
             "canicule_stress": {"actif": True, "seuil_celsius": 30.0},
             "risque_maladies": {
                 "actif": True,
                 "t_min_nuit_celsius": 15.0,
-                "hr_seuil": 0.90,
-                "heures_min": 6,
             },
             "pluie_intense": {"actif": True, "seuil_mm_24h": 20.0},
             "vent_fort": {"actif": True, "seuil_kmh": 60.0},
@@ -77,7 +74,8 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     from apps.veille.__main__ import executer_veille
 
     mock_source = MagicMock()
-    mock_source.obtenir_prevision.return_value = _prevision_synthetique(t_celsius=15.0)
+    # 10 °C constant : > 4 (pas gel), < 15 (pas maladies), < 25 (pas canicule) → RAS.
+    mock_source.obtenir_prevision.return_value = _prevision_synthetique(t_celsius=10.0)
 
     config = _config_test()
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
@@ -111,9 +109,10 @@ def test_executer_veille_alerte_gel_dans_email() -> None:
 
     assert code == 0
     out = buf.getvalue()
-    # T_min < -2 °C → gel_cultures critique. T_min < 4 °C aussi → gel_irrigation.
-    assert "gel cultures" in out.lower()
-    assert "gel irrigation" in out.lower()
+    # T_min ≤ 4 °C → alerte unique « gel » (purge + voilage).
+    assert "gel" in out.lower()
+    assert "purger" in out.lower()
+    assert "voiler" in out.lower()
     assert "-5.0" in out  # T° min affichée
 
 

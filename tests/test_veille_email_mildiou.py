@@ -17,8 +17,6 @@ _CONFIG_RM = {
         "risque_maladies": {
             "actif": True,
             "t_min_nuit_celsius": 15.0,
-            "hr_seuil": 0.90,
-            "heures_min": 6,
         }
     }
 }
@@ -37,26 +35,28 @@ def _prevision_synth(t_celsius: float, hr_fraction: float) -> pd.DataFrame:
 
 
 def test_bloc_risque_maladies_conditions_propices() -> None:
-    """T_min ≥ 15 °C + HR ≥ 90 % constants → bandeau orange "Conditions propices"."""
+    """T° min nuit ≥ 15 °C → bandeau orange "nuit douce" (température seule)."""
     from apps.veille.email import _bloc_risque_maladies
 
     html = _bloc_risque_maladies(
-        _prevision_synth(t_celsius=16.0, hr_fraction=0.95),
+        _prevision_synth(t_celsius=16.0, hr_fraction=0.40),
         _CONFIG_RM,
         tz_locale="Europe/Paris",
     )
     assert "Risque maladies" in html
-    assert "Conditions propices" in html or "conditions propices" in html
+    assert "nuit douce" in html
     # Bandeau orange (Wong palette E69F00) indique un risque.
     assert "#E69F00" in html
+    # Plus de critère d'humidité dans le bloc.
+    assert "HR" not in html
 
 
 def test_bloc_risque_maladies_pas_de_signal() -> None:
-    """Nuit fraîche + air sec → bandeau vert "Pas de signal"."""
+    """Nuit fraîche → bandeau vert "pas de signal", même si l'air est humide."""
     from apps.veille.email import _bloc_risque_maladies
 
     html = _bloc_risque_maladies(
-        _prevision_synth(t_celsius=10.0, hr_fraction=0.50),
+        _prevision_synth(t_celsius=10.0, hr_fraction=0.99),
         _CONFIG_RM,
         tz_locale="Europe/Paris",
     )
