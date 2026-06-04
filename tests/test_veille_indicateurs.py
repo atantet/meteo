@@ -202,6 +202,58 @@ def test_calculer_indicateurs_fenetre_ancree_minuit_local() -> None:
     assert ind.prevision_t0_utc == debut_utc
 
 
+def test_ancre_fenetre_matin_minuit_apres_midi_midi() -> None:
+    """L'ancre = 00 h local le matin (< 12 h), 12 h local l'après-midi."""
+    from apps.veille.indicateurs import ancre_fenetre
+
+    tz = "Europe/Paris"
+    # Matin (06:30 local) → ancre 00 h locale du même jour.
+    matin = pd.Timestamp("2024-06-16 06:30", tz=tz).tz_convert("UTC")
+    assert ancre_fenetre(matin, tz) == pd.Timestamp("2024-06-16 00:00", tz=tz).tz_convert("UTC")
+    # Après-midi (18:30 local) → ancre 12 h locale du même jour.
+    apres_midi = pd.Timestamp("2024-06-16 18:30", tz=tz).tz_convert("UTC")
+    assert ancre_fenetre(apres_midi, tz) == pd.Timestamp("2024-06-16 12:00", tz=tz).tz_convert(
+        "UTC"
+    )
+    # Pile à midi local = après-midi (≥ 12 h).
+    midi = pd.Timestamp("2024-06-16 12:00", tz=tz).tz_convert("UTC")
+    assert ancre_fenetre(midi, tz) == midi
+
+
+def test_moment_envoi_matin_apres_midi() -> None:
+    """moment_envoi déduit matin/après-midi de l'heure locale."""
+    from apps.veille.indicateurs import moment_envoi
+
+    tz = "Europe/Paris"
+    assert moment_envoi(pd.Timestamp("2024-06-16 06:30", tz=tz).tz_convert("UTC"), tz) == "matin"
+    assert (
+        moment_envoi(pd.Timestamp("2024-06-16 18:30", tz=tz).tz_convert("UTC"), tz) == "après-midi"
+    )
+    # 11 h 59 = encore matin ; 12 h = après-midi.
+    assert moment_envoi(pd.Timestamp("2024-06-16 11:59", tz=tz).tz_convert("UTC"), tz) == "matin"
+    assert (
+        moment_envoi(pd.Timestamp("2024-06-16 12:00", tz=tz).tz_convert("UTC"), tz) == "après-midi"
+    )
+
+
+def test_calculer_indicateurs_fenetre_ancree_midi_apres_midi() -> None:
+    """Envoi de l'après-midi : la fenêtre démarre à 12 h local (matin exclu)."""
+    from apps.veille.indicateurs import calculer_indicateurs
+
+    prevision = _prevision_synthetique(duree_h=72, t_celsius=15.0)
+    # Envoi à 16 h local le 16 → ancre = 12 h locale du 16.
+    now = pd.Timestamp("2024-06-16 16:00", tz="Europe/Paris").tz_convert("UTC")
+    debut_utc = pd.Timestamp("2024-06-16 12:00", tz="Europe/Paris").tz_convert("UTC")
+    # Tout ce qui précède 12 h locale du 16 (dont la nuit/matin déjà passés)
+    # est très froid → doit être exclu de la fenêtre.
+    prevision.loc[prevision.index < debut_utc, "temperature_2m"] = -10.0 + 273.15
+    with _patch_etp(0.1):
+        ind = calculer_indicateurs(prevision, now, CONFIG_TEST)
+    assert ind.temperature_min_48h_celsius == pytest.approx(15.0)
+    # t0 = 12 h locale (ancre après-midi), pas minuit ni l'heure d'envoi.
+    assert ind.prevision_t0_utc == debut_utc
+
+
 def test_calculer_indicateurs_vide_raise() -> None:
     from apps.veille.indicateurs import calculer_indicateurs
 

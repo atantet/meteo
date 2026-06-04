@@ -1,4 +1,4 @@
-name: Veille email matinal
+name: Veille email
 
 # Scheduling EXTERNALISÉ chez cron-job.org (compte Alexis).
 # Le service appelle POST /actions/workflows/veille.yml/dispatches
@@ -6,7 +6,11 @@ name: Veille email matinal
 # en raison d'un lag chronique de 2-4 h sur ce repo (mail arrivait
 # entre 8 h 30 et 10 h Paris au lieu de 6 h-7 h ciblé).
 # cron-job.org : précision ~minute, fiabilité éprouvée depuis 2007.
-# Cf. config/veille.yaml et docs planification.
+#
+# DEUX envois par jour : deux jobs cron-job.org appellent ce même
+# workflow_dispatch à ~12 h d'écart (≈04:15 et ≈16:15 UTC). Le run est
+# identique ; l'app déduit le moment (matin/après-midi) de l'heure
+# d'envoi et rafraîchit les données. Cf. config/veille.yaml planification.
 on:
   workflow_dispatch:
 

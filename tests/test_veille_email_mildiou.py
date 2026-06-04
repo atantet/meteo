@@ -51,6 +51,82 @@ def test_grille_picto_nuit_pour_fenetre_0_6() -> None:
     assert uri_jour in html
 
 
+def test_grille_apres_midi_ancree_12h_3_dates() -> None:
+    """Envoi après-midi : la grille ancre à 12 h et déborde sur une 3ᵉ date.
+
+    Fenêtre [12 h J ; 12 h J+2] → 3 dates (J après-midi/soir, J+1 complet,
+    J+2 nuit/matin). Le matin [00 h ; +48 h] n'en couvre que 2.
+    """
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    # 72 h de ciel clair. tz=UTC → heures locales == heures UTC.
+    idx = pd.date_range("2026-06-15 00:00", periods=72, freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.zeros(72, dtype=int)}, index=idx)
+
+    # Après-midi : now 14 h UTC → ancre 12 h UTC le 15.
+    html_pm = _bloc_grille_indicateurs_48h(
+        df, now_utc=pd.Timestamp("2026-06-15 14:00", tz="UTC"), tz_locale="UTC"
+    )
+    # 3 dates présentes (15, 16, 17/06).
+    assert "15/06" in html_pm and "16/06" in html_pm and "17/06" in html_pm
+    # Jour d'ancrage partiel : seulement Après-midi + Soir (2 pictos),
+    # J+1 complet (4), J+2 nuit + matin (2) = 8 pictos au total. On compte
+    # "data:image" (et non "...png") car la fenêtre Nuit par ciel clair
+    # rend une icône SVG (clear-night), pas un PNG.
+    assert html_pm.count("data:image") == 8
+
+    # Matin : now 06 h UTC → ancre 00 h UTC le 15 → 2 dates seulement.
+    html_matin = _bloc_grille_indicateurs_48h(
+        df, now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"), tz_locale="UTC"
+    )
+    assert "17/06" not in html_matin
+    assert "15/06" in html_matin and "16/06" in html_matin
+
+
+def test_grille_apres_midi_etp_jour_nocturne_j_et_j1_pas_j2() -> None:
+    """Après-midi : ETP = jour nocturne 24 h (midi→midi) pour J et J+1, pas J+2.
+
+    Deux blocs de 24 h ([12h J ; 12h J+1] et [12h J+1 ; 12h J+2]) → 2 lignes
+    ETP complètes. Le 3ᵉ tableau (J+2) n'a pas de ligne ETP (bloc déborderait
+    des 48 h). La somme des 2 ETP = ETP du bilan eau 48 h.
+    """
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    idx = pd.date_range("2026-06-15 00:00", "2026-06-18 23:00", freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.ones(len(idx), dtype=int)}, index=idx)
+    etp = pd.Series(0.1, index=idx)  # 0.1 mm/h constant → 2.4 mm / 24 h
+    # tz=UTC, now 14 h UTC → ancre 12 h UTC le 15 ; fenêtre [12h15 ; 12h17].
+    html = _bloc_grille_indicateurs_48h(
+        df, etp_horaire_48h=etp, now_utc=pd.Timestamp("2026-06-15 14:00", tz="UTC"), tz_locale="UTC"
+    )
+    # 3 dates affichées mais 2 lignes ETP seulement (15 et 16, pas 17),
+    # libellées « ETP du jour nocturne » (24 h midi→midi).
+    assert "17/06" in html
+    assert html.count("ETP du jour nocturne") == 2
+    # Chaque jour nocturne complet = 24 × 0.1 = 2.4 mm.
+    assert html.count(">2.4<") == 2
+    # Bilan eau 48 h : ETP = somme des deux = 4.8 mm.
+    assert "ETP = 4.8" in html
+
+
+def test_grille_matin_etp_2_jours_calendaires() -> None:
+    """Matin : 2 lignes ETP (J, J+1), chacune sur le jour calendaire complet."""
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    idx = pd.date_range("2026-06-15 00:00", "2026-06-18 23:00", freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.ones(len(idx), dtype=int)}, index=idx)
+    etp = pd.Series(0.1, index=idx)
+    # now 06 h UTC → ancre 00 h UTC le 15 ; fenêtre [00h15 ; 00h17] = 2 jours.
+    html = _bloc_grille_indicateurs_48h(
+        df, etp_horaire_48h=etp, now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"), tz_locale="UTC"
+    )
+    assert "17/06" not in html
+    # Matin : libellé « ETP du jour » (jour calendaire), pas « nocturne ».
+    assert html.count("ETP du jour") == 2
+    assert "nocturne" not in html
+    assert html.count(">2.4<") == 2
+
+
 def test_bloc_pictogrammes_veille_vide_sans_weather_code() -> None:
     """Si la prévision n'a pas weather_code, le bloc retourne ''."""
     from apps.veille.email import _bloc_pictogrammes_veille

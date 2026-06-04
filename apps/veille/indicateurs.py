@@ -130,6 +130,38 @@ class IndicateursVeille:
     prevision_t0_utc: pd.Timestamp | None = None
 
 
+def ancre_fenetre(now_utc: pd.Timestamp, tz: str) -> pd.Timestamp:
+    """Borne basse de la fenêtre 48 h : dernière demi-journée passée/en cours.
+
+    Le mail Veille part deux fois par jour. On ancre la fenêtre sur la
+    dernière borne de demi-journée locale plutôt que sur ``now_utc`` lui-
+    même, afin que la grille démarre toujours sur une frontière nette
+    (Nuit ou Après-midi) et reste stable quelle que soit la minute exacte
+    d'envoi :
+
+    - envoi du **matin** (heure locale < 12 h) → ancre **00 h 00** local
+      (la fenêtre commence par Nuit, Matin, Après-midi, Soir, J+1…) ;
+    - envoi de l'**après-midi** (heure locale ≥ 12 h) → ancre **12 h 00**
+      local (la fenêtre commence par Après-midi, Soir, puis J+1, J+2 matin).
+
+    Retourne un Timestamp tz-aware UTC.
+    """
+    now_loc = now_utc.tz_convert(tz)
+    heure_ancre = 0 if now_loc.hour < 12 else 12
+    ancre_loc = now_loc.normalize() + pd.Timedelta(hours=heure_ancre)
+    return ancre_loc.tz_convert("UTC")
+
+
+def moment_envoi(now_utc: pd.Timestamp, tz: str) -> str:
+    """Libellé du moment d'envoi : ``"matin"`` ou ``"après-midi"``.
+
+    Déduit de l'heure locale (< 12 h → matin). Sert à distinguer les deux
+    mails du jour dans le sujet et le titre, sans paramètre à passer au
+    workflow.
+    """
+    return "matin" if now_utc.tz_convert(tz).hour < 12 else "après-midi"
+
+
 def calculer_indicateurs(
     prevision: pd.DataFrame,
     now_utc: pd.Timestamp,
@@ -160,17 +192,17 @@ def calculer_indicateurs(
     ValueError
         Si la prévision ne contient aucune heure ≥ ``now_utc``.
     """
-    # Fenêtre ancrée à minuit local du jour de ``now_utc`` (et non à
-    # ``now_utc`` lui-même), pour coïncider avec la grille du mail
-    # (« 00h00 – 48h00 ») et inclure les heures déjà écoulées du jour
-    # (observées via ``past_days=1`` au fetch). h24 = [J0 00h ; J0+24h],
-    # h48 = [J0 00h ; J0+48h] en heure locale.
+    # Fenêtre ancrée sur la dernière demi-journée locale (00 h le matin,
+    # 12 h l'après-midi — cf. ``ancre_fenetre``) plutôt que sur ``now_utc``
+    # lui-même, pour coïncider avec la grille du mail et inclure les heures
+    # déjà écoulées de la demi-journée (observées via ``past_days=1`` au
+    # fetch). h24 = [ancre ; ancre+24h], h48 = [ancre ; ancre+48h].
     tz = config["site"].get("tz", "Europe/Paris")
-    debut = now_utc.tz_convert(tz).normalize().tz_convert("UTC")
+    debut = ancre_fenetre(now_utc, tz)
     df = prevision.loc[prevision.index >= debut].copy()
     if df.empty:
         raise ValueError(
-            "La prévision ne contient aucune heure ≥ minuit local — "
+            "La prévision ne contient aucune heure ≥ ancre de demi-journée — "
             "vérifier la fraîcheur du fetch Open-Meteo."
         )
     df = df.sort_index()

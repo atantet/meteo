@@ -26,6 +26,8 @@ import requests  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 from PIL import Image  # noqa: E402
 
+from .indicateurs import ancre_fenetre  # noqa: E402
+
 # Abréviations FR pour l'axe X du graphique 48h — évite la dépendance
 # à ``locale.setlocale("fr_FR.UTF-8")`` (souvent absent en CI / containers).
 _JOURS_FR_COURT = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
@@ -112,12 +114,11 @@ def graphique_48h_base64(
         ``data:image/png;base64,...`` à insérer dans ``<img src=...>``.
         Si la prévision est vide, retourne une chaîne vide.
     """
-    # Fenêtre calendaire [J0 00 h 00 ; J0+horizon] en heure locale,
-    # alignée sur le tableau Tendance et le libellé du mail. La
-    # prévision inclut désormais ``past_days=1`` pour couvrir la
-    # portion 00 h 00 → T+0 du jour courant.
-    now_loc = now_utc.tz_convert(tz_locale)
-    x_min = now_loc.normalize()
+    # Fenêtre ancrée sur la dernière demi-journée locale (00 h le matin,
+    # 12 h l'après-midi — cf. ``ancre_fenetre``), alignée sur le tableau
+    # Tendance et le libellé du mail. La prévision inclut ``past_days=1``
+    # pour couvrir la portion ancre → T+0 de la demi-journée courante.
+    x_min = ancre_fenetre(now_utc, tz_locale).tz_convert(tz_locale)
     x_max = x_min + pd.Timedelta(hours=horizon_h)
 
     prev_loc = prevision.copy()

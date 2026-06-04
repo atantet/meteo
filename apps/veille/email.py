@@ -57,8 +57,10 @@ from .cartes_synoptiques import (
 )
 from .indicateurs import (
     IndicateursVeille,
+    ancre_fenetre,
     degrees_to_cardinal,
     direction_dominante_vecteur,
+    moment_envoi,
 )
 
 __all__ = [
@@ -544,6 +546,16 @@ FENETRES_VEILLE = (
 # si toutes ses heures tombent dans [0, FENETRE_NUIT_PICTO_FIN).
 FENETRE_NUIT_PICTO_FIN = 6
 
+# Largeurs de colonnes FIXES pour la grille Tendance. Chaque jour est une
+# ``<table>`` distincte ; sans largeurs imposées, chacune cale ses colonnes
+# sur son propre contenu et les jours se désalignent — surtout l'après-midi
+# où le 1er jour a des fenêtres vides (« — »). Avec ``table-layout:fixed``
+# + ce ``colgroup`` identique partout (1 colonne libellé + 4 fenêtres), les
+# tableaux jour à jour sont parfaitement alignés.
+_GRILLE_COLGROUP = (
+    '<colgroup><col style="width:32%">' + '<col style="width:17%">' * 4 + "</colgroup>"
+)
+
 
 def _unite(texte: str) -> str:
     """Span unité discret (gris clair, plus petit) à coller après une valeur."""
@@ -617,28 +629,47 @@ def _bloc_grille_indicateurs_48h(
     horaire_loc = prevision_horaire.copy()
     horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
 
-    # Fenêtre calendaire [J0 00 h 00 ; J0+48 h] en heure locale, alignée
-    # sur le titre du mail. Si ``now_utc`` non fourni (rétro-compat),
-    # on prend les 48 premières heures du DataFrame.
+    # Fenêtre [ancre ; ancre+48 h] en heure locale, alignée sur le titre
+    # du mail. Ancre = dernière demi-journée (00 h le matin, 12 h l'après-
+    # midi — cf. ``ancre_fenetre``). Si ``now_utc`` non fourni (rétro-
+    # compat), on prend les 48 premières heures du DataFrame.
     if now_utc is not None:
-        now_loc = now_utc.tz_convert(tz_locale)
-        x_min = now_loc.normalize()
+        x_min = ancre_fenetre(now_utc, tz_locale).tz_convert(tz_locale)
         x_max = x_min + pd.Timedelta(hours=48)
         horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
+        # Heure d'ancre locale (0 le matin, 12 l'après-midi) : sert à
+        # définir le « jour » de 24 h sur lequel l'ETP est sommée.
+        h_ancre: int | None = int(x_min.hour)
+        fin_loc: pd.Timestamp | None = x_max
     else:
         horaire_48h = horaire_loc.head(48)
+        h_ancre = None  # fallback rétro-compat : ETP par jour calendaire
+        fin_loc = None
     if horaire_48h.empty:
         return ""
 
-    # ETP horaire socle alignée sur le même fuseau pour pouvoir splitter
-    # par jour local (ETP du jour J+0 vs J+1).
+    # ETP horaire socle alignée sur le même fuseau pour sommer l'ETP par
+    # « jour » de 24 h. Matin : jour calendaire 00 h→24 h. Après-midi :
+    # « jour nocturne » 12 h→12 h (aprem+soir+nuit+matin), affiché pour J
+    # et J+1 seulement (le bloc de J+2 déborderait des 48 h). Le bilan eau
+    # 48 h plus bas couvre la somme des deux.
     if etp_horaire_48h is not None and not etp_horaire_48h.empty:
         etp_loc = etp_horaire_48h.copy()
         etp_loc.index = pd.DatetimeIndex(etp_loc.index).tz_convert(tz_locale)
+        if fin_loc is not None:
+            # Restreint l'ETP horaire à la fenêtre 48 h affichée : le bilan
+            # eau (somme) et les 2 ETP « jour » portent ainsi exactement sur
+            # les mêmes 48 h (ETP_jour1 + ETP_jour2 = ETP du bilan).
+            debut_loc = fin_loc - pd.Timedelta(hours=48)
+            etp_loc = etp_loc.loc[(etp_loc.index >= debut_loc) & (etp_loc.index < fin_loc)]
     else:
         etp_loc = None
 
-    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
+    # Jusqu'à 3 dates : le matin la fenêtre [00 h ; +48 h] en couvre 2,
+    # mais l'après-midi [12 h ; +48 h] déborde sur une 3ᵉ date (matin de
+    # J+2). Les fenêtres antérieures à l'ancre (Nuit/Matin du jour
+    # d'ancrage l'après-midi) ont un masque vide → cellules « — ».
+    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:3]
     tableaux: list[str] = []
 
     for jour in jours_uniques:
@@ -785,14 +816,30 @@ def _bloc_grille_indicateurs_48h(
         # (colspan=3) sous l'HR.
         def cellule_etp_jour(jour_courant: pd.Timestamp = jour) -> str:
             if etp_loc is None:
-                val = "—"
-            else:
+                return ""
+            if h_ancre is None or fin_loc is None:
+                # Fallback rétro-compat (now_utc absent) : jour calendaire.
                 masque_etp = etp_loc.index.normalize() == jour_courant
-                serie = etp_loc.loc[masque_etp].dropna()
-                val = f"{serie.sum():.1f}{_unite('mm')}" if not serie.empty else "—"
+            else:
+                # Bloc 24 h ancré : [date + h_ancre ; +24 h]. Matin →
+                # 00 h→24 h (jour calendaire) ; après-midi → 12 h→12 h
+                # (jour nocturne). On n'affiche la ligne que si le bloc
+                # complet tient dans la fenêtre 48 h → exclut le dernier
+                # jour (J+2) de la version après-midi, dont le bloc
+                # déborderait.
+                debut_bloc = jour_courant + pd.Timedelta(hours=h_ancre)
+                fin_bloc = debut_bloc + pd.Timedelta(hours=24)
+                if fin_bloc > fin_loc:
+                    return ""
+                masque_etp = (etp_loc.index >= debut_bloc) & (etp_loc.index < fin_bloc)
+            serie = etp_loc.loc[masque_etp].dropna()
+            val = f"{serie.sum():.1f}{_unite('mm')}" if not serie.empty else "—"
+            # Libellé selon l'ancre : « ETP du jour » (jour calendaire, le
+            # matin) ou « ETP du jour nocturne » (24 h midi→midi, l'après-midi).
+            label_etp = "ETP du jour nocturne" if h_ancre == 12 else "ETP du jour"
             return (
                 '<tr><td style="padding:4px 8px;color:#555;font-size:13px;">'
-                "ETP du jour</td>"
+                f"{label_etp}</td>"
                 f'<td colspan="{len(FENETRES_VEILLE)}" '
                 'style="padding:4px;text-align:center;'
                 'font-variant-numeric:tabular-nums;font-size:13px;color:#34495e;font-weight:700;">'
@@ -811,8 +858,11 @@ def _bloc_grille_indicateurs_48h(
         ]
 
         tableaux.append(
-            '<table style="width:100%;border-collapse:collapse;'
-            'margin:8px 0;border:1px solid #eee;border-radius:4px;">' + "".join(lignes) + "</table>"
+            '<table style="width:100%;border-collapse:collapse;table-layout:fixed;'
+            'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
+            + _GRILLE_COLGROUP
+            + "".join(lignes)
+            + "</table>"
         )
     # Bilan eau 48 h = pluie cumul 48h - ETP cumul 48h (ETP socle FAO).
     pluie_48h = (
@@ -914,17 +964,33 @@ def _bloc_pictogrammes_veille(
     )
 
 
-def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
+def composer_sujet(
+    alertes: list[Alerte], maintenant: datetime, template: str, moment: str = ""
+) -> str:
     """Formate le sujet selon template config.
 
     Variables disponibles : ``{date}`` (YYYY-MM-DD), ``{alertes_resume}``
-    (ex. "gel + vent fort" ou "RAS"), ``{alertes_count}``.
+    (ex. "gel + vent fort" ou "RAS"), ``{alertes_count}``, ``{moment}``
+    ("matin"/"après-midi" — distingue les deux envois du jour).
     """
     return template.format(
         date=maintenant.strftime("%Y-%m-%d"),
         alertes_resume=resume_alertes(alertes),
         alertes_count=len(alertes),
+        moment=moment,
     )
+
+
+def _moment_avec_article(moment: str) -> str:
+    """``"matin"`` → ``"du matin"`` ; ``"après-midi"`` → ``"de l'après-midi"``.
+
+    Chaîne vide → vide (rétro-compat : pas de moment fourni).
+    """
+    if moment == "matin":
+        return "du matin"
+    if moment == "après-midi":
+        return "de l'après-midi"
+    return ""
 
 
 def composer_texte(
@@ -937,19 +1003,22 @@ def composer_texte(
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     tz_locale: str = "Europe/Paris",
+    moment: str = "",
     prevision_horaire: pd.DataFrame | None = None,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
+    article = _moment_avec_article(moment)
     lignes: list[str] = []
-    lignes.append(f"Veille météo — {format_date_fr(maintenant)}")
+    titre = f"Veille {article}" if article else "Veille météo"
+    lignes.append(f"{titre} — {format_date_fr(maintenant)}")
     lignes.append("=" * 70)
     if ind.prevision_t0_utc is not None:
         t0_loc = ind.prevision_t0_utc
         if t0_loc.tzinfo is None:
             t0_loc = t0_loc.tz_localize("UTC")
         t0_loc = t0_loc.tz_convert(tz_locale)
-        debut_fenetre = t0_loc.normalize()
-        fenetre_label = f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 - 48h00"
+        # t0 = ancre de la fenêtre (00 h ou 12 h selon le moment d'envoi).
+        fenetre_label = f"{t0_loc.strftime('%d/%m/%Y %Hh00')} - 48h00"
     else:
         fenetre_label = "—"
     lignes.append(f"Prévision du {fenetre_label}")
@@ -1021,6 +1090,7 @@ def composer_html(
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     seuils_config: dict[str, Any] | None = None,
+    moment: str = "",
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
@@ -1062,23 +1132,28 @@ def composer_html(
         "</div>"
     )
 
-    # Fenêtre de prévision : du J0 00 h 00 locale + 48 h. Date présentée
-    # dans un format monospace + fond clair pour la rendre légèrement
-    # distinctive (police technique, vs corps du titre courant).
+    # Fenêtre de prévision : de l'ancre de demi-journée (00 h le matin,
+    # 12 h l'après-midi) + 48 h. Date présentée dans un format monospace
+    # + fond clair pour la rendre légèrement distinctive (police
+    # technique, vs corps du titre courant).
     if ind.prevision_t0_utc is not None:
         t0_loc = ind.prevision_t0_utc
         if t0_loc.tzinfo is None:
             t0_loc = t0_loc.tz_localize("UTC")
         t0_loc = t0_loc.tz_convert(tz_locale)
-        debut_fenetre = t0_loc.normalize()
         date_html = (
             '<span style="font-family:Menlo,Consolas,monospace;font-size:0.88em;'
             'background:#f4f4f4;padding:1px 6px;border-radius:3px;color:#34495e;">'
-            f"{debut_fenetre.strftime('%d/%m/%Y')} 00h00 - 48h00"
+            f"{t0_loc.strftime('%d/%m/%Y %Hh00')} - 48h00"
             "</span>"
         )
     else:
         date_html = "—"
+    # Titre adapté au moment d'envoi (distingue les deux mails du jour).
+    article = _moment_avec_article(moment)
+    titre_h2 = (
+        f"Veille {article} — prévision du {date_html}" if article else f"Prévision du {date_html}"
+    )
 
     return f"""<!DOCTYPE html>
 <html><head>
@@ -1089,7 +1164,7 @@ def composer_html(
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
   <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">
-    Prévision du {date_html}
+    {titre_h2}
   </h2>
   <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
     La Petite Claye, Pleine-Fougères
@@ -1134,13 +1209,23 @@ def composer_email(
     # pas diverger de la config). Cf. construire_label_source.
     modeles = config.get("source_meteo", {}).get("modeles", [])
     source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT
-    sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"])
+    # Moment d'envoi (matin / après-midi) déduit de l'heure locale, pour
+    # distinguer les deux mails du jour (sujet + titre). Cf. moment_envoi.
+    tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
+    now_utc_ts = pd.Timestamp(maintenant)
+    now_utc_ts = (
+        now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
+    )
+    moment = moment_envoi(now_utc_ts, tz_locale)
+    sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"], moment=moment)
     texte = composer_texte(
         ind,
         alertes,
         maintenant,
         url_fiches=url_fiches,
         source=source,
+        moment=moment,
+        tz_locale=tz_locale,
         prevision_horaire=prevision_horaire,
     )
     alertes_config = config.get("alertes", {})
@@ -1155,5 +1240,7 @@ def composer_email(
         vigilance=vigilance,
         prevision_horaire=prevision_horaire,
         seuils_config=alertes_config,
+        moment=moment,
+        tz_locale=tz_locale,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

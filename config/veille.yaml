@@ -24,18 +24,28 @@ site:
 # Le job cron-job.org POST sur l'API GH /workflows/veille.yml/dispatches
 # avec un PAT fine-grained scope actions:write.
 #
-# Le champ ci-dessous reste pour mémoire / documentation — il n'est plus
-# consommé par .github/workflows/veille.yml (qui n'a plus que
-# workflow_dispatch). Pour modifier l'heure d'envoi du mail, éditer le
-# planning du job sur cron-job.org, PAS ce fichier.
+# DEUX envois par jour (cf. mail « matin » / « après-midi ») : il faut
+# DEUX jobs cron-job.org appelant le même workflow_dispatch, à ~12 h
+# d'écart. L'app déduit le moment (matin/après-midi) de l'heure locale
+# d'envoi et ancre sa fenêtre 48 h sur la dernière demi-journée (00 h ou
+# 12 h locale — cf. apps.veille.indicateurs.ancre_fenetre) ; aucun
+# paramètre à passer au workflow.
+#
+# Les champs ci-dessous restent pour mémoire / documentation — ils ne
+# sont plus consommés par .github/workflows/veille.yml (qui n'a plus que
+# workflow_dispatch). Pour modifier les heures d'envoi, éditer les jobs
+# sur cron-job.org, PAS ce fichier.
 planification:
-  # Heure cible documentée du déclenchement externe (UTC).
-  # 04:15 UTC = 05:15 Paris hiver / 06:15 Paris été. Au plus tôt après
-  # diffusion AROME 00 UTC chez Open-Meteo (~03:30-04:00 UTC) avec
-  # une marge de 15-45 min. cron-job.org étant précis à la minute,
-  # pas besoin de minute non-ronde (contrairement à l'ancien cron GH).
-  cron_utc: "15 4 * * *"
-  # Désactivable depuis cron-job.org (mettre le job en pause).
+  # Heures cibles documentées des déclenchements externes (UTC), telles
+  # que réglées sur cron-job.org (deux jobs, 12 h d'écart) :
+  # - matin : 05:30 UTC = 06:30 Paris hiver / 07:30 Paris été. Après
+  #   diffusion du run AROME 00 UTC chez Open-Meteo (~03:30-04:00 UTC).
+  # - après-midi : 17:30 UTC = 18:30 Paris hiver / 19:30 Paris été. Après
+  #   diffusion du run AROME 12 UTC (~15:30 UTC) → données rafraîchies.
+  # cron-job.org est précis à la minute.
+  cron_utc_matin: "30 5 * * *"
+  cron_utc_apres_midi: "30 17 * * *"
+  # Désactivable depuis cron-job.org (mettre les jobs en pause).
   actif: true
 
 # ----- Source météo -----
@@ -169,8 +179,10 @@ vigilance_mf:
 email:
   # html_mobile : table compacte responsive ; alt: texte_simple
   format: html_mobile
-  # Template du sujet, variables : {date}, {alertes_count}, {alertes_resume}
-  sujet_template: "Veille {date} — {alertes_resume}"
+  # Template du sujet, variables : {date}, {alertes_count},
+  # {alertes_resume}, {moment} ("matin"/"après-midi" — distingue les deux
+  # envois du jour, déduit de l'heure locale d'envoi).
+  sujet_template: "Veille {moment} {date} — {alertes_resume}"
   # Lien depuis chaque indicateur vers sa "fiche indice" sur Pages
   # (publiée plus tard). Aligne avec le principe #5 transparence.
   inclure_lien_fiches_indices: true

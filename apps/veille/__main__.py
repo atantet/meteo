@@ -89,22 +89,30 @@ def executer_veille(
 
     site = config["site"]
     horizon = config["source_meteo"]["horizon_max_jours"]
+    # On fetch UN jour de plus que l'horizon d'affichage (48 h). La
+    # fenêtre fait toujours 48 h, mais elle est ancrée sur la demi-journée
+    # (00 h le matin, 12 h l'après-midi). L'ancre 12 h pousse la fin de
+    # fenêtre jusqu'à 12 h de J+2 → il faut une 3ᵉ journée de prévision,
+    # sinon la Nuit/le Matin de J+2 manquent (grille à 6 périodes au lieu
+    # de 8). Le matin n'en utilise que 2 ; le jour en trop est inoffensif.
+    fetch_jours = horizon + 1
     logger.info(
-        "Fetch Open-Meteo lat=%.4f lon=%.4f horizon=%d j",
+        "Fetch Open-Meteo lat=%.4f lon=%.4f horizon=%d j (fetch %d j)",
         site["latitude"],
         site["longitude"],
         horizon,
+        fetch_jours,
     )
     try:
         # past_days=1 pour récupérer la portion 00 h 00 → T+0 du jour
         # courant (heures déjà passées), afin que la grille Tendance et
-        # le graphique 48 h couvrent réellement [J0 00 h 00 ; J0+48 h]
+        # le graphique 48 h couvrent réellement [ancre ; ancre+48 h]
         # plutôt que [T+0 ; T+0+48 h]. Indicateurs et alertes filtrent
         # par ailleurs sur le futur (>= now_utc).
         prevision = source.obtenir_prevision(
             latitude=site["latitude"],
             longitude=site["longitude"],
-            horizon_jours=horizon,
+            horizon_jours=fetch_jours,
             past_days=1,
         )
     except requests.HTTPError as e:

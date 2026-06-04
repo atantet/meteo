@@ -74,6 +74,55 @@ def test_composer_sujet_avec_alertes() -> None:
     assert "2024-06-15" in sujet
 
 
+def test_composer_sujet_moment() -> None:
+    """{moment} est substitué dans le sujet (distingue matin / après-midi)."""
+    from apps.veille.email import composer_sujet
+
+    tmpl = "Veille {moment} {date} — {alertes_resume}"
+    s_matin = composer_sujet([], datetime(2024, 6, 15, 7, 30), tmpl, moment="matin")
+    s_pm = composer_sujet([], datetime(2024, 6, 15, 7, 30), tmpl, moment="après-midi")
+    assert s_matin == "Veille matin 2024-06-15 — RAS"
+    assert s_pm == "Veille après-midi 2024-06-15 — RAS"
+
+
+def test_composer_email_moment_deduit_de_l_heure() -> None:
+    """composer_email déduit matin/après-midi de l'heure locale d'envoi."""
+    from apps.veille.email import composer_email
+
+    config = {
+        "site": {"tz": "Europe/Paris"},
+        "email": {"sujet_template": "Veille {moment} {date} — {alertes_resume}"},
+    }
+    # 07:00 UTC = 09:00 Paris (été) → matin.
+    matin = composer_email(_ind(), [], config, datetime(2024, 6, 15, 7, 0))
+    # 16:00 UTC = 18:00 Paris (été) → après-midi.
+    pm = composer_email(_ind(), [], config, datetime(2024, 6, 15, 16, 0))
+    assert matin.sujet.startswith("Veille matin ")
+    assert pm.sujet.startswith("Veille après-midi ")
+    # Titre HTML adapté de même.
+    assert "Veille du matin" in matin.html
+    assert "Veille de l'après-midi" in pm.html
+
+
+def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
+    """Titre HTML après-midi : libellé 'de l'après-midi' + fenêtre à 12h00."""
+    import pandas as pd
+
+    from apps.veille.email import composer_html
+
+    # t0 ancré à 12 h locale (Europe/Paris été = 10:00 UTC).
+    t0 = pd.Timestamp("2024-06-15 10:00:00+00:00")
+    html = composer_html(
+        _ind(prevision_t0_utc=t0),
+        [],
+        datetime(2024, 6, 15, 16, 0),
+        moment="après-midi",
+        tz_locale="Europe/Paris",
+    )
+    assert "Veille de l'après-midi" in html
+    assert "12h00 - 48h00" in html
+
+
 def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     from apps.veille.email import composer_texte
 
