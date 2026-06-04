@@ -117,6 +117,46 @@ def test_recuperer_cartes_cibles_synchrones_entre_sources() -> None:
     assert [c.cible_utc for c in grille.arome] == cibles_attendues
 
 
+def test_recuperer_cartes_apres_midi_decale_cibles_et_run_arome() -> None:
+    """Après-midi : cibles décalées +12 h (12Z J → 00Z J+2), AROME run 06Z J.
+
+    Met Office garde le run 00Z (T+48 publié l'après-midi) ; AROME bascule
+    sur le run 06Z du jour (le 18Z veille ne pourrait pas atteindre 00Z J+2).
+    Les 4 cibles restent synchrones entre les deux sources.
+    """
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (255, 255, 255)).save(buf, format="PNG")
+    fake_response = MagicMock()
+    fake_response.content = buf.getvalue()
+    fake_response.raise_for_status = MagicMock()
+    fake_session = MagicMock()
+    fake_session.get.return_value = fake_response
+
+    now = pd.Timestamp("2026-06-01 17:30", tz="UTC")
+    grille = recuperer_cartes(now_utc=now, apres_midi=True, session=fake_session)
+
+    # Met Office reste sur le run 00Z du jour.
+    for c in grille.metoffice:
+        assert c.run_utc == pd.Timestamp("2026-06-01 00:00", tz="UTC")
+    # AROME bascule sur le run 06Z du jour (pas 18Z veille).
+    for c in grille.arome:
+        assert c.run_utc == pd.Timestamp("2026-06-01 06:00", tz="UTC")
+
+    # Cibles décalées de +12 h, identiques entre les deux sources.
+    cibles_attendues = [
+        pd.Timestamp("2026-06-01 12:00", tz="UTC"),  # 12Z J
+        pd.Timestamp("2026-06-02 00:00", tz="UTC"),  # 00Z J+1
+        pd.Timestamp("2026-06-02 12:00", tz="UTC"),  # 12Z J+1
+        pd.Timestamp("2026-06-03 00:00", tz="UTC"),  # 00Z J+2
+    ]
+    assert [c.cible_utc for c in grille.metoffice] == cibles_attendues
+    assert [c.cible_utc for c in grille.arome] == cibles_attendues
+
+
 def test_recuperer_cartes_robuste_aux_fetch_echoues() -> None:
     """Si la session lève à chaque get, on récupère 6 cartes à data_uri vide."""
     fake_session = MagicMock()

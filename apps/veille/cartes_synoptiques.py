@@ -70,6 +70,18 @@ METOFFICE_ECHEANCES = (0, 12, 24, 36)
 # choix de synchro (impossible de matcher MetOffice T+48 sans T+54).
 AROME_ECHEANCES = (6, 18, 30, 42)
 
+# Variante ENVOI APRÈS-MIDI (~17:30 UTC) : cibles décalées de +12 h
+# = 12Z J / 00Z J+1 / 12Z J+1 / 00Z J+2 (on regarde devant depuis le soir).
+# - Met Office : on GARDE le run 00Z du jour, mais on prend T+12/24/36/48.
+#   T+48 est publié l'après-midi (vérifié 2026-06-04) — c'est seulement à
+#   05:30 qu'il manque, d'où son absence dans la version matin.
+# - AROME : on bascule sur le run 06Z DU JOUR. Le 18Z veille ne peut pas
+#   atteindre 00Z J+2 (= T+54 > horizon T+51) ; le run 12Z n'est pas encore
+#   publié à 17:30 (vérifié). Le 06Z J est dispo et reste dans l'horizon.
+#   Échéances T+6/18/30/42 depuis 06Z J → mêmes 4 cibles que Met Office.
+METOFFICE_ECHEANCES_PM = (12, 24, 36, 48)
+AROME_ECHEANCES_PM = (6, 18, 30, 42)
+
 # Sous-domaine Météociel (round-robin entre modeles[0-7]).
 METEOCIEL_BASE = "https://modeles7.meteociel.fr/modeles/arome/archives"
 # Mode 24 = "Résumé" (précipitations + pression + nébulosité). Map 0 = France.
@@ -172,14 +184,21 @@ def _fetch_image(
 
 def recuperer_cartes(
     now_utc: pd.Timestamp | None = None,
+    apres_midi: bool = False,
     largeur_max_px: int = 520,
     timeout: float = 10.0,
     session: requests.Session | None = None,
 ) -> CartesGrille:
     """Récupère les 6 cartes pour les runs configurés.
 
-    - Met Office : run 00 UTC du jour courant (T+0 / T+24 / T+48).
-    - AROME : run 18 UTC de la veille (T+12 / T+30 / T+48).
+    Deux cadrages selon le moment d'envoi (cf. mail matin / après-midi) :
+
+    - **matin** (``apres_midi=False``) : cibles 00Z J → 12Z J+1.
+      Met Office run 00Z (T+0/12/24/36), AROME run 18Z veille (T+6/18/30/42).
+    - **après-midi** (``apres_midi=True``) : cibles décalées de +12 h,
+      12Z J → 00Z J+2. Met Office run 00Z (T+12/24/36/48, T+48 publié
+      l'après-midi), AROME run 06Z du jour (T+6/18/30/42, dans l'horizon ;
+      le 18Z veille ne pourrait pas atteindre 00Z J+2). Cf. *_ECHEANCES_PM.
 
     Les fetches échoués retournent une carte avec ``data_uri=""`` ; le
     rendu mail saute silencieusement les cellules vides. L'absence de
@@ -188,14 +207,22 @@ def recuperer_cartes(
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
 
-    run_metoffice = now_utc.normalize()  # 00 UTC du jour
-    run_arome = run_metoffice - pd.Timedelta(hours=6)  # 18 UTC veille
+    if apres_midi:
+        run_metoffice = now_utc.normalize()  # 00 UTC du jour (T+48 dispo l'après-midi)
+        ech_metoffice = METOFFICE_ECHEANCES_PM
+        run_arome = run_metoffice + pd.Timedelta(hours=6)  # 06 UTC du jour
+        ech_arome = AROME_ECHEANCES_PM
+    else:
+        run_metoffice = now_utc.normalize()  # 00 UTC du jour
+        ech_metoffice = METOFFICE_ECHEANCES
+        run_arome = run_metoffice - pd.Timedelta(hours=6)  # 18 UTC veille
+        ech_arome = AROME_ECHEANCES
 
     sess = session or requests.Session()
     metoffice: list[CarteSynoptique] = []
     arome: list[CarteSynoptique] = []
 
-    for ech in METOFFICE_ECHEANCES:
+    for ech in ech_metoffice:
         url = _url_metoffice(run_metoffice.date(), ech)
         data_uri = _fetch_image(
             url,
@@ -214,7 +241,7 @@ def recuperer_cartes(
             )
         )
 
-    for ech in AROME_ECHEANCES:
+    for ech in ech_arome:
         url = _url_arome(run_arome, ech)
         data_uri = _fetch_image(
             url,

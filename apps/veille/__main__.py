@@ -42,7 +42,7 @@ from .config import (
     load_smtp_secrets,
 )
 from .email import composer_email
-from .indicateurs import calculer_indicateurs
+from .indicateurs import calculer_indicateurs, moment_envoi
 from .sender import envoyer
 
 logger = logging.getLogger(__name__)
@@ -126,10 +126,12 @@ def executer_veille(
     tz_locale = config["site"].get("tz", "Europe/Paris")
     chart = graphique_48h_base64(prevision, now_utc, tz_locale=tz_locale)
     # Grille 3×2 : Met Office (gauche, fronts Atlantique nord/Europe) +
-    # AROME mode 24 (droite, France précip+pression+nébulosité), pour
-    # T+0 / T+24 / T+48 du run 00 UTC. Cartes manquantes sautées
-    # silencieusement (mail envoyé même si une source est down).
-    cartes_grille = recuperer_cartes(now_utc=now_utc)
+    # AROME mode 24 (droite, France précip+pression+nébulosité). Cibles
+    # décalées selon le moment d'envoi : matin = 00Z J → 12Z J+1,
+    # après-midi = 12Z J → 00Z J+2 (cf. recuperer_cartes). Cartes
+    # manquantes sautées silencieusement (mail envoyé même si down).
+    apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
+    cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
     # Vigilance MF (officielle d'État) — référence pour orages, vent,
     # pluie, canicule, neige-verglas, grand froid sur 0-48 h. Si la clé
     # API METEOFRANCE_TOKEN est absente, retourne None et le bloc est
