@@ -140,11 +140,11 @@ def construire_label_source_runs(
 ) -> str:
     """Label « Source » à partir des runs *Single Runs* réellement servis.
 
-    Provenance exacte (ADR-0011 D7) : AROME (cœur) et ARPEGE (rayonnement)
-    partagent le run de la demi-journée (ils coïncident). La **proba** ne vient
-    pas d'un run (grandeur d'ensemble, non épinglable) : calculée depuis les
-    membres ECMWF IFS-ENS (dernier run). Un modèle **omis** (run muet, D8) est
-    signalé honnêtement. Les runs sont en UTC, affichés « JJ/MM HHZ ».
+    Provenance **exacte et explicite** (ADR-0011 D7) : on affiche le run de
+    **chaque** modèle servi (AROME = cœur, ARPEGE = rayonnement), même quand ils
+    coïncident. La **proba** ne vient pas d'un run (grandeur d'ensemble, non
+    épinglable) : calculée depuis les membres ECMWF IFS-ENS (dernier run). Un
+    modèle **omis** (run muet, D8) est signalé. Runs en UTC, « JJ/MM HHZ ».
     """
     if not runs_utilises:
         return "Open-Meteo Single Runs · —"
@@ -154,17 +154,13 @@ def construire_label_source_runs(
 
     parts: list[str] = []
     if AROME in runs_utilises:
-        coeur = f"AROME run {_run(runs_utilises[AROME])}"
-        if ARPEGE in runs_utilises:
-            if runs_utilises[ARPEGE] == runs_utilises[AROME]:
-                coeur += " + ARPEGE (rayonnement)"
-            else:
-                coeur += f" + ARPEGE {_run(runs_utilises[ARPEGE])} (rayonnement)"
-        else:
-            coeur += " (rayonnement indisponible)"
-        parts.append(coeur)
-    elif ARPEGE in runs_utilises:
-        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} (rayonnement)")
+        parts.append(f"AROME run {_run(runs_utilises[AROME])} (cœur)")
+    if ARPEGE in runs_utilises:
+        # ARPEGE comble le rayonnement quand AROME est là ; sinon il sert de cœur.
+        role = "rayonnement" if AROME in runs_utilises else "cœur de repli (AROME absent)"
+        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} ({role})")
+    elif AROME not in runs_utilises:
+        parts.append("cœur indisponible")
     parts.append(
         "proba ECMWF IFS-ENS (ensemble, dernier run)" if proba_ensemble else "proba indisponible"
     )
