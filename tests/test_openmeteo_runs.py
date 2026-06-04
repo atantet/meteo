@@ -51,17 +51,16 @@ def test_runs_du_creneau_matin() -> None:
     runs = runs_du_creneau("matin", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 00:00:00+00:00")
     assert runs[ARPEGE] == pd.Timestamp("2024-06-15 00:00:00+00:00")
-    # ECMWF-ENS (proba) un cran (6 h) derrière → 18Z de la veille.
-    assert runs[ECMWF] == pd.Timestamp("2024-06-14 18:00:00+00:00")
     # ECMWF-HRES (tendance longue) = dernier run long 00/12Z → 12Z de la veille.
     assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-14 12:00:00+00:00")
+    # La proba ne passe plus par un run (grandeur d'ensemble) : pas de clé ECMWF.
+    assert ECMWF not in runs
 
 
 def test_runs_du_creneau_apres_midi() -> None:
     jour = pd.Timestamp("2024-06-15 00:00:00+00:00")
     runs = runs_du_creneau("apres-midi", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 12:00:00+00:00")
-    assert runs[ECMWF] == pd.Timestamp("2024-06-15 06:00:00+00:00")
     # ECMWF-HRES après-midi → 00Z du jour.
     assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-15 00:00:00+00:00")
 
@@ -151,7 +150,16 @@ _PAYLOAD_ARPEGE = _payload(
     temperature_2m=[11.0, 11.0, 11.0],  # différent → vérifie priorité AROME
     shortwave_radiation=[0.0, 100.0, 200.0],
 )
-_PAYLOAD_ECMWF = _payload(precipitation_probability=[10.0, 20.0, 30.0])
+# Réponse Ensemble API (membres) pour la proba B2. 5 membres : à l'heure 2,
+# 3/5 ≥ 0,1 mm → proba 60 %.
+_PAYLOAD_ECMWF_ENS = _payload(
+    precipitation=[0.0, 0.2, 0.3],
+    precipitation_member01=[0.0, 0.5, 0.5],
+    precipitation_member02=[0.0, 0.5, 0.5],
+    precipitation_member03=[0.0, 0.0, 0.5],
+    precipitation_member04=[0.0, 0.0, 0.0],
+    precipitation_member05=[0.0, 0.0, 0.0],
+)
 
 
 def _session_par_modele(payloads: dict[str, dict | None]) -> MagicMock:
@@ -213,8 +221,9 @@ def test_obtenir_run_payload_vide_renvoie_none() -> None:
 
 
 def test_obtenir_prevision_fusion_complete() -> None:
+    # ECMWF (= ecmwf_ifs025) est appelé par obtenir_proba_ensemble (membres).
     sess = _session_par_modele(
-        {AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: _PAYLOAD_ECMWF}
+        {AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: _PAYLOAD_ECMWF_ENS}
     )
     client = OpenMeteoSingleRuns(session=sess)
     res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
@@ -223,25 +232,25 @@ def test_obtenir_prevision_fusion_complete() -> None:
     assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
     # Rayonnement comblé par ARPEGE.
     assert res.df["rayonnement_global"].iloc[1] == pytest.approx(100.0 * 3600.0)
-    # Proba comblée par ECMWF.
-    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(30.0)
-    # Provenance : 3 runs servis, créneau matin, ancre = 00Z J.
-    assert set(res.runs_utilises) == {AROME, ARPEGE, ECMWF}
+    # Proba calculée depuis les membres d'ensemble (3/5 ≥ 0,1 mm à l'heure 2).
+    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(60.0)
+    assert res.proba_ensemble is True
+    # Provenance déterministe = AROME + ARPEGE (la proba n'est PAS un run).
+    assert set(res.runs_utilises) == {AROME, ARPEGE}
     assert res.creneau == "matin"
     assert res.ancre_utc == pd.Timestamp("2024-06-15 00:00:00+00:00")
-    assert res.runs_utilises[ECMWF] == pd.Timestamp("2024-06-14 18:00:00+00:00")
 
 
-def test_obtenir_prevision_omet_proba_si_ecmwf_muet() -> None:
-    # ECMWF (proba) muet → la contribution est omise, le reste part (D8).
+def test_obtenir_prevision_omet_proba_si_ensemble_muet() -> None:
+    # Ensemble (proba) muet → proba omise, le reste part (D8).
     sess = _session_par_modele({AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: None})
     client = OpenMeteoSingleRuns(session=sess)
     res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
 
     assert "probabilite_pluie_pct" not in res.df.columns
+    assert res.proba_ensemble is False
     assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
-    assert ECMWF not in res.runs_utilises
-    assert {AROME, ARPEGE} <= set(res.runs_utilises)
+    assert set(res.runs_utilises) == {AROME, ARPEGE}
 
 
 def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:

@@ -22,11 +22,16 @@ Principes (ADR-0011, cf. mémoire ``feedback_runs_deterministes_utc``) :
 Faits vérifiés le 2026-06-04 (sonde) repris ici :
 
 - AROME France HD **ne fournit ni rayonnement ni proba** → fusion obligatoire
-  (AROME cœur, ARPEGE comble le rayonnement, ECMWF comble la proba).
+  (AROME cœur, ARPEGE comble le rayonnement).
 - Le rayonnement reste ``shortwave_radiation`` (``shortwave_radiation_ghi``
   n'existe pas).
-- La proba route en interne vers ``ecmwf_ifs025_ensemble`` (dispo distincte,
-  souvent en retard) → maillon le plus susceptible d'être omis.
+- **La proba est une grandeur d'ENSEMBLE, non déterministe** : aucun run
+  d'ensemble n'est épinglable chez Open-Meteo (Single Runs n'expose que la
+  moyenne, l'Ensemble API n'a pas de paramètre ``run``). On la calcule donc
+  nous-mêmes (% de membres ECMWF IFS-ENS ≥ 0,1 mm, dernier run) — cf.
+  ``OpenMeteoSingleRuns.obtenir_proba_ensemble``. Le champ
+  ``precipitation_probability`` de Forecast est du GEFS opaque (vérifié), d'où
+  le calcul maison transparent.
 """
 
 from __future__ import annotations
@@ -43,6 +48,15 @@ from .openmeteo import appliquer_conventions_socle
 logger = logging.getLogger(__name__)
 
 SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast"
+# La proba de pluie est une grandeur d'ENSEMBLE : aucun run d'ensemble n'est
+# archivé/épinglable chez Open-Meteo (vérifié — Single Runs n'a que la moyenne,
+# l'Ensemble API n'a pas de paramètre run). On la calcule donc nous-mêmes
+# depuis les membres ECMWF IFS-ENS (transparent, ECMWF nommé, seuil maîtrisé) —
+# le champ `precipitation_probability` de Forecast est du GEFS opaque (vérifié).
+# C'est le seul fetch non déterministe (dernier run, stable par créneau via cache).
+ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
+# Seuil d'exceedance (mm/h) = définition Open-Meteo de la proba (> 0,1 mm).
+SEUIL_PLUIE_PROBA_MM = 0.1
 
 # Bornes UTC des créneaux (= heures de cron App 1). En vigueur dès ces
 # heures ; entre minuit et le créneau du matin, on garde l'après-midi de la
@@ -55,20 +69,21 @@ CYCLE_RUN_H = 6
 # Identifiants de modèles Open-Meteo.
 AROME = "meteofrance_arome_france_hd"
 ARPEGE = "meteofrance_arpege_europe"
-# ``ECMWF`` sert à la fois d'identifiant de modèle (``ecmwf_ifs025``, qui route
-# vers l'ensemble quand on demande la proba) ET de clé du run **ENS court**
-# (proba App 1, 18Z J-1 / 06Z J — l'horizon 48 h suffit).
+# Modèle ECMWF (``ecmwf_ifs025``). Sert d'id de modèle pour la tendance longue
+# App 2 (run déterministe ``ECMWF_HRES``) ET pour les membres d'ensemble (proba).
 ECMWF = "ecmwf_ifs025"
-# 2e run ECMWF, clé distincte : déterministe **HRES long** (tendance App 2).
-# Même modèle, mais il faut un run 00/12Z (qui seuls atteignent ~240 h ; les
-# runs 06/18Z plafonnent à ~90 h) → le dernier 00/12Z publié au créneau
-# (12Z J-1 le matin, 00Z J l'après-midi). Cf. ADR-0011 D3.
+# Modèle d'ensemble ECMWF IFS-ENS pour la proba (50 membres). Même `ecmwf_ifs025`
+# côté Ensemble API.
+ENSEMBLE_MODELE = ECMWF
+# Run ECMWF déterministe **HRES long** (tendance App 2) : il faut un run 00/12Z
+# (qui seuls atteignent ~240 h ; les 06/18Z plafonnent à ~90 h) → le dernier
+# 00/12Z publié au créneau (12Z J-1 le matin, 00Z J l'après-midi). Cf. ADR-0011 D3.
 ECMWF_HRES = "ecmwf_hres"
 
 # Variables Open-Meteo (noms natifs) par usage.
 # Le cœur vient d'AROME ; ARPEGE comble le rayonnement (et la queue 48-72 h
-# qu'AROME ne couvre pas) ; ECMWF-ENS n'apporte que la proba (isolée pour que
-# la fragilité de l'ensemble n'entraîne pas le reste).
+# qu'AROME ne couvre pas). La proba ne vient PAS d'un run déterministe mais des
+# membres d'ensemble (cf. obtenir_proba_ensemble).
 _VARS_COEUR = (
     "temperature_2m",
     "relative_humidity_2m",
@@ -81,9 +96,7 @@ _VARS_COEUR = (
 )
 VARS_AROME: tuple[str, ...] = _VARS_COEUR
 VARS_ARPEGE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
-VARS_ECMWF: tuple[str, ...] = ("precipitation_probability",)
-# Séries mono-modèle App 2 (ARPEGE court, ECMWF-HRES long) : cœur + rayonnement
-# (ni l'un ni l'autre ne fournit la proba — elle vient de la fusion AROME/ENS).
+# Séries mono-modèle App 2 (ARPEGE court, ECMWF-HRES long) : cœur + rayonnement.
 VARS_MONO_MODELE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 
 
@@ -112,27 +125,25 @@ def creneau_run(now_utc: pd.Timestamp) -> tuple[str, pd.Timestamp]:
 def runs_du_creneau(creneau: str, jour: pd.Timestamp) -> dict[str, pd.Timestamp]:
     """Table créneau→run (ADR-0011 D3). ``jour`` = 00:00 UTC de J.
 
-    Clés : ``AROME``, ``ARPEGE``, ``ECMWF`` (run ENS court, proba App 1),
-    ``ECMWF_HRES`` (déterministe long, tendance App 2).
+    Clés : ``AROME``, ``ARPEGE`` (run de la demi-journée), ``ECMWF_HRES``
+    (déterministe long, tendance App 2). La proba ne figure pas ici : c'est une
+    grandeur d'ensemble, non épinglable (cf. ``obtenir_proba_ensemble``).
 
-    - **matin** : AROME/ARPEGE 00Z J ; ECMWF 18Z J-1 ; ECMWF_HRES 12Z J-1.
-    - **après-midi** : AROME/ARPEGE 12Z J ; ECMWF 06Z J ; ECMWF_HRES 00Z J.
+    - **matin** : AROME/ARPEGE 00Z J ; ECMWF_HRES 12Z J-1.
+    - **après-midi** : AROME/ARPEGE 12Z J ; ECMWF_HRES 00Z J.
 
-    Règle : Météo-France sur le run de la demi-journée courante ; ECMWF-ENS un
-    cran (6 h) derrière ; ECMWF-HRES = dernier run long (00/12Z) publié. Runs
-    renvoyés tz-aware UTC.
+    Règle : Météo-France sur le run de la demi-journée courante ; ECMWF-HRES =
+    dernier run long (00/12Z) publié. Runs renvoyés tz-aware UTC.
     """
     if creneau == "matin":
         mf = jour
-        ens = jour - pd.Timedelta(hours=CYCLE_RUN_H)  # 18Z J-1
         hres = jour - pd.Timedelta(hours=12)  # 12Z J-1
     elif creneau == "apres-midi":
         mf = jour + pd.Timedelta(hours=12)
-        ens = jour + pd.Timedelta(hours=CYCLE_RUN_H)  # 06Z J
         hres = jour  # 00Z J
     else:  # pragma: no cover - garde-fou
         raise ValueError(f"Créneau inconnu : {creneau!r}")
-    return {AROME: mf, ARPEGE: mf, ECMWF: ens, ECMWF_HRES: hres}
+    return {AROME: mf, ARPEGE: mf, ECMWF_HRES: hres}
 
 
 def creneaux_precedents(now_utc: pd.Timestamp, n: int) -> list[tuple[str, pd.Timestamp]]:
@@ -194,9 +205,12 @@ class ResultatPrevision:
     creneau: str
     jour: pd.Timestamp
     runs_demandes: dict[str, pd.Timestamp]
-    # Runs effectivement servis (sous-ensemble de runs_demandes : un modèle
-    # dont le run était muet est absent — sa contribution a été omise, D8).
+    # Runs déterministes effectivement servis (sous-ensemble de runs_demandes :
+    # un modèle dont le run était muet est absent — contribution omise, D8).
     runs_utilises: dict[str, pd.Timestamp] = field(default_factory=dict)
+    # True si la proba d'ensemble (ECMWF IFS-ENS) a été ajoutée. C'est une
+    # grandeur d'ensemble (dernier run, non épinglable) → pas dans runs_utilises.
+    proba_ensemble: bool = False
 
     @property
     def ancre_utc(self) -> pd.Timestamp:
@@ -286,6 +300,50 @@ class OpenMeteoSingleRuns:
         df = df.set_index("time")
         return appliquer_conventions_socle(df)
 
+    def obtenir_proba_ensemble(
+        self, latitude: float, longitude: float, horizon_jours: int
+    ) -> pd.Series | None:
+        """Proba de pluie horaire (%) depuis les membres ECMWF IFS-ENS.
+
+        Grandeur d'**ensemble**, NON déterministe : aucun run d'ensemble n'est
+        épinglable chez Open-Meteo (vérifié), donc c'est le **dernier run**
+        assemblé. On récupère les ~50 membres de precipitation (Ensemble API) et
+        on calcule la **fraction de membres ≥ ``SEUIL_PLUIE_PROBA_MM``** —
+        transparent (ECMWF nommé, seuil maîtrisé), au lieu du champ
+        ``precipitation_probability`` de Forecast qui est du GEFS opaque
+        (vérifié). Retourne ``None`` si l'ensemble est muet (proba omise, D8).
+        """
+        params = {
+            "latitude": f"{latitude}",
+            "longitude": f"{longitude}",
+            "models": ENSEMBLE_MODELE,
+            "hourly": "precipitation",
+            "forecast_days": str(horizon_jours),
+            "timezone": "UTC",
+            "precipitation_unit": "mm",
+        }
+        try:
+            response = get_avec_retry(
+                self.session, ENSEMBLE_URL, params=params, timeout=self.timeout
+            )
+        except requests.HTTPError as e:
+            logger.warning("Ensemble (proba) muet (omis) : %s", e)
+            return None
+        payload = response.json()
+        hourly = payload.get("hourly") if isinstance(payload, dict) else None
+        if not hourly or not hourly.get("time"):
+            return None
+        df = pd.DataFrame(hourly)
+        membres = [c for c in df.columns if c.startswith("precipitation_member")]
+        if not membres:
+            return None
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df = df.set_index("time")
+        mat = df[membres].apply(pd.to_numeric, errors="coerce")
+        n_valides = mat.notna().sum(axis=1)
+        proba = (mat >= SEUIL_PLUIE_PROBA_MM).sum(axis=1).where(n_valides > 0) / n_valides * 100.0
+        return proba.rename("probabilite_pluie_pct")
+
     def obtenir_prevision(
         self,
         latitude: float,
@@ -295,20 +353,19 @@ class OpenMeteoSingleRuns:
     ) -> ResultatPrevision:
         """Prévision App 1 fusionnée pour le créneau courant.
 
-        Fetch déterministe d'un run par modèle (table D3), fusion par priorité
-        AROME → ARPEGE (rayonnement + queue) → ECMWF (proba). Une contribution
-        manquante est omise. Lève ``PrevisionIndisponibleError`` si même le cœur
-        AROME manque.
+        Cœur **déterministe** : un run par modèle (table D3), fusion par priorité
+        AROME → ARPEGE (rayonnement + queue). La **proba** est ajoutée ensuite,
+        depuis les membres d'**ensemble** ECMWF (non déterministe — cf.
+        ``obtenir_proba_ensemble``). Chaque contribution manquante est omise (D8).
+        Lève ``PrevisionIndisponibleError`` si même le cœur AROME manque.
         """
         creneau, jour = creneau_run(now_utc)
         runs = runs_du_creneau(creneau, jour)
 
-        # Priorité décroissante : AROME (cœur) puis ARPEGE (rayonnement) puis
-        # ECMWF-ENS (proba, run court 18Z J-1 / 06Z J = clé ``ECMWF``).
+        # Priorité décroissante : AROME (cœur) puis ARPEGE (rayonnement + queue).
         specs = (
             (AROME, runs[AROME], VARS_AROME),
             (ARPEGE, runs[ARPEGE], VARS_ARPEGE),
-            (ECMWF, runs[ECMWF], VARS_ECMWF),
         )
         frames: list[pd.DataFrame] = []
         runs_utilises: dict[str, pd.Timestamp] = {}
@@ -324,12 +381,20 @@ class OpenMeteoSingleRuns:
             )
 
         fusion = fusionner_priorite(frames)
+
+        # Proba d'ensemble (ECMWF IFS-ENS, dernier run) ajoutée à la fusion.
+        proba = self.obtenir_proba_ensemble(latitude, longitude, horizon_jours)
+        proba_ensemble = proba is not None
+        if proba is not None:
+            fusion["probabilite_pluie_pct"] = proba.reindex(fusion.index)
+
         return ResultatPrevision(
             df=fusion,
             creneau=creneau,
             jour=jour,
             runs_demandes=runs,
             runs_utilises=runs_utilises,
+            proba_ensemble=proba_ensemble,
         )
 
     def obtenir_serie_avec_passe(

@@ -153,6 +153,7 @@ def executer_veille(
         vigilance=vigilance,
         prevision_horaire=prevision,
         runs_utilises=resultat.runs_utilises,
+        proba_ensemble=resultat.proba_ensemble,
     )
 
     if preview_path is not None:

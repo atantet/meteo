@@ -50,17 +50,27 @@ Bascule de la prévision sur la **Single Runs API**. Renommage `shortwave_radiat
 ### D2 — Modèles & fusion : option **B** (run le plus frais par modèle) (Q1)
 
 - **App 1 (Veille)** : fusion par priorité **AROME** (cœur : T/HR/vent/pluie/temps)
-  + **ARPEGE** (comble le rayonnement) + **ECMWF-ENS** (comble la proba). **Un appel
-  par (modèle, run)**, **merge client-side par priorité** (remplace l'ancien
-  `_fusionner_modeles` sur colonnes suffixées d'une réponse multi-modèles unique).
+  déterministe **+ ARPEGE** (comble le rayonnement) déterministe. **Un appel par
+  (modèle, run)**, **merge client-side par priorité**. La **proba** est ajoutée
+  ensuite, **hors Single Runs** : grandeur d'**ensemble** non déterministe (cf.
+  *Proba* ci-dessous).
 - **App 2 (Opérationnelle)** : **3 modèles** dans la grille tendance :
   - **AROME (Veille)** sur la **période commune 0-48 h** = **réutilise telle quelle la
     fusion App 1** (`OpenMeteoSingleRuns.obtenir_prevision`) → la ligne AROME du
-    dashboard **coïncide exactement avec l'e-mail Veille** du même créneau (maille fine).
+    dashboard **coïncide exactement avec l'e-mail Veille** du même créneau (maille fine),
+    proba d'ensemble comprise.
   - **ARPEGE** (court, 4 j ; pilote aussi guides + séries + bilan).
   - **ECMWF-HRES** (long, 7 j ; tendance). Chaque série porte son propre run.
-  - L'App 2 **récupère ainsi la proba** (via la fusion AROME/ENS) qu'elle perdrait en
-    HRES-seul, et les **deux produits ECMWF** y coexistent (ENS proba + HRES long).
+- **Proba — grandeur d'ensemble, non déterministe (amendement, vérifié 2026-06-04)** :
+  Open-Meteo **n'archive aucun run d'ensemble épinglable** (Single Runs n'expose que la
+  *moyenne* ; l'Ensemble API n'a **pas** de paramètre `run` ; toute proba route vers un
+  ensemble « run not available »). La doctrine « run déterministe » **exclut donc
+  mécaniquement** une proba. On la calcule **nous-mêmes** depuis les **membres ECMWF
+  IFS-ENS** (Ensemble API, % de membres ≥ 0,1 mm) — transparent (ECMWF nommé, seuil
+  maîtrisé), au lieu du champ `precipitation_probability` de Forecast qui est du **GEFS
+  opaque** (vérifié : ne correspond pas aux membres ECMWF). C'est le **seul fetch non
+  déterministe** (dernier run d'ensemble, stable par créneau via cache), assumé et
+  étiqueté. App 1 et App 2 (ligne AROME) en bénéficient.
 - **Pas de cascade par horizon imposée** : chaque app garde sa composition (Veille
   fusionne, Op compare 3 modèles). La cohérence vient de l'infra commune (table de
   runs, fetch, merge) **et de la réutilisation de la fusion App 1 par l'App 2**.
@@ -75,15 +85,15 @@ Deux créneaux UTC (= heures de cron App 1) : **matin ≥ 05:30 UTC**, **après-
 |---|---|---|
 | `AROME` *(App 1 + App 2 ligne AROME)* | 00Z J | 12Z J |
 | `ARPEGE` *(App 1 + App 2 court)* | 00Z J | 12Z J |
-| `ECMWF` — ENS proba *(App 1 + App 2 ligne AROME)* | 18Z J-1 | 06Z J |
 | `ECMWF_HRES` — déterministe long *(App 2 long)* | **12Z J-1** | **00Z J** |
 
-Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante ; ECMWF-ENS
-un cran (6 h) derrière.** **ECMWF-HRES diffère** : la tendance App 2 va à 7 j, or les
-runs ECMWF **06/18Z plafonnent à ~90 h** ; seuls les **00/12Z atteignent ~240 h**. On
-prend donc le **dernier run long (00/12Z) publié** au créneau (12Z J-1 le matin, 00Z J
-l'après-midi). ENS et HRES sont deux produits distincts du même modèle `ecmwf_ifs025` →
-deux runs distincts, c'est normal. Socle : `creneau_run(now)` → (créneau, J) et
+*(La proba n'a pas de run : grandeur d'ensemble, dernier run non épinglable — cf. D2.)*
+
+Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante.**
+**ECMWF-HRES diffère** : la tendance App 2 va à 7 j, or les runs ECMWF **06/18Z
+plafonnent à ~90 h** ; seuls les **00/12Z atteignent ~240 h**. On prend donc le
+**dernier run long (00/12Z) publié** au créneau (12Z J-1 le matin, 00Z J l'après-midi).
+Socle : `creneau_run(now)` → (créneau, J) et
 `runs_du_creneau(créneau, J)` → `{modèle: run}`. App 1 appelle à l'heure du cron,
 App 2 au chargement → **le dashboard affiche toujours les runs de l'e-mail du même
 créneau, par construction** (cohérence App 1 / App 2 garantie). Nuit (00:00-05:30

@@ -72,13 +72,12 @@ def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
 def _resultat(df: pd.DataFrame, now: pd.Timestamp):
     """Enrobe une prévision synthétique dans un ``ResultatPrevision`` (Single Runs).
 
-    Les runs servis sont les 3 modèles de la table du créneau de ``now`` — comme
-    si le fetch avait pleinement réussi.
+    Les runs déterministes servis sont AROME + ARPEGE (table du créneau), et la
+    proba d'ensemble est présente — comme si le fetch avait pleinement réussi.
     """
     from meteo_socle.sources.openmeteo_runs import (
         AROME,
         ARPEGE,
-        ECMWF,
         ResultatPrevision,
         creneau_run,
         runs_du_creneau,
@@ -91,7 +90,8 @@ def _resultat(df: pd.DataFrame, now: pd.Timestamp):
         creneau=creneau,
         jour=jour,
         runs_demandes=runs,
-        runs_utilises={AROME: runs[AROME], ARPEGE: runs[ARPEGE], ECMWF: runs[ECMWF]},
+        runs_utilises={AROME: runs[AROME], ARPEGE: runs[ARPEGE]},
+        proba_ensemble=True,
     )
 
 
@@ -273,7 +273,14 @@ def test_executer_veille_pipeline_complet_single_runs_offline() -> None:
             cloud_cover=[50.0] * n,
         ),
         ARPEGE: _payload(temperature_2m=[12.0] * n, shortwave_radiation=[0.0] * n),
-        ECMWF: _payload(precipitation_probability=[20.0] * n),
+        # ECMWF (= ecmwf_ifs025) répond à l'appel ENSEMBLE (membres) → proba.
+        ECMWF: _payload(
+            precipitation=[0.2] * n,
+            precipitation_member01=[0.5] * n,
+            precipitation_member02=[0.5] * n,
+            precipitation_member03=[0.0] * n,
+            precipitation_member04=[0.0] * n,
+        ),
     }
 
     def _resp(payload: dict) -> MagicMock:
@@ -296,9 +303,9 @@ def test_executer_veille_pipeline_complet_single_runs_offline() -> None:
 
     assert code == 0
     out = buf.getvalue()
-    # 3 runs déterministes fetchés (AROME, ARPEGE, ECMWF).
+    # 2 runs déterministes (AROME, ARPEGE) + 1 appel ensemble (proba) = 3.
     assert sess.get.call_count == 3
-    # Badge « Source » véridique = runs UTC réellement servis.
+    # Badge « Source » véridique : runs UTC + proba d'ensemble nommée.
     assert "Single Runs" in out
     assert "AROME run 15/06 00Z" in out
-    assert "proba ECMWF 14/06 18Z" in out
+    assert "ECMWF IFS-ENS" in out
