@@ -127,7 +127,10 @@ def calculer_indicateurs_quotidiens(
     df = df.sort_index()
 
     site = config["site"]
-    tz_locale = site.get("tz", "Europe/Paris")
+    # ADR-0011 D5 : agrégation quotidienne par jour UTC (cohérence tout-UTC
+    # avec la grille tendance et la Veille ; le fuseau du site ne sert plus au
+    # binning temporel, seulement à la géoloc pour l'ETP).
+    tz_locale = "UTC"
 
     # ETP horaire via socle, sur l'ensemble de la fenêtre.
     etp_horaire = calcul_etp(df[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"])

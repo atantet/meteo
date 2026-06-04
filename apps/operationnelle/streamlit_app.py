@@ -963,19 +963,19 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.caption(
-        "Deux modèles en parallèle, deux fenêtres par jour affichées dans "
-        "l'ordre chronologique : Nuit (soirée de la veille dès 19 h + "
-        "matinée jusqu'à 7 h) puis Jour (7-19 h). ARPEGE Météo-France "
-        f"(~10 km, fiable 0-{horizon_court} j ; cellules « — » au-delà) "
-        f"et ECMWF IFS (~9 km, référence mondiale, 0-{horizon_long} j). "
-        f"Les {n_past_days * 24} h passées (analyse des deux modèles) sont "
-        "incluses — faire défiler vers la gauche pour les voir."
+        "Deux modèles en parallèle, deux fenêtres par jour (en UTC, alignées "
+        "sur les cycles de run) : Nuit (18-06 UTC) puis Jour (06-18 UTC). "
+        f"ARPEGE Météo-France (~10 km, fiable 0-{horizon_court} j ; cellules "
+        f"« — » au-delà) et ECMWF IFS (~9 km, référence mondiale, "
+        f"0-{horizon_long} j). Les {n_past_days * 24} h passées (analyse des "
+        "deux modèles, runs explicites) sont incluses — faire défiler vers la "
+        "gauche pour les voir."
     )
 
-    # Les deux lignes intègrent les N j passées (analyse du modèle via
-    # `past_days`) ; côté ECMWF cela complète aussi la nuit d'aujourd'hui
-    # (soirée d'hier). Seule la nuit la plus à gauche reste partielle
-    # (pas de soirée J-1 disponible avant le début des données).
+    # Les deux lignes intègrent les N j passées (analyse stitchée de runs
+    # explicites précédents) ; la frontière passé/prévision est le pivot UTC
+    # (00Z du jour). La nuit la plus à gauche peut rester partielle (début des
+    # données stitchées).
     etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
     _afficher_grille_tendance(
         [
@@ -983,7 +983,7 @@ def main() -> None:
             ("ECMWF IFS", prevision_longue, etp_long),
         ],
         horizon_jours=horizon_long + n_past_days,
-        tz_locale=tz_site,
+        tz_locale="UTC",
     )
 
     # ----- §2 Guides de décision de la semaine (horizon court ARPEGE) -----
