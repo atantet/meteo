@@ -41,6 +41,7 @@ import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
 from meteo_socle.indices.mildiou import agreger_critere_journalier, smith_periods
+from meteo_socle.sources.openmeteo_runs import ancre_creneau, creneau_run
 
 # Conversions vers unités de présentation utilisateur.
 KELVIN_OFFSET: float = 273.15
@@ -130,36 +131,29 @@ class IndicateursVeille:
     prevision_t0_utc: pd.Timestamp | None = None
 
 
-def ancre_fenetre(now_utc: pd.Timestamp, tz: str) -> pd.Timestamp:
-    """Borne basse de la fenêtre 48 h : dernière demi-journée passée/en cours.
+def ancre_fenetre(now_utc: pd.Timestamp, tz: str = "UTC") -> pd.Timestamp:
+    """Borne basse de la fenêtre 48 h = init du run-cœur (AROME) du créneau.
 
-    Le mail Veille part deux fois par jour. On ancre la fenêtre sur la
-    dernière borne de demi-journée locale plutôt que sur ``now_utc`` lui-
-    même, afin que la grille démarre toujours sur une frontière nette
-    (Nuit ou Après-midi) et reste stable quelle que soit la minute exacte
-    d'envoi :
-
-    - envoi du **matin** (heure locale < 12 h) → ancre **00 h 00** local
-      (la fenêtre commence par Nuit, Matin, Après-midi, Soir, J+1…) ;
-    - envoi de l'**après-midi** (heure locale ≥ 12 h) → ancre **12 h 00**
-      local (la fenêtre commence par Après-midi, Soir, puis J+1, J+2 matin).
-
-    Retourne un Timestamp tz-aware UTC.
+    Depuis ADR-0011 (D5), on raisonne **tout en UTC** et on ancre la fenêtre
+    sur l'**init du run** (00Z le matin, 12Z l'après-midi), et non plus sur la
+    demi-journée locale : le début de fenêtre coïncide ainsi exactement avec le
+    début du run (zéro trou) et avec les bins de période UTC
+    (0-6/6-12/12-18/18-24). Le paramètre ``tz`` est conservé pour compatibilité
+    d'appel mais **ignoré** (ancrage UTC). Retourne un Timestamp tz-aware UTC.
     """
-    now_loc = now_utc.tz_convert(tz)
-    heure_ancre = 0 if now_loc.hour < 12 else 12
-    ancre_loc = now_loc.normalize() + pd.Timedelta(hours=heure_ancre)
-    return ancre_loc.tz_convert("UTC")
+    return ancre_creneau(now_utc)
 
 
-def moment_envoi(now_utc: pd.Timestamp, tz: str) -> str:
+def moment_envoi(now_utc: pd.Timestamp, tz: str = "UTC") -> str:
     """Libellé du moment d'envoi : ``"matin"`` ou ``"après-midi"``.
 
-    Déduit de l'heure locale (< 12 h → matin). Sert à distinguer les deux
-    mails du jour dans le sujet et le titre, sans paramètre à passer au
-    workflow.
+    Déduit du **créneau de run UTC** (bornes 05:30 / 17:30 UTC, cf.
+    ``meteo_socle.sources.openmeteo_runs.creneau_run``), pour rester cohérent
+    avec les runs réellement servis (ADR-0011 D3). Le paramètre ``tz`` est
+    conservé pour compatibilité mais **ignoré**.
     """
-    return "matin" if now_utc.tz_convert(tz).hour < 12 else "après-midi"
+    creneau, _ = creneau_run(now_utc)
+    return "matin" if creneau == "matin" else "après-midi"
 
 
 def calculer_indicateurs(
@@ -197,7 +191,10 @@ def calculer_indicateurs(
     # lui-même, pour coïncider avec la grille du mail et inclure les heures
     # déjà écoulées de la demi-journée (observées via ``past_days=1`` au
     # fetch). h24 = [ancre ; ancre+24h], h48 = [ancre ; ancre+48h].
-    tz = config["site"].get("tz", "Europe/Paris")
+    # ADR-0011 D5 : tout en UTC, indicateurs agronomiques inclus. Les bins
+    # (fenêtre 48 h, nuit-douce, mildiou Smith) sont définis sur l'heure UTC,
+    # alignés sur les cycles de run — plus aucun raisonnement en heure locale.
+    tz = "UTC"
     debut = ancre_fenetre(now_utc, tz)
     df = prevision.loc[prevision.index >= debut].copy()
     if df.empty:
@@ -250,7 +247,7 @@ def calculer_indicateurs(
     smith_jours: list[pd.Timestamp] = []
     smith_detail: pd.DataFrame | None = None
     if mildiou_cfg.get("actif", False):
-        tz_loc = site.get("tz", "Europe/Paris")
+        tz_loc = "UTC"  # ADR-0011 D5 : agrégation Smith par jour UTC
         # On agrège l'horizon 48 h. Ajoute la veille du premier jour
         # affiché (h≥now) si dispo dans la prévision, sinon le premier
         # jour ne pourra pas qualifier (par construction Smith demande

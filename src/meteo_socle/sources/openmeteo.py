@@ -77,6 +77,35 @@ RENAME_VERS_SOCLE: dict[str, str] = {
 }
 
 
+def appliquer_conventions_socle(df: pd.DataFrame) -> pd.DataFrame:
+    """Convertit un DataFrame Open-Meteo (colonnes natives) vers le socle.
+
+    Suppose un DataFrame indexé par un ``DatetimeIndex`` UTC, avec des
+    colonnes aux **noms Open-Meteo natifs non suffixés** (une seule
+    réponse-modèle, ou déjà fusionnée). Applique les conversions
+    d'unités, renomme selon ``RENAME_VERS_SOCLE`` et ne garde que les
+    colonnes connues. Partagé par la source *Forecast* (legacy) et la
+    source *Single Runs* (cf. ``openmeteo_runs``).
+
+    Conversions :
+    - T : °C → K (+ 273.15)
+    - HR / cloud_cover : % → fraction (/ 100)
+    - rayonnement : W/m² → J/m²/h (× 3600)
+    - autres : identité (vent m/s, pluie mm, ETP mm/h, proba %, code WMO)
+    """
+    df = df.copy()
+    if "temperature_2m" in df.columns:
+        df["temperature_2m"] = df["temperature_2m"] + 273.15
+    if "relative_humidity_2m" in df.columns:
+        df["relative_humidity_2m"] = df["relative_humidity_2m"] / 100.0
+    if "cloud_cover" in df.columns:
+        df["cloud_cover"] = df["cloud_cover"] / 100.0
+    if "shortwave_radiation" in df.columns:
+        df["shortwave_radiation"] = df["shortwave_radiation"] * 3600.0
+    df = df.rename(columns=RENAME_VERS_SOCLE)
+    return df[[c for c in RENAME_VERS_SOCLE.values() if c in df.columns]]
+
+
 @dataclass
 class OpenMeteoForecast:
     """Client Open-Meteo pour les prévisions horaires multi-modèles.
@@ -235,14 +264,4 @@ class OpenMeteoForecast:
         if len(modeles) > 1:
             df = self._fusionner_modeles(df, modeles)
 
-        if "temperature_2m" in df.columns:
-            df["temperature_2m"] = df["temperature_2m"] + 273.15
-        if "relative_humidity_2m" in df.columns:
-            df["relative_humidity_2m"] = df["relative_humidity_2m"] / 100.0
-        if "cloud_cover" in df.columns:
-            df["cloud_cover"] = df["cloud_cover"] / 100.0
-        if "shortwave_radiation" in df.columns:
-            df["shortwave_radiation"] = df["shortwave_radiation"] * 3600.0
-
-        df = df.rename(columns=RENAME_VERS_SOCLE)
-        return df[[c for c in RENAME_VERS_SOCLE.values() if c in df.columns]]
+        return appliquer_conventions_socle(df)

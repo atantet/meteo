@@ -30,7 +30,10 @@ import pandas as pd
 import requests
 
 from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
-from meteo_socle.sources.openmeteo import OpenMeteoForecast
+from meteo_socle.sources.openmeteo_runs import (
+    OpenMeteoSingleRuns,
+    PrevisionIndisponibleError,
+)
 
 from .alertes import evaluer_alertes
 from .cartes_synoptiques import recuperer_cartes
@@ -51,7 +54,7 @@ logger = logging.getLogger(__name__)
 def executer_veille(
     config: dict[str, Any],
     secrets: dict[str, Any] | None,
-    source: OpenMeteoForecast | None = None,
+    source: OpenMeteoSingleRuns | None = None,
     now_utc: pd.Timestamp | None = None,
     preview_path: str | Path | None = None,
 ) -> int:
@@ -79,58 +82,60 @@ def executer_veille(
         Code de retour (0 succès, 2 HTTP source, 3 SMTP / écriture).
     """
     if source is None:
-        # Liste de modèles → chaîne séparée par des virgules : Open-Meteo
-        # renvoie les colonnes par modèle, le socle les fusionne par
-        # priorité (1er = prioritaire). Cf. config source_meteo.modeles.
-        modeles = config["source_meteo"]["modeles"]
-        source = OpenMeteoForecast(modele=",".join(modeles))
+        # Single Runs API : un run explicite par modèle, choisi de façon
+        # déterministe selon le créneau (ADR-0011). La fusion par priorité
+        # (AROME cœur + ARPEGE rayonnement + ECMWF proba) est faite par le
+        # socle ; le run de chaque modèle est tracé pour le label « Source ».
+        source = OpenMeteoSingleRuns()
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
 
     site = config["site"]
     horizon = config["source_meteo"]["horizon_max_jours"]
-    # On fetch UN jour de plus que l'horizon d'affichage (48 h). La
-    # fenêtre fait toujours 48 h, mais elle est ancrée sur la demi-journée
-    # (00 h le matin, 12 h l'après-midi). L'ancre 12 h pousse la fin de
-    # fenêtre jusqu'à 12 h de J+2 → il faut une 3ᵉ journée de prévision,
-    # sinon la Nuit/le Matin de J+2 manquent (grille à 6 périodes au lieu
-    # de 8). Le matin n'en utilise que 2 ; le jour en trop est inoffensif.
+    # On fetch UN jour de plus que l'horizon d'affichage (48 h) : la fenêtre
+    # 48 h est ancrée sur l'init du run (00Z/12Z UTC), mais le mildiou Smith a
+    # besoin d'une journée de plus (jour A observable), et la queue 48-72 h est
+    # comblée par ARPEGE (AROME ~48 h). Le jour en trop est inoffensif.
     fetch_jours = horizon + 1
     logger.info(
-        "Fetch Open-Meteo lat=%.4f lon=%.4f horizon=%d j (fetch %d j)",
+        "Fetch Single Runs lat=%.4f lon=%.4f horizon=%d j (fetch %d j)",
         site["latitude"],
         site["longitude"],
         horizon,
         fetch_jours,
     )
     try:
-        # past_days=1 pour récupérer la portion 00 h 00 → T+0 du jour
-        # courant (heures déjà passées), afin que la grille Tendance et
-        # le graphique 48 h couvrent réellement [ancre ; ancre+48 h]
-        # plutôt que [T+0 ; T+0+48 h]. Indicateurs et alertes filtrent
-        # par ailleurs sur le futur (>= now_utc).
-        prevision = source.obtenir_prevision(
+        # Pas de past_days : un Single Run part de son init vers l'avant. La
+        # fenêtre est ancrée sur l'init du run (ADR-0011 D5) → couverte
+        # exactement, sans trou.
+        resultat = source.obtenir_prevision(
             latitude=site["latitude"],
             longitude=site["longitude"],
             horizon_jours=fetch_jours,
-            past_days=1,
+            now_utc=now_utc,
         )
     except requests.HTTPError as e:
         logger.error("Erreur HTTP source météo : %s", e)
         return 2
+    except PrevisionIndisponibleError as e:
+        logger.error("Prévision indisponible (cœur AROME manquant) : %s", e)
+        return 2
 
+    prevision = resultat.df
     ind = calculer_indicateurs(prevision, now_utc, config)
     alertes = evaluer_alertes(ind, config)
     logger.info("%d alerte(s) déclenchée(s)", len(alertes))
 
-    tz_locale = config["site"].get("tz", "Europe/Paris")
-    chart = graphique_48h_base64(prevision, now_utc, tz_locale=tz_locale)
+    # ADR-0011 D5 : affichage tout-UTC (fenêtre + périodes alignées sur les
+    # cycles de run). Le fuseau du site ne sert plus qu'à la géolocalisation
+    # (lat/lon/alt) pour l'ETP, pas au binning temporel.
+    chart = graphique_48h_base64(prevision, now_utc, tz_locale="UTC")
     # Grille 3×2 : Met Office (gauche, fronts Atlantique nord/Europe) +
     # AROME mode 24 (droite, France précip+pression+nébulosité). Cibles
     # décalées selon le moment d'envoi : matin = 00Z J → 12Z J+1,
     # après-midi = 12Z J → 00Z J+2 (cf. recuperer_cartes). Cartes
     # manquantes sautées silencieusement (mail envoyé même si down).
-    apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
+    apres_midi = moment_envoi(now_utc) == "après-midi"
     cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
     # Vigilance MF (officielle d'État) — référence pour orages, vent,
     # pluie, canicule, neige-verglas, grand froid sur 0-48 h. Si la clé
@@ -147,6 +152,7 @@ def executer_veille(
         cartes_grille=cartes_grille,
         vigilance=vigilance,
         prevision_horaire=prevision,
+        runs_utilises=resultat.runs_utilises,
     )
 
     if preview_path is not None:

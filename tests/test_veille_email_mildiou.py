@@ -63,9 +63,9 @@ def test_grille_apres_midi_ancree_12h_3_dates() -> None:
     idx = pd.date_range("2026-06-15 00:00", periods=72, freq="h", tz="UTC")
     df = pd.DataFrame({"weather_code": np.zeros(72, dtype=int)}, index=idx)
 
-    # Après-midi : now 14 h UTC → ancre 12 h UTC le 15.
+    # Après-midi : now 18 h UTC (≥ 17:30 → créneau après-midi) → ancre 12Z le 15.
     html_pm = _bloc_grille_indicateurs_48h(
-        df, now_utc=pd.Timestamp("2026-06-15 14:00", tz="UTC"), tz_locale="UTC"
+        df, now_utc=pd.Timestamp("2026-06-15 18:00", tz="UTC"), tz_locale="UTC"
     )
     # 3 dates présentes (15, 16, 17/06).
     assert "15/06" in html_pm and "16/06" in html_pm and "17/06" in html_pm
@@ -95,9 +95,9 @@ def test_grille_apres_midi_etp_jour_nocturne_j_et_j1_pas_j2() -> None:
     idx = pd.date_range("2026-06-15 00:00", "2026-06-18 23:00", freq="h", tz="UTC")
     df = pd.DataFrame({"weather_code": np.ones(len(idx), dtype=int)}, index=idx)
     etp = pd.Series(0.1, index=idx)  # 0.1 mm/h constant → 2.4 mm / 24 h
-    # tz=UTC, now 14 h UTC → ancre 12 h UTC le 15 ; fenêtre [12h15 ; 12h17].
+    # tz=UTC, now 18 h UTC (≥ 17:30 → après-midi) → ancre 12Z le 15 ; [12h15 ; 12h17].
     html = _bloc_grille_indicateurs_48h(
-        df, etp_horaire_48h=etp, now_utc=pd.Timestamp("2026-06-15 14:00", tz="UTC"), tz_locale="UTC"
+        df, etp_horaire_48h=etp, now_utc=pd.Timestamp("2026-06-15 18:00", tz="UTC"), tz_locale="UTC"
     )
     # 3 dates affichées mais 2 lignes ETP seulement (15 et 16, pas 17),
     # libellées « ETP du jour nocturne » (24 h midi→midi).
