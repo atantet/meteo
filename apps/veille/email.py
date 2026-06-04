@@ -914,144 +914,6 @@ def _bloc_pictogrammes_veille(
     )
 
 
-def _bloc_risque_maladies(
-    prevision_horaire: pd.DataFrame | None,
-    config: dict[str, Any],
-    now_utc: pd.Timestamp | None = None,
-    tz_locale: str = "Europe/Paris",
-) -> str:
-    """Bloc HTML "Risque maladies" — homogène en format avec la grille Tendance.
-
-    Pour chaque jour affiché (J0, J+1) : un mini-tableau avec colonnes
-    Nuit / Matin / Après-midi / Soir et une ligne T° min. Un bandeau
-    coloré par jour synthétise la condition (nuit douce = T° min sur la
-    nuit [0, 6 h) ≥ seuil). Condition unique sur la température nocturne
-    (l'humidité n'est plus un critère, cf. alertes.py).
-
-    Sémantique : constat météo générique (oïdium, botrytis, alternaria,
-    mildiou…) pour orienter la décision d'aération nocturne, **pas** un
-    modèle pathogène. Smith mildiou tomate spécifique reste calculé en
-    arrière-plan dans IndicateursVeille pour cross-check ultérieur.
-
-    Vide si ``risque_maladies`` désactivé dans config ou si la prévision
-    n'a pas la colonne température.
-    """
-    rm_cfg = config.get("alertes", {}).get("risque_maladies", {})
-    if not rm_cfg.get("actif", False) or prevision_horaire is None:
-        return ""
-
-    t_min_seuil = float(rm_cfg.get("t_min_nuit_celsius", 15.0))
-
-    horaire_loc = prevision_horaire.copy()
-    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-    # Fenêtre calendaire [J0 00 h 00 ; J0+48 h] alignée sur la grille
-    # Tendance et le titre du mail.
-    if now_utc is not None:
-        now_loc = now_utc.tz_convert(tz_locale)
-        x_min = now_loc.normalize()
-        x_max = x_min + pd.Timedelta(hours=48)
-        horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
-    else:
-        horaire_48h = horaire_loc.head(48)
-    if horaire_48h.empty or "temperature_2m" not in horaire_48h.columns:
-        return ""
-
-    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
-    tableaux_html: list[str] = []
-
-    for jour in jours_uniques:
-        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
-        jour_label = (
-            JOURS_FR[jour_loc.weekday()].capitalize() + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
-        )
-
-        # Bandeau du jour : même règle que l'alerte ``risque_maladies``
-        # (cf. alertes.py) — nuit douce = T° min sur la nuit [0, 6 h)
-        # ≥ seuil. Condition unique sur la température nocturne.
-        serie_nuit_k = _serie_fenetre(
-            horaire_48h, jour, "temperature_2m", 0, FENETRE_NUIT_PICTO_FIN
-        )
-        if serie_nuit_k.empty:
-            t_min_nuit: float | None = None
-            condition_propice = False
-        else:
-            t_min_nuit = float(serie_nuit_k.min()) - 273.15
-            condition_propice = t_min_nuit >= t_min_seuil
-        couleur = "#E69F00" if condition_propice else "#009E73"
-        if t_min_nuit is None:
-            bandeau_titre = f"{jour_label} — nuit [0-6 h) non couverte par la prévision"
-        elif condition_propice:
-            bandeau_titre = (
-                f"{jour_label} — nuit douce : T° min nuit "
-                f"{t_min_nuit:.1f} °C ≥ {t_min_seuil:.0f} °C"
-            )
-        else:
-            bandeau_titre = f"{jour_label} — pas de signal : T° min nuit {t_min_nuit:.1f} °C"
-
-        # En-tête de mini-tableau aligné sur la grille Tendance.
-        en_tete = (
-            '<tr style="background:#fafafa;">'
-            f'<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
-            f"{jour_label}</th>"
-            + "".join(
-                f'<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;">'
-                f"{nom}</th>"
-                for nom, _, _ in FENETRES_VEILLE
-            )
-            + "</tr>"
-        )
-
-        def _cellule_valeur(html_val: str) -> str:
-            return (
-                '<td style="padding:4px;text-align:center;'
-                "font-variant-numeric:tabular-nums;font-size:13px;"
-                'font-weight:700;color:#34495e;">'
-                f"{html_val}</td>"
-            )
-
-        # T° min par fenêtre
-        cells_tmin: list[str] = []
-        for _nom, h_debut, h_fin in FENETRES_VEILLE:
-            serie_k = _serie_fenetre(horaire_48h, jour, "temperature_2m", h_debut, h_fin)
-            if serie_k.empty:
-                cells_tmin.append(_cellule_valeur("—"))
-            else:
-                t_min = serie_k.min() - 273.15
-                cells_tmin.append(
-                    _cellule_valeur(
-                        f'<span style="color:#0072B2;">{t_min:.0f}</span>{_unite("°C")}'
-                    )
-                )
-        ligne_tmin = (
-            '<tr><td style="padding:4px 8px;color:#888;font-size:11px;">T° min</td>'
-            + "".join(cells_tmin)
-            + "</tr>"
-        )
-
-        tableau_jour = (
-            f'<div style="margin:6px 0 8px 0;padding:6px 10px;background:{couleur};'
-            f'color:white;border-radius:4px;font-size:13px;">{bandeau_titre}</div>'
-            '<table style="width:100%;border-collapse:collapse;'
-            'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
-            + en_tete
-            + ligne_tmin
-            + "</table>"
-        )
-        tableaux_html.append(tableau_jour)
-
-    return (
-        '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
-        "Risque maladies — conditions d'aération</h3>"
-        + "".join(tableaux_html)
-        + '<p style="margin:6px 0;font-size:12px;color:#888;font-style:italic;">'
-        f"Constat météo informationnel : une nuit douce (T° min sur la nuit "
-        f"[0-6 h) ≥ {t_min_seuil:.0f} °C) favorise le développement de maladies "
-        "(oïdium, botrytis, alternaria, mildiou…) sous abri mal aéré. Pas un "
-        "modèle pathogène — décision d'aération vous revient."
-        "</p>"
-    )
-
-
 def composer_sujet(alertes: list[Alerte], maintenant: datetime, template: str) -> str:
     """Formate le sujet selon template config.
 
@@ -1158,26 +1020,19 @@ def composer_html(
     cartes_grille: CartesGrille | None = None,
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
-    risque_maladies_config: dict[str, Any] | None = None,
     seuils_config: dict[str, Any] | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
-    # les blocs Tendance, Risque maladies et le graphique. On le dérive
-    # de ``maintenant`` (qui peut être naïf ; on suppose UTC).
+    # la grille Tendance et le graphique. On le dérive de ``maintenant``
+    # (qui peut être naïf ; on suppose UTC).
     now_utc_ts = pd.Timestamp(maintenant)
     if now_utc_ts.tzinfo is None:
         now_utc_ts = now_utc_ts.tz_localize("UTC")
     else:
         now_utc_ts = now_utc_ts.tz_convert("UTC")
 
-    # Bloc "Risque maladies" générique (remplace l'ancien Smith
-    # spécifique tomate). Wrap config en dict pour le helper.
-    config_pour_bloc = {"alertes": {"risque_maladies": risque_maladies_config or {}}}
-    bloc_risque_maladies = _bloc_risque_maladies(
-        prevision_horaire, config_pour_bloc, now_utc=now_utc_ts, tz_locale=tz_locale
-    )
     bloc_grille = _bloc_grille_indicateurs_48h(
         prevision_horaire,
         etp_horaire_48h=ind.etp_horaire_48h,
@@ -1242,7 +1097,6 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_vigilance}
   {bloc_vigilance_exploitation}
   {bloc_grille}
-  {bloc_risque_maladies}
   {bloc_carte}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 48 h
   <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
@@ -1290,7 +1144,6 @@ def composer_email(
         prevision_horaire=prevision_horaire,
     )
     alertes_config = config.get("alertes", {})
-    rm_config = alertes_config.get("risque_maladies")
     html = composer_html(
         ind,
         alertes,
@@ -1301,7 +1154,6 @@ def composer_email(
         cartes_grille=cartes_grille,
         vigilance=vigilance,
         prevision_horaire=prevision_horaire,
-        risque_maladies_config=rm_config,
         seuils_config=alertes_config,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

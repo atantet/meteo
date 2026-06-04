@@ -12,60 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 
-_CONFIG_RM = {
-    "alertes": {
-        "risque_maladies": {
-            "actif": True,
-            "t_min_nuit_celsius": 15.0,
-        }
-    }
-}
-
-
-def _prevision_synth(t_celsius: float, hr_fraction: float) -> pd.DataFrame:
-    """48 h synthétiques constantes pour test_bloc_risque_maladies."""
-    idx = pd.date_range("2026-07-01 00:00", periods=48, freq="h", tz="UTC")
-    return pd.DataFrame(
-        {
-            "temperature_2m": np.full(48, t_celsius + 273.15),
-            "humidite_relative": np.full(48, hr_fraction),
-        },
-        index=idx,
-    )
-
-
-def test_bloc_risque_maladies_conditions_propices() -> None:
-    """T° min nuit ≥ 15 °C → bandeau orange "nuit douce" (température seule)."""
-    from apps.veille.email import _bloc_risque_maladies
-
-    html = _bloc_risque_maladies(
-        _prevision_synth(t_celsius=16.0, hr_fraction=0.40),
-        _CONFIG_RM,
-        tz_locale="Europe/Paris",
-    )
-    assert "Risque maladies" in html
-    assert "nuit douce" in html
-    # Bandeau orange (Wong palette E69F00) indique un risque.
-    assert "#E69F00" in html
-    # Plus de critère d'humidité dans le bloc.
-    assert "HR" not in html
-
-
-def test_bloc_risque_maladies_pas_de_signal() -> None:
-    """Nuit fraîche → bandeau vert "pas de signal", même si l'air est humide."""
-    from apps.veille.email import _bloc_risque_maladies
-
-    html = _bloc_risque_maladies(
-        _prevision_synth(t_celsius=10.0, hr_fraction=0.99),
-        _CONFIG_RM,
-        tz_locale="Europe/Paris",
-    )
-    assert "Risque maladies" in html
-    assert "pas de signal" in html.lower()
-    # Bandeau vert (Wong palette 009E73) = pas de risque.
-    assert "#009E73" in html
-
-
 def test_bloc_pictogrammes_veille_grille_2j_3fenetres() -> None:
     """Le bloc pictos doit produire 6 cellules (2 j × 3 fenêtres)."""
     import numpy as np
@@ -163,22 +109,3 @@ def test_bloc_pictogrammes_priorise_pluie_sur_clair() -> None:
     df = pd.DataFrame({"weather_code": codes}, index=idx)
     html = _bloc_pictogrammes_veille(df, tz_locale="Europe/Paris")
     assert "Pluie modérée" in html
-
-
-def test_bloc_risque_maladies_vide_si_inactif() -> None:
-    """Si alertes.risque_maladies.actif=False → bloc vide."""
-    from apps.veille.email import _bloc_risque_maladies
-
-    config = {"alertes": {"risque_maladies": {"actif": False}}}
-    html = _bloc_risque_maladies(
-        _prevision_synth(t_celsius=16.0, hr_fraction=0.95),
-        config,
-    )
-    assert html == ""
-
-
-def test_bloc_risque_maladies_vide_si_prevision_none() -> None:
-    """Si prevision_horaire=None → bloc vide (ne casse pas le mail)."""
-    from apps.veille.email import _bloc_risque_maladies
-
-    assert _bloc_risque_maladies(None, _CONFIG_RM) == ""
