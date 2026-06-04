@@ -163,6 +163,22 @@ def test_tendance_texte_48h_format_lignes() -> None:
     assert "Pluie" in lignes[0]
 
 
+def test_tendance_texte_48h_fenetre_vide_ne_crashe_pas() -> None:
+    """Prévision démarrant à 12Z (envoi après-midi) → fenêtre « matin » du 1er
+    jour vide → sautée sans crash (régression int(None) sur code météo absent)."""
+    import numpy as np
+
+    from apps.veille.email import _tendance_texte_48h
+
+    idx = pd.date_range("2026-06-15 12:00", periods=48, freq="h", tz="UTC")
+    df = pd.DataFrame({"weather_code": np.ones(48, dtype=int)}, index=idx)
+    lignes = _tendance_texte_48h(df, tz_locale="UTC")
+    assert lignes  # pas de crash
+    # 1er jour : matin (6-12Z) non couvert → absent ; soir présent.
+    assert "matin" not in lignes[0]
+    assert "soir" in lignes[0]
+
+
 def test_tendance_texte_48h_sans_data_renvoie_vide() -> None:
     from apps.veille.email import _tendance_texte_48h
 

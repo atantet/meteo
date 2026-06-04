@@ -561,8 +561,13 @@ def _tendance_texte_48h(
                 (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
             )
             code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
+            # Fenêtre non couverte (bord de fenêtre : l'après-midi, la prévision
+            # démarre à 12Z → la « matin » du 1er jour est vide) → on la saute.
+            if code is None:
+                continue
             parts.append(f"{nom_fenetre} {libelle(code)}")
-        lignes.append(f"  {jour_label} : " + " → ".join(parts))
+        if parts:
+            lignes.append(f"  {jour_label} : " + " → ".join(parts))
     return lignes
 
 
