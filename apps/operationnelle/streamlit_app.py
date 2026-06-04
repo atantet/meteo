@@ -32,7 +32,6 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from apps.operationnelle.charts import (  # noqa: E402
-    COURBES,
     Seuil,
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
@@ -71,9 +70,37 @@ from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
 )
-from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
+from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
+    AROME,
+    ARPEGE,
+    ECMWF,
+    ECMWF_HRES,
+    VARS_AROME,
+    VARS_MONO_MODELE,
+    OpenMeteoSingleRuns,
+    creneau_run,
+    fusionner_priorite,
+    runs_du_creneau,
+)
 
 KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
+
+# Modèle Open-Meteo → clé de run dans la table créneau (ADR-0011 D3). ARPEGE
+# partage son run avec la Veille ; l'ECMWF de la tendance longue prend le run
+# HRES déterministe (00/12Z, ≤240 h), distinct du run ENS court de la proba.
+_CLE_RUN_APP2 = {ARPEGE: ARPEGE, ECMWF: ECMWF_HRES}
+
+
+def _slot_now(now_utc: pd.Timestamp) -> pd.Timestamp:
+    """Horodatage canonique du créneau courant (clé de cache stable).
+
+    Cadence fixe 12 h (ADR-0011 D3) : le dashboard montre les mêmes runs que
+    l'e-mail Veille du même créneau. On dérive un instant *dans* le créneau
+    (06Z le matin, 18Z l'après-midi) pour que le cache `st.cache_data` ne
+    change qu'aux bascules de créneau, pas à chaque rechargement.
+    """
+    creneau, jour = creneau_run(now_utc)
+    return jour + pd.Timedelta(hours=6 if creneau == "matin" else 18)
 
 
 @st.cache_data(ttl=3600)
@@ -82,17 +109,70 @@ def _fetch_prevision(
     longitude: float,
     horizon_jours: int,
     modele: str,
-    past_days: int = 0,
+    slot_now: pd.Timestamp,
+    n_jours_passe: int = 0,
 ) -> pd.DataFrame:
-    """Fetch Open-Meteo, cache 1 h pour limiter les requêtes.
+    """Fetch Single Runs pour le créneau de ``slot_now`` (ADR-0011).
 
-    Avec ``past_days > 0``, la prévision inclut ``past_days`` jours
-    civils en amont (réanalyse rapide). Cohérent avec le modèle
-    courant — pas de mélange ERA5/forecast — et sans le retard 5 j
-    d'ERA5-Land sur les dernières heures.
+    Série mono-modèle = run courant du créneau (futur) + passé stitché de
+    ``n_jours_passe`` jours (runs explicites, pas de ``past_days``). ``slot_now``
+    (stable dans le créneau) sert de clé de cache → un seul fetch par créneau.
     """
-    src = OpenMeteoForecast(modele=modele)
-    return src.obtenir_prevision(latitude, longitude, horizon_jours, past_days=past_days)
+    src = OpenMeteoSingleRuns()
+    res = src.obtenir_serie_avec_passe(
+        modele,
+        _CLE_RUN_APP2[modele],
+        latitude,
+        longitude,
+        horizon_jours,
+        slot_now,
+        variables=VARS_MONO_MODELE,
+        n_jours_passe=n_jours_passe,
+    )
+    return res.df
+
+
+@st.cache_data(ttl=3600)
+def _fetch_ligne_arome(
+    latitude: float,
+    longitude: float,
+    slot_now: pd.Timestamp,
+    _arpege_etendu: pd.DataFrame,
+    n_jours_passe: int = 2,
+) -> pd.DataFrame:
+    """Ligne « AROME » de la grille tendance : cœur AROME + **passé stitché**.
+
+    Comme les lignes ARPEGE/ECMWF, le passé est fait de **runs explicites**
+    (``obtenir_serie_avec_passe`` : ``n_jours_passe`` jours de segments 12 h des
+    créneaux précédents), pas de ``past_days``. Le rayonnement (qu'AROME ne
+    fournit pas) est comblé par l'**ARPEGE étendu déjà fetché** (``_arpege_etendu``,
+    passé en argument non hashé pour éviter un double stitch). La **proba**
+    d'ensemble est ajoutée avec son passé (``past_days`` : un ensemble n'a pas de
+    run épinglable). On clippe la fin à l'horizon AROME (init + 48 h) ; au-delà
+    c'est le territoire des lignes ARPEGE/ECMWF. La partie *prévision* reste
+    identique à l'e-mail Veille (mêmes runs, même fusion par priorité).
+    """
+    src = OpenMeteoSingleRuns()
+    serie_arome = src.obtenir_serie_avec_passe(
+        AROME,
+        AROME,
+        latitude,
+        longitude,
+        2,
+        slot_now,
+        variables=VARS_AROME,
+        n_jours_passe=n_jours_passe,
+    )
+    # AROME cœur prioritaire ; ARPEGE étendu comble le rayonnement (→ ETP) et
+    # tout trou, sur passé comme futur.
+    fusion = fusionner_priorite([serie_arome.df, _arpege_etendu])
+    # forecast_days=3 (et non 2) pour couvrir tout le futur AROME jusqu'à
+    # ancre+48 h (l'ensemble part de l'heure réelle, pas de l'init AROME).
+    proba = src.obtenir_proba_ensemble(latitude, longitude, 3, past_days=n_jours_passe)
+    if proba is not None:
+        fusion["probabilite_pluie_pct"] = proba.reindex(fusion.index)
+    fin = serie_arome.run_courant + pd.Timedelta(hours=48)
+    return fusion.loc[fusion.index < fin]
 
 
 @st.cache_data(ttl=3600)
@@ -225,21 +305,25 @@ def _fmt_t_cell(cellule, fenetre: str) -> str:
 
 
 def _fmt_pluie_cell(cellule) -> str:
-    """Cellule pluie : cumul mm / proba max %, couleurs Veille."""
+    """Cellule pluie : cumul mm (par modèle déterministe).
+
+    La **proba** n'est PAS affichée ici : c'est une grandeur d'ensemble
+    (ECMWF IFS-ENS), pas une sortie du modèle déterministe de la ligne — elle
+    a sa propre ligne « Proba pluie » (cf. ``_ligne_proba``).
+    """
     if pd.isna(cellule.pluie_mm):
         return "—"
-    base = f'<span style="color:{_PLUIE_COLOR};">{cellule.pluie_mm:.1f}</span>' + _unite_inline(
+    return f'<span style="color:{_PLUIE_COLOR};">{cellule.pluie_mm:.1f}</span>' + _unite_inline(
         "mm"
     )
-    if pd.isna(cellule.prob_pluie_pct):
-        return base
+
+
+def _fmt_proba_cell(cellule) -> str:
+    """Cellule proba pluie (%) — ligne dédiée ECMWF IFS-ENS (P ≥ 1 mm/6 h)."""
+    if cellule is None or pd.isna(cellule.prob_pluie_pct):
+        return "—"
     proba_int = int(round(cellule.prob_pluie_pct))
-    return (
-        base
-        + '<span style="color:#aaa;"> / </span>'
-        + f'<span style="color:{_PROBA_COLOR};">{proba_int:02d}</span>'
-        + _unite_inline("%")
-    )
+    return f'<span style="color:{_PROBA_COLOR};">{proba_int:02d}</span>' + _unite_inline("%")
 
 
 def _fmt_vent_cell(cellule) -> str:
@@ -390,11 +474,11 @@ def _afficher_grille_tendance(
     )
 
     def _td_variable(libelle: str, sur_fond_sombre: bool = False) -> str:
-        """Cellule 1ère colonne, fusionnée verticalement sur 2 sous-lignes."""
+        """Cellule 1ère colonne, fusionnée sur les sous-lignes (une par modèle)."""
         col = _FOND_SOUS_LABEL if sur_fond_sombre else _LIGNE_LABEL_COLOR
         bg = _FOND_PICTO if sur_fond_sombre else "white"
         return (
-            f'<td rowspan="2" style="padding:4px 8px;font-size:13px;'
+            f'<td rowspan="{len(agreges)}" style="padding:4px 8px;font-size:13px;'
             f"color:{col};font-weight:600;position:sticky;left:0;"
             f'background:{bg};white-space:nowrap;vertical-align:middle;">'
             f"{libelle}</td>"
@@ -505,10 +589,43 @@ def _afficher_grille_tendance(
             lignes.append(f'<tr style="background:{_FOND_PICTO};">' + "".join(cellules) + "</tr>")
         return lignes
 
+    def _ligne_proba() -> list[str]:
+        """Ligne dédiée « Proba pluie » — grandeur d'**ensemble** (ECMWF IFS-ENS).
+
+        Découplée des lignes-modèles déterministes : la proba ne sort d'aucun
+        d'eux (ni AROME ni ARPEGE ni l'ECMWF-HRES de la tendance), mais des
+        membres IFS-ENS (% au cumul ≥ 1 mm/6 h). Une seule sous-ligne. Source =
+        l'agrégat de la fusion App 1 (ligne « AROME ») qui porte la proba.
+        """
+        agg_proba = next((agg for label, agg in agreges if label == "AROME"), None)
+        if not agg_proba:
+            return []
+        bg = "white"
+        label_td = (
+            '<td style="padding:4px 8px;font-size:13px;'
+            f"color:{_LIGNE_LABEL_COLOR};font-weight:600;position:sticky;left:0;"
+            'background:white;white-space:nowrap;vertical-align:middle;">'
+            "Proba pluie"
+            '<br><span style="font-weight:400;font-size:10px;color:#888;">≥ 1 mm/6 h</span></td>'
+        )
+        cellules = [label_td, _td_modele("ECMWF IFS-ENS", bg)]
+        for idx_j, jour in enumerate(jours_tous):
+            for fenetre_idx, fenetre in enumerate((FENETRE_NUIT, FENETRE_JOUR)):
+                est_pivot = idx_j == idx_pivot and fenetre_idx == 0
+                cellule = agg_proba.get((jour, fenetre))
+                if cellule is None or pd.isna(cellule.prob_pluie_pct):
+                    cellules.append(_cellule_vide(bg, est_pivot=est_pivot))
+                else:
+                    cellules.append(
+                        _cellule_valeur(_fmt_proba_cell(cellule), bg, est_pivot=est_pivot)
+                    )
+        return ["<tr>" + "".join(cellules) + "</tr>"]
+
     corps = (
         _lignes_picto()
         + _ligne_variable("T° moy/extr.", _fmt_t_cell, besoin_fenetre=True)
-        + _ligne_variable("Pluie / proba", _fmt_pluie_cell)
+        + _ligne_variable("Pluie", _fmt_pluie_cell)
+        + _ligne_proba()
         + _ligne_variable("Vent moy / raf.", _fmt_vent_cell)
         + _ligne_variable("Vent direction", _fmt_dir_cell)
         + _ligne_variable("ETP cumulée", _fmt_etp_cell)
@@ -869,42 +986,55 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Fetches Open-Meteo cachés séparément (clé = modele + horizon + past_days) :
+    # Fetches Single Runs cachés par créneau (clé = slot_now + modele + horizon
+    # + n_jours_passe), runs déterministes (ADR-0011) :
     # - ARPEGE court (4 j) sans passé pour §2 guides + indicateurs quotidiens.
-    # - ARPEGE étendu (4 j + 2 j de réanalyse rapide) pour §4 courbes
-    #   horaires + §1 tendance étendue quand le toggle « 48 h passées »
-    #   est activé. La réanalyse rapide via `past_days` est plus fiable
-    #   qu'ERA5-Land (pas de retard 5 j) et cohérente avec le modèle
-    #   courant.
-    # - ECMWF long (7 j) pour §1 tendance.
+    # - ARPEGE étendu (4 j + 2 j de passé stitché) pour §4 courbes horaires +
+    #   §1 tendance étendue. Le passé est fait de runs explicites (stitch des
+    #   créneaux précédents), pas de `past_days` — provenance exacte.
+    # - ECMWF-HRES long (7 j) pour §1 tendance.
     n_past_days = 2
+    now_utc = pd.Timestamp.now(tz="UTC")
+    slot_now = _slot_now(now_utc)
     with st.spinner(
-        f"Récupération prévisions Open-Meteo ({modele_court} {horizon_court} j "
+        f"Récupération prévisions Single Runs ({modele_court} {horizon_court} j "
         f"+ {modele_long} {horizon_long} j)…"
     ):
         try:
             prevision_courte = _fetch_prevision(
-                site["latitude"], site["longitude"], horizon_court, modele_court
+                site["latitude"], site["longitude"], horizon_court, modele_court, slot_now
             )
             prevision_courte_etendue = _fetch_prevision(
                 site["latitude"],
                 site["longitude"],
                 horizon_court,
                 modele_court,
-                past_days=n_past_days,
+                slot_now,
+                n_jours_passe=n_past_days,
             )
             prevision_longue = _fetch_prevision(
                 site["latitude"],
                 site["longitude"],
                 horizon_long,
                 modele_long,
-                past_days=n_past_days,
+                slot_now,
+                n_jours_passe=n_past_days,
             )
         except Exception as e:  # noqa: BLE001
             st.error(f"Erreur de récupération des prévisions : {e}")
             st.stop()
 
-    now_utc = pd.Timestamp.now(tz="UTC")
+        # Ligne AROME : cœur AROME + passé stitché (comme ARPEGE/ECMWF),
+        # rayonnement comblé par l'ARPEGE étendu, proba avec passé. La prévision
+        # reste = e-mail Veille. Dégradation gracieuse : si le run AROME est muet,
+        # on l'omet et le dashboard part avec ARPEGE + ECMWF (pas de st.stop()).
+        try:
+            prevision_arome = _fetch_ligne_arome(
+                site["latitude"], site["longitude"], slot_now, prevision_courte_etendue, n_past_days
+            )
+        except Exception:  # noqa: BLE001
+            prevision_arome = None
+
     quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
     quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
 
@@ -919,35 +1049,49 @@ def main() -> None:
     prevision = prevision_courte
     quotidien = quotidien_court
 
-    # ----- §1 Tendance jour/nuit × N j × 2 modèles -----
+    # ----- §1 Tendance jour/nuit × N j × 3 modèles -----
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        f"Tendance {horizon_long} jours — ARPEGE vs ECMWF IFS"
+        f"Tendance {horizon_long} jours — AROME · ARPEGE · ECMWF IFS"
         "</h3>",
         unsafe_allow_html=True,
     )
+    # Provenance exacte : init de chaque run servi pour ce créneau (ADR-0011 D3).
+    # AROME et ARPEGE partagent le run de la demi-journée ; ECMWF-HRES prend le
+    # dernier run long 00/12Z. La proba n'a pas de run épinglable (ensemble).
+    _creneau_a2, _jour_a2 = creneau_run(slot_now)
+    _runs_a2 = runs_du_creneau(_creneau_a2, _jour_a2)
+
+    def _fmt_run_a2(ts: pd.Timestamp) -> str:
+        return ts.strftime("%d/%m %HZ")
+
     st.caption(
-        "Deux modèles en parallèle, deux fenêtres par jour affichées dans "
-        "l'ordre chronologique : Nuit (soirée de la veille dès 19 h + "
-        "matinée jusqu'à 7 h) puis Jour (7-19 h). ARPEGE Météo-France "
-        f"(~10 km, fiable 0-{horizon_court} j ; cellules « — » au-delà) "
-        f"et ECMWF IFS (~9 km, référence mondiale, 0-{horizon_long} j). "
-        f"Les {n_past_days * 24} h passées (analyse des deux modèles) sont "
-        "incluses — faire défiler vers la gauche pour les voir."
+        "Trois modèles en parallèle, deux fenêtres par jour (UTC, alignées sur les "
+        "cycles de run) : Nuit (18-06 UTC) puis Jour (06-18 UTC). "
+        f"**Runs utilisés (UTC)** — AROME France HD ~1,3 km : {_fmt_run_a2(_runs_a2[AROME])} "
+        "(cœur, ± 48 h autour de l'init, identique à l'e-mail Veille) · "
+        f"ARPEGE Météo-France ~10 km : {_fmt_run_a2(_runs_a2[ARPEGE])} (0-{horizon_court} j) · "
+        f"ECMWF-HRES ~9 km : {_fmt_run_a2(_runs_a2[ECMWF_HRES])} (0-{horizon_long} j, "
+        "tendance longue) ; cellules « — » au-delà de l'horizon de chaque modèle. "
+        f"Passé ({n_past_days * 24} h) = stitch de runs explicites des créneaux précédents "
+        "pour les trois modèles — faire défiler vers la gauche. "
+        "Proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h, **dernier run "
+        "d'ensemble** (non épinglable ; son passé vient de ce même run)."
     )
 
-    # Les deux lignes intègrent les N j passées (analyse du modèle via
-    # `past_days`) ; côté ECMWF cela complète aussi la nuit d'aujourd'hui
-    # (soirée d'hier). Seule la nuit la plus à gauche reste partielle
-    # (pas de soirée J-1 disponible avant le début des données).
+    # Frontière passé/prévision = pivot UTC (00Z du jour). Les trois modèles
+    # portent le passé stitché (runs explicites) ; AROME est borné à ± 48 h
+    # autour de l'init (son horizon), d'où « — » au-delà.
     etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
+    series_tendance: list[tuple[str, pd.DataFrame, pd.Series | None]] = []
+    if prevision_arome is not None and not prevision_arome.empty:
+        series_tendance.append(("AROME", prevision_arome, etp_horaire_socle(prevision_arome, site)))
+    series_tendance.append(("ARPEGE", prevision_courte_etendue, etp_arpege_etendu))
+    series_tendance.append(("ECMWF IFS", prevision_longue, etp_long))
     _afficher_grille_tendance(
-        [
-            ("ARPEGE", prevision_courte_etendue, etp_arpege_etendu),
-            ("ECMWF IFS", prevision_longue, etp_long),
-        ],
+        series_tendance,
         horizon_jours=horizon_long + n_past_days,
-        tz_locale=tz_site,
+        tz_locale="UTC",
     )
 
     # ----- §2 Guides de décision de la semaine (horizon court ARPEGE) -----
@@ -965,8 +1109,8 @@ def main() -> None:
     )
 
     # ----- Courbes horaires (vue principale, en onglets) -----
-    # Source : ARPEGE étendu = N j passés (réanalyse rapide via
-    # `past_days`) + N j de prévision. Smith heures HR reste quotidien.
+    # Source : ARPEGE étendu = N j passés (stitch de runs explicites) +
+    # N j de prévision.
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
         f"Prévision horaire — {n_past_days * 24} h passées + {horizon_court} j ARPEGE"
@@ -1018,33 +1162,6 @@ def main() -> None:
                 with col_plot:
                     st.pyplot(fig, use_container_width=True)
 
-    # Bloc 2 — indicateurs quotidiens (Smith, etc.). Pas de split
-    # analyse / prévision car le critère biologique se définit par jour.
-    courbes_quot_smith = [
-        c
-        for c in COURBES
-        if c.colonne == "mildiou_heures_humectation" and c.colonne in quotidien.columns
-    ]
-    if courbes_quot_smith:
-        st.markdown(
-            '<h4 style="margin:18px 0 4px 0;font-size:15px;color:#34495e;">'
-            "Indicateurs quotidiens"
-            "</h4>",
-            unsafe_allow_html=True,
-        )
-        onglets_q = st.tabs([c.titre for c in courbes_quot_smith])
-        for tab, cfg in zip(onglets_q, courbes_quot_smith, strict=False):
-            with tab:
-                fig = figure_indicateur(
-                    quotidien,
-                    cfg,
-                    figsize=(5.5, 2.5),
-                    seuils_extra=seuils_par_colonne.get(cfg.colonne),
-                )
-                col_plot, _ = st.columns([2, 1])
-                with col_plot:
-                    st.pyplot(fig, use_container_width=True)
-
     # ----- Bilan hydrique sol complet (plein air + tunnel) -----
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
@@ -1060,7 +1177,7 @@ def main() -> None:
 
     coefficients = _charger_coefficients_kc()
     cultures = sorted(coefficients.keys())
-    # Tomate en défaut pour rester aligné avec l'orientation App (mildiou).
+    # Tomate en défaut (culture sensible de référence sous abri).
     default_culture = "Tomate" if "Tomate" in cultures else cultures[0]
 
     col_c, col_s = st.columns(2)
@@ -1258,11 +1375,10 @@ def main() -> None:
   T° max et T° moyenne — overlay automatique sur les courbes.
 - **Direction dominante** : moyenne vectorielle horaire pondérée
   par la vitesse.
-- **Smith mildiou** : indicateur informationnel pour tomate sous
-  abri (Smith 1956). Détecte les fenêtres où T_min ≥ 10 °C ET
-  h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs. Calculé via le
-  module socle ``meteo_socle.indices.mildiou`` à partir de
-  l'horaire forecast Open-Meteo (maille ~25 km, donc hors abri).
+- **Risque maladie** : guide « nuit douce » (T° min journalière ≥ 15 °C).
+  Constat météo (PAS un modèle pathogène) — les nuits douces sous abri
+  mal aéré favorisent l'activité microbienne (oïdium, botrytis, mildiou…).
+  Remplace l'ancien indicateur Smith mildiou (humectation), abandonné.
 - **Kc culture** : référentiel ARDEPI Provence (cf.
   ``src/meteo_socle/indices/coefficients_culturaux_ardepi.json``).
   Bilan affiché = cumul pluie vs cumul ET_c sans réserve utile du

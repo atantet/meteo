@@ -43,13 +43,15 @@ NIVEAU_CRITIQUE = "critique"
 THEME_FROID = "froid"
 THEME_TUNNEL = "tunnel"
 THEME_IRRIGATION = "irrigation"
+THEME_MALADIE = "maladie"
 THEME_TRAVAIL_SOL = "travail_sol"
 
-THEMES_ORDRE = (THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_TRAVAIL_SOL)
+THEMES_ORDRE = (THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_MALADIE, THEME_TRAVAIL_SOL)
 THEMES_LIBELLES = {
     THEME_FROID: "Froid",
     THEME_TUNNEL: "Tunnels",
     THEME_IRRIGATION: "Irrigation et stress thermique",
+    THEME_MALADIE: "Risque maladie",
     THEME_TRAVAIL_SOL: "Travail du sol",
 }
 
@@ -276,6 +278,17 @@ _PARAMS_STRESS = [
         1.0,
         7.0,
         1.0,
+    ),
+]
+
+_PARAMS_MALADIE = [
+    ParamAjustable(
+        "Seuil T° min « nuit douce » (°C)",
+        "seuils_maladie.nuit_douce_t_min_celsius",
+        10.0,
+        20.0,
+        0.5,
+        aide="Au-dessus, les nuits douces favorisent l'activité microbienne (Agrobio35).",
     ),
 ]
 
@@ -604,6 +617,55 @@ def regle_stress_thermique(
     )
 
 
+# ---------- Guides risque maladie ----------
+
+
+def regle_risque_maladie(
+    quotidien: pd.DataFrame,
+    exploitation: dict[str, Any],
+    today: pd.Timestamp,  # noqa: ARG001
+) -> GuideDecision | None:
+    """Nuits douces (T° min élevée) → conditions propices aux maladies (Agrobio35).
+
+    Constat météo (PAS un modèle pathogène) : les nuits douces sous abri mal
+    aéré favorisent l'activité microbienne (oïdium, botrytis, mildiou…). Critère
+    unique = T° min journalière ≥ seuil (proxy « nuit douce »). Remplace l'ancien
+    indicateur Smith mildiou (humectation), abandonné.
+    """
+    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
+        return None
+    n_jours = len(quotidien)
+    s = exploitation.get("seuils_maladie", {})
+    seuil = float(s.get("nuit_douce_t_min_celsius", 15.0))
+
+    masque = quotidien["t_min_celsius"] >= seuil
+    nb = int(masque.sum())
+    if nb >= 1:
+        accord = "s" if nb > 1 else ""
+        titre = (
+            f"Nuits douces sur {n_jours} j — {nb} jour{accord} avec T° min ≥ "
+            f"{seuil:.0f} °C (vérifier l'aération, surveiller oïdium/botrytis/mildiou)"
+        )
+        active = True
+    else:
+        t_min_max = float(quotidien["t_min_celsius"].max())
+        titre = (
+            f"Pas de nuit douce — T° min la plus haute {t_min_max:.1f} °C (seuil {seuil:.0f} °C)"
+        )
+        active = False
+
+    return GuideDecision(
+        titre=titre,
+        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
+        picto="🦠",
+        detail_df=quotidien[["t_min_celsius"]],
+        theme=THEME_MALADIE,
+        active=active,
+        surlignage={"t_min_celsius": ("≥", seuil)},
+        parametres_ajustables=_PARAMS_MALADIE,
+    )
+
+
 # ---------- Guides travail du sol ----------
 
 
@@ -725,6 +787,7 @@ def evaluer_decisions(
         lambda q, t: regle_fermeture_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_deficit_hydrique(q, exploitation, t),
         lambda q, t: regle_stress_thermique(q, exploitation, t),
+        lambda q, t: regle_risque_maladie(q, exploitation, t),
         lambda q, t: regle_fenetre_seche_travail_sol_hiver(q, exploitation, t),
         lambda q, t: regle_fenetre_pluvieuse_travail_sol_ete(q, exploitation, t),
     ):

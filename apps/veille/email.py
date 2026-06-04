@@ -48,7 +48,7 @@ from meteo_socle.sources.meteofrance_vigilance import (
 from meteo_socle.sources.meteofrance_vigilance import (
     VigilanceDepartement,
 )
-from meteo_socle.sources.openmeteo_runs import AROME, ARPEGE, ECMWF
+from meteo_socle.sources.openmeteo_runs import AROME, ARPEGE
 
 from .alertes import Alerte, resume_alertes
 from .cartes_synoptiques import (
@@ -135,14 +135,17 @@ SOURCE_DEFAUT = construire_label_source(
 )
 
 
-def construire_label_source_runs(runs_utilises: dict[str, pd.Timestamp]) -> str:
+def construire_label_source_runs(
+    runs_utilises: dict[str, pd.Timestamp], proba_ensemble: bool = False
+) -> str:
     """Label « Source » à partir des runs *Single Runs* réellement servis.
 
-    Provenance exacte (ADR-0011 D7) : AROME (cœur) et ARPEGE (rayonnement)
-    partagent en général le run de la demi-journée (ils coïncident) ; la proba
-    vient d'un run ECMWF-ENS un cran (6 h) derrière. Un modèle **omis** (run
-    muet, D8) est signalé honnêtement plutôt que masqué. Les runs sont en UTC,
-    affichés « JJ/MM HHZ ».
+    Provenance **exacte et explicite** (ADR-0011 D7) : on affiche le run de
+    **chaque** modèle servi (AROME = cœur, ARPEGE = rayonnement), même quand ils
+    coïncident. La **proba** ne vient pas d'un run épinglable (grandeur
+    d'ensemble) : % de membres ECMWF IFS-ENS dont le **cumul ≥ 1 mm/6 h**,
+    dernier run d'ensemble. Un modèle **omis** (run muet, D8) est signalé. Runs
+    en UTC, « JJ/MM HHZ ».
     """
     if not runs_utilises:
         return "Open-Meteo Single Runs · —"
@@ -152,20 +155,17 @@ def construire_label_source_runs(runs_utilises: dict[str, pd.Timestamp]) -> str:
 
     parts: list[str] = []
     if AROME in runs_utilises:
-        coeur = f"AROME run {_run(runs_utilises[AROME])}"
-        if ARPEGE in runs_utilises:
-            if runs_utilises[ARPEGE] == runs_utilises[AROME]:
-                coeur += " + ARPEGE (rayonnement)"
-            else:
-                coeur += f" + ARPEGE {_run(runs_utilises[ARPEGE])} (rayonnement)"
-        else:
-            coeur += " (rayonnement indisponible)"
-        parts.append(coeur)
-    elif ARPEGE in runs_utilises:
-        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} (rayonnement)")
+        parts.append(f"AROME run {_run(runs_utilises[AROME])} (cœur)")
+    if ARPEGE in runs_utilises:
+        # ARPEGE comble le rayonnement quand AROME est là ; sinon il sert de cœur.
+        role = "rayonnement" if AROME in runs_utilises else "cœur de repli (AROME absent)"
+        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} ({role})")
+    elif AROME not in runs_utilises:
+        parts.append("cœur indisponible")
     parts.append(
-        f"proba ECMWF {_run(runs_utilises[ECMWF])}"
-        if ECMWF in runs_utilises
+        "proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h "
+        "(dernier run d'ensemble, non épinglable)"
+        if proba_ensemble
         else "proba indisponible"
     )
     return "Open-Meteo Single Runs · " + " ; ".join(parts)
@@ -1240,6 +1240,7 @@ def composer_email(
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     runs_utilises: dict[str, pd.Timestamp] | None = None,
+    proba_ensemble: bool = False,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1256,7 +1257,7 @@ def composer_email(
     # D7). Repli sur le label dérivé de la config si non fourni (tests / appel
     # legacy). Ne peut pas diverger de ce qui a été fetché.
     if runs_utilises is not None:
-        source = construire_label_source_runs(runs_utilises)
+        source = construire_label_source_runs(runs_utilises, proba_ensemble)
     else:
         modeles = config.get("source_meteo", {}).get("modeles", [])
         source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT

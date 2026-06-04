@@ -44,9 +44,11 @@ import pandas as pd
 from apps.shared.pictograms import code_dominant_fenetre
 from apps.shared.pictograms import libelle as libelle_picto
 
-# Fenêtre jour : 7 h ≤ h < 19 h local (12 h). Le reste est « nuit ».
-FENETRE_JOUR_DEBUT = 7
-FENETRE_JOUR_FIN = 19
+# Fenêtre jour : 6 h ≤ h < 18 h UTC (12 h). Le reste est « nuit » (18-06 UTC).
+# ADR-0011 D5 : tout en UTC, aligné sur les cycles de run (l'appelant passe
+# tz_locale="UTC" pour binner sur l'heure UTC).
+FENETRE_JOUR_DEBUT = 6
+FENETRE_JOUR_FIN = 18
 
 FENETRE_JOUR = "jour"
 FENETRE_NUIT = "nuit"

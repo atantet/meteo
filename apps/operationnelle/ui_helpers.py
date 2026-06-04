@@ -22,9 +22,6 @@ LIBELLES_COLONNES: dict[str, str] = {
     "direction_vent_cardinal": "Vent dom.",
     "etp_mm": "ETP (mm)",
     "bilan_eau_cumul_mm": "Bilan eau cumulé (mm)",
-    # Mildiou Smith (ADR-0007) : nb heures HR ≥ seuil + flag période.
-    "mildiou_heures_humectation": "h HR ≥ 90 %",
-    "mildiou_smith_period": "Smith mildiou",
 }
 
 # Précision d'affichage par colonne.
@@ -38,7 +35,6 @@ PRECISION: dict[str, int] = {
     "rafales_max_kmh": 0,
     "etp_mm": 1,
     "bilan_eau_cumul_mm": 1,
-    "mildiou_heures_humectation": 0,
 }
 
 # Couleurs (alignées sur App 1 Veille pour la cohérence visuelle).
@@ -93,10 +89,6 @@ def styler_ligne(row: pd.Series, alertes_cfg: dict[str, Any]) -> list[str]:
     if vent.get("actif") and "Rafales (km/h)" in cols and row["Rafales (km/h)"] > vent["seuil_kmh"]:
         styles[cols.index("Rafales (km/h)")] = f"background-color: {COULEUR_WARNING}"
 
-    # Smith period : surligne la cellule indicative (orange info, pas critique).
-    if "Smith mildiou" in cols and row["Smith mildiou"] == "✓":
-        styles[cols.index("Smith mildiou")] = f"background-color: {COULEUR_WARNING}"
-
     return styles
 
 
@@ -122,8 +114,5 @@ def preparer_table_affichage(quotidien: pd.DataFrame, tz: str = "Europe/Paris") 
     for col, prec in PRECISION.items():
         if col in out.columns:
             out[col] = out[col].round(prec)
-    # Transforme le booléen Smith en glyph ✓/— pour lisibilité table.
-    if "mildiou_smith_period" in out.columns:
-        out["mildiou_smith_period"] = out["mildiou_smith_period"].map({True: "✓", False: "—"})
     out = out.rename(columns=LIBELLES_COLONNES)
     return formater_index_date(out, tz=tz)

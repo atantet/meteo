@@ -50,15 +50,37 @@ Bascule de la prévision sur la **Single Runs API**. Renommage `shortwave_radiat
 ### D2 — Modèles & fusion : option **B** (run le plus frais par modèle) (Q1)
 
 - **App 1 (Veille)** : fusion par priorité **AROME** (cœur : T/HR/vent/pluie/temps)
-  + **ARPEGE** (comble le rayonnement) + **ECMWF-ENS** (comble la proba). **Un appel
-  par (modèle, run)**, **merge client-side par priorité** (remplace l'ancien
-  `_fusionner_modeles` sur colonnes suffixées d'une réponse multi-modèles unique).
-- **App 2 (Opérationnelle)** : séries **mono-modèle** comparées — **ARPEGE** (court,
-  4 j ; guides + séries + bilan) et **ECMWF-HRES** (long, 7 j ; tendance + cartes).
-  Chaque série porte son propre run.
+  déterministe **+ ARPEGE** (comble le rayonnement) déterministe. **Un appel par
+  (modèle, run)**, **merge client-side par priorité**. La **proba** est ajoutée
+  ensuite, **hors Single Runs** : grandeur d'**ensemble** non déterministe (cf.
+  *Proba* ci-dessous).
+- **App 2 (Opérationnelle)** : **3 modèles** dans la grille tendance :
+  - **AROME (Veille)** sur la **période commune 0-48 h** = **réutilise telle quelle la
+    fusion App 1** (`OpenMeteoSingleRuns.obtenir_prevision`) → la ligne AROME du
+    dashboard **coïncide exactement avec l'e-mail Veille** du même créneau (maille fine),
+    proba d'ensemble comprise.
+  - **ARPEGE** (court, 4 j ; pilote aussi guides + séries + bilan).
+  - **ECMWF-HRES** (long, 7 j ; tendance). Chaque série porte son propre run.
+- **Proba — grandeur d'ensemble, non déterministe (amendement, vérifié 2026-06-04)** :
+  Open-Meteo **n'archive aucun run d'ensemble épinglable** (Single Runs n'expose que la
+  *moyenne* ; l'Ensemble API n'a **pas** de paramètre `run` ; toute proba route vers un
+  ensemble « run not available »). La doctrine « run déterministe » **exclut donc
+  mécaniquement** une proba. On la calcule **nous-mêmes** depuis les **membres ECMWF
+  IFS-ENS** (Ensemble API), au **produit opérationnel** des centres : **P(cumul ≥ 1 mm
+  sur une fenêtre de 6 h)**, bins UTC fixes 0-6/6-12/12-18/18-24 (cf. ECMWF FUG 8.1.1),
+  rediffusée sur chaque heure du bin. **Amendement 2026-06-04** : on abandonne la
+  fraction instantanée ≥ 0,1 mm/h, qui saturait à ~100 % (toute trace de bruine, dans
+  un membre, chaque heure → max par fenêtre côté affichage = quasi-certitude). Aucun
+  produit proba *calibré* n'étant disponible gratuitement (ecPoint ECMWF licencié, EMOS
+  MF interne, flux publics ECMWF/MF = ensembles bruts), on assume une proba **brute mais
+  transparente et cohérente** (ECMWF IFS-ENS nommé, seuil/fenêtre = définition ECMWF), au
+  lieu du champ `precipitation_probability` de Forecast qui est du **GEFS opaque**
+  (vérifié : ne correspond pas aux membres ECMWF, et au même seuil ≥ 0,1 mm/h). C'est le
+  **seul fetch non déterministe** (dernier run d'ensemble, stable par créneau via cache),
+  assumé et étiqueté. App 1 et App 2 (ligne AROME) en bénéficient.
 - **Pas de cascade par horizon imposée** : chaque app garde sa composition (Veille
-  fusionne, Op compare). La cohérence vient de l'infra commune (table de runs, fetch,
-  merge), pas d'une composition identique.
+  fusionne, Op compare 3 modèles). La cohérence vient de l'infra commune (table de
+  runs, fetch, merge) **et de la réutilisation de la fusion App 1 par l'App 2**.
 
 ### D3 — Cadence : créneaux **UTC fixes 12 h partagés** entre les 2 apps (Q1)
 
@@ -66,15 +88,19 @@ Deux créneaux UTC (= heures de cron App 1) : **matin ≥ 05:30 UTC**, **après-
 ≥ 17:30 UTC**. Dans un créneau, les runs sont **figés**. Table créneau→run unique
 (source de vérité) :
 
-| Modèle | Matin (≥ 05:30 UTC) | Après-midi (≥ 17:30 UTC) |
+| Clé de run | Matin (≥ 05:30 UTC) | Après-midi (≥ 17:30 UTC) |
 |---|---|---|
-| AROME *(App 1)* | 00Z J | 12Z J |
-| ARPEGE *(App 1 + App 2 court)* | 00Z J | 12Z J |
-| ECMWF-HRES *(App 2 long)* | 18Z J-1 | 06Z J |
-| ECMWF-ENS — proba *(App 1)* | 18Z J-1 | 06Z J |
+| `AROME` *(App 1 + App 2 ligne AROME)* | 00Z J | 12Z J |
+| `ARPEGE` *(App 1 + App 2 court)* | 00Z J | 12Z J |
+| `ECMWF_HRES` — déterministe long *(App 2 long)* | **12Z J-1** | **00Z J** |
 
-Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante ; ECMWF
-(HRES + ENS) un cran (6 h) derrière.** Socle : `creneau_run(now)` → (créneau, J) et
+*(La proba n'a pas de run : grandeur d'ensemble, dernier run non épinglable — cf. D2.)*
+
+Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante.**
+**ECMWF-HRES diffère** : la tendance App 2 va à 7 j, or les runs ECMWF **06/18Z
+plafonnent à ~90 h** ; seuls les **00/12Z atteignent ~240 h**. On prend donc le
+**dernier run long (00/12Z) publié** au créneau (12Z J-1 le matin, 00Z J l'après-midi).
+Socle : `creneau_run(now)` → (créneau, J) et
 `runs_du_creneau(créneau, J)` → `{modèle: run}`. App 1 appelle à l'heure du cron,
 App 2 au chargement → **le dashboard affiche toujours les runs de l'e-mail du même
 créneau, par construction** (cohérence App 1 / App 2 garantie). Nuit (00:00-05:30

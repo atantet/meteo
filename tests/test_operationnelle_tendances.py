@@ -181,15 +181,13 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     assert cell_jour.direction_cardinal == "O"
     assert cell_nuit.direction_cardinal == "S"
 
-    # Pluie : la fenêtre 6-9h tombe à cheval entre nuit (6h) et jour (7-9h)
-    # selon nos bornes. Avec FENETRE_JOUR_DEBUT=7, la pluie totale 6-9h
-    # = 3 mm = 1 mm nuit (6h) + 2 mm jour (7h, 8h).
-    assert cell_nuit.pluie_mm == pytest.approx(1.0, abs=1e-6)
-    assert cell_jour.pluie_mm == pytest.approx(2.0, abs=1e-6)
+    # Pluie : 1 mm/h aux heures 6, 7, 8. Avec FENETRE_JOUR_DEBUT=6, ces
+    # 3 heures sont toutes en « jour » → 3 mm jour, 0 mm nuit.
+    assert cell_nuit.pluie_mm == pytest.approx(0.0, abs=1e-6)
+    assert cell_jour.pluie_mm == pytest.approx(3.0, abs=1e-6)
 
-    # Picto : weather_code 61 dominant sur la fenêtre de pluie nuit (6h),
-    # weather_code 61 aussi sur la fenêtre jour qui couvre 7h+8h (pluie).
-    # Tous deux non-None.
+    # Picto : pluie (code 61) en jour (6-8 h) → picto jour non-None ; nuit
+    # (0-5 h, peu nuageux code 1) → picto nuit non-None aussi.
     assert cell_jour.code_picto is not None
     assert cell_nuit.code_picto is not None
 
@@ -218,10 +216,10 @@ def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:
 def test_agreger_par_fenetre_etp_cumul() -> None:
     """ETP socle (mm/h) × 0.1 : cumul jour 1.2 mm (12 h) et nuit selon couverture.
 
-    Nuit contiguë : nuit J = soirée [19,24) de J-1 (5 h) + matinée [0,7) de
-    J (7 h). La nuit du 1ᵉʳ jour n'a pas de soirée de veille (données
-    commencent à 00 h) → 7 h seulement → 0.7 mm. La nuit du 2ᵉ jour est
-    complète (5 h + 7 h = 12 h) → 1.2 mm.
+    Bins UTC (ADR-0011 D5). Nuit contiguë : nuit J = soirée [18,24) de J-1
+    (6 h) + matinée [0,6) de J (6 h). La nuit du 1ᵉʳ jour n'a pas de soirée de
+    veille (données commencent à 00 h) → 6 h seulement → 0.6 mm. La nuit du
+    2ᵉ jour est complète (6 h + 6 h = 12 h) → 1.2 mm.
     """
     horaire = _horaire_synthetique(jours=2)
     etp = pd.Series(
@@ -233,9 +231,9 @@ def test_agreger_par_fenetre_etp_cumul() -> None:
     j0, j1 = jours[0], jours[1]
     # Fenêtre jour J0 = 12 heures × 0.1 mm/h = 1.2 mm
     assert cellules[(j0, FENETRE_JOUR)].etp_mm == pytest.approx(1.2, abs=1e-6)
-    # Nuit J0 = matinée seule (7 h, pas de soirée J-1) = 0.7 mm
-    assert cellules[(j0, FENETRE_NUIT)].etp_mm == pytest.approx(0.7, abs=1e-6)
-    # Nuit J1 = soirée J0 (5 h) + matinée J1 (7 h) = 12 h = 1.2 mm
+    # Nuit J0 = matinée seule (6 h, pas de soirée J-1) = 0.6 mm
+    assert cellules[(j0, FENETRE_NUIT)].etp_mm == pytest.approx(0.6, abs=1e-6)
+    # Nuit J1 = soirée J0 (6 h) + matinée J1 (6 h) = 12 h = 1.2 mm
     assert cellules[(j1, FENETRE_NUIT)].etp_mm == pytest.approx(1.2, abs=1e-6)
 
 

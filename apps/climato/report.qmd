@@ -334,47 +334,34 @@ volume RFU déjà disponible dans le sol (déterminé par la texture et
 la profondeur d'enracinement, cf. App 2 Op section *Bilan tunnel*).
 :::
 
-# Risque mildiou tomate (Smith periods)
+# Risque maladie — nuits douces
 
 ::: {.callout-note}
-**Méthode.** Le modèle Smith periods (1956) détecte une
-période à risque mildiou lorsque *deux jours consécutifs* satisfont
-T_min ≥ 10 °C ET ≥ 11 heures avec HR ≥ 90 %. L'indicateur est calculé
-sur le micro-climat CERRA maille ~5 km — **donc hors abri** — et reste
-informationnel. Une période de Smith détectée ne signifie pas qu'une
-attaque va survenir : elle signifie que les conditions atmosphériques
-y sont favorables.
+**Méthode.** Le risque maladie est approché par les **nuits douces** : un jour
+est compté « nuit douce » lorsque sa **T° min ≥ 15 °C** — proxy d'une nuit chaude
+favorable à l'activité microbienne sous abri mal aéré (oïdium, botrytis,
+mildiou…). C'est un **constat météo**, pas un modèle pathogène, et il est aligné
+sur l'indicateur opérationnel (mail Veille + dashboard). Calculé sur le climat
+CERRA maille ~5 km, à l'échelle régionale. *(Remplace l'ancien indicateur Smith
+mildiou, basé sur l'humectation, abandonné car le proxy HR surestimait la durée
+d'humectation foliaire en climat océanique.)*
 :::
 
 ```{python}
-#| label: fig-mildiou-nb-par-an
-#| fig-cap: "Nombre annuel de périodes de Smith détectées (1991-2020, CERRA maille ~5 km). Mesure la pression climatique mildiou tomate à l'échelle régionale."
+#| label: fig-nuits-douces-par-an
+#| fig-cap: "Nombre annuel de nuits douces (T° min ≥ 15 °C, 1991-2020, CERRA maille ~5 km). Mesure la pression climatique « risque maladie » à l'échelle régionale."
 
-from meteo_socle.indices.mildiou import (
-    agreger_critere_journalier,
-    smith_periods,
-    nb_smith_periods_par_annee,
-)
-
-mildiou_cfg = config.get("mildiou_smith", {})
-critere = agreger_critere_journalier(
-    horaire,
-    tz_locale=mildiou_cfg.get("tz_locale", "Europe/Paris"),
-    hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
-)
-smith = smith_periods(
-    critere,
-    t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
-    heures_min=int(mildiou_cfg.get("heures_min", 11)),
-)
-nb_annuel = nb_smith_periods_par_annee(smith)
+seuil_nuit_douce = float(seuils.get("nuit_douce_t_min_celsius", 15.0))
+nuit_douce = (quotidien["t_min_celsius"] >= seuil_nuit_douce).astype(int)
+nuit_douce.index = pd.DatetimeIndex(nuit_douce.index)
+nb_annuel = nuit_douce.groupby(nuit_douce.index.year).sum()
 
 fig, ax = plt.subplots(figsize=(9, 4))
 ax.bar(nb_annuel.index, nb_annuel.values, color="#8e44ad")
-ax.set_ylabel("Nombre annuel de périodes de Smith")
+ax.set_ylabel("Nombre annuel de nuits douces")
 ax.set_xlabel("Année")
 ax.axhline(nb_annuel.mean(), color="#444", linestyle="--", linewidth=0.8,
-           label=f"Moyenne {nb_annuel.mean():.1f}")
+           label=f"Moyenne {nb_annuel.mean():.0f}")
 ax.legend()
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 plt.tight_layout()
@@ -382,16 +369,12 @@ plt.show()
 ```
 
 ```{python}
-#| label: fig-mildiou-heatmap
-#| fig-cap: "Pression mildiou Smith par mois × année (1991-2020). Une cellule chaude = mois × année avec beaucoup de périodes de Smith. Identifie les années et les fenêtres saisonnières où la pression climatique mildiou a été la plus forte."
+#| label: fig-nuits-douces-heatmap
+#| fig-cap: "Nuits douces par mois × année (1991-2020). Une cellule chaude = mois × année avec beaucoup de nuits douces. Identifie les années et les fenêtres saisonnières où la pression « risque maladie » a été la plus forte."
 
-import numpy as np
-smith_int = smith.astype(int)
-smith_int.index = pd.DatetimeIndex(smith_int.index)
-matrice = smith_int.groupby(
-    [smith_int.index.year, smith_int.index.month]
+matrice = nuit_douce.groupby(
+    [nuit_douce.index.year, nuit_douce.index.month]
 ).sum().unstack(fill_value=0)
-# Réordonne : années en lignes, mois 1-12 en colonnes.
 matrice = matrice.reindex(columns=range(1, 13), fill_value=0)
 
 fig, ax = plt.subplots(figsize=(9, 5.5))
@@ -401,80 +384,34 @@ ax.set_xticklabels(mois_labels)
 ax.set_yticks(range(len(matrice.index)))
 ax.set_yticklabels(matrice.index)
 ax.set_ylabel("Année")
-ax.set_title("Périodes de Smith — pression mildiou par mois × année")
-plt.colorbar(im, ax=ax, label="Nb de jours étiquetés Smith / mois")
+ax.set_title("Nuits douces — pression « risque maladie » par mois × année")
+plt.colorbar(im, ax=ax, label="Nb de nuits douces / mois")
 plt.tight_layout()
 plt.show()
 ```
 
 ```{python}
-#| label: tbl-mildiou-top-annees
-#| tbl-cap: "Cinq années à plus forte pression mildiou tomate (1991-2020). Année de référence stratégique : si vos installations résistent à la pression de l'année top, elles passeront les années moyennes."
+#| label: tbl-nuits-douces-top-annees
+#| tbl-cap: "Cinq années à plus forte pression « nuit douce » (1991-2020). Année de référence stratégique : si vos installations tiennent face à la pression de l'année top, elles passeront les années moyennes."
 
-top5_mildiou = nb_annuel.sort_values(ascending=False).head(5).to_frame("Nb périodes de Smith")
-top5_mildiou.index.name = "Année"
-top5_mildiou
+top5_nd = nb_annuel.sort_values(ascending=False).head(5).to_frame("Nb nuits douces")
+top5_nd.index.name = "Année"
+top5_nd
 ```
 
 ```{python}
-#| label: fig-mildiou-mensuel
-#| fig-cap: "Répartition mensuelle des périodes de Smith (1991-2020). Identifie les fenêtres calendaires à plus forte pression."
+#| label: fig-nuits-douces-mensuel
+#| fig-cap: "Répartition mensuelle des nuits douces (cumul 1991-2020). Identifie les fenêtres calendaires à plus forte pression maladie."
 
-mois_labels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
-smith_idx = pd.DatetimeIndex(smith.index)
-par_mois = smith.astype(int).groupby(smith_idx.month).sum()
+par_mois = nuit_douce.groupby(nuit_douce.index.month).sum()
 
 fig, ax = plt.subplots(figsize=(9, 4))
 ax.bar(range(1, 13), par_mois.reindex(range(1, 13), fill_value=0).values, color="#8e44ad")
 ax.set_xticks(range(1, 13))
 ax.set_xticklabels(mois_labels)
-ax.set_ylabel("Nombre de périodes de Smith (cumul 30 ans)")
+ax.set_ylabel("Nombre de nuits douces (cumul 30 ans)")
 plt.tight_layout()
 plt.show()
-```
-
-# Humectation foliaire (LWD) — CART Gleason 1994
-
-::: {.callout-note}
-**Note méthodologique.** Le proxy historique « HR ≥ 90 % » utilisé
-par Smith mildiou (cf. section précédente) tend à **surestimer** la
-durée d'humectation foliaire en climat océanique humide nocturne.
-Le modèle CART Gleason 1994 utilise quatre prédicteurs (DPD, vent,
-HR) pour discriminer plus finement les heures vraiment mouillées.
-Cette section compare les deux proxies sur la même fenêtre 30 ans.
-:::
-
-```{python}
-#| label: fig-comparaison-lwd-hr
-#| fig-cap: "Comparaison des deux proxies LWD : cumul annuel des heures avec HR ≥ 90 % vs cumul annuel des heures LWD CART Gleason. Si Gleason est sensiblement plus bas, cela confirme que le proxy HR surestime l'humectation."
-
-from meteo_socle.indices.lwd_gleason import heures_lwd_par_jour, lwd_horaire_gleason
-
-# Calcul horaire LWD Gleason sur les 30 ans.
-wet_horaire = lwd_horaire_gleason(horaire)
-# Heures HR ≥ 90 % par an (proxy Smith historique).
-hr_haute_horaire = (horaire["humidite_relative"] >= 0.90).astype(int)
-
-annees = pd.DatetimeIndex(horaire.index).year
-nb_h_hr_par_an = hr_haute_horaire.groupby(annees).sum()
-nb_h_lwd_par_an = wet_horaire.astype(int).groupby(annees).sum()
-
-fig, ax = plt.subplots(figsize=(9, 4))
-ax.plot(nb_h_hr_par_an.index, nb_h_hr_par_an.values, marker="o",
-        color="#3498db", label="h HR ≥ 90 %", linewidth=1.8)
-ax.plot(nb_h_lwd_par_an.index, nb_h_lwd_par_an.values, marker="s",
-        color="#16a085", label="h LWD CART Gleason", linewidth=1.8)
-ax.set_xlabel("Année")
-ax.set_ylabel("Nombre d'heures cumulées par an")
-ax.set_title("Heures humectation annuelles — comparaison proxies")
-ax.legend()
-ax.grid(True, alpha=0.3, axis="y")
-plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-plt.tight_layout()
-plt.show()
-
-ecart_relatif = (1 - nb_h_lwd_par_an.mean() / nb_h_hr_par_an.mean()) * 100
-print(f"Écart moyen LWD vs HR : {ecart_relatif:+.0f} % (négatif = LWD plus restrictif).")
 ```
 
 # Calendrier annuel des conditions météo
@@ -597,18 +534,11 @@ Tout ce qui suit est cliquable / reproductible.
     des données de la réanalyse SAFRAN*. Rapport HAL hal-02593413.
 - **Convention d'unités** : alignée socle (T en K, HR en fraction,
   rayonnement en J m⁻² h⁻¹, vent en m s⁻¹, pluie et ETP en mm).
-- **Risque mildiou** : Smith, L.P., 1956. *Potato blight
-  forecasting by 90 per cent humidity criteria*. **Plant Pathology** 5,
-  83-87. Implémentation `meteo_socle.indices.mildiou.smith_periods`,
-  tests dans `tests/test_mildiou.py`.
-- **Humectation foliaire CART** : Gleason, M.L. et al., 1994.
-  *Development and validation of an empirical model to estimate the
-  duration of dew periods*. **Plant Disease** 78, 1011-1016. Seuils
-  CART : DPD ≤ 3.7 °C → wet ; 3.7 < DPD ≤ 7.2 ET vent < 2.5 m/s ET
-  HR ≥ 87.8 % → wet ; sinon dry. Point de rosée par Magnus-Tetens
-  (Alduchov & Eskridge 1996). Implémentation
-  `meteo_socle.indices.lwd_gleason`, tests dans `tests/test_lwd_gleason.py`.
-  Magarey DPD/NWP en attente du papier d'origine.
+- **Risque maladie** : « nuit douce » = T° min journalière ≥ 15 °C
+  (constat météo, doctrine Agrobio35 ; aligné sur l'indicateur opérationnel
+  Veille / dashboard). Remplace l'ancien indicateur Smith mildiou
+  (humectation), abandonné — le proxy HR ≥ 90 % surestimait la durée
+  d'humectation foliaire en climat océanique humide nocturne.
 - **Coefficient ET tunnel** : k_tunnel = 0.70 par défaut
   pour passer de l'ET₀ extérieure FAO à l'ET₀ intérieure tunnel froid
   (médiane littérature tempérée). Castilla, N., 2013. *Greenhouse

@@ -12,10 +12,12 @@ from meteo_socle.sources.openmeteo_runs import (
     AROME,
     ARPEGE,
     ECMWF,
+    ECMWF_HRES,
     OpenMeteoSingleRuns,
     PrevisionIndisponibleError,
     ancre_creneau,
     creneau_run,
+    creneaux_precedents,
     fusionner_priorite,
     runs_du_creneau,
 )
@@ -49,15 +51,18 @@ def test_runs_du_creneau_matin() -> None:
     runs = runs_du_creneau("matin", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 00:00:00+00:00")
     assert runs[ARPEGE] == pd.Timestamp("2024-06-15 00:00:00+00:00")
-    # ECMWF un cran (6 h) derrière → 18Z de la veille.
-    assert runs[ECMWF] == pd.Timestamp("2024-06-14 18:00:00+00:00")
+    # ECMWF-HRES (tendance longue) = dernier run long 00/12Z → 12Z de la veille.
+    assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-14 12:00:00+00:00")
+    # La proba ne passe plus par un run (grandeur d'ensemble) : pas de clé ECMWF.
+    assert ECMWF not in runs
 
 
 def test_runs_du_creneau_apres_midi() -> None:
     jour = pd.Timestamp("2024-06-15 00:00:00+00:00")
     runs = runs_du_creneau("apres-midi", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 12:00:00+00:00")
-    assert runs[ECMWF] == pd.Timestamp("2024-06-15 06:00:00+00:00")
+    # ECMWF-HRES après-midi → 00Z du jour.
+    assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-15 00:00:00+00:00")
 
 
 def test_ancre_creneau_est_init_run_coeur() -> None:
@@ -145,7 +150,17 @@ _PAYLOAD_ARPEGE = _payload(
     temperature_2m=[11.0, 11.0, 11.0],  # différent → vérifie priorité AROME
     shortwave_radiation=[0.0, 100.0, 200.0],
 )
-_PAYLOAD_ECMWF = _payload(precipitation_probability=[10.0, 20.0, 30.0])
+# Réponse Ensemble API (membres) pour la proba. 5 membres. Les 3 h tombent dans
+# le même bin UTC [00:00, 06:00) → on compare le CUMUL 6 h de chaque membre au
+# seuil 1 mm : m01=1.0 ✓, m02=1.0 ✓, m03=0.5 ✗, m04=0 ✗, m05=0 ✗ → 2/5 = 40 %.
+_PAYLOAD_ECMWF_ENS = _payload(
+    precipitation=[0.0, 0.2, 0.3],
+    precipitation_member01=[0.0, 0.5, 0.5],
+    precipitation_member02=[0.0, 0.5, 0.5],
+    precipitation_member03=[0.0, 0.0, 0.5],
+    precipitation_member04=[0.0, 0.0, 0.0],
+    precipitation_member05=[0.0, 0.0, 0.0],
+)
 
 
 def _session_par_modele(payloads: dict[str, dict | None]) -> MagicMock:
@@ -207,8 +222,9 @@ def test_obtenir_run_payload_vide_renvoie_none() -> None:
 
 
 def test_obtenir_prevision_fusion_complete() -> None:
+    # ECMWF (= ecmwf_ifs025) est appelé par obtenir_proba_ensemble (membres).
     sess = _session_par_modele(
-        {AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: _PAYLOAD_ECMWF}
+        {AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: _PAYLOAD_ECMWF_ENS}
     )
     client = OpenMeteoSingleRuns(session=sess)
     res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
@@ -217,25 +233,27 @@ def test_obtenir_prevision_fusion_complete() -> None:
     assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
     # Rayonnement comblé par ARPEGE.
     assert res.df["rayonnement_global"].iloc[1] == pytest.approx(100.0 * 3600.0)
-    # Proba comblée par ECMWF.
-    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(30.0)
-    # Provenance : 3 runs servis, créneau matin, ancre = 00Z J.
-    assert set(res.runs_utilises) == {AROME, ARPEGE, ECMWF}
+    # Proba = cumul 6 h ≥ 1 mm : 2/5 membres (m01, m02) sur le bin → 40 %,
+    # rediffusé sur les 3 h du bin.
+    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(40.0)
+    assert res.df["probabilite_pluie_pct"].iloc[0] == pytest.approx(40.0)
+    assert res.proba_ensemble is True
+    # Provenance déterministe = AROME + ARPEGE (la proba n'est PAS un run).
+    assert set(res.runs_utilises) == {AROME, ARPEGE}
     assert res.creneau == "matin"
     assert res.ancre_utc == pd.Timestamp("2024-06-15 00:00:00+00:00")
-    assert res.runs_utilises[ECMWF] == pd.Timestamp("2024-06-14 18:00:00+00:00")
 
 
-def test_obtenir_prevision_omet_proba_si_ecmwf_muet() -> None:
-    # ECMWF (proba) muet → la contribution est omise, le reste part (D8).
+def test_obtenir_prevision_omet_proba_si_ensemble_muet() -> None:
+    # Ensemble (proba) muet → proba omise, le reste part (D8).
     sess = _session_par_modele({AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: None})
     client = OpenMeteoSingleRuns(session=sess)
     res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
 
     assert "probabilite_pluie_pct" not in res.df.columns
+    assert res.proba_ensemble is False
     assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
-    assert ECMWF not in res.runs_utilises
-    assert {AROME, ARPEGE} <= set(res.runs_utilises)
+    assert set(res.runs_utilises) == {AROME, ARPEGE}
 
 
 def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:
@@ -243,3 +261,185 @@ def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:
     client = OpenMeteoSingleRuns(session=sess)
     with pytest.raises(PrevisionIndisponibleError):
         client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
+
+
+def test_obtenir_proba_ensemble_cumul_6h_par_bin() -> None:
+    """Proba = P(cumul 6 h ≥ 1 mm), par bin UTC, rediffusée sur chaque heure.
+
+    Vérifie : (1) l'accumulation — une bruine 0,2 mm/h sur 6 h (cumul 1,2 mm)
+    COMPTE, alors qu'une seule heure à 0,1 mm ne compte pas (l'ancien seuil
+    instantané l'aurait comptée) ; (2) les deux bins 0-6 / 6-12 ont des probas
+    distinctes ; (3) la proba du bin est portée par chacune de ses 6 heures.
+    """
+    times = [
+        t.strftime("%Y-%m-%dT%H:%M")
+        for t in pd.date_range("2024-06-15 00:00", periods=12, freq="h", tz="UTC")
+    ]
+    payload = {
+        "hourly": {
+            "time": times,
+            # Bin 0-6 : m01 bruine cumul 1,2 ✓ ; m02 0,1 mm seul ✗ ; m03 0 ✗ ;
+            # m04 0,5+0,5=1,0 ✓ → 2/4 = 50 %.
+            # Bin 6-12 : m02 averse 2,0 ✓, les autres 0 → 1/4 = 25 %.
+            "precipitation_member01": [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0],
+            "precipitation_member02": [0.1, 0, 0, 0, 0, 0, 2.0, 0, 0, 0, 0, 0],
+            "precipitation_member03": [0.0] * 12,
+            "precipitation_member04": [0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_modele({ECMWF: payload}))
+    proba = client.obtenir_proba_ensemble(48.54, -1.62, 1)
+    assert proba is not None
+    for h in range(6):  # bin 0-6 = 50 % sur chacune des 6 h
+        assert proba.iloc[h] == pytest.approx(50.0)
+    for h in range(6, 12):  # bin 6-12 = 25 %
+        assert proba.iloc[h] == pytest.approx(25.0)
+
+
+def test_obtenir_proba_ensemble_past_days_transmis() -> None:
+    """``past_days`` est transmis à l'Ensemble API (passé de la proba, App 2)."""
+    sess = _session_par_modele({ECMWF: _PAYLOAD_ECMWF_ENS})
+    client = OpenMeteoSingleRuns(session=sess)
+    client.obtenir_proba_ensemble(48.54, -1.62, 2, past_days=2)
+    params = sess.get.call_args.kwargs["params"]
+    assert params["past_days"] == "2"
+    # Sans past_days (défaut 0), le paramètre est absent (forward-only).
+    sess2 = _session_par_modele({ECMWF: _PAYLOAD_ECMWF_ENS})
+    OpenMeteoSingleRuns(session=sess2).obtenir_proba_ensemble(48.54, -1.62, 2)
+    assert "past_days" not in sess2.get.call_args.kwargs["params"]
+
+
+# --------------------------------------------------------------------------- #
+# Stitch déterministe du passé — App 2 (D6)
+# --------------------------------------------------------------------------- #
+
+
+def test_creneaux_precedents_depuis_matin() -> None:
+    # Depuis (matin, 15/06) → 4 créneaux précédents, pas de 12 h, du + récent
+    # au + ancien.
+    prec = creneaux_precedents(pd.Timestamp("2024-06-15 06:00:00+00:00"), 4)
+    j15 = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    assert prec == [
+        ("apres-midi", j15 - pd.Timedelta(days=1)),
+        ("matin", j15 - pd.Timedelta(days=1)),
+        ("apres-midi", j15 - pd.Timedelta(days=2)),
+        ("matin", j15 - pd.Timedelta(days=2)),
+    ]
+
+
+def _session_par_run(payloads_par_run: dict[str, dict | None]) -> MagicMock:
+    """Mock session qui dispatche selon le paramètre ``run`` (run muet si None)."""
+    sess = MagicMock()
+
+    def _get(url, params=None, timeout=None):  # noqa: ANN001, ANN202
+        p = payloads_par_run.get(params["run"])
+        return _resp({}, status=400) if p is None else _resp(p)
+
+    sess.get.side_effect = _get
+    return sess
+
+
+def _payload_run(run_utc: pd.Timestamp, marqueur: float, n_heures: int) -> dict:
+    """Payload où la T° (°C) = ``marqueur`` constant (encode le run source)."""
+    times = pd.date_range(run_utc, periods=n_heures, freq="h", tz="UTC")
+    iso = [t.strftime("%Y-%m-%dT%H:%M") for t in times]
+    return {"hourly": {"time": iso, "temperature_2m": [marqueur] * n_heures}}
+
+
+def test_obtenir_serie_avec_passe_stitch_arpege_matin() -> None:
+    """Stitch ARPEGE créneau matin : 4 segments passés (12 h) + run courant.
+
+    Chaque run porte un marqueur de T° distinct → on vérifie que chaque heure
+    vient du bon run, et que le pavage est continu de J-2 à l'horizon.
+    """
+    # Runs attendus (créneau matin J=15/06) : courant 00Z 15 ; passé 12Z 14,
+    # 00Z 14, 12Z 13, 00Z 13.
+    r_cur = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    r_p1 = pd.Timestamp("2024-06-14 12:00:00+00:00")
+    r_p2 = pd.Timestamp("2024-06-14 00:00:00+00:00")
+    r_p3 = pd.Timestamp("2024-06-13 12:00:00+00:00")
+    r_p4 = pd.Timestamp("2024-06-13 00:00:00+00:00")
+
+    def _iso(ts: pd.Timestamp) -> str:
+        return ts.strftime("%Y-%m-%dT%H:%M")
+
+    payloads = {
+        _iso(r_cur): _payload_run(r_cur, 0.0, 96),
+        _iso(r_p1): _payload_run(r_p1, 1.0, 24),
+        _iso(r_p2): _payload_run(r_p2, 2.0, 24),
+        _iso(r_p3): _payload_run(r_p3, 3.0, 24),
+        _iso(r_p4): _payload_run(r_p4, 4.0, 24),
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_run(payloads))
+    res = client.obtenir_serie_avec_passe(
+        ARPEGE,
+        ARPEGE,
+        48.54,
+        -1.62,
+        horizon_jours=4,
+        now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+        variables=("temperature_2m",),
+        n_jours_passe=2,
+    )
+
+    # Provenance.
+    assert res.run_courant == r_cur
+    assert res.pivot_utc == r_cur
+    assert res.runs_passe == [r_p1, r_p2, r_p3, r_p4]
+
+    # Pavage continu [00Z 13 ; 00Z 19) = 48 h passé + 96 h courant = 144 h.
+    assert res.df.index[0] == r_p4
+    assert len(res.df) == 144
+
+    def _temp_c(ts: str) -> float:
+        return float(res.df.loc[pd.Timestamp(ts, tz="UTC"), "temperature_2m"]) - 273.15
+
+    # Chaque heure vient du run le plus récent de son bloc de 12 h.
+    assert _temp_c("2024-06-13 06:00") == pytest.approx(4.0)  # run 00Z 13
+    assert _temp_c("2024-06-13 18:00") == pytest.approx(3.0)  # run 12Z 13
+    assert _temp_c("2024-06-14 06:00") == pytest.approx(2.0)  # run 00Z 14
+    assert _temp_c("2024-06-14 18:00") == pytest.approx(1.0)  # run 12Z 14
+    assert _temp_c("2024-06-15 06:00") == pytest.approx(0.0)  # run courant 00Z 15
+
+
+def test_obtenir_serie_avec_passe_segment_passe_muet_saute() -> None:
+    """Un run passé muet est sauté (trou) ; la série est tout de même renvoyée."""
+    r_cur = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    r_p1 = pd.Timestamp("2024-06-14 12:00:00+00:00")
+
+    def _iso(ts: pd.Timestamp) -> str:
+        return ts.strftime("%Y-%m-%dT%H:%M")
+
+    # Seuls le run courant et le 1er passé répondent ; les 3 autres sont muets.
+    payloads: dict[str, dict | None] = {
+        _iso(r_cur): _payload_run(r_cur, 0.0, 96),
+        _iso(r_p1): _payload_run(r_p1, 1.0, 24),
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_run(payloads))
+    res = client.obtenir_serie_avec_passe(
+        ARPEGE,
+        ARPEGE,
+        48.54,
+        -1.62,
+        horizon_jours=4,
+        now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+        variables=("temperature_2m",),
+        n_jours_passe=2,
+    )
+    # Seul le segment 12Z 14 est paté + le run courant.
+    assert res.runs_passe == [r_p1]
+    assert res.df.index[0] == r_p1  # [12Z 14 ; 00Z 15) + courant
+
+
+def test_obtenir_serie_avec_passe_run_courant_muet_leve() -> None:
+    client = OpenMeteoSingleRuns(session=_session_par_run({}))  # tout muet
+    with pytest.raises(PrevisionIndisponibleError):
+        client.obtenir_serie_avec_passe(
+            ARPEGE,
+            ARPEGE,
+            48.54,
+            -1.62,
+            horizon_jours=4,
+            now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+            variables=("temperature_2m",),
+        )
