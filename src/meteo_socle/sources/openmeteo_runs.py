@@ -28,10 +28,12 @@ Faits vérifiés le 2026-06-04 (sonde) repris ici :
 - **La proba est une grandeur d'ENSEMBLE, non déterministe** : aucun run
   d'ensemble n'est épinglable chez Open-Meteo (Single Runs n'expose que la
   moyenne, l'Ensemble API n'a pas de paramètre ``run``). On la calcule donc
-  nous-mêmes (% de membres ECMWF IFS-ENS ≥ 0,1 mm, dernier run) — cf.
+  nous-mêmes depuis les membres ECMWF IFS-ENS (dernier run), au **produit
+  opérationnel** des centres : **P(cumul ≥ 1 mm sur une fenêtre de 6 h)** (cf.
+  ECMWF FUG 8.1.1), et non la fraction instantanée ≥ 0,1 mm/h qui saturait. Cf.
   ``OpenMeteoSingleRuns.obtenir_proba_ensemble``. Le champ
-  ``precipitation_probability`` de Forecast est du GEFS opaque (vérifié), d'où
-  le calcul maison transparent.
+  ``precipitation_probability`` de Forecast est du GEFS opaque (vérifié, et
+  lui-même au seuil ≥ 0,1 mm/h), d'où le calcul maison transparent.
 """
 
 from __future__ import annotations
@@ -55,8 +57,13 @@ SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast"
 # le champ `precipitation_probability` de Forecast est du GEFS opaque (vérifié).
 # C'est le seul fetch non déterministe (dernier run, stable par créneau via cache).
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
-# Seuil d'exceedance (mm/h) = définition Open-Meteo de la proba (> 0,1 mm).
-SEUIL_PLUIE_PROBA_MM = 0.1
+# Définition opérationnelle de la proba (cf. ECMWF FUG 8.1.1, MF/OMM) : proba que
+# le **cumul** dépasse un seuil sur une **fenêtre**, pas l'instant horaire. On
+# reprend le produit standard ECMWF : P(cumul ≥ 1 mm sur 6 h). L'ancien seuil
+# instantané 0,1 mm/h saturait (toute trace de bruine, dans un membre, chaque
+# heure → ~100 % après le max par fenêtre côté affichage).
+SEUIL_PLUIE_PROBA_MM = 1.0  # mm cumulés sur la fenêtre
+CUMUL_PROBA_H = 6  # fenêtre d'accumulation (h), bins UTC 0-6/6-12/12-18/18-24
 
 # Bornes UTC des créneaux (= heures de cron App 1). En vigueur dès ces
 # heures ; entre minuit et le créneau du matin, on garde l'après-midi de la
@@ -301,17 +308,27 @@ class OpenMeteoSingleRuns:
         return appliquer_conventions_socle(df)
 
     def obtenir_proba_ensemble(
-        self, latitude: float, longitude: float, horizon_jours: int
+        self, latitude: float, longitude: float, horizon_jours: int, past_days: int = 0
     ) -> pd.Series | None:
-        """Proba de pluie horaire (%) depuis les membres ECMWF IFS-ENS.
+        """Proba de pluie (%) = P(cumul ≥ seuil sur fenêtre) — produit ECMWF.
 
         Grandeur d'**ensemble**, NON déterministe : aucun run d'ensemble n'est
         épinglable chez Open-Meteo (vérifié), donc c'est le **dernier run**
         assemblé. On récupère les ~50 membres de precipitation (Ensemble API) et
-        on calcule la **fraction de membres ≥ ``SEUIL_PLUIE_PROBA_MM``** —
-        transparent (ECMWF nommé, seuil maîtrisé), au lieu du champ
-        ``precipitation_probability`` de Forecast qui est du GEFS opaque
-        (vérifié). Retourne ``None`` si l'ensemble est muet (proba omise, D8).
+        on reproduit le **produit opérationnel** des centres : pour chaque
+        **fenêtre de ``CUMUL_PROBA_H`` heures** (bins UTC fixes alignés minuit :
+        0-6/6-12/12-18/18-24), **fraction de membres dont le cumul ≥
+        ``SEUIL_PLUIE_PROBA_MM``** (cf. ECMWF FUG 8.1.1, P ≥ 1 mm/6 h). La proba
+        du bin est rediffusée sur chacune de ses heures : l'affichage agrège par
+        ``max`` sur sa fenêtre (6 h App 1 = un bin ; 12 h jour/nuit App 2 =
+        deux bins → max = pic 6 h). Ce cumul recale sur la pratique des centres
+        ; l'ancien seuil instantané ≥ 0,1 mm/h saturait à ~100 %. Transparent
+        (ECMWF nommé), au lieu du champ ``precipitation_probability`` de Forecast
+        (GEFS opaque). ``past_days`` > 0 inclut le passé (hindcast du dernier run
+        d'ensemble : pas de stitch de runs explicites possible pour un ensemble,
+        qui n'a pas de run épinglable — d'où ``past_days``, cohérent avec le statut
+        de « seul fetch non déterministe »). Retourne ``None`` si l'ensemble est
+        muet (proba omise, D8).
         """
         params = {
             "latitude": f"{latitude}",
@@ -322,6 +339,8 @@ class OpenMeteoSingleRuns:
             "timezone": "UTC",
             "precipitation_unit": "mm",
         }
+        if past_days:
+            params["past_days"] = str(past_days)
         try:
             response = get_avec_retry(
                 self.session, ENSEMBLE_URL, params=params, timeout=self.timeout
@@ -340,8 +359,17 @@ class OpenMeteoSingleRuns:
         df["time"] = pd.to_datetime(df["time"], utc=True)
         df = df.set_index("time")
         mat = df[membres].apply(pd.to_numeric, errors="coerce")
-        n_valides = mat.notna().sum(axis=1)
-        proba = (mat >= SEUIL_PLUIE_PROBA_MM).sum(axis=1).where(n_valides > 0) / n_valides * 100.0
+        # Cumul par membre sur les fenêtres UTC fixes (bins alignés minuit).
+        # min_count=1 : un bin tout-NaN reste NaN (membre muet sur la fenêtre),
+        # sinon somme des heures disponibles.
+        cumul = mat.resample(f"{CUMUL_PROBA_H}h").sum(min_count=1)
+        n_valides = cumul.notna().sum(axis=1)
+        proba_bin = (
+            (cumul >= SEUIL_PLUIE_PROBA_MM).sum(axis=1).where(n_valides > 0) / n_valides * 100.0
+        )
+        # Rediffuse la proba du bin sur chacune de ses heures (l'affichage
+        # agrège par max sur sa fenêtre → pic 6 h).
+        proba = proba_bin.reindex(mat.index, method="ffill")
         return proba.rename("probabilite_pluie_pct")
 
     def obtenir_prevision(

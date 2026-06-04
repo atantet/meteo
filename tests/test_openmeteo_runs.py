@@ -150,8 +150,9 @@ _PAYLOAD_ARPEGE = _payload(
     temperature_2m=[11.0, 11.0, 11.0],  # différent → vérifie priorité AROME
     shortwave_radiation=[0.0, 100.0, 200.0],
 )
-# Réponse Ensemble API (membres) pour la proba B2. 5 membres : à l'heure 2,
-# 3/5 ≥ 0,1 mm → proba 60 %.
+# Réponse Ensemble API (membres) pour la proba. 5 membres. Les 3 h tombent dans
+# le même bin UTC [00:00, 06:00) → on compare le CUMUL 6 h de chaque membre au
+# seuil 1 mm : m01=1.0 ✓, m02=1.0 ✓, m03=0.5 ✗, m04=0 ✗, m05=0 ✗ → 2/5 = 40 %.
 _PAYLOAD_ECMWF_ENS = _payload(
     precipitation=[0.0, 0.2, 0.3],
     precipitation_member01=[0.0, 0.5, 0.5],
@@ -232,8 +233,10 @@ def test_obtenir_prevision_fusion_complete() -> None:
     assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
     # Rayonnement comblé par ARPEGE.
     assert res.df["rayonnement_global"].iloc[1] == pytest.approx(100.0 * 3600.0)
-    # Proba calculée depuis les membres d'ensemble (3/5 ≥ 0,1 mm à l'heure 2).
-    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(60.0)
+    # Proba = cumul 6 h ≥ 1 mm : 2/5 membres (m01, m02) sur le bin → 40 %,
+    # rediffusé sur les 3 h du bin.
+    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(40.0)
+    assert res.df["probabilite_pluie_pct"].iloc[0] == pytest.approx(40.0)
     assert res.proba_ensemble is True
     # Provenance déterministe = AROME + ARPEGE (la proba n'est PAS un run).
     assert set(res.runs_utilises) == {AROME, ARPEGE}
@@ -258,6 +261,52 @@ def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:
     client = OpenMeteoSingleRuns(session=sess)
     with pytest.raises(PrevisionIndisponibleError):
         client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
+
+
+def test_obtenir_proba_ensemble_cumul_6h_par_bin() -> None:
+    """Proba = P(cumul 6 h ≥ 1 mm), par bin UTC, rediffusée sur chaque heure.
+
+    Vérifie : (1) l'accumulation — une bruine 0,2 mm/h sur 6 h (cumul 1,2 mm)
+    COMPTE, alors qu'une seule heure à 0,1 mm ne compte pas (l'ancien seuil
+    instantané l'aurait comptée) ; (2) les deux bins 0-6 / 6-12 ont des probas
+    distinctes ; (3) la proba du bin est portée par chacune de ses 6 heures.
+    """
+    times = [
+        t.strftime("%Y-%m-%dT%H:%M")
+        for t in pd.date_range("2024-06-15 00:00", periods=12, freq="h", tz="UTC")
+    ]
+    payload = {
+        "hourly": {
+            "time": times,
+            # Bin 0-6 : m01 bruine cumul 1,2 ✓ ; m02 0,1 mm seul ✗ ; m03 0 ✗ ;
+            # m04 0,5+0,5=1,0 ✓ → 2/4 = 50 %.
+            # Bin 6-12 : m02 averse 2,0 ✓, les autres 0 → 1/4 = 25 %.
+            "precipitation_member01": [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0, 0],
+            "precipitation_member02": [0.1, 0, 0, 0, 0, 0, 2.0, 0, 0, 0, 0, 0],
+            "precipitation_member03": [0.0] * 12,
+            "precipitation_member04": [0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_modele({ECMWF: payload}))
+    proba = client.obtenir_proba_ensemble(48.54, -1.62, 1)
+    assert proba is not None
+    for h in range(6):  # bin 0-6 = 50 % sur chacune des 6 h
+        assert proba.iloc[h] == pytest.approx(50.0)
+    for h in range(6, 12):  # bin 6-12 = 25 %
+        assert proba.iloc[h] == pytest.approx(25.0)
+
+
+def test_obtenir_proba_ensemble_past_days_transmis() -> None:
+    """``past_days`` est transmis à l'Ensemble API (passé de la proba, App 2)."""
+    sess = _session_par_modele({ECMWF: _PAYLOAD_ECMWF_ENS})
+    client = OpenMeteoSingleRuns(session=sess)
+    client.obtenir_proba_ensemble(48.54, -1.62, 2, past_days=2)
+    params = sess.get.call_args.kwargs["params"]
+    assert params["past_days"] == "2"
+    # Sans past_days (défaut 0), le paramètre est absent (forward-only).
+    sess2 = _session_par_modele({ECMWF: _PAYLOAD_ECMWF_ENS})
+    OpenMeteoSingleRuns(session=sess2).obtenir_proba_ensemble(48.54, -1.62, 2)
+    assert "past_days" not in sess2.get.call_args.kwargs["params"]
 
 
 # --------------------------------------------------------------------------- #

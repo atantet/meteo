@@ -66,11 +66,18 @@ Bascule de la prévision sur la **Single Runs API**. Renommage `shortwave_radiat
   *moyenne* ; l'Ensemble API n'a **pas** de paramètre `run` ; toute proba route vers un
   ensemble « run not available »). La doctrine « run déterministe » **exclut donc
   mécaniquement** une proba. On la calcule **nous-mêmes** depuis les **membres ECMWF
-  IFS-ENS** (Ensemble API, % de membres ≥ 0,1 mm) — transparent (ECMWF nommé, seuil
-  maîtrisé), au lieu du champ `precipitation_probability` de Forecast qui est du **GEFS
-  opaque** (vérifié : ne correspond pas aux membres ECMWF). C'est le **seul fetch non
-  déterministe** (dernier run d'ensemble, stable par créneau via cache), assumé et
-  étiqueté. App 1 et App 2 (ligne AROME) en bénéficient.
+  IFS-ENS** (Ensemble API), au **produit opérationnel** des centres : **P(cumul ≥ 1 mm
+  sur une fenêtre de 6 h)**, bins UTC fixes 0-6/6-12/12-18/18-24 (cf. ECMWF FUG 8.1.1),
+  rediffusée sur chaque heure du bin. **Amendement 2026-06-04** : on abandonne la
+  fraction instantanée ≥ 0,1 mm/h, qui saturait à ~100 % (toute trace de bruine, dans
+  un membre, chaque heure → max par fenêtre côté affichage = quasi-certitude). Aucun
+  produit proba *calibré* n'étant disponible gratuitement (ecPoint ECMWF licencié, EMOS
+  MF interne, flux publics ECMWF/MF = ensembles bruts), on assume une proba **brute mais
+  transparente et cohérente** (ECMWF IFS-ENS nommé, seuil/fenêtre = définition ECMWF), au
+  lieu du champ `precipitation_probability` de Forecast qui est du **GEFS opaque**
+  (vérifié : ne correspond pas aux membres ECMWF, et au même seuil ≥ 0,1 mm/h). C'est le
+  **seul fetch non déterministe** (dernier run d'ensemble, stable par créneau via cache),
+  assumé et étiqueté. App 1 et App 2 (ligne AROME) en bénéficient.
 - **Pas de cascade par horizon imposée** : chaque app garde sa composition (Veille
   fusionne, Op compare 3 modèles). La cohérence vient de l'infra commune (table de
   runs, fetch, merge) **et de la réutilisation de la fusion App 1 par l'App 2**.
