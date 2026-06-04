@@ -130,6 +130,23 @@ def _fetch_prevision(
 
 
 @st.cache_data(ttl=3600)
+def _fetch_prevision_arome(
+    latitude: float, longitude: float, slot_now: pd.Timestamp
+) -> pd.DataFrame:
+    """Fusion App 1 (AROME + ARPEGE rayonnt + ECMWF-ENS proba) sur 0-48 h.
+
+    = la ligne « AROME » du dashboard, **identique à l'e-mail Veille** du même
+    créneau (ADR-0011 D2). Réutilise `obtenir_prevision` (la fusion App 1) puis
+    clippe à 48 h depuis l'init du run (au-delà, c'est le territoire des lignes
+    ARPEGE / ECMWF). Apporte aussi la proba (via ECMWF-ENS) à l'App 2.
+    """
+    src = OpenMeteoSingleRuns()
+    res = src.obtenir_prevision(latitude, longitude, 3, slot_now)
+    fin = res.ancre_utc + pd.Timedelta(hours=48)
+    return res.df.loc[res.df.index < fin]
+
+
+@st.cache_data(ttl=3600)
 def _fetch_cartes_geo():  # noqa: ANN202
     """Cartes Météociel ARPEGE-Europe résumé (4 cibles), cache 1 h."""
     from apps.operationnelle.cartes_geo import recuperer_cartes
@@ -424,11 +441,11 @@ def _afficher_grille_tendance(
     )
 
     def _td_variable(libelle: str, sur_fond_sombre: bool = False) -> str:
-        """Cellule 1ère colonne, fusionnée verticalement sur 2 sous-lignes."""
+        """Cellule 1ère colonne, fusionnée sur les sous-lignes (une par modèle)."""
         col = _FOND_SOUS_LABEL if sur_fond_sombre else _LIGNE_LABEL_COLOR
         bg = _FOND_PICTO if sur_fond_sombre else "white"
         return (
-            f'<td rowspan="2" style="padding:4px 8px;font-size:13px;'
+            f'<td rowspan="{len(agreges)}" style="padding:4px 8px;font-size:13px;'
             f"color:{col};font-weight:600;position:sticky;left:0;"
             f'background:{bg};white-space:nowrap;vertical-align:middle;">'
             f"{libelle}</td>"
@@ -941,6 +958,14 @@ def main() -> None:
             st.error(f"Erreur de récupération des prévisions : {e}")
             st.stop()
 
+        # Ligne AROME (fusion App 1, 0-48 h) = e-mail Veille. Dégradation
+        # gracieuse : si le run AROME est muet, on l'omet et le dashboard part
+        # avec ARPEGE + ECMWF (pas de st.stop()).
+        try:
+            prevision_arome = _fetch_prevision_arome(site["latitude"], site["longitude"], slot_now)
+        except Exception:  # noqa: BLE001
+            prevision_arome = None
+
     quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
     quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
 
@@ -955,33 +980,35 @@ def main() -> None:
     prevision = prevision_courte
     quotidien = quotidien_court
 
-    # ----- §1 Tendance jour/nuit × N j × 2 modèles -----
+    # ----- §1 Tendance jour/nuit × N j × 3 modèles -----
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        f"Tendance {horizon_long} jours — ARPEGE vs ECMWF IFS"
+        f"Tendance {horizon_long} jours — AROME · ARPEGE · ECMWF IFS"
         "</h3>",
         unsafe_allow_html=True,
     )
     st.caption(
-        "Deux modèles en parallèle, deux fenêtres par jour (en UTC, alignées "
+        "Trois modèles en parallèle, deux fenêtres par jour (en UTC, alignées "
         "sur les cycles de run) : Nuit (18-06 UTC) puis Jour (06-18 UTC). "
-        f"ARPEGE Météo-France (~10 km, fiable 0-{horizon_court} j ; cellules "
-        f"« — » au-delà) et ECMWF IFS (~9 km, référence mondiale, "
-        f"0-{horizon_long} j). Les {n_past_days * 24} h passées (analyse des "
-        "deux modèles, runs explicites) sont incluses — faire défiler vers la "
-        "gauche pour les voir."
+        f"AROME France HD (~1,3 km, **0-48 h**, identique à l'e-mail Veille du "
+        f"créneau), ARPEGE Météo-France (~10 km, 0-{horizon_court} j) et "
+        f"ECMWF IFS (~9 km, référence mondiale, 0-{horizon_long} j) ; cellules "
+        f"« — » au-delà de l'horizon de chaque modèle. Les {n_past_days * 24} h "
+        "passées (analyse stitchée de runs explicites) sont incluses pour "
+        "ARPEGE/ECMWF — faire défiler vers la gauche pour les voir."
     )
 
-    # Les deux lignes intègrent les N j passées (analyse stitchée de runs
-    # explicites précédents) ; la frontière passé/prévision est le pivot UTC
-    # (00Z du jour). La nuit la plus à gauche peut rester partielle (début des
-    # données stitchées).
+    # Frontière passé/prévision = pivot UTC (00Z du jour). AROME (fusion App 1)
+    # n'a pas de passé (prévision pure 0-48 h), d'où « — » dans les colonnes
+    # archive ; ARPEGE/ECMWF portent le passé stitché (runs explicites).
     etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
+    series_tendance: list[tuple[str, pd.DataFrame, pd.Series | None]] = []
+    if prevision_arome is not None and not prevision_arome.empty:
+        series_tendance.append(("AROME", prevision_arome, etp_horaire_socle(prevision_arome, site)))
+    series_tendance.append(("ARPEGE", prevision_courte_etendue, etp_arpege_etendu))
+    series_tendance.append(("ECMWF IFS", prevision_longue, etp_long))
     _afficher_grille_tendance(
-        [
-            ("ARPEGE", prevision_courte_etendue, etp_arpege_etendu),
-            ("ECMWF IFS", prevision_longue, etp_long),
-        ],
+        series_tendance,
         horizon_jours=horizon_long + n_past_days,
         tz_locale="UTC",
     )
