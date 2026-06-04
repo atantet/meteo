@@ -118,6 +118,25 @@ def runs_du_creneau(creneau: str, jour: pd.Timestamp) -> dict[str, pd.Timestamp]
     return {AROME: mf, ARPEGE: mf, ECMWF: ecmwf}
 
 
+def creneaux_precedents(now_utc: pd.Timestamp, n: int) -> list[tuple[str, pd.Timestamp]]:
+    """Les ``n`` créneaux précédant le créneau courant, du plus récent au plus ancien.
+
+    Les créneaux avancent par pas de 12 h (matin ↔ après-midi). Sert au stitch
+    déterministe du passé de l'App 2 (ADR-0011 D6) : chaque créneau-run
+    précédent fournit son segment de 12 h. Ex. depuis (matin, J) :
+    [(apres-midi, J-1), (matin, J-1), (apres-midi, J-2), (matin, J-2)].
+    """
+    creneau, jour = creneau_run(now_utc)
+    out: list[tuple[str, pd.Timestamp]] = []
+    for _ in range(n):
+        if creneau == "matin":
+            creneau, jour = "apres-midi", jour - pd.Timedelta(days=1)
+        else:
+            creneau, jour = "matin", jour
+        out.append((creneau, jour))
+    return out
+
+
 def ancre_creneau(now_utc: pd.Timestamp) -> pd.Timestamp:
     """Init du run-cœur (AROME) du créneau courant = ancre de fenêtre UTC.
 
@@ -166,6 +185,29 @@ class ResultatPrevision:
     def ancre_utc(self) -> pd.Timestamp:
         """Init du run-cœur (AROME) = ancre de fenêtre UTC."""
         return self.runs_demandes[AROME]
+
+
+# Un créneau-run précédent fournit 12 h de passé (créneaux espacés de 12 h, D6).
+SEGMENT_PASSE_H = 12
+
+
+@dataclass
+class SerieAvecPasse:
+    """Série mono-modèle [passé stitché ; prévision] + provenance (ADR-0011 D6).
+
+    ``pivot_utc`` = init du run courant = frontière analyse-approchée / prévision.
+    ``run_courant`` décrit la partie future ; ``runs_passe`` liste les runs
+    explicites qui pavent le passé (du plus récent au plus ancien). Le passé est
+    fait de runs explicites, pas de ``past_days`` — provenance exacte partout.
+    """
+
+    df: pd.DataFrame
+    run_courant: pd.Timestamp
+    runs_passe: list[pd.Timestamp] = field(default_factory=list)
+
+    @property
+    def pivot_utc(self) -> pd.Timestamp:
+        return self.run_courant
 
 
 @dataclass
@@ -271,3 +313,56 @@ class OpenMeteoSingleRuns:
             runs_demandes=runs,
             runs_utilises=runs_utilises,
         )
+
+    def obtenir_serie_avec_passe(
+        self,
+        modele: str,
+        cle_run: str,
+        latitude: float,
+        longitude: float,
+        horizon_jours: int,
+        now_utc: pd.Timestamp,
+        variables: tuple[str, ...],
+        n_jours_passe: int = 2,
+    ) -> SerieAvecPasse:
+        """Série mono-modèle = passé stitché (runs explicites) + prévision (D6).
+
+        Le futur vient du run courant du créneau (``cle_run`` ∈ {``ARPEGE``,
+        ``ECMWF``} dans la table D3). Le passé est pavé par les
+        ``n_jours_passe * 2`` créneaux-runs précédents, chacun tranché sur son
+        segment de 12 h (T+0 → T+12 h) — pas de ``past_days``, provenance exacte.
+        Un segment passé muet est sauté (trou possible). Lève
+        ``PrevisionIndisponibleError`` si le run courant est muet.
+        """
+        creneau, jour = creneau_run(now_utc)
+        run_courant = runs_du_creneau(creneau, jour)[cle_run]
+
+        df_futur = self.obtenir_run(
+            modele, run_courant, latitude, longitude, horizon_jours, variables
+        )
+        if df_futur is None or df_futur.empty:
+            raise PrevisionIndisponibleError(
+                f"Run courant {run_courant} muet pour {modele} (créneau {creneau})."
+            )
+
+        frames: list[pd.DataFrame] = [df_futur]
+        runs_passe: list[pd.Timestamp] = []
+        seg = pd.Timedelta(hours=SEGMENT_PASSE_H)
+        for c, j in creneaux_precedents(now_utc, n_jours_passe * 2):
+            run = runs_du_creneau(c, j)[cle_run]
+            df = self.obtenir_run(modele, run, latitude, longitude, 1, variables)
+            if df is None or df.empty:
+                continue
+            segment = df.loc[(df.index >= run) & (df.index < run + seg)]
+            if not segment.empty:
+                frames.append(segment)
+                runs_passe.append(run)
+
+        # Le run courant (frames[0]) est prioritaire à la frontière ; les
+        # segments passés sont strictement avant son init (pas de recouvrement),
+        # mais on dédoublonne par sécurité.
+        serie = pd.concat(frames)
+        serie = serie[~serie.index.duplicated(keep="first")].sort_index()
+        for col in serie.columns:
+            serie[col] = pd.to_numeric(serie[col], errors="coerce")
+        return SerieAvecPasse(df=serie, run_courant=run_courant, runs_passe=runs_passe)

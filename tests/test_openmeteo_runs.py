@@ -16,6 +16,7 @@ from meteo_socle.sources.openmeteo_runs import (
     PrevisionIndisponibleError,
     ancre_creneau,
     creneau_run,
+    creneaux_precedents,
     fusionner_priorite,
     runs_du_creneau,
 )
@@ -243,3 +244,139 @@ def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:
     client = OpenMeteoSingleRuns(session=sess)
     with pytest.raises(PrevisionIndisponibleError):
         client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
+
+
+# --------------------------------------------------------------------------- #
+# Stitch déterministe du passé — App 2 (D6)
+# --------------------------------------------------------------------------- #
+
+
+def test_creneaux_precedents_depuis_matin() -> None:
+    # Depuis (matin, 15/06) → 4 créneaux précédents, pas de 12 h, du + récent
+    # au + ancien.
+    prec = creneaux_precedents(pd.Timestamp("2024-06-15 06:00:00+00:00"), 4)
+    j15 = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    assert prec == [
+        ("apres-midi", j15 - pd.Timedelta(days=1)),
+        ("matin", j15 - pd.Timedelta(days=1)),
+        ("apres-midi", j15 - pd.Timedelta(days=2)),
+        ("matin", j15 - pd.Timedelta(days=2)),
+    ]
+
+
+def _session_par_run(payloads_par_run: dict[str, dict | None]) -> MagicMock:
+    """Mock session qui dispatche selon le paramètre ``run`` (run muet si None)."""
+    sess = MagicMock()
+
+    def _get(url, params=None, timeout=None):  # noqa: ANN001, ANN202
+        p = payloads_par_run.get(params["run"])
+        return _resp({}, status=400) if p is None else _resp(p)
+
+    sess.get.side_effect = _get
+    return sess
+
+
+def _payload_run(run_utc: pd.Timestamp, marqueur: float, n_heures: int) -> dict:
+    """Payload où la T° (°C) = ``marqueur`` constant (encode le run source)."""
+    times = pd.date_range(run_utc, periods=n_heures, freq="h", tz="UTC")
+    iso = [t.strftime("%Y-%m-%dT%H:%M") for t in times]
+    return {"hourly": {"time": iso, "temperature_2m": [marqueur] * n_heures}}
+
+
+def test_obtenir_serie_avec_passe_stitch_arpege_matin() -> None:
+    """Stitch ARPEGE créneau matin : 4 segments passés (12 h) + run courant.
+
+    Chaque run porte un marqueur de T° distinct → on vérifie que chaque heure
+    vient du bon run, et que le pavage est continu de J-2 à l'horizon.
+    """
+    # Runs attendus (créneau matin J=15/06) : courant 00Z 15 ; passé 12Z 14,
+    # 00Z 14, 12Z 13, 00Z 13.
+    r_cur = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    r_p1 = pd.Timestamp("2024-06-14 12:00:00+00:00")
+    r_p2 = pd.Timestamp("2024-06-14 00:00:00+00:00")
+    r_p3 = pd.Timestamp("2024-06-13 12:00:00+00:00")
+    r_p4 = pd.Timestamp("2024-06-13 00:00:00+00:00")
+
+    def _iso(ts: pd.Timestamp) -> str:
+        return ts.strftime("%Y-%m-%dT%H:%M")
+
+    payloads = {
+        _iso(r_cur): _payload_run(r_cur, 0.0, 96),
+        _iso(r_p1): _payload_run(r_p1, 1.0, 24),
+        _iso(r_p2): _payload_run(r_p2, 2.0, 24),
+        _iso(r_p3): _payload_run(r_p3, 3.0, 24),
+        _iso(r_p4): _payload_run(r_p4, 4.0, 24),
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_run(payloads))
+    res = client.obtenir_serie_avec_passe(
+        ARPEGE,
+        ARPEGE,
+        48.54,
+        -1.62,
+        horizon_jours=4,
+        now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+        variables=("temperature_2m",),
+        n_jours_passe=2,
+    )
+
+    # Provenance.
+    assert res.run_courant == r_cur
+    assert res.pivot_utc == r_cur
+    assert res.runs_passe == [r_p1, r_p2, r_p3, r_p4]
+
+    # Pavage continu [00Z 13 ; 00Z 19) = 48 h passé + 96 h courant = 144 h.
+    assert res.df.index[0] == r_p4
+    assert len(res.df) == 144
+
+    def _temp_c(ts: str) -> float:
+        return float(res.df.loc[pd.Timestamp(ts, tz="UTC"), "temperature_2m"]) - 273.15
+
+    # Chaque heure vient du run le plus récent de son bloc de 12 h.
+    assert _temp_c("2024-06-13 06:00") == pytest.approx(4.0)  # run 00Z 13
+    assert _temp_c("2024-06-13 18:00") == pytest.approx(3.0)  # run 12Z 13
+    assert _temp_c("2024-06-14 06:00") == pytest.approx(2.0)  # run 00Z 14
+    assert _temp_c("2024-06-14 18:00") == pytest.approx(1.0)  # run 12Z 14
+    assert _temp_c("2024-06-15 06:00") == pytest.approx(0.0)  # run courant 00Z 15
+
+
+def test_obtenir_serie_avec_passe_segment_passe_muet_saute() -> None:
+    """Un run passé muet est sauté (trou) ; la série est tout de même renvoyée."""
+    r_cur = pd.Timestamp("2024-06-15 00:00:00+00:00")
+    r_p1 = pd.Timestamp("2024-06-14 12:00:00+00:00")
+
+    def _iso(ts: pd.Timestamp) -> str:
+        return ts.strftime("%Y-%m-%dT%H:%M")
+
+    # Seuls le run courant et le 1er passé répondent ; les 3 autres sont muets.
+    payloads: dict[str, dict | None] = {
+        _iso(r_cur): _payload_run(r_cur, 0.0, 96),
+        _iso(r_p1): _payload_run(r_p1, 1.0, 24),
+    }
+    client = OpenMeteoSingleRuns(session=_session_par_run(payloads))
+    res = client.obtenir_serie_avec_passe(
+        ARPEGE,
+        ARPEGE,
+        48.54,
+        -1.62,
+        horizon_jours=4,
+        now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+        variables=("temperature_2m",),
+        n_jours_passe=2,
+    )
+    # Seul le segment 12Z 14 est paté + le run courant.
+    assert res.runs_passe == [r_p1]
+    assert res.df.index[0] == r_p1  # [12Z 14 ; 00Z 15) + courant
+
+
+def test_obtenir_serie_avec_passe_run_courant_muet_leve() -> None:
+    client = OpenMeteoSingleRuns(session=_session_par_run({}))  # tout muet
+    with pytest.raises(PrevisionIndisponibleError):
+        client.obtenir_serie_avec_passe(
+            ARPEGE,
+            ARPEGE,
+            48.54,
+            -1.62,
+            horizon_jours=4,
+            now_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+            variables=("temperature_2m",),
+        )
