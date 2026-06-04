@@ -53,12 +53,17 @@ Bascule de la prévision sur la **Single Runs API**. Renommage `shortwave_radiat
   + **ARPEGE** (comble le rayonnement) + **ECMWF-ENS** (comble la proba). **Un appel
   par (modèle, run)**, **merge client-side par priorité** (remplace l'ancien
   `_fusionner_modeles` sur colonnes suffixées d'une réponse multi-modèles unique).
-- **App 2 (Opérationnelle)** : séries **mono-modèle** comparées — **ARPEGE** (court,
-  4 j ; guides + séries + bilan) et **ECMWF-HRES** (long, 7 j ; tendance + cartes).
-  Chaque série porte son propre run.
+- **App 2 (Opérationnelle)** : **3 modèles** dans la grille tendance :
+  - **AROME (Veille)** sur la **période commune 0-48 h** = **réutilise telle quelle la
+    fusion App 1** (`OpenMeteoSingleRuns.obtenir_prevision`) → la ligne AROME du
+    dashboard **coïncide exactement avec l'e-mail Veille** du même créneau (maille fine).
+  - **ARPEGE** (court, 4 j ; pilote aussi guides + séries + bilan).
+  - **ECMWF-HRES** (long, 7 j ; tendance). Chaque série porte son propre run.
+  - L'App 2 **récupère ainsi la proba** (via la fusion AROME/ENS) qu'elle perdrait en
+    HRES-seul, et les **deux produits ECMWF** y coexistent (ENS proba + HRES long).
 - **Pas de cascade par horizon imposée** : chaque app garde sa composition (Veille
-  fusionne, Op compare). La cohérence vient de l'infra commune (table de runs, fetch,
-  merge), pas d'une composition identique.
+  fusionne, Op compare 3 modèles). La cohérence vient de l'infra commune (table de
+  runs, fetch, merge) **et de la réutilisation de la fusion App 1 par l'App 2**.
 
 ### D3 — Cadence : créneaux **UTC fixes 12 h partagés** entre les 2 apps (Q1)
 
@@ -66,15 +71,19 @@ Deux créneaux UTC (= heures de cron App 1) : **matin ≥ 05:30 UTC**, **après-
 ≥ 17:30 UTC**. Dans un créneau, les runs sont **figés**. Table créneau→run unique
 (source de vérité) :
 
-| Modèle | Matin (≥ 05:30 UTC) | Après-midi (≥ 17:30 UTC) |
+| Clé de run | Matin (≥ 05:30 UTC) | Après-midi (≥ 17:30 UTC) |
 |---|---|---|
-| AROME *(App 1)* | 00Z J | 12Z J |
-| ARPEGE *(App 1 + App 2 court)* | 00Z J | 12Z J |
-| ECMWF-HRES *(App 2 long)* | 18Z J-1 | 06Z J |
-| ECMWF-ENS — proba *(App 1)* | 18Z J-1 | 06Z J |
+| `AROME` *(App 1 + App 2 ligne AROME)* | 00Z J | 12Z J |
+| `ARPEGE` *(App 1 + App 2 court)* | 00Z J | 12Z J |
+| `ECMWF` — ENS proba *(App 1 + App 2 ligne AROME)* | 18Z J-1 | 06Z J |
+| `ECMWF_HRES` — déterministe long *(App 2 long)* | **12Z J-1** | **00Z J** |
 
-Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante ; ECMWF
-(HRES + ENS) un cran (6 h) derrière.** Socle : `creneau_run(now)` → (créneau, J) et
+Règle : **Météo-France (AROME/ARPEGE) sur le run de la demi-journée courante ; ECMWF-ENS
+un cran (6 h) derrière.** **ECMWF-HRES diffère** : la tendance App 2 va à 7 j, or les
+runs ECMWF **06/18Z plafonnent à ~90 h** ; seuls les **00/12Z atteignent ~240 h**. On
+prend donc le **dernier run long (00/12Z) publié** au créneau (12Z J-1 le matin, 00Z J
+l'après-midi). ENS et HRES sont deux produits distincts du même modèle `ecmwf_ifs025` →
+deux runs distincts, c'est normal. Socle : `creneau_run(now)` → (créneau, J) et
 `runs_du_creneau(créneau, J)` → `{modèle: run}`. App 1 appelle à l'heure du cron,
 App 2 au chargement → **le dashboard affiche toujours les runs de l'e-mail du même
 créneau, par construction** (cohérence App 1 / App 2 garantie). Nuit (00:00-05:30

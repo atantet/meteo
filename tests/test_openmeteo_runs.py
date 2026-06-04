@@ -12,6 +12,7 @@ from meteo_socle.sources.openmeteo_runs import (
     AROME,
     ARPEGE,
     ECMWF,
+    ECMWF_HRES,
     OpenMeteoSingleRuns,
     PrevisionIndisponibleError,
     ancre_creneau,
@@ -50,8 +51,10 @@ def test_runs_du_creneau_matin() -> None:
     runs = runs_du_creneau("matin", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 00:00:00+00:00")
     assert runs[ARPEGE] == pd.Timestamp("2024-06-15 00:00:00+00:00")
-    # ECMWF un cran (6 h) derrière → 18Z de la veille.
+    # ECMWF-ENS (proba) un cran (6 h) derrière → 18Z de la veille.
     assert runs[ECMWF] == pd.Timestamp("2024-06-14 18:00:00+00:00")
+    # ECMWF-HRES (tendance longue) = dernier run long 00/12Z → 12Z de la veille.
+    assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-14 12:00:00+00:00")
 
 
 def test_runs_du_creneau_apres_midi() -> None:
@@ -59,6 +62,8 @@ def test_runs_du_creneau_apres_midi() -> None:
     runs = runs_du_creneau("apres-midi", jour)
     assert runs[AROME] == pd.Timestamp("2024-06-15 12:00:00+00:00")
     assert runs[ECMWF] == pd.Timestamp("2024-06-15 06:00:00+00:00")
+    # ECMWF-HRES après-midi → 00Z du jour.
+    assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-15 00:00:00+00:00")
 
 
 def test_ancre_creneau_est_init_run_coeur() -> None:

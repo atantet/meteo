@@ -55,12 +55,20 @@ CYCLE_RUN_H = 6
 # Identifiants de modèles Open-Meteo.
 AROME = "meteofrance_arome_france_hd"
 ARPEGE = "meteofrance_arpege_europe"
-ECMWF = "ecmwf_ifs025"  # proba → route en interne vers ecmwf_ifs025_ensemble
+# ``ECMWF`` sert à la fois d'identifiant de modèle (``ecmwf_ifs025``, qui route
+# vers l'ensemble quand on demande la proba) ET de clé du run **ENS court**
+# (proba App 1, 18Z J-1 / 06Z J — l'horizon 48 h suffit).
+ECMWF = "ecmwf_ifs025"
+# 2e run ECMWF, clé distincte : déterministe **HRES long** (tendance App 2).
+# Même modèle, mais il faut un run 00/12Z (qui seuls atteignent ~240 h ; les
+# runs 06/18Z plafonnent à ~90 h) → le dernier 00/12Z publié au créneau
+# (12Z J-1 le matin, 00Z J l'après-midi). Cf. ADR-0011 D3.
+ECMWF_HRES = "ecmwf_hres"
 
-# Variables Open-Meteo (noms natifs) demandées par modèle dans la fusion App 1.
+# Variables Open-Meteo (noms natifs) par usage.
 # Le cœur vient d'AROME ; ARPEGE comble le rayonnement (et la queue 48-72 h
-# qu'AROME ne couvre pas, horizon ~48 h) ; ECMWF n'apporte que la proba (isolée
-# pour que la fragilité de l'ensemble n'entraîne pas le reste).
+# qu'AROME ne couvre pas) ; ECMWF-ENS n'apporte que la proba (isolée pour que
+# la fragilité de l'ensemble n'entraîne pas le reste).
 _VARS_COEUR = (
     "temperature_2m",
     "relative_humidity_2m",
@@ -74,6 +82,9 @@ _VARS_COEUR = (
 VARS_AROME: tuple[str, ...] = _VARS_COEUR
 VARS_ARPEGE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 VARS_ECMWF: tuple[str, ...] = ("precipitation_probability",)
+# Séries mono-modèle App 2 (ARPEGE court, ECMWF-HRES long) : cœur + rayonnement
+# (ni l'un ni l'autre ne fournit la proba — elle vient de la fusion AROME/ENS).
+VARS_MONO_MODELE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 
 
 class PrevisionIndisponibleError(RuntimeError):
@@ -101,21 +112,27 @@ def creneau_run(now_utc: pd.Timestamp) -> tuple[str, pd.Timestamp]:
 def runs_du_creneau(creneau: str, jour: pd.Timestamp) -> dict[str, pd.Timestamp]:
     """Table créneau→run (ADR-0011 D3). ``jour`` = 00:00 UTC de J.
 
-    - **matin** : AROME/ARPEGE 00Z J ; ECMWF 18Z J-1.
-    - **après-midi** : AROME/ARPEGE 12Z J ; ECMWF 06Z J.
+    Clés : ``AROME``, ``ARPEGE``, ``ECMWF`` (run ENS court, proba App 1),
+    ``ECMWF_HRES`` (déterministe long, tendance App 2).
 
-    Règle : Météo-France sur le run de la demi-journée courante, ECMWF un cran
-    (6 h) derrière. Runs renvoyés tz-aware UTC.
+    - **matin** : AROME/ARPEGE 00Z J ; ECMWF 18Z J-1 ; ECMWF_HRES 12Z J-1.
+    - **après-midi** : AROME/ARPEGE 12Z J ; ECMWF 06Z J ; ECMWF_HRES 00Z J.
+
+    Règle : Météo-France sur le run de la demi-journée courante ; ECMWF-ENS un
+    cran (6 h) derrière ; ECMWF-HRES = dernier run long (00/12Z) publié. Runs
+    renvoyés tz-aware UTC.
     """
     if creneau == "matin":
         mf = jour
-        ecmwf = jour - pd.Timedelta(hours=CYCLE_RUN_H)  # 18Z J-1
+        ens = jour - pd.Timedelta(hours=CYCLE_RUN_H)  # 18Z J-1
+        hres = jour - pd.Timedelta(hours=12)  # 12Z J-1
     elif creneau == "apres-midi":
         mf = jour + pd.Timedelta(hours=12)
-        ecmwf = jour + pd.Timedelta(hours=CYCLE_RUN_H)  # 06Z J
+        ens = jour + pd.Timedelta(hours=CYCLE_RUN_H)  # 06Z J
+        hres = jour  # 00Z J
     else:  # pragma: no cover - garde-fou
         raise ValueError(f"Créneau inconnu : {creneau!r}")
-    return {AROME: mf, ARPEGE: mf, ECMWF: ecmwf}
+    return {AROME: mf, ARPEGE: mf, ECMWF: ens, ECMWF_HRES: hres}
 
 
 def creneaux_precedents(now_utc: pd.Timestamp, n: int) -> list[tuple[str, pd.Timestamp]]:
@@ -286,7 +303,8 @@ class OpenMeteoSingleRuns:
         creneau, jour = creneau_run(now_utc)
         runs = runs_du_creneau(creneau, jour)
 
-        # Priorité décroissante : AROME (cœur) puis ARPEGE puis ECMWF.
+        # Priorité décroissante : AROME (cœur) puis ARPEGE (rayonnement) puis
+        # ECMWF-ENS (proba, run court 18Z J-1 / 06Z J = clé ``ECMWF``).
         specs = (
             (AROME, runs[AROME], VARS_AROME),
             (ARPEGE, runs[ARPEGE], VARS_ARPEGE),
