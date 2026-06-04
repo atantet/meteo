@@ -125,7 +125,6 @@ def test_load_config_defaut_repo(tmp_path: Path) -> None:
         "planification",
         "source_meteo",
         "alertes",
-        "indicateurs",
         "email",
         "diffusion",
     ):

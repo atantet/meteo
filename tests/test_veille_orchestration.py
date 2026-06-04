@@ -45,7 +45,7 @@ def _config_test() -> dict:
 
 
 def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
-    """72 h de prévision homogène (horizon AROME France HD + marge mildiou).
+    """72 h de prévision homogène (horizon AROME France HD + marge queue ARPEGE).
 
     Inclut les colonnes nécessaires au calcul ETP socle (T, HR, vent,
     rayonnement). rayonnement_global=0 ⇒ ETP socle ~ aérodynamique
@@ -117,7 +117,7 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     assert "dry-run" in output
     assert "Veille 2024-06-15 — RAS" in output  # pas d'alerte
     # Source Single Runs appelée avec le créneau (now_utc) ; fetch horizon+1
-    # jours (=3) pour la marge mildiou/queue ARPEGE. Plus de past_days.
+    # jours (=3) pour la fenêtre après-midi + la queue ARPEGE. Plus de past_days.
     mock_source.obtenir_prevision.assert_called_once_with(
         latitude=48.5, longitude=-1.6, horizon_jours=3, now_utc=now
     )

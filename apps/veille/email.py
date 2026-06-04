@@ -19,7 +19,7 @@ données** + la **méthode de calcul ETP** + la programmation du cron
 - ``#D55E00`` vermillon — T° max, alertes critiques, déficit hydrique
 - ``#56B4E9`` bleu ciel — pluie
 - ``#009E73`` vert bleuté — vent moyen, bilan hydrique positif, OK
-- ``#E69F00`` orange — rafales, warnings, risque mildiou
+- ``#E69F00`` orange — rafales, warnings
 
 Les valeurs numériques sont rendues en ``font-weight:700`` pour
 hiérarchie visuelle ; les labels gauches restent en gris discret.

@@ -93,9 +93,9 @@ def executer_veille(
     site = config["site"]
     horizon = config["source_meteo"]["horizon_max_jours"]
     # On fetch UN jour de plus que l'horizon d'affichage (48 h) : la fenêtre
-    # 48 h est ancrée sur l'init du run (00Z/12Z UTC), mais le mildiou Smith a
-    # besoin d'une journée de plus (jour A observable), et la queue 48-72 h est
-    # comblée par ARPEGE (AROME ~48 h). Le jour en trop est inoffensif.
+    # de l'après-midi [12Z ; 12Z+48h] atteint 12Z de J+2 (au-delà de 48 pas
+    # depuis l'init), et la queue 48-72 h est comblée par ARPEGE (AROME ~48 h).
+    # Le jour en trop est inoffensif.
     fetch_jours = horizon + 1
     logger.info(
         "Fetch Single Runs lat=%.4f lon=%.4f horizon=%d j (fetch %d j)",

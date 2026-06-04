@@ -1,15 +1,14 @@
 """Calcul des indicateurs météorologiques pour l'App 1 Veille.
 
 À partir d'une prévision horaire (DataFrame indexé tz-aware UTC sortie
-de ``meteo_socle.sources.openmeteo.OpenMeteoForecast``), calcule les
-indicateurs envoyés dans l'email matinal :
+de ``meteo_socle.sources.openmeteo_runs.OpenMeteoSingleRuns``), calcule
+les indicateurs envoyés dans l'email :
 
-- Température min / max sur 24 h et 48 h (fenêtre ancrée à minuit local)
+- Température min / max sur 24 h et 48 h (fenêtre ancrée sur l'init du run, UTC)
 - Cumuls de pluie 24 / 48 h
 - Vent moyen et rafales maximaux 24 h (km/h)
 - ETP cumulée 24 h (caractère séchant du jour) + série horaire 48 h
   utilisée par l'email pour reconstruire ETP du jour et bilan eau 48 h
-- Périodes de Smith mildiou tomate sur 48 h
 
 **Cohérence inter-apps (cf. principe #4 rigueur scientifique)** :
 l'ETP est calculée par ``meteo_socle.indices.etp_fao.calcul_etp``
@@ -24,11 +23,11 @@ Température : min et max sur chaque fenêtre (24 h et 48 h) **sans
 découpage nuit/jour** pour les risques de **gel** (min : irrigation
 48 h, cultures 24 h) et de **canicule** (max : aération 48 h, stress
 24 h) — ces risques se surveillent à toute heure. **Exception** : le
-**risque maladies** (« nuit douce ») utilise un min restreint à la
-**nuit à venir** (J+1, heures locales [0, 6)),
-``temperature_min_nuit_prochaine_celsius``. Le découpage nuit/jour
-visuel (Nuit / Matin / Après-midi / Soir) vit dans la grille du mail.
-La fenêtre démarre à **minuit local** (et non à l'heure d'envoi).
+**risque maladie** (« nuit douce ») utilise un min restreint à la
+**nuit à venir** (J+1, heures UTC [0, 6)),
+``temperature_min_nuit_prochaine_celsius``. Le découpage Nuit / Matin /
+Après-midi / Soir (bins UTC 0-6/6-12/12-18/18-24) vit dans la grille du
+mail. Tout est en UTC, ancré sur l'init du run (ADR-0011).
 """
 
 from __future__ import annotations
@@ -40,7 +39,6 @@ import numpy as np
 import pandas as pd
 
 from meteo_socle.indices.etp_fao import calcul_etp
-from meteo_socle.indices.mildiou import agreger_critere_journalier, smith_periods
 from meteo_socle.sources.openmeteo_runs import ancre_creneau, creneau_run
 
 # Conversions vers unités de présentation utilisateur.
@@ -118,14 +116,6 @@ class IndicateursVeille:
     # 48 h sans dupliquer la logique. Indexée comme la prévision.
     etp_horaire_48h: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
 
-    # Mildiou Smith periods (cf. ADR-0007). Liste de dates locales sur
-    # les 48 h à venir où une période de Smith est détectée.
-    # Vide = pas de période ; len ≥ 1 = au moins une période sur la
-    # fenêtre. Détail journalier (T_min, h HR ≥ seuil) inclus pour
-    # transparence dans le mail.
-    mildiou_smith_jours_a_risque: list[pd.Timestamp] = field(default_factory=list)
-    mildiou_smith_detail: pd.DataFrame | None = None
-
     # Métadonnées prévision : 1er pas horaire effectivement utilisé après
     # filtrage ``now_utc`` (proxy "T+0" pour le mail).
     prevision_t0_utc: pd.Timestamp | None = None
@@ -186,14 +176,11 @@ def calculer_indicateurs(
     ValueError
         Si la prévision ne contient aucune heure ≥ ``now_utc``.
     """
-    # Fenêtre ancrée sur la dernière demi-journée locale (00 h le matin,
-    # 12 h l'après-midi — cf. ``ancre_fenetre``) plutôt que sur ``now_utc``
-    # lui-même, pour coïncider avec la grille du mail et inclure les heures
-    # déjà écoulées de la demi-journée (observées via ``past_days=1`` au
-    # fetch). h24 = [ancre ; ancre+24h], h48 = [ancre ; ancre+48h].
-    # ADR-0011 D5 : tout en UTC, indicateurs agronomiques inclus. Les bins
-    # (fenêtre 48 h, nuit-douce, mildiou Smith) sont définis sur l'heure UTC,
-    # alignés sur les cycles de run — plus aucun raisonnement en heure locale.
+    # ADR-0011 D5 : tout en UTC. La fenêtre est ancrée sur l'init du run
+    # (00Z le matin, 12Z l'après-midi — cf. ``ancre_fenetre``), qui coïncide
+    # avec le début des données Single Runs (pas de past_days, pas de trou).
+    # h24 = [ancre ; ancre+24h], h48 = [ancre ; ancre+48h]. Les bins agro
+    # (nuit-douce) sont eux aussi définis sur l'heure UTC.
     tz = "UTC"
     debut = ancre_fenetre(now_utc, tz)
     df = prevision.loc[prevision.index >= debut].copy()
@@ -210,10 +197,10 @@ def calculer_indicateurs(
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
     temperature_celsius_48h = h48["temperature_2m"] - KELVIN_OFFSET
 
-    # Min de la nuit À VENIR (J+1, heures locales [0, 6)) — pour le
-    # risque maladies (« nuit douce »). Le mail part le matin : la nuit
-    # actionnable est celle de la nuit prochaine (demain 00-06 h), pas
-    # celle déjà écoulée. NaN si non couverte.
+    # Min de la nuit À VENIR (J+1, heures UTC [0, 6)) — pour le risque
+    # maladie (« nuit douce »). La nuit actionnable est celle de la nuit
+    # prochaine (demain 00-06 UTC), pas celle déjà écoulée. NaN si non
+    # couverte.
     jour_j1 = now_utc.tz_convert(tz).normalize() + pd.Timedelta(days=1)
     idx_local = df.index.tz_convert(tz)
     masque_nuit = (idx_local.normalize() == jour_j1) & (idx_local.hour >= 0) & (idx_local.hour < 6)
@@ -242,36 +229,6 @@ def calculer_indicateurs(
     dir_deg = direction_dominante_vecteur(h24)
     dir_card = degrees_to_cardinal(dir_deg) if not np.isnan(dir_deg) else ""
 
-    # Smith periods sur 48 h. Implémentation socle = ADR-0007.
-    mildiou_cfg = config["indicateurs"].get("mildiou_smith", {"actif": False})
-    smith_jours: list[pd.Timestamp] = []
-    smith_detail: pd.DataFrame | None = None
-    if mildiou_cfg.get("actif", False):
-        tz_loc = "UTC"  # ADR-0011 D5 : agrégation Smith par jour UTC
-        # On agrège l'horizon 48 h. Ajoute la veille du premier jour
-        # affiché (h≥now) si dispo dans la prévision, sinon le premier
-        # jour ne pourra pas qualifier (par construction Smith demande
-        # un jour A observable).
-        h48_etendu = prevision.head(48 + 24).sort_index()
-        critere = agreger_critere_journalier(
-            h48_etendu,
-            tz_locale=tz_loc,
-            hr_seuil=float(mildiou_cfg.get("hr_seuil", 0.90)),
-        )
-        smith = smith_periods(
-            critere,
-            t_min_celsius=float(mildiou_cfg.get("t_min_celsius", 10.0)),
-            heures_min=int(mildiou_cfg.get("heures_min", 11)),
-        )
-        # Bornes du jour local de "demain" inclus jusqu'à J+2.
-        now_loc = now_utc.tz_convert(tz_loc)
-        debut = (now_loc.normalize() + pd.Timedelta(days=1)).tz_localize(None)
-        fin = (now_loc.normalize() + pd.Timedelta(days=2)).tz_localize(None)
-        fenetre = critere.loc[debut:fin]
-        smith_detail = fenetre.copy()
-        smith_detail["smith_period"] = smith.reindex(fenetre.index, fill_value=False)
-        smith_jours = list(smith_detail.index[smith_detail["smith_period"]])
-
     return IndicateursVeille(
         temperature_min_24h_celsius=float(temperature_celsius_24h.min()),
         temperature_max_24h_celsius=float(temperature_celsius_24h.max()),
@@ -288,7 +245,5 @@ def calculer_indicateurs(
         prob_pluie_max_24h_pct=_prob_max(h24),
         prob_pluie_max_48h_pct=_prob_max(h48),
         etp_horaire_48h=etp_horaire_48h,
-        mildiou_smith_jours_a_risque=smith_jours,
-        mildiou_smith_detail=smith_detail,
         prevision_t0_utc=df.index[0],
     )

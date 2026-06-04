@@ -137,27 +137,14 @@ alertes:
   # déclenché par une nuit douce (constat météo, PAS un modèle
   # pathogène). Doctrine Agrobio35 : les nuits douces sous abri mal
   # aéré favorisent l'activité microbienne. Condition unique = T° min
-  # de la nuit à venir. Le risque mildiou tomate spécifique reste
-  # couvert par Smith (indicateurs.mildiou_smith), qui garde son propre
-  # critère d'humectation.
+  # de la nuit à venir. (L'ancien indicateur mildiou Smith, basé sur
+  # l'humectation, a été abandonné : le risque maladie ne repose plus
+  # que sur la T° min de nuit.)
   risque_maladies:
     actif: true
     # Seuil T° min nuit prochaine (°C). 15 °C correspond à la borne
     # basse des "nuits douces" citée Agrobio35 (15-20 °C propices).
     t_min_nuit_celsius: 15.0
-
-# ----- Indicateurs envoyés (info, pas alerte forte) -----
-indicateurs:
-  # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007
-  # et ADR-0010 doctrine pragmatique LWD).
-  # Critère : 2 jours consécutifs avec T_min ≥ t_min ET nb heures
-  # HR ≥ hr_seuil ≥ heures_min. Indicateur informationnel — pas de
-  # prescription (cf. principe #1).
-  mildiou_smith:
-    actif: true
-    t_min_celsius: 10.0
-    hr_seuil: 0.90
-    heures_min: 11
 
 # ----- Vigilance Météo-France -----
 #

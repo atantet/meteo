@@ -113,8 +113,8 @@ def evaluer_alertes(ind: IndicateursVeille, config: dict[str, Any]) -> list[Aler
     # Risque maladies générique : nuit douce (T° min de la nuit à venir
     # ≥ seuil) → conditions propices au développement de maladies sous
     # abri mal aéré. PAS un modèle pathogène, juste un constat météo.
-    # Condition unique sur la température nocturne (l'humidité n'est plus
-    # un critère ; le mildiou tomate garde son propre critère via Smith).
+    # Condition unique sur la température nocturne (l'humectation a été
+    # abandonnée : plus d'indicateur mildiou Smith dans la Veille).
     rm = cfg.get("risque_maladies", {"actif": False})
     if rm["actif"] and ind.temperature_min_nuit_prochaine_celsius >= rm["t_min_nuit_celsius"]:
         alertes.append(
