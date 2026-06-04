@@ -142,9 +142,10 @@ def construire_label_source_runs(
 
     Provenance **exacte et explicite** (ADR-0011 D7) : on affiche le run de
     **chaque** modèle servi (AROME = cœur, ARPEGE = rayonnement), même quand ils
-    coïncident. La **proba** ne vient pas d'un run (grandeur d'ensemble, non
-    épinglable) : calculée depuis les membres ECMWF IFS-ENS (dernier run). Un
-    modèle **omis** (run muet, D8) est signalé. Runs en UTC, « JJ/MM HHZ ».
+    coïncident. La **proba** ne vient pas d'un run épinglable (grandeur
+    d'ensemble) : % de membres ECMWF IFS-ENS dont le **cumul ≥ 1 mm/6 h**,
+    dernier run d'ensemble. Un modèle **omis** (run muet, D8) est signalé. Runs
+    en UTC, « JJ/MM HHZ ».
     """
     if not runs_utilises:
         return "Open-Meteo Single Runs · —"
@@ -162,7 +163,10 @@ def construire_label_source_runs(
     elif AROME not in runs_utilises:
         parts.append("cœur indisponible")
     parts.append(
-        "proba ECMWF IFS-ENS (ensemble, dernier run)" if proba_ensemble else "proba indisponible"
+        "proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h "
+        "(dernier run d'ensemble, non épinglable)"
+        if proba_ensemble
+        else "proba indisponible"
     )
     return "Open-Meteo Single Runs · " + " ; ".join(parts)
 
