@@ -19,10 +19,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from apps.operationnelle.decisions import (  # noqa: E402
     NIVEAU_ANTICIPER,
     NIVEAU_INFO,
-    THEME_FROID,
-    THEME_IRRIGATION,
-    THEME_TRAVAIL_SOL,
-    THEME_TUNNEL,
+    THEME_MALADIE,
+    THEMES_ORDRE,
     GuideDecision,
     _saison_active,
     degres_jours_sous_seuil,
@@ -37,6 +35,7 @@ from apps.operationnelle.decisions import (  # noqa: E402
     regle_fermeture_nuit_tunnels,
     regle_purge_irrigation_gel,
     regle_recolte_racines_avant_gel,
+    regle_risque_maladie,
     regle_stress_thermique,
     regle_voiles_p17,
     set_chemin,
@@ -417,6 +416,36 @@ def test_titres_jamais_imperatif_2pp() -> None:
 # ---------- Regroupement par thème ----------
 
 
+# ---------- regle_risque_maladie ----------
+
+
+def test_maladie_active_si_nuit_douce() -> None:
+    """Au moins un jour avec T° min ≥ 15 °C → guide « nuit douce » actif."""
+    quot = _quotidien(t_min=[12.0, 16.0, 14.0, 18.0])
+    guide = regle_risque_maladie(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-15"))
+    assert isinstance(guide, GuideDecision)
+    assert guide.active is True
+    assert guide.theme == THEME_MALADIE
+    assert "nuit" in guide.titre.lower()
+    assert guide.surlignage == {"t_min_celsius": ("≥", 15.0)}
+
+
+def test_maladie_inactive_si_nuits_fraiches() -> None:
+    quot = _quotidien(t_min=[8.0, 10.0, 12.0])
+    guide = regle_risque_maladie(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-15"))
+    assert isinstance(guide, GuideDecision)
+    assert guide.active is False
+    assert guide.niveau == NIVEAU_INFO
+
+
+def test_maladie_seuil_ajustable_via_exploitation() -> None:
+    expl = {**EXPLOITATION_DEFAUT, "seuils_maladie": {"nuit_douce_t_min_celsius": 13.0}}
+    quot = _quotidien(t_min=[12.0, 13.5, 12.5])  # 13.5 ≥ 13 → actif
+    guide = regle_risque_maladie(quot, expl, pd.Timestamp("2026-06-15"))
+    assert guide is not None and guide.active is True
+    assert guide.surlignage == {"t_min_celsius": ("≥", 13.0)}
+
+
 def test_chaque_regle_a_un_theme_valide() -> None:
     """Tout guide retourné par les règles porte un thème dans `THEMES_ORDRE`."""
     quot = _quotidien(
@@ -426,7 +455,7 @@ def test_chaque_regle_a_un_theme_valide() -> None:
         etp=[4.0] * 7,
     )
     guides = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
-    themes_valides = {THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_TRAVAIL_SOL}
+    themes_valides = set(THEMES_ORDRE)
     for g in guides:
         assert g.theme in themes_valides, f"Thème inconnu : « {g.theme} » pour « {g.titre} »"
 
@@ -442,9 +471,8 @@ def test_grouper_par_theme_respecte_ordre() -> None:
     guides = evaluer_decisions(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
     groupes = grouper_par_theme(guides)
     themes = [t for t, _ in groupes]
-    # L'ordre dans la liste retournée doit être : froid puis tunnel
-    # puis irrigation puis travail_sol (l'ordre canonique de THEMES_ORDRE),
-    # même si certains thèmes sont absents.
-    ordre_canonique = [THEME_FROID, THEME_TUNNEL, THEME_IRRIGATION, THEME_TRAVAIL_SOL]
+    # L'ordre dans la liste retournée doit suivre THEMES_ORDRE (l'ordre
+    # canonique), même si certains thèmes sont absents.
+    ordre_canonique = list(THEMES_ORDRE)
     positions = [ordre_canonique.index(t) for t in themes]
     assert positions == sorted(positions), f"Ordre des thèmes incorrect : {themes}"

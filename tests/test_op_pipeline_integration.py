@@ -62,12 +62,7 @@ def _config_reelle() -> dict:
 
 
 def test_pipeline_complete_produit_toutes_colonnes_attendues() -> None:
-    """Pipeline `calculer_indicateurs_quotidiens` produit toutes les colonnes.
-
-    En particulier ``mildiou_heures_humectation`` doit exister quand la
-    config mildiou_smith est active (cas qui a manqué sur Streamlit
-    Cloud 2026-05-29).
-    """
+    """Pipeline `calculer_indicateurs_quotidiens` produit toutes les colonnes."""
     from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
 
     prev = _prevision_realiste_open_meteo(n_jours=7)
@@ -82,9 +77,6 @@ def test_pipeline_complete_produit_toutes_colonnes_attendues() -> None:
         "pluie_24h_mm",
         "etp_mm",
         "bilan_eau_cumul_mm",
-        # Mildiou actif → ces deux-là doivent figurer.
-        "mildiou_heures_humectation",
-        "mildiou_smith_period",
     ]
     for col in colonnes_obligatoires:
         assert col in quot.columns, f"Colonne manquante : {col}"

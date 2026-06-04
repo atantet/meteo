@@ -23,7 +23,7 @@ def test_streamlit_app_importe_modules_critiques():
     from apps.operationnelle import streamlit_app
 
     # Modules métier socle et apps que le main attend.
-    for nom in ("COURBES", "Seuil", "bilan_tunnel_carry_over", "bilan_culture_carry_over"):
+    for nom in ("Seuil", "bilan_tunnel_carry_over", "bilan_culture_carry_over"):
         assert hasattr(streamlit_app, nom), f"{nom} manquant dans streamlit_app"
 
 

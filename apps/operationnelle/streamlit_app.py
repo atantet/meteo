@@ -32,7 +32,6 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from apps.operationnelle.charts import (  # noqa: E402
-    COURBES,
     Seuil,
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
@@ -1028,8 +1027,8 @@ def main() -> None:
     )
 
     # ----- Courbes horaires (vue principale, en onglets) -----
-    # Source : ARPEGE étendu = N j passés (réanalyse rapide via
-    # `past_days`) + N j de prévision. Smith heures HR reste quotidien.
+    # Source : ARPEGE étendu = N j passés (stitch de runs explicites) +
+    # N j de prévision.
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
         f"Prévision horaire — {n_past_days * 24} h passées + {horizon_court} j ARPEGE"
@@ -1081,33 +1080,6 @@ def main() -> None:
                 with col_plot:
                     st.pyplot(fig, use_container_width=True)
 
-    # Bloc 2 — indicateurs quotidiens (Smith, etc.). Pas de split
-    # analyse / prévision car le critère biologique se définit par jour.
-    courbes_quot_smith = [
-        c
-        for c in COURBES
-        if c.colonne == "mildiou_heures_humectation" and c.colonne in quotidien.columns
-    ]
-    if courbes_quot_smith:
-        st.markdown(
-            '<h4 style="margin:18px 0 4px 0;font-size:15px;color:#34495e;">'
-            "Indicateurs quotidiens"
-            "</h4>",
-            unsafe_allow_html=True,
-        )
-        onglets_q = st.tabs([c.titre for c in courbes_quot_smith])
-        for tab, cfg in zip(onglets_q, courbes_quot_smith, strict=False):
-            with tab:
-                fig = figure_indicateur(
-                    quotidien,
-                    cfg,
-                    figsize=(5.5, 2.5),
-                    seuils_extra=seuils_par_colonne.get(cfg.colonne),
-                )
-                col_plot, _ = st.columns([2, 1])
-                with col_plot:
-                    st.pyplot(fig, use_container_width=True)
-
     # ----- Bilan hydrique sol complet (plein air + tunnel) -----
     st.markdown(
         '<h4 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
@@ -1123,7 +1095,7 @@ def main() -> None:
 
     coefficients = _charger_coefficients_kc()
     cultures = sorted(coefficients.keys())
-    # Tomate en défaut pour rester aligné avec l'orientation App (mildiou).
+    # Tomate en défaut (culture sensible de référence sous abri).
     default_culture = "Tomate" if "Tomate" in cultures else cultures[0]
 
     col_c, col_s = st.columns(2)
@@ -1321,11 +1293,10 @@ def main() -> None:
   T° max et T° moyenne — overlay automatique sur les courbes.
 - **Direction dominante** : moyenne vectorielle horaire pondérée
   par la vitesse.
-- **Smith mildiou** : indicateur informationnel pour tomate sous
-  abri (Smith 1956). Détecte les fenêtres où T_min ≥ 10 °C ET
-  h HR ≥ 90 % ≥ 11 h sur 2 jours consécutifs. Calculé via le
-  module socle ``meteo_socle.indices.mildiou`` à partir de
-  l'horaire forecast Open-Meteo (maille ~25 km, donc hors abri).
+- **Risque maladie** : guide « nuit douce » (T° min journalière ≥ 15 °C).
+  Constat météo (PAS un modèle pathogène) — les nuits douces sous abri
+  mal aéré favorisent l'activité microbienne (oïdium, botrytis, mildiou…).
+  Remplace l'ancien indicateur Smith mildiou (humectation), abandonné.
 - **Kc culture** : référentiel ARDEPI Provence (cf.
   ``src/meteo_socle/indices/coefficients_culturaux_ardepi.json``).
   Bilan affiché = cumul pluie vs cumul ET_c sans réserve utile du

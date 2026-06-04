@@ -49,15 +49,10 @@ alertes:
     actif: true
     seuil_kmh: 60.0
 
-# ----- Indicateurs informationnels (pas alertes) -----
-indicateurs:
-  # Risque mildiou tomate sous abri (Smith periods 1956, cf. ADR-0007
-  # et ADR-0010). Humectation par proxy HR ≥ seuil (Smith historique).
-  mildiou_smith:
-    actif: true
-    t_min_celsius: 10.0
-    hr_seuil: 0.90
-    heures_min: 11
+# Risque maladie : plus d'indicateur Smith mildiou (humectation abandonnée).
+# Le risque maladie est désormais un guide « nuit douce » (T° min ≥ seuil), cf.
+# decisions.regle_risque_maladie ; son seuil vit dans config/exploitation.yaml
+# (seuils_maladie.nuit_douce_t_min_celsius, défaut 15 °C).
 
 # ----- Présentation -----
 ui:

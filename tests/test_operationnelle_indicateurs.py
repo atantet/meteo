@@ -126,43 +126,6 @@ def test_quotidien_vide_raise() -> None:
         calculer_indicateurs_quotidiens(prev, CONFIG_TEST, now_utc=now)
 
 
-def test_mildiou_smith_active_ajoute_colonnes() -> None:
-    """Avec config mildiou_smith actif → colonnes humectation + Smith période."""
-    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
-
-    config = {
-        **CONFIG_TEST,
-        "indicateurs": {
-            "mildiou_smith": {
-                "actif": True,
-                "t_min_celsius": 10.0,
-                "heures_min": 11,
-            }
-        },
-    }
-    # HR à 0.95 24h/24 → critère humidité largement validé.
-    prev = _prevision(t_celsius=15.0, humidite=0.95)
-    with _patch_etp(0.1):
-        q = calculer_indicateurs_quotidiens(prev, config)
-    assert "mildiou_heures_humectation" in q.columns
-    assert "mildiou_smith_period" in q.columns
-    # Tous les jours qualifient (HR 95 %, T_min 15 °C).
-    assert q["mildiou_heures_humectation"].max() >= 11
-    # Au moins un jour Smith détecté (à partir du 2e jour qui satisfait).
-    assert q["mildiou_smith_period"].any()
-
-
-def test_mildiou_smith_inactif_pas_de_colonnes() -> None:
-    """Sans section mildiou_smith dans config → aucune colonne ajoutée."""
-    from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens
-
-    prev = _prevision(humidite=0.95)
-    with _patch_etp(0.1):
-        q = calculer_indicateurs_quotidiens(prev, CONFIG_TEST)
-    assert "mildiou_heures_humectation" not in q.columns
-    assert "mildiou_smith_period" not in q.columns
-
-
 def test_normales_t_min_et_t_max_jointees_si_csv_present() -> None:
     """Quand la CSV normale_jour est dispo, t_min/t_max/t_moy normales jointées."""
     from apps.operationnelle.indicateurs import calculer_indicateurs_quotidiens

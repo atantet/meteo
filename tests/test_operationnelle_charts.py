@@ -33,7 +33,6 @@ def quotidien_synth() -> pd.DataFrame:
             "etp_mm": [3.0, 3.5, 4.0, 3.8, 2.5, 3.2, 3.5],
             "bilan_eau_cumul_mm": [-3.0, -4.0, -3.0, -5.8, -8.3, -3.5, -4.0],
             "rafales_max_kmh": [25.0, 30.0, 40.0, 35.0, 28.0, 32.0, 30.0],
-            "mildiou_heures_humectation": [4, 8, 12, 6, 2, 10, 5],
         },
         index=idx,
     )
@@ -79,29 +78,43 @@ def test_figure_bilan_culture_genere_2_courbes(quotidien_synth: pd.DataFrame) ->
 def test_figure_indicateur_seuil_affiche_si_courbe_traverse(
     quotidien_synth: pd.DataFrame,
 ) -> None:
-    """Quotidien synth T_min 9-12 °C traverse 10 °C → seuil affiché."""
-    cfg = next(c for c in COURBES if c.colonne == "t_min_celsius")
+    """Un seuil statique de CourbeConfig est affiché si la courbe le traverse."""
+    from apps.operationnelle.charts import Seuil
+
+    # T_min synth 9-12 °C traverse 10 °C.
+    cfg = CourbeConfig(
+        colonne="t_min_celsius",
+        titre="T° min",
+        unite="°C",
+        couleur="#2980b9",
+        seuils=[Seuil(10.0, "Seuil test", "#c0392b")],
+    )
     fig = figure_indicateur(quotidien_synth, cfg)
     ax = fig.axes[0]
     _, labels = ax.get_legend_handles_labels()
-    assert any("Seuil biologique" in lbl for lbl in labels)
+    assert any("Seuil test" in lbl for lbl in labels)
 
 
 def test_figure_indicateur_seuil_masque_si_courbe_ne_traverse_pas() -> None:
-    """T_min toute la fenêtre au-dessus de 10 °C → pas de seuil affiché."""
+    """Seuil statique non traversé → pas affiché."""
+    from apps.operationnelle.charts import Seuil
+
     idx = pd.date_range("2026-07-01", periods=7, freq="D")
     df = pd.DataFrame(
-        {
-            "t_min_celsius": [14.0, 15.0, 16.0, 14.5, 15.5, 14.8, 15.2],
-            "t_min_normale_celsius": [13.0, 13.1, 13.2, 13.3, 13.4, 13.5, 13.6],
-        },
+        {"t_min_celsius": [14.0, 15.0, 16.0, 14.5, 15.5, 14.8, 15.2]},
         index=idx,
     )
-    cfg = next(c for c in COURBES if c.colonne == "t_min_celsius")
+    cfg = CourbeConfig(
+        colonne="t_min_celsius",
+        titre="T° min",
+        unite="°C",
+        couleur="#2980b9",
+        seuils=[Seuil(10.0, "Seuil test", "#c0392b")],
+    )
     fig = figure_indicateur(df, cfg)
     ax = fig.axes[0]
     _, labels = ax.get_legend_handles_labels()
-    assert not any("Seuil biologique" in lbl for lbl in labels)
+    assert not any("Seuil test" in lbl for lbl in labels)
 
 
 def test_figure_indicateur_seuils_extra_appliques(
@@ -133,18 +146,6 @@ def test_figure_indicateur_seuils_extra_masques_si_hors_range(
     ax = fig.axes[0]
     _, labels = ax.get_legend_handles_labels()
     assert not any("Hors range" in lbl for lbl in labels)
-
-
-def test_figure_indicateur_mildiou_humectation_seuil_et_min_glissant(
-    quotidien_synth: pd.DataFrame,
-) -> None:
-    """Onglet humectation LWD : seuil 11 h + min glissant 2 j présents."""
-    cfg = next(c for c in COURBES if c.colonne == "mildiou_heures_humectation")
-    fig = figure_indicateur(quotidien_synth, cfg)
-    ax = fig.axes[0]
-    _, labels = ax.get_legend_handles_labels()
-    assert any("Seuil Smith" in lbl for lbl in labels)
-    assert any("Min glissant" in lbl for lbl in labels)
 
 
 def test_bilan_culture_plein_air_pluie_evite_irrigation() -> None:
