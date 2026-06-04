@@ -144,25 +144,24 @@ def recuperer_cartes(
 ) -> CartesGeoSerie:
     """Récupère 4 cartes ARPEGE-Europe aux cibles J+1 / J+2 / J+3 / J+4.
 
-    Choix du run :
+    Choix du run **déterministe** (ADR-0011 D4) :
 
     - On vise le dernier multiple de 6 h `≤ now_utc - 5 h` (latence
-      typique de publication Météociel).
-    - Si la 1ʳᵉ carte de ce run échoue (404 typique en début de
-      publication), on retombe sur le run précédent (−6 h).
-    - Si tous les fetchs échouent (réseau, plage hors archive), les
-      4 cartes retournent ``data_uri=""`` ; le rendu §3 saute
-      silencieusement les cellules vides.
+      typique de publication Météociel). Pas de fallback runtime : si ce
+      run échoue systématiquement à l'heure dite, on corrige la constante
+      de latence.
+    - Si un fetch échoue (réseau, plage hors archive), la carte concernée
+      retourne ``data_uri=""`` ; le rendu §3 saute silencieusement les
+      cellules vides.
     """
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
 
     run_choisi = _run_le_plus_recent(now_utc)
-    run_precedent = run_choisi - pd.Timedelta(hours=CYCLE_RUN_H)
 
     sess = session or requests.Session()
     cartes: list[CarteGeo] = []
-    for i, ech in enumerate(ARPEGE_EUR_ECHEANCES):
+    for ech in ARPEGE_EUR_ECHEANCES:
         url = _url_arpege_eur(run_choisi, ech)
         data_uri = _fetch_image(
             url,
@@ -170,17 +169,6 @@ def recuperer_cartes(
             timeout=timeout,
             session=sess,
         )
-        # Si la 1ʳᵉ carte du run choisi échoue, on essaie le run
-        # précédent une fois pour toute la série.
-        if i == 0 and not data_uri and run_choisi != run_precedent:
-            run_choisi = run_precedent
-            url = _url_arpege_eur(run_choisi, ech)
-            data_uri = _fetch_image(
-                url,
-                largeur_max_px=largeur_max_px,
-                timeout=timeout,
-                session=sess,
-            )
         cible = run_choisi + pd.Timedelta(hours=ech)
         cartes.append(
             CarteGeo(

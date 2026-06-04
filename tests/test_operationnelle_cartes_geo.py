@@ -8,7 +8,7 @@ Couvre :
 - Robustesse à un fetch HTTP échoué (cartes individuelles → data_uri vide).
 - Format de la série retournée (4 cartes ARPEGE-Europe).
 - Cibles correctement calculées (run + ech).
-- Fallback automatique vers le run précédent si la 1ʳᵉ carte 404.
+- Run déterministe sans fallback : une carte 404 reste vide (ADR-0011 D4).
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ import requests
 
 from apps.operationnelle.cartes_geo import (
     ARPEGE_EUR_ECHEANCES,
-    CYCLE_RUN_H,
     _run_le_plus_recent,
     _url_arpege_eur,
     recuperer_cartes,
@@ -104,8 +103,12 @@ def test_recuperer_cartes_robuste_aux_fetch_echoues() -> None:
     assert all(not c.data_uri for c in grille.cartes)
 
 
-def test_recuperer_cartes_fallback_run_precedent_si_premiere_echoue() -> None:
-    """Si la 1ʳᵉ carte du run courant échoue, on bascule sur le run précédent."""
+def test_recuperer_cartes_run_deterministe_sans_fallback() -> None:
+    """404 sur une carte → run inchangé (déterministe, ADR-0011 D4), carte vide.
+
+    Plus de bascule sur le run précédent : la carte en échec reste vide, les
+    autres du même run sont servies.
+    """
     from PIL import Image
 
     buf = io.BytesIO()
@@ -116,10 +119,9 @@ def test_recuperer_cartes_fallback_run_precedent_si_premiere_echoue() -> None:
     fake_response_ok.content = png_bytes
     fake_response_ok.raise_for_status = MagicMock()
     fake_session = MagicMock()
-    # 1er get : 404 (run courant indispo) ; tous les suivants : OK.
+    # 1ʳᵉ carte : 404 ; les 3 autres : OK. Aucun appel de fallback.
     fake_session.get.side_effect = [
         requests.HTTPError("404"),
-        fake_response_ok,
         fake_response_ok,
         fake_response_ok,
         fake_response_ok,
@@ -129,7 +131,11 @@ def test_recuperer_cartes_fallback_run_precedent_si_premiere_echoue() -> None:
     grille = recuperer_cartes(now_utc=now, session=fake_session)
 
     run_courant = _run_le_plus_recent(now)
-    run_precedent = run_courant - pd.Timedelta(hours=CYCLE_RUN_H)
+    # Toutes les cartes restent sur le run déterministe (aucun repli).
     for c in grille.cartes:
-        assert c.run_utc == run_precedent
-    assert grille.nb_disponibles == 4
+        assert c.run_utc == run_courant
+    # La 1ʳᵉ (404) est vide ; les 3 autres sont disponibles.
+    assert not grille.cartes[0].data_uri
+    assert grille.nb_disponibles == 3
+    # Exactement 4 fetchs (1 par échéance), pas 5 → pas de fallback.
+    assert fake_session.get.call_count == 4

@@ -71,9 +71,33 @@ from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
 )
-from meteo_socle.sources.openmeteo import OpenMeteoForecast  # noqa: E402
+from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
+    ARPEGE,
+    ECMWF,
+    ECMWF_HRES,
+    VARS_MONO_MODELE,
+    OpenMeteoSingleRuns,
+    creneau_run,
+)
 
 KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
+
+# Modèle Open-Meteo → clé de run dans la table créneau (ADR-0011 D3). ARPEGE
+# partage son run avec la Veille ; l'ECMWF de la tendance longue prend le run
+# HRES déterministe (00/12Z, ≤240 h), distinct du run ENS court de la proba.
+_CLE_RUN_APP2 = {ARPEGE: ARPEGE, ECMWF: ECMWF_HRES}
+
+
+def _slot_now(now_utc: pd.Timestamp) -> pd.Timestamp:
+    """Horodatage canonique du créneau courant (clé de cache stable).
+
+    Cadence fixe 12 h (ADR-0011 D3) : le dashboard montre les mêmes runs que
+    l'e-mail Veille du même créneau. On dérive un instant *dans* le créneau
+    (06Z le matin, 18Z l'après-midi) pour que le cache `st.cache_data` ne
+    change qu'aux bascules de créneau, pas à chaque rechargement.
+    """
+    creneau, jour = creneau_run(now_utc)
+    return jour + pd.Timedelta(hours=6 if creneau == "matin" else 18)
 
 
 @st.cache_data(ttl=3600)
@@ -82,17 +106,27 @@ def _fetch_prevision(
     longitude: float,
     horizon_jours: int,
     modele: str,
-    past_days: int = 0,
+    slot_now: pd.Timestamp,
+    n_jours_passe: int = 0,
 ) -> pd.DataFrame:
-    """Fetch Open-Meteo, cache 1 h pour limiter les requêtes.
+    """Fetch Single Runs pour le créneau de ``slot_now`` (ADR-0011).
 
-    Avec ``past_days > 0``, la prévision inclut ``past_days`` jours
-    civils en amont (réanalyse rapide). Cohérent avec le modèle
-    courant — pas de mélange ERA5/forecast — et sans le retard 5 j
-    d'ERA5-Land sur les dernières heures.
+    Série mono-modèle = run courant du créneau (futur) + passé stitché de
+    ``n_jours_passe`` jours (runs explicites, pas de ``past_days``). ``slot_now``
+    (stable dans le créneau) sert de clé de cache → un seul fetch par créneau.
     """
-    src = OpenMeteoForecast(modele=modele)
-    return src.obtenir_prevision(latitude, longitude, horizon_jours, past_days=past_days)
+    src = OpenMeteoSingleRuns()
+    res = src.obtenir_serie_avec_passe(
+        modele,
+        _CLE_RUN_APP2[modele],
+        latitude,
+        longitude,
+        horizon_jours,
+        slot_now,
+        variables=VARS_MONO_MODELE,
+        n_jours_passe=n_jours_passe,
+    )
+    return res.df
 
 
 @st.cache_data(ttl=3600)
@@ -869,42 +903,44 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Fetches Open-Meteo cachés séparément (clé = modele + horizon + past_days) :
+    # Fetches Single Runs cachés par créneau (clé = slot_now + modele + horizon
+    # + n_jours_passe), runs déterministes (ADR-0011) :
     # - ARPEGE court (4 j) sans passé pour §2 guides + indicateurs quotidiens.
-    # - ARPEGE étendu (4 j + 2 j de réanalyse rapide) pour §4 courbes
-    #   horaires + §1 tendance étendue quand le toggle « 48 h passées »
-    #   est activé. La réanalyse rapide via `past_days` est plus fiable
-    #   qu'ERA5-Land (pas de retard 5 j) et cohérente avec le modèle
-    #   courant.
-    # - ECMWF long (7 j) pour §1 tendance.
+    # - ARPEGE étendu (4 j + 2 j de passé stitché) pour §4 courbes horaires +
+    #   §1 tendance étendue. Le passé est fait de runs explicites (stitch des
+    #   créneaux précédents), pas de `past_days` — provenance exacte.
+    # - ECMWF-HRES long (7 j) pour §1 tendance.
     n_past_days = 2
+    now_utc = pd.Timestamp.now(tz="UTC")
+    slot_now = _slot_now(now_utc)
     with st.spinner(
-        f"Récupération prévisions Open-Meteo ({modele_court} {horizon_court} j "
+        f"Récupération prévisions Single Runs ({modele_court} {horizon_court} j "
         f"+ {modele_long} {horizon_long} j)…"
     ):
         try:
             prevision_courte = _fetch_prevision(
-                site["latitude"], site["longitude"], horizon_court, modele_court
+                site["latitude"], site["longitude"], horizon_court, modele_court, slot_now
             )
             prevision_courte_etendue = _fetch_prevision(
                 site["latitude"],
                 site["longitude"],
                 horizon_court,
                 modele_court,
-                past_days=n_past_days,
+                slot_now,
+                n_jours_passe=n_past_days,
             )
             prevision_longue = _fetch_prevision(
                 site["latitude"],
                 site["longitude"],
                 horizon_long,
                 modele_long,
-                past_days=n_past_days,
+                slot_now,
+                n_jours_passe=n_past_days,
             )
         except Exception as e:  # noqa: BLE001
             st.error(f"Erreur de récupération des prévisions : {e}")
             st.stop()
 
-    now_utc = pd.Timestamp.now(tz="UTC")
     quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
     quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
 
