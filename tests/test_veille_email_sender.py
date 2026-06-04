@@ -93,10 +93,11 @@ def test_composer_email_moment_deduit_de_l_heure() -> None:
         "site": {"tz": "Europe/Paris"},
         "email": {"sujet_template": "Veille {moment} {date} — {alertes_resume}"},
     }
-    # 07:00 UTC = 09:00 Paris (été) → matin.
+    # Moment = créneau de run UTC (bornes 05:30 / 17:30 UTC), ADR-0011 D3.
+    # 07:00 UTC → matin.
     matin = composer_email(_ind(), [], config, datetime(2024, 6, 15, 7, 0))
-    # 16:00 UTC = 18:00 Paris (été) → après-midi.
-    pm = composer_email(_ind(), [], config, datetime(2024, 6, 15, 16, 0))
+    # 18:00 UTC (≥ 17:30) → après-midi.
+    pm = composer_email(_ind(), [], config, datetime(2024, 6, 15, 18, 0))
     assert matin.sujet.startswith("Veille matin ")
     assert pm.sujet.startswith("Veille après-midi ")
     # Titre HTML adapté de même.

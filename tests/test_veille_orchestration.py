@@ -45,7 +45,7 @@ def _config_test() -> dict:
 
 
 def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
-    """72 h de prévision homogène (horizon AROME France HD + marge mildiou).
+    """72 h de prévision homogène (horizon AROME France HD + marge queue ARPEGE).
 
     Inclut les colonnes nécessaires au calcul ETP socle (T, HR, vent,
     rayonnement). rayonnement_global=0 ⇒ ETP socle ~ aérodynamique
@@ -69,16 +69,44 @@ def _prevision_synthetique(t_celsius: float = 15.0) -> pd.DataFrame:
     )
 
 
+def _resultat(df: pd.DataFrame, now: pd.Timestamp):
+    """Enrobe une prévision synthétique dans un ``ResultatPrevision`` (Single Runs).
+
+    Les runs servis sont les 3 modèles de la table du créneau de ``now`` — comme
+    si le fetch avait pleinement réussi.
+    """
+    from meteo_socle.sources.openmeteo_runs import (
+        AROME,
+        ARPEGE,
+        ECMWF,
+        ResultatPrevision,
+        creneau_run,
+        runs_du_creneau,
+    )
+
+    creneau, jour = creneau_run(now)
+    runs = runs_du_creneau(creneau, jour)
+    return ResultatPrevision(
+        df=df,
+        creneau=creneau,
+        jour=jour,
+        runs_demandes=runs,
+        runs_utilises={AROME: runs[AROME], ARPEGE: runs[ARPEGE], ECMWF: runs[ECMWF]},
+    )
+
+
 def test_executer_veille_dry_run_capture_stdout() -> None:
     """Pipeline complet : source mockée → indicateurs → alertes → email → dry-run."""
     from apps.veille.__main__ import executer_veille
 
+    config = _config_test()
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")  # créneau matin → ancre 00Z 15
+
     mock_source = MagicMock()
     # 10 °C constant : > 4 (pas gel), < 15 (pas maladies), < 25 (pas canicule) → RAS.
-    mock_source.obtenir_prevision.return_value = _prevision_synthetique(t_celsius=10.0)
-
-    config = _config_test()
-    now = pd.Timestamp("2024-06-15 04:30:00+00:00")
+    mock_source.obtenir_prevision.return_value = _resultat(
+        _prevision_synthetique(t_celsius=10.0), now
+    )
 
     buf = io.StringIO()
     with patch("sys.stdout", buf):
@@ -88,11 +116,10 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     output = buf.getvalue()
     assert "dry-run" in output
     assert "Veille 2024-06-15 — RAS" in output  # pas d'alerte
-    # Source appelée avec bons paramètres : on fetch horizon+1 jours (=3)
-    # pour couvrir la fenêtre 48 h de l'envoi de l'après-midi (ancre 12 h
-    # → fin à 12 h de J+2, sur une 3ᵉ journée).
+    # Source Single Runs appelée avec le créneau (now_utc) ; fetch horizon+1
+    # jours (=3) pour la fenêtre après-midi + la queue ARPEGE. Plus de past_days.
     mock_source.obtenir_prevision.assert_called_once_with(
-        latitude=48.5, longitude=-1.6, horizon_jours=3, past_days=1
+        latitude=48.5, longitude=-1.6, horizon_jours=3, now_utc=now
     )
 
 
@@ -152,10 +179,12 @@ def test_executer_veille_alerte_gel_dans_email() -> None:
     """Avec T° très basse, l'alerte gel doit apparaître dans l'email dry-run."""
     from apps.veille.__main__ import executer_veille
 
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.return_value = _prevision_synthetique(t_celsius=-5.0)
     config = _config_test()
-    now = pd.Timestamp("2024-06-15 04:30:00+00:00")
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")
+    mock_source = MagicMock()
+    mock_source.obtenir_prevision.return_value = _resultat(
+        _prevision_synthetique(t_celsius=-5.0), now
+    )
 
     buf = io.StringIO()
     with patch("sys.stdout", buf):
@@ -189,9 +218,6 @@ def test_executer_veille_envoi_reel_appelle_smtp() -> None:
     """En mode envoi_reel=True, vérifie que envoyer() invoque le SMTP."""
     from apps.veille.__main__ import executer_veille
 
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.return_value = _prevision_synthetique(t_celsius=15.0)
-
     config = _config_test()
     config["diffusion"]["envoi_reel"] = True
     secrets = {
@@ -202,7 +228,11 @@ def test_executer_veille_envoi_reel_appelle_smtp() -> None:
         "email_from": "u@example.com",
         "email_to": ["dest@example.com"],
     }
-    now = pd.Timestamp("2024-06-15 04:30:00+00:00")
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")
+    mock_source = MagicMock()
+    mock_source.obtenir_prevision.return_value = _resultat(
+        _prevision_synthetique(t_celsius=15.0), now
+    )
 
     with patch("apps.veille.sender.smtplib.SMTP") as mock_smtp:
         mock_server = MagicMock()
@@ -212,3 +242,63 @@ def test_executer_veille_envoi_reel_appelle_smtp() -> None:
     assert code == 0
     mock_smtp.assert_called_once_with("smtp.example.com", 587)
     mock_server.send_message.assert_called_once()
+
+
+def test_executer_veille_pipeline_complet_single_runs_offline() -> None:
+    """Pipeline COMPLET offline : mock session → OpenMeteoSingleRuns réel.
+
+    Exerce le fetch des 3 runs déterministes + la fusion par priorité + le
+    parsing/conversions + indicateurs + email dry-run, sans réseau. Vérifie
+    que le badge « Source » reflète les runs réellement servis (ADR-0011 D7).
+    """
+    from apps.veille.__main__ import executer_veille
+    from meteo_socle.sources.openmeteo_runs import AROME, ARPEGE, ECMWF, OpenMeteoSingleRuns
+
+    times = pd.date_range("2024-06-15 00:00", periods=72, freq="h", tz="UTC")
+    times_iso = [t.strftime("%Y-%m-%dT%H:%M") for t in times]
+    n = len(times_iso)
+
+    def _payload(**cols: list) -> dict:
+        return {"hourly": {"time": times_iso, **cols}}
+
+    payloads = {
+        AROME: _payload(
+            temperature_2m=[12.0] * n,
+            relative_humidity_2m=[80.0] * n,
+            precipitation=[0.0] * n,
+            wind_speed_10m=[5.0] * n,
+            wind_gusts_10m=[9.0] * n,
+            wind_direction_10m=[270.0] * n,
+            weather_code=[1] * n,
+            cloud_cover=[50.0] * n,
+        ),
+        ARPEGE: _payload(temperature_2m=[12.0] * n, shortwave_radiation=[0.0] * n),
+        ECMWF: _payload(precipitation_probability=[20.0] * n),
+    }
+
+    def _resp(payload: dict) -> MagicMock:
+        r = MagicMock()
+        r.status_code = 200
+        r.json.return_value = payload
+        r.raise_for_status = MagicMock()
+        return r
+
+    sess = MagicMock()
+    sess.get.side_effect = lambda url, params=None, timeout=None: _resp(payloads[params["models"]])
+
+    source = OpenMeteoSingleRuns(session=sess)
+    config = _config_test()
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")  # matin → MF 00Z 15, ECMWF 18Z 14
+
+    buf = io.StringIO()
+    with patch("sys.stdout", buf):
+        code = executer_veille(config, secrets=None, source=source, now_utc=now)
+
+    assert code == 0
+    out = buf.getvalue()
+    # 3 runs déterministes fetchés (AROME, ARPEGE, ECMWF).
+    assert sess.get.call_count == 3
+    # Badge « Source » véridique = runs UTC réellement servis.
+    assert "Single Runs" in out
+    assert "AROME run 15/06 00Z" in out
+    assert "proba ECMWF 14/06 18Z" in out

@@ -19,7 +19,7 @@ données** + la **méthode de calcul ETP** + la programmation du cron
 - ``#D55E00`` vermillon — T° max, alertes critiques, déficit hydrique
 - ``#56B4E9`` bleu ciel — pluie
 - ``#009E73`` vert bleuté — vent moyen, bilan hydrique positif, OK
-- ``#E69F00`` orange — rafales, warnings, risque mildiou
+- ``#E69F00`` orange — rafales, warnings
 
 Les valeurs numériques sont rendues en ``font-weight:700`` pour
 hiérarchie visuelle ; les labels gauches restent en gris discret.
@@ -48,6 +48,7 @@ from meteo_socle.sources.meteofrance_vigilance import (
 from meteo_socle.sources.meteofrance_vigilance import (
     VigilanceDepartement,
 )
+from meteo_socle.sources.openmeteo_runs import AROME, ARPEGE, ECMWF
 
 from .alertes import Alerte, resume_alertes
 from .cartes_synoptiques import (
@@ -132,6 +133,44 @@ def construire_label_source(modeles: list[str]) -> str:
 SOURCE_DEFAUT = construire_label_source(
     ["meteofrance_arome_france_hd", "meteofrance_arpege_europe", "ecmwf_ifs025"]
 )
+
+
+def construire_label_source_runs(runs_utilises: dict[str, pd.Timestamp]) -> str:
+    """Label « Source » à partir des runs *Single Runs* réellement servis.
+
+    Provenance exacte (ADR-0011 D7) : AROME (cœur) et ARPEGE (rayonnement)
+    partagent en général le run de la demi-journée (ils coïncident) ; la proba
+    vient d'un run ECMWF-ENS un cran (6 h) derrière. Un modèle **omis** (run
+    muet, D8) est signalé honnêtement plutôt que masqué. Les runs sont en UTC,
+    affichés « JJ/MM HHZ ».
+    """
+    if not runs_utilises:
+        return "Open-Meteo Single Runs · —"
+
+    def _run(ts: pd.Timestamp) -> str:
+        return ts.strftime("%d/%m %HZ")
+
+    parts: list[str] = []
+    if AROME in runs_utilises:
+        coeur = f"AROME run {_run(runs_utilises[AROME])}"
+        if ARPEGE in runs_utilises:
+            if runs_utilises[ARPEGE] == runs_utilises[AROME]:
+                coeur += " + ARPEGE (rayonnement)"
+            else:
+                coeur += f" + ARPEGE {_run(runs_utilises[ARPEGE])} (rayonnement)"
+        else:
+            coeur += " (rayonnement indisponible)"
+        parts.append(coeur)
+    elif ARPEGE in runs_utilises:
+        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} (rayonnement)")
+    parts.append(
+        f"proba ECMWF {_run(runs_utilises[ECMWF])}"
+        if ECMWF in runs_utilises
+        else "proba indisponible"
+    )
+    return "Open-Meteo Single Runs · " + " ; ".join(parts)
+
+
 METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
 CRON_EXPLAIN = "30 5 * * * UTC = 06:30 Paris hiver / 07:30 Paris été"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
@@ -522,8 +561,13 @@ def _tendance_texte_48h(
                 (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
             )
             code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
+            # Fenêtre non couverte (bord de fenêtre : l'après-midi, la prévision
+            # démarre à 12Z → la « matin » du 1er jour est vide) → on la saute.
+            if code is None:
+                continue
             parts.append(f"{nom_fenetre} {libelle(code)}")
-        lignes.append(f"  {jour_label} : " + " → ".join(parts))
+        if parts:
+            lignes.append(f"  {jour_label} : " + " → ".join(parts))
     return lignes
 
 
@@ -1195,28 +1239,36 @@ def composer_email(
     cartes_grille: CartesGrille | None = None,
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
+    runs_utilises: dict[str, pd.Timestamp] | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
     ``chart_48h_base64`` (optionnel) sera embarqué dans le HTML comme image
     inline. ``cartes_grille`` (optionnel) — grille 3×2 Met Office (gauche) +
     AROME mode 24 (droite) sur 3 échéances. Si ``None`` ou cartes toutes
-    indisponibles, aucun bloc carte n'est rendu.
+    indisponibles, aucun bloc carte n'est rendu. ``runs_utilises`` — runs
+    *Single Runs* effectivement servis (``{modèle: run UTC}``) pour le label
+    « Source » véridique (ADR-0011) ; ``None`` retombe sur le label config.
     """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
-    # Label « Source » dérivé des modèles réellement configurés (ne peut
-    # pas diverger de la config). Cf. construire_label_source.
-    modeles = config.get("source_meteo", {}).get("modeles", [])
-    source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT
-    # Moment d'envoi (matin / après-midi) déduit de l'heure locale, pour
-    # distinguer les deux mails du jour (sujet + titre). Cf. moment_envoi.
-    tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
+    # Label « Source » véridique = runs Single Runs réellement servis (ADR-0011
+    # D7). Repli sur le label dérivé de la config si non fourni (tests / appel
+    # legacy). Ne peut pas diverger de ce qui a été fetché.
+    if runs_utilises is not None:
+        source = construire_label_source_runs(runs_utilises)
+    else:
+        modeles = config.get("source_meteo", {}).get("modeles", [])
+        source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT
+    # ADR-0011 D5 : affichage tout-UTC (fenêtre + périodes alignées sur les
+    # cycles de run). Le fuseau du site ne sert plus au binning temporel.
+    tz_locale = "UTC"
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
     )
-    moment = moment_envoi(now_utc_ts, tz_locale)
+    # Moment d'envoi (matin / après-midi) = créneau de run UTC. Cf. moment_envoi.
+    moment = moment_envoi(now_utc_ts)
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"], moment=moment)
     texte = composer_texte(
         ind,
