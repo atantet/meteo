@@ -18,6 +18,7 @@ dans l'archéologie git.
 | [0007](0007-modele-mildiou-tomate-sous-abri.md) | Modèle risque mildiou tomate sous abri (Smith periods 1956) | Accepté |
 | [0008](0008-coefficient-etp-tunnel.md) | Coefficient de réduction ET₀ sous tunnel froid (k_tunnel) | Accepté |
 | [0010](0010-doctrine-pragmatique-lwd.md) | Doctrine pragmatique LWD (rollback Smith ← HR ≥ 90 %, abandon Magarey théorique) | Accepté |
+| [0011](0011-single-runs-api-runs-explicites.md) | Prévision via Single Runs API (runs explicites, analyse vs prévision) | Proposé |
 
 ## Convention
 
