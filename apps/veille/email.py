@@ -736,13 +736,18 @@ def _bloc_grille_indicateurs_48h(
         )
 
         def cellule_picto(jour: pd.Timestamp) -> str:
+            from meteo_socle.indices.temps_sensible import code_temps_fenetre
+
             cells = []
             for _nom, h_debut, h_fin in FENETRES_VEILLE:
                 masque = _masque_fenetre(horaire_48h, jour, h_debut, h_fin)
-                if "weather_code" in horaire_48h.columns:
-                    code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
-                else:
-                    code = None
+                sous_fenetre = horaire_48h.loc[masque]
+                # Picto classé sur le CUMUL de la fenêtre (même échelle que le
+                # cumul de pluie affiché), pas heure par heure. Repli sur le
+                # code horaire dominant si les champs AROME manquent (queue).
+                code = code_temps_fenetre(sous_fenetre)
+                if code is None and "weather_code" in sous_fenetre.columns:
+                    code = code_dominant_fenetre(sous_fenetre["weather_code"])
                 if code is None:
                     cells.append('<td style="padding:1px 4px;text-align:center;">—</td>')
                 else:
@@ -756,12 +761,12 @@ def _bloc_grille_indicateurs_48h(
                         'style="width:56px;height:56px;display:block;margin:0 auto;">'
                         "</td>"
                     )
-            # Bandeau continu : fond sombre sur le <tr> entier (mieux que
-            # 4 rectangles séparés). Le label "Météo" passe en gris clair
-            # pour rester lisible sur fond foncé.
+            # Les icônes yr sont en couleur et lisibles sur fond blanc : pas
+            # de fond derrière la ligne (le label garde le gris des autres
+            # lignes d'indicateurs).
             return (
-                '<tr style="background:#34495e;">'
-                '<td style="padding:4px 8px;color:#cfd6dc;font-size:13px;">Météo</td>'
+                "<tr>"
+                '<td style="padding:4px 8px;color:#555;font-size:13px;">Météo</td>'
                 + "".join(cells)
                 + "</tr>"
             )
