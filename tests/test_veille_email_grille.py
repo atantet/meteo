@@ -22,8 +22,8 @@ def test_bloc_pictogrammes_veille_grille_2j_3fenetres() -> None:
     idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
     df = pd.DataFrame({"weather_code": np.zeros(48, dtype=int)}, index=idx)
     html = _bloc_pictogrammes_veille(df, tz_locale="Europe/Paris")
-    # 6 pictos = 6 cellules avec data:image inline.
-    assert html.count("data:image/png") == 6
+    # 6 pictos = 6 cellules avec data:image inline (icônes yr = SVG).
+    assert html.count("data:image") == 6
     assert "Tendance 48 h" in html
     assert "Matin" in html
     assert "Midi" in html

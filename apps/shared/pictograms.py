@@ -1,8 +1,10 @@
 """Pictogrammes météo basés sur les codes WMO 4677 (Open-Meteo).
 
-Mappe les codes ``weather_code`` retournés par Open-Meteo à des
-fichiers PNG de la suite **Meteocons** (Bas Milius, MIT — cf.
-``assets/meteocons/LICENSE``).
+Mappe les codes ``weather_code`` à des icônes SVG du jeu **MET Norway /
+yr** (Institut météorologique norvégien, MIT — cf. ``assets/yr/LICENSE``,
+<https://github.com/metno/weathericons>). Choix cohérent avec l'algorithme
+de symbole temps de MET Norway porté dans le socle (cf. ADR-0013) : même
+service météo national pour le fond (classification) et la forme (icônes).
 
 Codes WMO 4677 résumés (cf. https://open-meteo.com/en/docs) :
 
@@ -41,56 +43,55 @@ import pandas as pd
 
 # Racine repo + dossier des icônes packagées.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-ICONES_DIR = _REPO_ROOT / "assets" / "meteocons"
+ICONES_DIR = _REPO_ROOT / "assets" / "yr"
 
-# Mapping WMO → nom de fichier icône (sans extension .png).
+# Mapping WMO 4677 → nom de symbole yr (variante JOUR / neutre, sans .svg).
+# yr n'a pas de « bruine » : les codes 51-55 sont rendus en pluie. Les
+# variantes nuit éventuelles sont dans WMO_VERS_ICONE_NUIT.
 WMO_VERS_ICONE: dict[int, str] = {
-    0: "clear-day",
-    1: "partly-cloudy-day",
-    2: "partly-cloudy-day",
-    3: "overcast-day",
-    45: "fog-day",
-    48: "fog-day",
-    51: "drizzle",
-    53: "drizzle",
-    55: "drizzle",
-    56: "drizzle",
-    57: "drizzle",
-    61: "partly-cloudy-day-rain",
+    0: "clearsky_day",
+    1: "fair_day",
+    2: "partlycloudy_day",
+    3: "cloudy",
+    45: "fog",
+    48: "fog",
+    51: "lightrain",
+    53: "lightrain",
+    55: "rain",
+    56: "lightsleet",
+    57: "sleet",
+    61: "lightrain",
     63: "rain",
-    65: "rain",
-    66: "rain",
-    67: "rain",
-    71: "partly-cloudy-day-snow",
+    65: "heavyrain",
+    66: "lightsleet",
+    67: "heavysleet",
+    71: "lightsnow",
     73: "snow",
-    75: "snow",
-    77: "snow",
-    80: "partly-cloudy-day-rain",
-    81: "rain",
-    82: "rain",
-    85: "partly-cloudy-day-snow",
-    86: "snow",
-    95: "thunderstorms",
-    96: "thunderstorms-rain",
-    99: "thunderstorms-rain",
+    75: "heavysnow",
+    77: "lightsnow",
+    80: "lightrainshowers_day",
+    81: "rainshowers_day",
+    82: "heavyrainshowers_day",
+    85: "lightsnowshowers_day",
+    86: "heavysnowshowers_day",
+    95: "rainandthunder",
+    96: "heavyrainandthunder",
+    99: "heavyrainandthunder",
 }
 
-# Variantes nuit : remplacent le soleil par la lune pour les codes où la
-# distinction visuelle a du sens (ciel clair, peu nuageux, brouillard,
-# couvert avec éclaircies, averses sous nuages partiels). Les codes
-# franchement « pluie/neige/orage » n'ont pas de variante nuit officielle
-# Meteocons — on garde l'icône jour qui reste lisible.
+# Variantes nuit yr (soleil → lune) pour les seuls symboles qui en ont une :
+# ciel clair, peu nuageux, partiellement nuageux, et les averses (pluie/neige).
+# Les codes neutres yr (cloudy, fog, pluie/neige continues, orage) n'ont pas de
+# variante nuit → nom_icone retombe sur l'icône jour/neutre, qui reste lisible.
 WMO_VERS_ICONE_NUIT: dict[int, str] = {
-    0: "clear-night",
-    1: "partly-cloudy-night",
-    2: "partly-cloudy-night",
-    3: "overcast-night",
-    45: "fog-night",
-    48: "fog-night",
-    61: "partly-cloudy-night-rain",
-    71: "partly-cloudy-night-snow",
-    80: "partly-cloudy-night-rain",
-    85: "partly-cloudy-night-snow",
+    0: "clearsky_night",
+    1: "fair_night",
+    2: "partlycloudy_night",
+    80: "lightrainshowers_night",
+    81: "rainshowers_night",
+    82: "heavyrainshowers_night",
+    85: "lightsnowshowers_night",
+    86: "heavysnowshowers_night",
 }
 
 # Libellés FR par code WMO (info-bulle / texte alt).
@@ -160,11 +161,12 @@ WMO_SEVERITE: dict[int, int] = {
 
 
 def nom_icone(code: int, nuit: bool = False) -> str:
-    """Renvoie le nom de fichier icône Meteocons pour un code WMO.
+    """Renvoie le nom de symbole yr (sans ``.svg``) pour un code WMO.
 
     Si ``nuit=True`` et qu'une variante nuit existe (`WMO_VERS_ICONE_NUIT`),
     la variante nuit est utilisée (soleil → lune). Sinon, fallback sur
-    l'icône jour (les rains/snows/orages n'ont pas de variante nuit).
+    l'icône jour/neutre (pluies/neiges continues et orages n'ont pas de
+    variante nuit).
     """
     code_int = int(code)
     if nuit and code_int in WMO_VERS_ICONE_NUIT:
@@ -178,17 +180,12 @@ def libelle(code: int) -> str:
 
 
 def chemin_icone(code: int, nuit: bool = False) -> Path:
-    """Chemin absolu du fichier icône (PNG si dispo, sinon SVG).
+    """Chemin absolu du fichier icône SVG yr.
 
-    Les icônes jour sont en PNG 128×128 (cf. `assets/meteocons/`) ; les
-    variantes nuit sont fournies en SVG (téléchargées depuis le repo
-    `basmilius/weather-icons`). Cette fonction renvoie le PNG en priorité
-    pour la cohérence d'affichage, et bascule sur SVG si le PNG manque.
+    Les icônes yr sont toutes en SVG (cf. `assets/yr/`). Fallback sur
+    ``not-available.png`` si le symbole n'a pas de fichier (cas improbable).
     """
     nom = nom_icone(code, nuit=nuit)
-    png = ICONES_DIR / f"{nom}.png"
-    if png.exists():
-        return png
     svg = ICONES_DIR / f"{nom}.svg"
     if svg.exists():
         return svg

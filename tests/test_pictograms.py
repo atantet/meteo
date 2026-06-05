@@ -1,4 +1,4 @@
-"""Tests `apps.shared.pictograms` — mapping WMO + icônes Meteocons."""
+"""Tests `apps.shared.pictograms` — mapping WMO + icônes MET Norway (yr)."""
 
 from __future__ import annotations
 
@@ -14,12 +14,12 @@ sys.path.insert(0, str(REPO_ROOT))
 def test_nom_icone_codes_canoniques() -> None:
     from apps.shared.pictograms import nom_icone
 
-    assert nom_icone(0) == "clear-day"
-    assert nom_icone(2) == "partly-cloudy-day"
-    assert nom_icone(3) == "overcast-day"
-    assert nom_icone(45) == "fog-day"
+    assert nom_icone(0) == "clearsky_day"
+    assert nom_icone(2) == "partlycloudy_day"
+    assert nom_icone(3) == "cloudy"
+    assert nom_icone(45) == "fog"
     assert nom_icone(63) == "rain"
-    assert nom_icone(95) == "thunderstorms"
+    assert nom_icone(95) == "rainandthunder"
 
 
 def test_nom_icone_code_inconnu_renvoie_fallback() -> None:
@@ -48,8 +48,8 @@ def test_icone_base64_format_data_uri() -> None:
     from apps.shared.pictograms import icone_base64
 
     uri = icone_base64(0)
-    assert uri.startswith("data:image/png;base64,")
-    assert len(uri) > 100  # PNG encodé non-vide
+    assert uri.startswith("data:image/svg+xml;base64,")
+    assert len(uri) > 100  # SVG encodé non-vide
 
 
 def test_icone_base64_code_inconnu_renvoie_fallback() -> None:
@@ -60,26 +60,25 @@ def test_icone_base64_code_inconnu_renvoie_fallback() -> None:
 
 
 def test_nom_icone_variante_nuit() -> None:
-    """Codes 0/1/2/3/45 jour vs nuit doivent différer (soleil → lune)."""
+    """Ciel clair / nuageux / averses : jour vs nuit doivent différer (soleil → lune)."""
     from apps.shared.pictograms import nom_icone
 
-    assert nom_icone(0) == "clear-day"
-    assert nom_icone(0, nuit=True) == "clear-night"
-    assert nom_icone(2, nuit=True) == "partly-cloudy-night"
-    assert nom_icone(3, nuit=True) == "overcast-night"
-    assert nom_icone(45, nuit=True) == "fog-night"
-    assert nom_icone(61, nuit=True) == "partly-cloudy-night-rain"
-    assert nom_icone(71, nuit=True) == "partly-cloudy-night-snow"
+    assert nom_icone(0) == "clearsky_day"
+    assert nom_icone(0, nuit=True) == "clearsky_night"
+    assert nom_icone(2, nuit=True) == "partlycloudy_night"
+    assert nom_icone(80, nuit=True) == "lightrainshowers_night"
+    assert nom_icone(81, nuit=True) == "rainshowers_night"
+    assert nom_icone(85, nuit=True) == "lightsnowshowers_night"
 
 
 def test_nom_icone_nuit_fallback_pour_codes_sans_variante() -> None:
     """Les codes sans variante nuit (pluie forte, orages) gardent l'icône jour."""
     from apps.shared.pictograms import nom_icone
 
-    # 63 (pluie modérée) → pas de variante nuit, retombe sur "rain"
+    # 63 (pluie modérée continue) → pas de variante nuit, retombe sur "rain"
     assert nom_icone(63, nuit=True) == "rain"
     # 95 (orage) → pas de variante nuit
-    assert nom_icone(95, nuit=True) == "thunderstorms"
+    assert nom_icone(95, nuit=True) == "rainandthunder"
 
 
 def test_icone_base64_nuit_renvoie_svg_data_uri() -> None:
