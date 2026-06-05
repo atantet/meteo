@@ -73,6 +73,10 @@ RENAME_VERS_SOCLE: dict[str, str] = {
     "shortwave_radiation": "rayonnement_global",
     "et0_fao_evapotranspiration": "etp_open_meteo",
     "cloud_cover": "cloud_cover",
+    "cloud_cover_low": "cloud_cover_low",
+    "cloud_cover_mid": "cloud_cover_mid",
+    "cloud_cover_high": "cloud_cover_high",
+    "cape": "cape",
     "weather_code": "weather_code",
 }
 
@@ -98,8 +102,9 @@ def appliquer_conventions_socle(df: pd.DataFrame) -> pd.DataFrame:
         df["temperature_2m"] = df["temperature_2m"] + 273.15
     if "relative_humidity_2m" in df.columns:
         df["relative_humidity_2m"] = df["relative_humidity_2m"] / 100.0
-    if "cloud_cover" in df.columns:
-        df["cloud_cover"] = df["cloud_cover"] / 100.0
+    for col in ("cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"):
+        if col in df.columns:
+            df[col] = df[col] / 100.0
     if "shortwave_radiation" in df.columns:
         df["shortwave_radiation"] = df["shortwave_radiation"] * 3600.0
     df = df.rename(columns=RENAME_VERS_SOCLE)

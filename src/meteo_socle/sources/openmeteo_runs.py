@@ -44,6 +44,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 import requests
 
+from ..indices.temps_sensible import serie_code_temps
 from ._http_retry import get_avec_retry
 from .openmeteo import appliquer_conventions_socle
 
@@ -101,7 +102,17 @@ _VARS_COEUR = (
     "weather_code",
     "cloud_cover",
 )
-VARS_AROME: tuple[str, ...] = _VARS_COEUR
+# AROME fournit les trois couches de nébulosité et la CAPE (mais ni le
+# ``weather_code`` ni le ``cloud_cover`` total — 0/72 h vérifié) : on s'en
+# sert pour dériver nous-mêmes le temps sensible cohérent avec le cumul AROME
+# (cf. ``meteo_socle.indices.temps_sensible`` et ADR-0013).
+VARS_AROME: tuple[str, ...] = (
+    *_VARS_COEUR,
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "cape",
+)
 VARS_ARPEGE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 # Séries mono-modèle App 2 (ARPEGE court, ECMWF-HRES long) : cœur + rayonnement.
 VARS_MONO_MODELE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
@@ -409,6 +420,20 @@ class OpenMeteoSingleRuns:
             )
 
         fusion = fusionner_priorite(frames)
+
+        # Temps sensible dérivé des CHAMPS AROME (cohérent avec le cumul AROME).
+        # AROME ne fournit pas de ``weather_code`` (0/72 h) : sans ce calcul, le
+        # code serait comblé par ARPEGE → picto incohérent avec la pluie AROME
+        # (cf. ADR-0013). On dérive donc le code et on l'impose là où les champs
+        # AROME existent, en gardant le code fusionné en repli pour la queue.
+        try:
+            code_derive = serie_code_temps(fusion, hours=1)
+            if "weather_code" in fusion.columns:
+                fusion["weather_code"] = code_derive.combine_first(fusion["weather_code"])
+            else:
+                fusion["weather_code"] = code_derive
+        except KeyError as e:
+            logger.warning("Temps sensible dérivé indisponible (champs manquants) : %s", e)
 
         # Proba d'ensemble (ECMWF IFS-ENS, dernier run) ajoutée à la fusion.
         proba = self.obtenir_proba_ensemble(latitude, longitude, horizon_jours)
