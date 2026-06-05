@@ -9,7 +9,8 @@ description = "Socle Python pour les apps météo de La Petite Claye des Champs"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{name = "Alexis Tantet"}]
-# License à décider — cf. README et ADR à venir.
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

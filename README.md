@@ -193,4 +193,9 @@ pytest tests/
 
 ## Licence
 
-À décider (ADR à venir).
+**GNU General Public License v3.0 ou ultérieure** (GPL-3.0-or-later), cf.
+[`LICENSE`](LICENSE) et [ADR-0012](docs/decisions/0012-licence-gpl.md).
+
+Le choix de la GPL permet notamment de réutiliser et porter du code de
+services météo nationaux publié sous GPL (p. ex. l'algorithme de symbole
+temps de MET Norway, cf. [ADR-0013](docs/decisions/0013-temps-sensible-arome.md)).
