@@ -207,7 +207,9 @@ class MeteoFranceOfficiel:
             response = get_avec_retry(
                 self.session, WEBSERVICE_URL, params=params, timeout=self.timeout
             )
-        except requests.HTTPError as e:
+        except requests.RequestException as e:
+            # HTTP (4xx/5xx) ou réseau (ConnectTimeout : webservice MF injoignable
+            # par intermittence depuis les runners CI, cf. _http_retry).
             raise PrevisionIndisponibleError(f"Prévision MF inaccessible : {e}") from e
         payload = response.json()
         return self.parser(payload)

@@ -8,8 +8,11 @@ unités socle** — pour attraper une conversion oubliée (cf. mémoire tests so
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pandas as pd
 import pytest
+import requests
 
 from meteo_socle.sources.meteofrance_officiel import (
     MeteoFranceOfficiel,
@@ -150,3 +153,47 @@ def test_parser_unites_socle() -> None:
 def test_parser_payload_vide_leve() -> None:
     with pytest.raises(PrevisionIndisponibleError):
         MeteoFranceOfficiel.parser({"forecast": []})
+
+
+def test_obtenir_prevision_retry_sur_connect_timeout(monkeypatch) -> None:
+    """ConnectTimeout transitoire (webservice MF injoignable) : on réessaie.
+
+    Régression de l'échec CI 2026-06-06 : le webservice MF time out par
+    intermittence depuis les runners ; la première tentative échoue au niveau
+    connexion, la suivante réussit.
+    """
+    from meteo_socle.sources import _http_retry
+
+    monkeypatch.setattr(_http_retry.time, "sleep", lambda _: None)
+
+    resp_ok = MagicMock()
+    resp_ok.status_code = 200
+    resp_ok.json.return_value = {
+        "forecast": [{"dt": 1_733_000_400, "T": {"value": 12.0}, "weather": {"desc": "Couvert"}}],
+        "position": {"name": "Sains"},
+    }
+    session = MagicMock()
+    session.get.side_effect = [requests.ConnectTimeout("timed out"), resp_ok]
+
+    prevision = MeteoFranceOfficiel(session=session).obtenir_prevision(48.542, -1.6155)
+
+    assert session.get.call_count == 2
+    assert prevision.position["name"] == "Sains"
+
+
+def test_obtenir_prevision_connect_timeout_persistant_leve(monkeypatch) -> None:
+    """ConnectTimeout sur toutes les tentatives → PrevisionIndisponibleError propre.
+
+    Le webservice injoignable ne doit pas remonter un traceback brut (exit 1 en
+    CI) mais l'erreur métier attendue.
+    """
+    from meteo_socle.sources import _http_retry
+
+    monkeypatch.setattr(_http_retry.time, "sleep", lambda _: None)
+
+    session = MagicMock()
+    session.get.side_effect = requests.ConnectTimeout("timed out")
+
+    with pytest.raises(PrevisionIndisponibleError):
+        MeteoFranceOfficiel(session=session).obtenir_prevision(48.542, -1.6155)
+    assert session.get.call_count == 4  # _MAX_TENTATIVES
