@@ -48,7 +48,6 @@ from meteo_socle.sources.meteofrance_vigilance import (
 from meteo_socle.sources.meteofrance_vigilance import (
     VigilanceDepartement,
 )
-from meteo_socle.sources.openmeteo_runs import AROME, ARPEGE
 
 from .alertes import Alerte, resume_alertes
 from .cartes_synoptiques import (
@@ -58,10 +57,11 @@ from .cartes_synoptiques import (
 )
 from .indicateurs import (
     IndicateursVeille,
-    ancre_fenetre,
     degrees_to_cardinal,
     direction_dominante_vecteur,
     moment_envoi,
+    periodes_pleines,
+    portion_horaire,
 )
 
 __all__ = [
@@ -89,91 +89,27 @@ class EmailComposed:
     html: str
 
 
-# Libellés humains des modèles Open-Meteo (transparence, principe #5).
-MODELES_LABELS: dict[str, str] = {
-    "meteofrance_arome_france_hd": "AROME France HD 1,3 km (Météo-France)",
-    "meteofrance_arpege_europe": "ARPEGE Europe (Météo-France)",
-    "ecmwf_ifs025": "ECMWF IFS 0,25° (hors Météo-France)",
-    "icon_seamless": "ICON (DWD, hors Météo-France)",
-    "best_match": "best_match (composite Open-Meteo)",
-    "dwd_icon_eu": "ICON-EU (DWD)",
-}
-
-# Rôle de chaque modèle complémentaire (au-delà du principal) — ce qu'il
-# comble que le principal ne fournit pas. Sert à un label « Source »
-# transparent (ex. la proba de pluie vient d'ICON, pas de Météo-France).
-MODELES_ROLES: dict[str, str] = {
-    "meteofrance_arpege_europe": "le rayonnement",
-    "ecmwf_ifs025": "la probabilité de pluie",
-    "icon_seamless": "la probabilité de pluie",
-}
-
-
-def construire_label_source(modeles: list[str]) -> str:
-    """Construit le libellé « Source » du mail à partir des modèles configurés.
-
-    Reflète honnêtement les modèles *effectivement demandés* (cf. principe
-    « pas de boîte noire »). Le 1er modèle est le principal ; chaque modèle
-    suivant ne comble que ce que le principal ne fournit pas, annoté de son
-    rôle (cf. ``MODELES_ROLES``) pour la transparence — typiquement le
-    rayonnement (ARPEGE) et la probabilité de pluie (ICON, non-MF).
-    """
-    if not modeles:
-        return "Open-Meteo · —"
-    parts = [MODELES_LABELS.get(modeles[0], modeles[0])]
-    for m in modeles[1:]:
-        nom = MODELES_LABELS.get(m, m)
-        role = MODELES_ROLES.get(m)
-        parts.append(f"{nom} pour {role}" if role else nom)
-    corps = parts[0] if len(parts) == 1 else parts[0] + " ; " + " ; ".join(parts[1:])
-    return f"Open-Meteo · {corps}"
-
-
-# Source par défaut = config Veille (AROME + ARPEGE rayonnement + ECMWF proba).
-SOURCE_DEFAUT = construire_label_source(
-    ["meteofrance_arome_france_hd", "meteofrance_arpege_europe", "ecmwf_ifs025"]
-)
-
-
-def construire_label_source_runs(
-    runs_utilises: dict[str, pd.Timestamp], proba_ensemble: bool = False
-) -> str:
-    """Label « Source » à partir des runs *Single Runs* réellement servis.
-
-    Provenance **exacte et explicite** (ADR-0011 D7) : on affiche le run de
-    **chaque** modèle servi (AROME = cœur, ARPEGE = rayonnement), même quand ils
-    coïncident. La **proba** ne vient pas d'un run épinglable (grandeur
-    d'ensemble) : % de membres ECMWF IFS-ENS dont le **cumul ≥ 1 mm/6 h**,
-    dernier run d'ensemble. Un modèle **omis** (run muet, D8) est signalé. Runs
-    en UTC, « JJ/MM HHZ ».
-    """
-    if not runs_utilises:
-        return "Open-Meteo Single Runs · —"
-
-    def _run(ts: pd.Timestamp) -> str:
-        return ts.strftime("%d/%m %HZ")
-
-    parts: list[str] = []
-    if AROME in runs_utilises:
-        parts.append(f"AROME run {_run(runs_utilises[AROME])} (cœur)")
-    if ARPEGE in runs_utilises:
-        # ARPEGE comble le rayonnement quand AROME est là ; sinon il sert de cœur.
-        role = "rayonnement" if AROME in runs_utilises else "cœur de repli (AROME absent)"
-        parts.append(f"ARPEGE run {_run(runs_utilises[ARPEGE])} ({role})")
-    elif AROME not in runs_utilises:
-        parts.append("cœur indisponible")
-    parts.append(
-        "proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h "
-        "(dernier run d'ensemble, non épinglable)"
-        if proba_ensemble
-        else "proba indisponible"
-    )
-    return "Open-Meteo Single Runs · " + " ; ".join(parts)
-
-
-METHODE_ETP = "FAO 56 Penman-Monteith horaire (socle)"
-CRON_EXPLAIN = "30 5 * * * UTC = 06:30 Paris hiver / 07:30 Paris été"
+# Source = prévision officielle Météo-France (ADR-0014). Plus de modèles bruts
+# ni de runs : un produit fusionné/expertisé, étiqueté par sa fraîcheur (updated_on).
+SOURCE_MF = "Prévision officielle Météo-France (webservice.meteofrance.com)"
+CRON_EXPLAIN = "6 h 30 et 18 h 30 (heure locale)"
 SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
+
+
+def label_source_mf(updated_on: pd.Timestamp | None, tz_locale: str = "Europe/Paris") -> str:
+    """Libellé « Source » = prévision officielle MF + sa fraîcheur (ADR-0014 D1/D9).
+
+    ``updated_on`` (tz-aware UTC) est l'heure d'émission officielle de la prévi
+    (champ ``updated_on`` du webservice). Affichée en heure locale.
+    """
+    if updated_on is None:
+        return SOURCE_MF
+    loc = updated_on.tz_convert(tz_locale)
+    return f"{SOURCE_MF} · mise à jour {loc.strftime('%d/%m %Hh%M %Z')}"
+
+
+# Repli si ``updated_on`` non fourni (appel legacy / test).
+SOURCE_DEFAUT = SOURCE_MF
 
 
 def _bloc_chart(chart_base64: str) -> str:
@@ -243,9 +179,16 @@ _VIGILANCE_COULEURS = {
 VIGILANCE_URL_AFFICHEE = "https://vigilance.meteofrance.fr/fr"
 
 
+#: Au-delà de cet âge, la carte Vigilance est considérée non rafraîchie pour le
+#: cycle courant (publication ≥ 2×/jour à 6 h/16 h locales — ADR-0014 D10). Le
+#: critère porte sur l'ÂGE (deux instants absolus) → insensible au fuseau.
+VIGILANCE_AGE_MAX = pd.Timedelta(hours=12)
+
+
 def _bloc_vigilance_mf(
     vigilance: VigilanceDepartement | None,
     tz_locale: str = "Europe/Paris",
+    now: pd.Timestamp | None = None,
 ) -> str:
     """Bloc HTML Vigilance Météo-France pour le département configuré.
 
@@ -267,6 +210,13 @@ def _bloc_vigilance_mf(
         f"département {vigilance.departement} · "
         f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
     )
+    # Fraîcheur (ADR-0014 D10) : carte plus vieille que ~12 h → l'actualisation du
+    # cycle courant (6 h/16 h locales) n'est pas encore publiée. On le signale,
+    # sans retry (si systématique, retarder le cron).
+    if now is not None and (now - vigilance.update_time) > VIGILANCE_AGE_MAX:
+        legende += (
+            ' · <span style="color:#a04000;">⚠ actualisation du cycle non encore publiée</span>'
+        )
 
     # Tous verts : on garde le titre de section (cohérence avec le cas
     # "alerte présente") puis une ligne "rien à signaler" sur 48 h.
@@ -647,82 +597,37 @@ def _serie_fenetre(
 
 def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
-    etp_horaire_48h: pd.Series | None = None,
     now_utc: pd.Timestamp | None = None,
     tz_locale: str = "Europe/Paris",
 ) -> str:
-    """Grille unifiée J+0 / J+1 — pictos + T° + Pluie + Vent + HR.
+    """Grille par période de 6 h locale — pictos + T° + Pluie + Vent + HR (ADR-0014).
 
-    Source : 48 premières heures de la prévision (AROME France HD
-    1.3 km Open-Meteo). Substitue les anciennes tables "Indicateurs
-    24 h" et "Horizon pluie 48-72 h" pour une lecture en un coup d'œil.
-
-    Layout : un mini-tableau par jour (5 lignes × 3 colonnes
-    matin/midi/soir), deux tableaux empilés. Plus lisible sur mobile
-    qu'un grand tableau 7 colonnes.
-
-    ``etp_horaire_48h`` (Series indexée UTC) provient du calcul socle
-    FAO Penman-Monteith — utilisée pour ETP du jour et bilan eau 48 h.
-    Si ``None`` ou vide, ces cellules affichent "—".
+    Découpage sur les **périodes de 6 h pleines** de la prévi officielle MF
+    (``periodes_pleines`` sur la portion horaire) : seules les périodes
+    entièrement couvertes sont affichées (1ʳᵉ future → dernière pleine). Le picto
+    vient du ``weather_code`` MF (cohérent avec le cumul MF, ADR-0014). ``now_utc``
+    est conservé pour compat d'appel mais n'est plus utilisé (plus d'ancrage run).
     """
     if prevision_horaire is None:
         return ""
 
     from apps.shared.pictograms import code_dominant_fenetre, icone_base64, libelle
 
-    horaire_loc = prevision_horaire.copy()
-    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-
-    # Fenêtre [ancre ; ancre+48 h] en heure locale, alignée sur le titre
-    # du mail. Ancre = dernière demi-journée (00 h le matin, 12 h l'après-
-    # midi — cf. ``ancre_fenetre``). Si ``now_utc`` non fourni (rétro-
-    # compat), on prend les 48 premières heures du DataFrame.
-    if now_utc is not None:
-        x_min = ancre_fenetre(now_utc, tz_locale).tz_convert(tz_locale)
-        x_max = x_min + pd.Timedelta(hours=48)
-        horaire_48h = horaire_loc.loc[(horaire_loc.index >= x_min) & (horaire_loc.index < x_max)]
-        # Heure d'ancre locale (0 le matin, 12 l'après-midi) : sert à
-        # définir le « jour » de 24 h sur lequel l'ETP est sommée.
-        h_ancre: int | None = int(x_min.hour)
-        fin_loc: pd.Timestamp | None = x_max
-    else:
-        horaire_48h = horaire_loc.head(48)
-        h_ancre = None  # fallback rétro-compat : ETP par jour calendaire
-        fin_loc = None
-    if horaire_48h.empty:
+    horaire = prevision_horaire.copy()
+    horaire.index = pd.DatetimeIndex(horaire.index).tz_convert(tz_locale)
+    horaire = portion_horaire(horaire)
+    periodes = periodes_pleines(horaire)
+    if not periodes:
         return ""
 
-    # ETP horaire socle alignée sur le même fuseau pour sommer l'ETP par
-    # « jour » de 24 h. Matin : jour calendaire 00 h→24 h. Après-midi :
-    # « jour nocturne » 12 h→12 h (aprem+soir+nuit+matin), affiché pour J
-    # et J+1 seulement (le bloc de J+2 déborderait des 48 h). Le bilan eau
-    # 48 h plus bas couvre la somme des deux.
-    if etp_horaire_48h is not None and not etp_horaire_48h.empty:
-        etp_loc = etp_horaire_48h.copy()
-        etp_loc.index = pd.DatetimeIndex(etp_loc.index).tz_convert(tz_locale)
-        if fin_loc is not None:
-            # Restreint l'ETP horaire à la fenêtre 48 h affichée : le bilan
-            # eau (somme) et les 2 ETP « jour » portent ainsi exactement sur
-            # les mêmes 48 h (ETP_jour1 + ETP_jour2 = ETP du bilan).
-            debut_loc = fin_loc - pd.Timedelta(hours=48)
-            etp_loc = etp_loc.loc[(etp_loc.index >= debut_loc) & (etp_loc.index < fin_loc)]
-    else:
-        etp_loc = None
-
-    # Jusqu'à 3 dates : le matin la fenêtre [00 h ; +48 h] en couvre 2,
-    # mais l'après-midi [12 h ; +48 h] déborde sur une 3ᵉ date (matin de
-    # J+2). Les fenêtres antérieures à l'ancre (Nuit/Matin du jour
-    # d'ancrage l'après-midi) ont un masque vide → cellules « — ».
-    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:3]
+    # Périodes pleines à afficher : clé (jour local normalisé, heure de début).
+    pleins = {(debut.normalize(), debut.hour) for _, debut, _ in periodes}
+    jours_uniques = sorted({debut.normalize() for _, debut, _ in periodes})
     tableaux: list[str] = []
 
     for jour in jours_uniques:
-        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
-        jour_label = (
-            JOURS_FR[jour_loc.weekday()].capitalize() + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
-        )
+        jour_label = JOURS_FR[jour.weekday()].capitalize() + f" {jour.day:02d}/{jour.month:02d}"
 
-        # En-tête : titre du jour + colonnes matin/midi/soir.
         en_tete = (
             '<tr style="background:#fafafa;">'
             f'<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
@@ -735,35 +640,32 @@ def _bloc_grille_indicateurs_48h(
             + "</tr>"
         )
 
-        def cellule_picto(jour: pd.Timestamp) -> str:
-            from meteo_socle.indices.temps_sensible import code_temps_fenetre
+        def serie_fenetre(
+            jour_c: pd.Timestamp, colonne: str, h_debut: int, h_fin: int
+        ) -> pd.Series:
+            return _serie_fenetre(horaire, jour_c, colonne, h_debut, h_fin)
 
+        def cellule_picto(jour_courant: pd.Timestamp = jour) -> str:
             cells = []
             for _nom, h_debut, h_fin in FENETRES_VEILLE:
-                masque = _masque_fenetre(horaire_48h, jour, h_debut, h_fin)
-                sous_fenetre = horaire_48h.loc[masque]
-                # Picto classé sur le CUMUL de la fenêtre (même échelle que le
-                # cumul de pluie affiché), pas heure par heure. Repli sur le
-                # code horaire dominant si les champs AROME manquent (queue).
-                code = code_temps_fenetre(sous_fenetre)
-                if code is None and "weather_code" in sous_fenetre.columns:
-                    code = code_dominant_fenetre(sous_fenetre["weather_code"])
+                if (jour_courant, h_debut) not in pleins:
+                    cells.append('<td style="padding:1px 4px;text-align:center;color:#ccc;">—</td>')
+                    continue
+                codes = serie_fenetre(jour_courant, "weather_code", h_debut, h_fin)
+                code = code_dominant_fenetre(codes) if not codes.empty else None
                 if code is None:
-                    cells.append('<td style="padding:1px 4px;text-align:center;">—</td>')
-                else:
-                    # Variante nuit (lune) pour la fenêtre [0, 6).
-                    est_nuit = h_fin <= FENETRE_NUIT_PICTO_FIN
-                    uri = icone_base64(code, nuit=est_nuit)
-                    alt = libelle(code)
-                    cells.append(
-                        '<td style="padding:1px 4px;text-align:center;">'
-                        f'<img src="{uri}" alt="{alt}" title="{alt}" '
-                        'style="width:56px;height:56px;display:block;margin:0 auto;">'
-                        "</td>"
-                    )
-            # Les icônes yr sont en couleur et lisibles sur fond blanc : pas
-            # de fond derrière la ligne (le label garde le gris des autres
-            # lignes d'indicateurs).
+                    cells.append('<td style="padding:1px 4px;text-align:center;color:#ccc;">—</td>')
+                    continue
+                # Variante nuit (lune) pour la fenêtre [0, 6).
+                est_nuit = h_fin <= FENETRE_NUIT_PICTO_FIN
+                uri = icone_base64(code, nuit=est_nuit)
+                alt = libelle(code)
+                cells.append(
+                    '<td style="padding:1px 4px;text-align:center;">'
+                    f'<img src="{uri}" alt="{alt}" title="{alt}" '
+                    'style="width:56px;height:56px;display:block;margin:0 auto;">'
+                    "</td>"
+                )
             return (
                 "<tr>"
                 '<td style="padding:4px 8px;color:#555;font-size:13px;">Météo</td>'
@@ -771,23 +673,22 @@ def _bloc_grille_indicateurs_48h(
                 + "</tr>"
             )
 
-        def serie_fenetre(jour: pd.Timestamp, colonne: str, h_debut: int, h_fin: int) -> pd.Series:
-            return _serie_fenetre(horaire_48h, jour, colonne, h_debut, h_fin)
-
         def ligne_indicateur(label: str, formatter, jour_courant: pd.Timestamp = jour) -> str:
-            """Construit une ligne ``<tr>`` avec un libellé + 3 cellules formatées.
+            """Ligne ``<tr>`` : libellé + 4 cellules (— pour les périodes non pleines).
 
-            ``formatter`` reçoit ``(jour, h_debut, h_fin)`` et renvoie une string.
-            ``jour_courant`` est explicitement fourni pour éviter la capture de
-            la variable de boucle ``jour`` (B023).
+            ``jour_courant`` est fourni en défaut pour éviter la capture de la
+            variable de boucle ``jour`` (B023).
             """
             cells = []
             for _nom, h_debut, h_fin in FENETRES_VEILLE:
-                val_str = formatter(jour_courant, h_debut, h_fin)
+                val_str = (
+                    formatter(jour_courant, h_debut, h_fin)
+                    if (jour_courant, h_debut) in pleins
+                    else "—"
+                )
                 cells.append(
                     '<td style="padding:4px;text-align:center;'
-                    "font-variant-numeric:tabular-nums;font-size:13px;"
-                    "font-weight:700;"
+                    "font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;"
                     f'color:#34495e;">{val_str}</td>'
                 )
             return (
@@ -796,8 +697,8 @@ def _bloc_grille_indicateurs_48h(
                 + "</tr>"
             )
 
-        def fmt_t_min_max(jour, h_debut, h_fin) -> str:
-            serie_k = serie_fenetre(jour, "temperature_2m", h_debut, h_fin)
+        def fmt_t_min_max(jour_c, h_debut, h_fin) -> str:
+            serie_k = serie_fenetre(jour_c, "temperature_2m", h_debut, h_fin)
             if serie_k.empty:
                 return "—"
             t_min = serie_k.min() - 273.15
@@ -809,12 +710,12 @@ def _bloc_grille_indicateurs_48h(
                 f"{_unite('°C')}"
             )
 
-        def fmt_pluie(jour, h_debut, h_fin) -> str:
-            serie = serie_fenetre(jour, "precipitation", h_debut, h_fin)
+        def fmt_pluie(jour_c, h_debut, h_fin) -> str:
+            serie = serie_fenetre(jour_c, "precipitation", h_debut, h_fin)
             if serie.empty:
                 return "—"
             mm = serie.sum()
-            proba = serie_fenetre(jour, "probabilite_pluie_pct", h_debut, h_fin)
+            proba = serie_fenetre(jour_c, "probabilite_pluie_pct", h_debut, h_fin)
             mm_html = f'<span style="color:#56B4E9;">{mm:.1f}</span>' + _unite("mm")
             if proba.empty:
                 return mm_html
@@ -826,9 +727,9 @@ def _bloc_grille_indicateurs_48h(
                 + _unite("%")
             )
 
-        def fmt_vent(jour, h_debut, h_fin) -> str:
-            vent = serie_fenetre(jour, "vitesse_vent_10m", h_debut, h_fin)
-            rafales = serie_fenetre(jour, "rafales_vent_10m", h_debut, h_fin)
+        def fmt_vent(jour_c, h_debut, h_fin) -> str:
+            vent = serie_fenetre(jour_c, "vitesse_vent_10m", h_debut, h_fin)
+            rafales = serie_fenetre(jour_c, "rafales_vent_10m", h_debut, h_fin)
             if vent.empty:
                 return "—"
             v_moy = vent.mean() * MS_TO_KMH_VEILLE
@@ -840,14 +741,14 @@ def _bloc_grille_indicateurs_48h(
                 f"{_unite('km/h')}"
             )
 
-        def fmt_hr(jour, h_debut, h_fin) -> str:
-            serie = serie_fenetre(jour, "humidite_relative", h_debut, h_fin)
+        def fmt_hr(jour_c, h_debut, h_fin) -> str:
+            serie = serie_fenetre(jour_c, "humidite_relative", h_debut, h_fin)
             if serie.empty:
                 return "—"
             return f"{serie.mean() * 100:.0f}{_unite('%')}"
 
-        def fmt_vent_direction(jour, h_debut, h_fin) -> str:
-            sub = horaire_48h.loc[_masque_fenetre(horaire_48h, jour, h_debut, h_fin)]
+        def fmt_vent_direction(jour_c, h_debut, h_fin) -> str:
+            sub = horaire.loc[_masque_fenetre(horaire, jour_c, h_debut, h_fin)]
             if sub.empty or "direction_vent_deg" not in sub.columns:
                 return "—"
             deg = direction_dominante_vecteur(sub)
@@ -860,41 +761,6 @@ def _bloc_grille_indicateurs_48h(
                 f'<span style="color:#888;font-size:11px;">&nbsp;{cardinal}</span>'
             )
 
-        # ETP du jour : agrégation 24 h depuis la série ETP horaire socle
-        # (FAO Penman-Monteith). Affichée en une seule cellule centrée
-        # (colspan=3) sous l'HR.
-        def cellule_etp_jour(jour_courant: pd.Timestamp = jour) -> str:
-            if etp_loc is None:
-                return ""
-            if h_ancre is None or fin_loc is None:
-                # Fallback rétro-compat (now_utc absent) : jour calendaire.
-                masque_etp = etp_loc.index.normalize() == jour_courant
-            else:
-                # Bloc 24 h ancré : [date + h_ancre ; +24 h]. Matin →
-                # 00 h→24 h (jour calendaire) ; après-midi → 12 h→12 h
-                # (jour nocturne). On n'affiche la ligne que si le bloc
-                # complet tient dans la fenêtre 48 h → exclut le dernier
-                # jour (J+2) de la version après-midi, dont le bloc
-                # déborderait.
-                debut_bloc = jour_courant + pd.Timedelta(hours=h_ancre)
-                fin_bloc = debut_bloc + pd.Timedelta(hours=24)
-                if fin_bloc > fin_loc:
-                    return ""
-                masque_etp = (etp_loc.index >= debut_bloc) & (etp_loc.index < fin_bloc)
-            serie = etp_loc.loc[masque_etp].dropna()
-            val = f"{serie.sum():.1f}{_unite('mm')}" if not serie.empty else "—"
-            # Libellé selon l'ancre : « ETP du jour » (jour calendaire, le
-            # matin) ou « ETP du jour nocturne » (24 h midi→midi, l'après-midi).
-            label_etp = "ETP du jour nocturne" if h_ancre == 12 else "ETP du jour"
-            return (
-                '<tr><td style="padding:4px 8px;color:#555;font-size:13px;">'
-                f"{label_etp}</td>"
-                f'<td colspan="{len(FENETRES_VEILLE)}" '
-                'style="padding:4px;text-align:center;'
-                'font-variant-numeric:tabular-nums;font-size:13px;color:#34495e;font-weight:700;">'
-                f"{val}</td></tr>"
-            )
-
         lignes = [
             en_tete,
             cellule_picto(jour),
@@ -903,7 +769,6 @@ def _bloc_grille_indicateurs_48h(
             ligne_indicateur("Vent moy / rafales", fmt_vent),
             ligne_indicateur("Vent direction", fmt_vent_direction),
             ligne_indicateur("HR moyenne", fmt_hr),
-            cellule_etp_jour(),
         ]
 
         tableaux.append(
@@ -913,103 +778,10 @@ def _bloc_grille_indicateurs_48h(
             + "".join(lignes)
             + "</table>"
         )
-    # Bilan eau 48 h = pluie cumul 48h - ETP cumul 48h (ETP socle FAO).
-    pluie_48h = (
-        horaire_48h["precipitation"].sum() if "precipitation" in horaire_48h.columns else 0.0
-    )
-    etp_48h = float(etp_loc.sum()) if etp_loc is not None else 0.0
-    bilan_48h = pluie_48h - etp_48h
-    couleur_bilan = "#009E73" if bilan_48h >= 0 else "#D55E00"
-    bilan_html = (
-        '<table style="width:100%;border-collapse:collapse;margin:6px 0 0 0;'
-        'font-size:13px;">'
-        '<tr><td style="padding:6px 8px;color:#555;">Bilan eau 48 h (P − ETP)</td>'
-        f'<td style="padding:6px 8px;text-align:right;font-weight:700;'
-        f'color:{couleur_bilan};font-variant-numeric:tabular-nums;">'
-        f"{bilan_48h:+.1f}{_unite('mm')}</td></tr>"
-        '<tr><td colspan="2" style="padding:0 8px 6px 8px;'
-        'color:#aaa;font-size:11px;text-align:right;">'
-        f"P = {pluie_48h:.1f}{_unite('mm')} · ETP = {etp_48h:.1f}{_unite('mm')}</td></tr>"
-        "</table>"
-    )
 
     return (
         '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
-        "Tendance 48 h (AROME France HD 1.3 km)</h3>" + "".join(tableaux) + bilan_html
-    )
-
-
-def _bloc_pictogrammes_veille(
-    prevision_horaire: pd.DataFrame | None,
-    tz_locale: str = "Europe/Paris",
-) -> str:
-    """[DEPRECATED] Ancienne bande pictos seule.
-
-    Remplacée par ``_bloc_grille_indicateurs_48h`` qui regroupe pictos
-    + indicateurs en une grille unifiée. Conservée pour rétrocompat
-    de l'API publique tant qu'un consommateur la référence.
-    """
-    if prevision_horaire is None or "weather_code" not in prevision_horaire.columns:
-        return ""
-
-    from apps.shared.pictograms import code_dominant_fenetre, icone_base64, libelle
-
-    horaire_loc = prevision_horaire.copy()
-    horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
-    horaire_48h = horaire_loc.head(48)
-    if horaire_48h.empty:
-        return ""
-
-    # Identifie les 2 jours locaux couverts par les 48 h.
-    jours_uniques = pd.DatetimeIndex(horaire_48h.index).normalize().unique()[:2]
-    fenetres = (
-        ("Matin", 6, 12),
-        ("Midi", 12, 16),
-        ("Soir", 16, 21),
-    )
-
-    cellules = []
-    for jour in jours_uniques:
-        jour_loc = pd.Timestamp(jour, tz=tz_locale) if jour.tzinfo is None else jour
-        jour_label = JOURS_FR[jour_loc.weekday()][:3] + f" {jour_loc.day:02d}/{jour_loc.month:02d}"
-        rangee_cellules = [
-            f'<td style="padding:4px 8px;font-size:12px;color:#888;white-space:nowrap;">'
-            f"{jour_label}</td>"
-        ]
-        for nom_fenetre, h_debut, h_fin in fenetres:
-            masque = (horaire_48h.index.normalize() == jour) & (
-                (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
-            )
-            codes_fenetre = horaire_48h.loc[masque, "weather_code"]
-            code = code_dominant_fenetre(codes_fenetre)
-            icone_uri = icone_base64(code)
-            alt = libelle(code)
-            rangee_cellules.append(
-                f'<td style="padding:4px;text-align:center;">'
-                f'<img src="{icone_uri}" alt="{alt}" title="{alt}" '
-                f'style="width:48px;height:48px;display:block;margin:0 auto;">'
-                f'<div style="font-size:10px;color:#888;margin-top:2px;">{nom_fenetre}</div>'
-                f"</td>"
-            )
-        cellules.append("<tr>" + "".join(rangee_cellules) + "</tr>")
-
-    en_tete_fenetres = (
-        '<tr style="font-size:11px;color:#aaa;">'
-        "<td></td>"
-        + "".join(
-            f'<td style="text-align:center;padding:2px;">{nom}</td>' for nom, _, _ in fenetres
-        )
-        + "</tr>"
-    )
-
-    return (
-        '<h3 style="margin:14px 0 6px 0;font-size:14px;color:#34495e;">'
-        "Tendance 48 h (AROME France HD 1.3 km)</h3>"
-        '<table style="width:100%;border-collapse:collapse;'
-        'background:#fafafa;border-radius:4px;">'
-        + en_tete_fenetres
-        + "".join(cellules)
-        + "</table>"
+        "Tendance jusqu'à 48 h (Prévision Météo-France)</h3>" + "".join(tableaux)
     )
 
 
@@ -1048,7 +820,6 @@ def composer_texte(
     maintenant: datetime,
     url_fiches: str = "",
     source: str = SOURCE_DEFAUT,
-    methode_etp: str = METHODE_ETP,
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     tz_locale: str = "Europe/Paris",
@@ -1061,16 +832,13 @@ def composer_texte(
     titre = f"Veille {article}" if article else "Veille météo"
     lignes.append(f"{titre} — {format_date_fr(maintenant)}")
     lignes.append("=" * 70)
-    if ind.prevision_t0_utc is not None:
-        t0_loc = ind.prevision_t0_utc
-        if t0_loc.tzinfo is None:
-            t0_loc = t0_loc.tz_localize("UTC")
-        t0_loc = t0_loc.tz_convert(tz_locale)
-        # t0 = ancre de la fenêtre (00 h ou 12 h selon le moment d'envoi).
-        fenetre_label = f"{t0_loc.strftime('%d/%m/%Y %Hh00')} - 48h00"
+    if ind.prevision_t0_local is not None:
+        # 1ʳᵉ période de 6 h locale affichée (heure locale, ADR-0014 D4).
+        t0_loc = ind.prevision_t0_local.tz_convert(tz_locale)
+        fenetre_label = f"à partir du {t0_loc.strftime('%d/%m/%Y %Hh00')}"
     else:
         fenetre_label = "—"
-    lignes.append(f"Prévision du {fenetre_label}")
+    lignes.append(f"Prévision {fenetre_label}")
     lignes.append("")
 
     lignes.append("VIGILANCE EXPLOITATION :")
@@ -1085,7 +853,7 @@ def composer_texte(
     # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
     tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
     if tendance_lignes:
-        lignes.append("TENDANCE 48 h (AROME France HD) :")
+        lignes.append("TENDANCE 48 h (Prévision Météo-France) :")
         lignes.extend(tendance_lignes)
         lignes.append("")
 
@@ -1110,14 +878,12 @@ def composer_texte(
             "0-24 h, pondéré vitesse",
         )
     )
-    lignes.append(fmt("ETP du jour", f"{ind.etp_jour_mm:.1f} mm", "0-24 h, FAO socle"))
     lignes.append("")
     lignes.append("-" * 70)
     lignes.append("Ce mail est un signal informationnel — vous gardez la décision")
     lignes.append("(cf. principe #1 du projet).")
     lignes.append("")
     lignes.append(f"Source : {source}")
-    lignes.append(f"ETP    : {methode_etp}")
     lignes.append(f"Cron   : {cron}")
     lignes.append(f"Site   : {site}")
     if url_fiches:
@@ -1131,7 +897,6 @@ def composer_html(
     maintenant: datetime,
     url_fiches: str = "",
     source: str = SOURCE_DEFAUT,
-    methode_etp: str = METHODE_ETP,
     cron: str = CRON_EXPLAIN,
     site: str = SITE_EXPLAIN,
     chart_48h_base64: str = "",
@@ -1154,12 +919,11 @@ def composer_html(
 
     bloc_grille = _bloc_grille_indicateurs_48h(
         prevision_horaire,
-        etp_horaire_48h=ind.etp_horaire_48h,
         now_utc=now_utc_ts,
         tz_locale=tz_locale,
     )
     bloc_carte = _bloc_cartes_synoptiques(cartes_grille, tz_locale=tz_locale)
-    bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale)
+    bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
     bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
     bloc_definitions = _bloc_definitions(seuils_config)
 
@@ -1174,26 +938,20 @@ def composer_html(
         '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #eee;'
         'font-size:11px;color:#888;line-height:1.5;">'
         f'<div><strong style="color:#555;">Source</strong> : {source}</div>'
-        f'<div><strong style="color:#555;">ETP</strong> : {methode_etp}</div>'
         f'<div><strong style="color:#555;">Cron</strong> : {cron}</div>'
         f'<div><strong style="color:#555;">Site</strong> : {site}</div>'
         f"{lien_fiches}"
         "</div>"
     )
 
-    # Fenêtre de prévision : de l'ancre de demi-journée (00 h le matin,
-    # 12 h l'après-midi) + 48 h. Date présentée dans un format monospace
-    # + fond clair pour la rendre légèrement distinctive (police
-    # technique, vs corps du titre courant).
-    if ind.prevision_t0_utc is not None:
-        t0_loc = ind.prevision_t0_utc
-        if t0_loc.tzinfo is None:
-            t0_loc = t0_loc.tz_localize("UTC")
-        t0_loc = t0_loc.tz_convert(tz_locale)
+    # Fenêtre de prévision : 1ʳᵉ période de 6 h locale affichée (ADR-0014 D4).
+    # Format monospace + fond clair pour la rendre légèrement distinctive.
+    if ind.prevision_t0_local is not None:
+        t0_loc = ind.prevision_t0_local.tz_convert(tz_locale)
         date_html = (
             '<span style="font-family:Menlo,Consolas,monospace;font-size:0.88em;'
             'background:#f4f4f4;padding:1px 6px;border-radius:3px;color:#34495e;">'
-            f"{t0_loc.strftime('%d/%m/%Y %Hh00')} - 48h00"
+            f"{t0_loc.strftime('%d/%m/%Y %Hh00')}"
             "</span>"
         )
     else:
@@ -1244,37 +1002,29 @@ def composer_email(
     cartes_grille: CartesGrille | None = None,
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
-    runs_utilises: dict[str, pd.Timestamp] | None = None,
-    proba_ensemble: bool = False,
+    updated_on: pd.Timestamp | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
     ``chart_48h_base64`` (optionnel) sera embarqué dans le HTML comme image
-    inline. ``cartes_grille`` (optionnel) — grille 3×2 Met Office (gauche) +
-    AROME mode 24 (droite) sur 3 échéances. Si ``None`` ou cartes toutes
-    indisponibles, aucun bloc carte n'est rendu. ``runs_utilises`` — runs
-    *Single Runs* effectivement servis (``{modèle: run UTC}``) pour le label
-    « Source » véridique (ADR-0011) ; ``None`` retombe sur le label config.
+    inline. ``cartes_grille`` (optionnel) — Met Office + AROME synoptiques. Si
+    ``None`` ou cartes toutes indisponibles, aucun bloc carte n'est rendu.
+    ``updated_on`` (tz-aware UTC) — heure d'émission de la prévision officielle MF
+    pour le label « Source » (ADR-0014 D1/D9) ; ``None`` retombe sur le label MF
+    générique.
     """
     email_cfg = config["email"]
     url_fiches = email_cfg.get("url_fiches_indices", "") or ""
-    # Label « Source » véridique = runs Single Runs réellement servis (ADR-0011
-    # D7). Repli sur le label dérivé de la config si non fourni (tests / appel
-    # legacy). Ne peut pas diverger de ce qui a été fetché.
-    if runs_utilises is not None:
-        source = construire_label_source_runs(runs_utilises, proba_ensemble)
-    else:
-        modeles = config.get("source_meteo", {}).get("modeles", [])
-        source = construire_label_source(modeles) if modeles else SOURCE_DEFAUT
-    # ADR-0011 D5 : affichage tout-UTC (fenêtre + périodes alignées sur les
-    # cycles de run). Le fuseau du site ne sert plus au binning temporel.
-    tz_locale = "UTC"
+    # ADR-0014 : tout en heure locale ; source = prévision officielle MF étiquetée
+    # par sa fraîcheur (updated_on).
+    tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
+    source = label_source_mf(updated_on, tz_locale)
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
     )
-    # Moment d'envoi (matin / après-midi) = créneau de run UTC. Cf. moment_envoi.
-    moment = moment_envoi(now_utc_ts)
+    # Moment d'envoi (matin / après-midi) = heure locale (cron 6h30/18h30, D4).
+    moment = moment_envoi(now_utc_ts, tz_locale)
     sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"], moment=moment)
     texte = composer_texte(
         ind,

@@ -29,11 +29,11 @@ from typing import Any
 import pandas as pd
 import requests
 
-from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
-from meteo_socle.sources.openmeteo_runs import (
-    OpenMeteoSingleRuns,
+from meteo_socle.sources.meteofrance_officiel import (
+    MeteoFranceOfficiel,
     PrevisionIndisponibleError,
 )
+from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
 
 from .alertes import evaluer_alertes
 from .cartes_synoptiques import recuperer_cartes
@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 def executer_veille(
     config: dict[str, Any],
     secrets: dict[str, Any] | None,
-    source: OpenMeteoSingleRuns | None = None,
+    source: MeteoFranceOfficiel | None = None,
     now_utc: pd.Timestamp | None = None,
     preview_path: str | Path | None = None,
 ) -> int:
@@ -82,60 +82,42 @@ def executer_veille(
         Code de retour (0 succès, 2 HTTP source, 3 SMTP / écriture).
     """
     if source is None:
-        # Single Runs API : un run explicite par modèle, choisi de façon
-        # déterministe selon le créneau (ADR-0011). La fusion par priorité
-        # (AROME cœur + ARPEGE rayonnement + ECMWF proba) est faite par le
-        # socle ; le run de chaque modèle est tracé pour le label « Source ».
-        source = OpenMeteoSingleRuns()
+        # Prévision officielle Météo-France roulante (ADR-0014) : un seul JSON
+        # au point (picto orage + proba calibrée + T/pluie/vent), étiqueté par
+        # sa fraîcheur (updated_on). Pas de run, pas d'ETP (cf. App 2).
+        source = MeteoFranceOfficiel()
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
 
     site = config["site"]
-    horizon = config["source_meteo"]["horizon_max_jours"]
-    # On fetch UN jour de plus que l'horizon d'affichage (48 h) : la fenêtre
-    # de l'après-midi [12Z ; 12Z+48h] atteint 12Z de J+2 (au-delà de 48 pas
-    # depuis l'init), et la queue 48-72 h est comblée par ARPEGE (AROME ~48 h).
-    # Le jour en trop est inoffensif.
-    fetch_jours = horizon + 1
+    tz_locale = site.get("tz", "Europe/Paris")
     logger.info(
-        "Fetch Single Runs lat=%.4f lon=%.4f horizon=%d j (fetch %d j)",
+        "Fetch prévision officielle MF lat=%.4f lon=%.4f",
         site["latitude"],
         site["longitude"],
-        horizon,
-        fetch_jours,
     )
     try:
-        # Pas de past_days : un Single Run part de son init vers l'avant. La
-        # fenêtre est ancrée sur l'init du run (ADR-0011 D5) → couverte
-        # exactement, sans trou.
-        resultat = source.obtenir_prevision(
+        prevision = source.obtenir_prevision(
             latitude=site["latitude"],
             longitude=site["longitude"],
-            horizon_jours=fetch_jours,
-            now_utc=now_utc,
         )
     except requests.HTTPError as e:
         logger.error("Erreur HTTP source météo : %s", e)
         return 2
     except PrevisionIndisponibleError as e:
-        logger.error("Prévision indisponible (cœur AROME manquant) : %s", e)
+        logger.error("Prévision indisponible (prévi MF muette) : %s", e)
         return 2
 
-    prevision = resultat.df
-    ind = calculer_indicateurs(prevision, now_utc, config)
+    prevision_df = prevision.df
+    ind = calculer_indicateurs(prevision_df, now_utc, config)
     alertes = evaluer_alertes(ind, config)
     logger.info("%d alerte(s) déclenchée(s)", len(alertes))
 
-    # ADR-0011 D5 : affichage tout-UTC (fenêtre + périodes alignées sur les
-    # cycles de run). Le fuseau du site ne sert plus qu'à la géolocalisation
-    # (lat/lon/alt) pour l'ETP, pas au binning temporel.
-    chart = graphique_48h_base64(prevision, now_utc, tz_locale="UTC")
-    # Grille 3×2 : Met Office (gauche, fronts Atlantique nord/Europe) +
-    # AROME mode 24 (droite, France précip+pression+nébulosité). Cibles
-    # décalées selon le moment d'envoi : matin = 00Z J → 12Z J+1,
-    # après-midi = 12Z J → 00Z J+2 (cf. recuperer_cartes). Cartes
-    # manquantes sautées silencieusement (mail envoyé même si down).
-    apres_midi = moment_envoi(now_utc) == "après-midi"
+    # ADR-0014 : affichage tout en heure locale (fenêtre + périodes 6 h).
+    chart = graphique_48h_base64(prevision_df, now_utc, tz_locale=tz_locale)
+    # Grille Met Office + AROME (cartes synoptiques images). Cibles décalées
+    # selon le moment d'envoi. Cartes manquantes sautées silencieusement.
+    apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
     cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
     # Vigilance MF (officielle d'État) — référence pour orages, vent,
     # pluie, canicule, neige-verglas, grand froid sur 0-48 h. Si la clé
@@ -151,9 +133,8 @@ def executer_veille(
         chart_48h_base64=chart,
         cartes_grille=cartes_grille,
         vigilance=vigilance,
-        prevision_horaire=prevision,
-        runs_utilises=resultat.runs_utilises,
-        proba_ensemble=resultat.proba_ensemble,
+        prevision_horaire=prevision_df,
+        updated_on=prevision.updated_on,
     )
 
     if preview_path is not None:

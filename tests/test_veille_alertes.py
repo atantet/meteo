@@ -36,10 +36,9 @@ def _ind(**kwargs):
         rafales_max_24h_kmh=20.0,
         direction_vent_dominante_deg=270.0,
         direction_vent_dominante_cardinal="O",
-        etp_jour_mm=2.0,
         prob_pluie_max_24h_pct=0.0,
         prob_pluie_max_48h_pct=0.0,
-        prevision_t0_utc=None,
+        prevision_t0_local=None,
     )
     defaults.update(kwargs)
     return IndicateursVeille(**defaults)

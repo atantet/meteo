@@ -26,7 +26,7 @@ import requests  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from .indicateurs import ancre_fenetre  # noqa: E402
+from .indicateurs import periodes_pleines, portion_horaire  # noqa: E402
 
 # Abréviations FR pour l'axe X du graphique 48h — évite la dépendance
 # à ``locale.setlocale("fr_FR.UTF-8")`` (souvent absent en CI / containers).
@@ -114,16 +114,19 @@ def graphique_48h_base64(
         ``data:image/png;base64,...`` à insérer dans ``<img src=...>``.
         Si la prévision est vide, retourne une chaîne vide.
     """
-    # Fenêtre ancrée sur la dernière demi-journée locale (00 h le matin,
-    # 12 h l'après-midi — cf. ``ancre_fenetre``), alignée sur le tableau
-    # Tendance et le libellé du mail. La prévision inclut ``past_days=1``
-    # pour couvrir la portion ancre → T+0 de la demi-journée courante.
-    x_min = ancre_fenetre(now_utc, tz_locale).tz_convert(tz_locale)
-    x_max = x_min + pd.Timedelta(hours=horizon_h)
-
+    # ADR-0014 : fenêtre = de la 1ʳᵉ période de 6 h pleine (heure locale) à
+    # +horizon_h, sur la portion horaire de la prévi MF roulante. ``now_utc``
+    # n'est plus utilisé (plus d'ancrage run) mais conservé dans la signature.
+    del now_utc
     prev_loc = prevision.copy()
     prev_loc.index = prev_loc.index.tz_convert(tz_locale)
-    df = prev_loc.loc[(prev_loc.index >= x_min) & (prev_loc.index < x_max)].copy()
+    horaire = portion_horaire(prev_loc)
+    periodes = periodes_pleines(horaire)
+    if not periodes:
+        return ""
+    x_min = periodes[0][1]
+    x_max = x_min + pd.Timedelta(hours=horizon_h)
+    df = horaire.loc[(horaire.index >= x_min) & (horaire.index < x_max)].copy()
     if df.empty:
         return ""
 

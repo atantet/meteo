@@ -40,10 +40,9 @@ def _ind(**kwargs):
         rafales_max_24h_kmh=35.0,
         direction_vent_dominante_deg=270.0,
         direction_vent_dominante_cardinal="O",
-        etp_jour_mm=3.2,
         prob_pluie_max_24h_pct=15.0,
         prob_pluie_max_48h_pct=30.0,
-        prevision_t0_utc=pd.Timestamp("2024-06-15 06:00:00+00:00"),
+        prevision_t0_local=pd.Timestamp("2024-06-15 06:00:00+00:00"),
     )
     defaults.update(kwargs)
     return IndicateursVeille(**defaults)
@@ -111,17 +110,17 @@ def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
 
     from apps.veille.email import composer_html
 
-    # t0 ancré à 12 h locale (Europe/Paris été = 10:00 UTC).
+    # t0 = 12 h locale (Europe/Paris été = 10:00 UTC).
     t0 = pd.Timestamp("2024-06-15 10:00:00+00:00")
     html = composer_html(
-        _ind(prevision_t0_utc=t0),
+        _ind(prevision_t0_local=t0),
         [],
         datetime(2024, 6, 15, 16, 0),
         moment="après-midi",
         tz_locale="Europe/Paris",
     )
     assert "Veille de l'après-midi" in html
-    assert "12h00 - 48h00" in html
+    assert "12h00" in html
 
 
 def test_composer_texte_contient_alertes_et_indicateurs() -> None:
@@ -134,9 +133,8 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
     assert "informationnel" in txt.lower()
-    # Footer source visible.
-    assert "Open-Meteo" in txt
-    assert "FAO" in txt
+    # Footer source visible = prévision officielle MF (ADR-0014).
+    assert "Météo-France" in txt
     # Date français.
     assert "Samedi 15 juin" in txt
     # Direction du vent dominante.
@@ -158,11 +156,9 @@ def test_composer_html_structure() -> None:
     assert "<!DOCTYPE html>" in html
     assert 'name="viewport"' in html  # responsive mobile
     assert "Gel" in html
-    # Sans prevision_horaire la grille 48 h reste vide mais le bandeau
-    # alertes (gel) doit toujours apparaître ; footer + source garantis.
-    # Footer source + ETP discret.
-    assert "Open-Meteo" in html
-    assert "FAO" in html
+    # Sans prevision_horaire la grille reste vide mais le bandeau alertes (gel)
+    # doit toujours apparaître ; footer + source (prévision officielle MF) garantis.
+    assert "Météo-France" in html
 
 
 def test_composer_email_bundle() -> None:

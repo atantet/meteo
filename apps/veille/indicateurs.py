@@ -1,60 +1,44 @@
 """Calcul des indicateurs météorologiques pour l'App 1 Veille.
 
-À partir d'une prévision horaire (DataFrame indexé tz-aware UTC sortie
-de ``meteo_socle.sources.openmeteo_runs.OpenMeteoSingleRuns``), calcule
-les indicateurs envoyés dans l'email :
+À partir de la **prévision officielle Météo-France** (DataFrame horaire indexé
+tz-aware UTC, sortie de ``meteo_socle.sources.meteofrance_officiel``), calcule les
+indicateurs envoyés dans l'e-mail. Cf. **ADR-0014**.
 
-- Température min / max sur 24 h et 48 h (fenêtre ancrée sur l'init du run, UTC)
-- Cumuls de pluie 24 / 48 h
-- Vent moyen et rafales maximaux 24 h (km/h)
-- ETP cumulée 24 h (caractère séchant du jour) + série horaire 48 h
-  utilisée par l'email pour reconstruire ETP du jour et bilan eau 48 h
+Changements ADR-0014 vs ADR-0011 :
 
-**Cohérence inter-apps (cf. principe #4 rigueur scientifique)** :
-l'ETP est calculée par ``meteo_socle.indices.etp_fao.calcul_etp``
-(FAO Penman-Monteith horaire, ADR-0004), **pas** reprise du champ
-``etp_open_meteo`` du fournisseur. Cela garantit la même méthode dans
-toutes les apps (Veille, Opérationnelle, Climato) et nous donne la
-maîtrise des hypothèses (R_so via pvlib, clearness, G jour/nuit).
-``etp_open_meteo`` reste un cross-check possible mais n'est pas utilisé
-en production.
+- **Tout en heure locale** (``config["site"]["tz"]``), plus d'ancrage sur un run :
+  la prévi MF est roulante. La fenêtre démarre à la **première période de 6 h
+  entièrement couverte** par l'horaire et s'arrête à la **dernière période pleine**
+  (``periodes_pleines``). On n'exploite que la **portion horaire** (``portion_horaire``).
+- **Plus d'ETP** : la prévi MF ne fournit pas le rayonnement, et la Veille répond à
+  « quel temps dans les prochaines ~48 h ? » (l'ETP/bilan est l'affaire de l'App 2).
+- **Périodes 6 h locales** : Nuit 0-6 / Matin 6-12 / Après-midi 12-18 / Soir 18-24
+  (labels honnêtes en heure locale).
 
-Température : min et max sur chaque fenêtre (24 h et 48 h) **sans
-découpage nuit/jour** pour les risques de **gel** (min : irrigation
-48 h, cultures 24 h) et de **canicule** (max : aération 48 h, stress
-24 h) — ces risques se surveillent à toute heure. **Exception** : le
-**risque maladie** (« nuit douce ») utilise un min restreint à la
-**nuit à venir** (J+1, heures UTC [0, 6)),
-``temperature_min_nuit_prochaine_celsius``. Le découpage Nuit / Matin /
-Après-midi / Soir (bins UTC 0-6/6-12/12-18/18-24) vit dans la grille du
-mail. Tout est en UTC, ancré sur l'init du run (ADR-0011).
+Température : min/max sur 24 h et 48 h **sans découpage** pour les risques de gel
+(min) et de canicule (max), à toute heure. **Exception** : le risque maladie
+(« nuit douce ») utilise le min de la **nuit locale à venir** (J+1, [0, 6) locale),
+``temperature_min_nuit_prochaine_celsius``.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from meteo_socle.indices.etp_fao import calcul_etp
-from meteo_socle.sources.openmeteo_runs import ancre_creneau, creneau_run
-
 # Conversions vers unités de présentation utilisateur.
 KELVIN_OFFSET: float = 273.15
 MS_TO_KMH: float = 3.6
 
-# Colonnes d'entrée nécessaires au calcul d'ETP socle.
-_INPUTS_ETP = [
-    "temperature_2m",
-    "humidite_relative",
-    "vitesse_vent_10m",
-    "rayonnement_global",
-]
-
 # Conversion direction (degrés) → secteur cardinal court.
 CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
+
+# Périodes de 6 h locales : heure de début → label (ADR-0014 D4).
+LABEL_PAR_DEBUT: dict[int, str] = {0: "Nuit", 6: "Matin", 12: "Après-midi", 18: "Soir"}
+PERIODE_H = 6
 
 
 def degrees_to_cardinal(deg: float) -> str:
@@ -71,7 +55,7 @@ def direction_dominante_vecteur(
     """Direction dominante en degrés, par moyenne vectorielle pondérée vitesse.
 
     Si ``col_vitesse`` est ``None`` ou absente, pondération uniforme.
-    Retourne ``float("nan")`` si la colonne direction est absente.
+    Retourne ``float("nan")`` si la colonne direction est absente/vide.
     """
     if col_dir_deg not in df.columns or df[col_dir_deg].dropna().empty:
         return float("nan")
@@ -83,9 +67,72 @@ def direction_dominante_vecteur(
     return float(np.rad2deg(np.arctan2(-u.mean(), -v.mean())) % 360)
 
 
+def moment_envoi(now_utc: pd.Timestamp, tz: str = "Europe/Paris") -> str:
+    """Libellé du moment d'envoi : ``"matin"`` ou ``"après-midi"``.
+
+    Déduit de l'**heure locale** (cron Veille 6 h 30 / 18 h 30 locale, ADR-0014
+    D4) : avant midi local → matin, sinon après-midi.
+    """
+    heure_locale = now_utc.tz_convert(tz).hour
+    return "matin" if heure_locale < 12 else "après-midi"
+
+
+def portion_horaire(df: pd.DataFrame) -> pd.DataFrame:
+    """Bloc de tête au **pas horaire** (1 h) de la prévi MF.
+
+    La prévi MF est horaire puis passe à 3 h puis 6 h (ADR-0014). La Veille
+    n'exploite que la portion horaire : on garde le préfixe contigu dont l'écart
+    à l'échéance suivante est de 1 h (plus la dernière échéance de ce préfixe).
+    """
+    if len(df) <= 1:
+        return df
+    deltas = df.index.to_series().diff().shift(-1)  # écart vers l'échéance suivante
+    une_heure = pd.Timedelta(hours=1)
+    n = 0
+    for d in deltas[:-1]:
+        if d == une_heure:
+            n += 1
+        else:
+            break
+    return df.iloc[: n + 1]
+
+
+def periodes_pleines(
+    df_horaire_local: pd.DataFrame,
+) -> list[tuple[str, pd.Timestamp, pd.Timestamp]]:
+    """Périodes de 6 h locales **entièrement couvertes** par l'horaire (ADR-0014 D4).
+
+    ``df_horaire_local`` doit être indexé tz-aware en heure **locale**, au pas
+    horaire (cf. ``portion_horaire``). Une période ``[début ; début+6 h[`` (alignée
+    sur 0/6/12/18 locale) est retenue ssi **ses 6 heures rondes sont toutes
+    présentes**. On découpe ainsi sur les périodes pleines, jamais sur l'heure
+    d'envoi : la première période partielle (queue d'heures déjà écoulées) est
+    exclue, la dernière partielle (au-delà de l'horaire) aussi.
+
+    Returns
+    -------
+    list[(label, début_local, fin_local)]
+        Triées chronologiquement (label ∈ Nuit/Matin/Après-midi/Soir).
+    """
+    if df_horaire_local.empty:
+        return []
+    heures_presentes = set(df_horaire_local.index)
+    debut_jour = df_horaire_local.index.min().normalize()
+    fin = df_horaire_local.index.max()
+    out: list[tuple[str, pd.Timestamp, pd.Timestamp]] = []
+    p = debut_jour
+    pas = pd.Timedelta(hours=PERIODE_H)
+    while p <= fin:
+        heures = [p + pd.Timedelta(hours=k) for k in range(PERIODE_H)]
+        if all(h in heures_presentes for h in heures):
+            out.append((LABEL_PAR_DEBUT[p.hour], p, p + pas))
+        p = p + pas
+    return out
+
+
 @dataclass
 class IndicateursVeille:
-    """Bundle des indicateurs calculés pour un envoi matinal."""
+    """Bundle des indicateurs calculés pour un envoi (ADR-0014, sans ETP)."""
 
     temperature_min_24h_celsius: float
     temperature_max_24h_celsius: float
@@ -100,50 +147,15 @@ class IndicateursVeille:
     direction_vent_dominante_deg: float
     direction_vent_dominante_cardinal: str
 
-    etp_jour_mm: float
-
     prob_pluie_max_24h_pct: float
     prob_pluie_max_48h_pct: float
 
-    # Min de température sur la nuit À VENIR (J+1, heures locales [0, 6)),
-    # pour l'alerte risque_maladies (« nuit douce »). Distinct des min
-    # 24/48 h qui portent sur toute la fenêtre (risques de gel, à toute
-    # heure). NaN si la prévision ne couvre pas cette nuit.
+    # Min de température sur la nuit locale À VENIR (J+1, [0, 6) locale), pour
+    # l'alerte risque_maladies. NaN si la prévision ne couvre pas cette nuit.
     temperature_min_nuit_prochaine_celsius: float = float("nan")
 
-    # Série ETP horaire 48 h (mm/h) calculée par le socle. Permet à
-    # email.py de reconstruire ETP du jour J+0 / J+1 et le bilan eau
-    # 48 h sans dupliquer la logique. Indexée comme la prévision.
-    etp_horaire_48h: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
-
-    # Métadonnées prévision : 1er pas horaire effectivement utilisé après
-    # filtrage ``now_utc`` (proxy "T+0" pour le mail).
-    prevision_t0_utc: pd.Timestamp | None = None
-
-
-def ancre_fenetre(now_utc: pd.Timestamp, tz: str = "UTC") -> pd.Timestamp:
-    """Borne basse de la fenêtre 48 h = init du run-cœur (AROME) du créneau.
-
-    Depuis ADR-0011 (D5), on raisonne **tout en UTC** et on ancre la fenêtre
-    sur l'**init du run** (00Z le matin, 12Z l'après-midi), et non plus sur la
-    demi-journée locale : le début de fenêtre coïncide ainsi exactement avec le
-    début du run (zéro trou) et avec les bins de période UTC
-    (0-6/6-12/12-18/18-24). Le paramètre ``tz`` est conservé pour compatibilité
-    d'appel mais **ignoré** (ancrage UTC). Retourne un Timestamp tz-aware UTC.
-    """
-    return ancre_creneau(now_utc)
-
-
-def moment_envoi(now_utc: pd.Timestamp, tz: str = "UTC") -> str:
-    """Libellé du moment d'envoi : ``"matin"`` ou ``"après-midi"``.
-
-    Déduit du **créneau de run UTC** (bornes 05:30 / 17:30 UTC, cf.
-    ``meteo_socle.sources.openmeteo_runs.creneau_run``), pour rester cohérent
-    avec les runs réellement servis (ADR-0011 D3). Le paramètre ``tz`` est
-    conservé pour compatibilité mais **ignoré**.
-    """
-    creneau, _ = creneau_run(now_utc)
-    return "matin" if creneau == "matin" else "après-midi"
+    # 1ʳᵉ période de 6 h locale affichée (début) — proxy "T+0" du mail.
+    prevision_t0_local: pd.Timestamp | None = None
 
 
 def calculer_indicateurs(
@@ -151,81 +163,60 @@ def calculer_indicateurs(
     now_utc: pd.Timestamp,
     config: dict[str, Any],
 ) -> IndicateursVeille:
-    """Calcule les indicateurs Veille depuis une prévision horaire.
+    """Calcule les indicateurs Veille depuis la prévi horaire MF.
 
     Parameters
     ----------
     prevision :
-        DataFrame indexé tz-aware UTC, colonnes selon les conventions
-        socle (``temperature_2m`` K, ``precipitation`` mm,
-        ``vitesse_vent_10m`` et ``rafales_vent_10m`` m/s).
+        DataFrame indexé tz-aware UTC, colonnes socle (``temperature_2m`` K,
+        ``precipitation`` mm, ``vitesse_vent_10m``/``rafales_vent_10m`` m/s,
+        ``probabilite_pluie_pct`` %, ``direction_vent_deg``).
     now_utc :
-        Référence temporelle. La fenêtre démarre à **minuit local** du
-        jour de ``now_utc`` (les heures antérieures sont ignorées) ;
-        ``config["site"]["tz"]`` donne le fuseau.
+        Référence temporelle (tz-aware UTC).
     config :
-        Configuration Veille (cf. ``apps.veille.config.load_config``).
+        Configuration Veille ; ``config["site"]["tz"]`` donne le fuseau local.
 
     Returns
     -------
     IndicateursVeille
-        Dataclass groupant les valeurs synthétiques.
 
     Raises
     ------
     ValueError
-        Si la prévision ne contient aucune heure ≥ ``now_utc``.
+        Si aucune période de 6 h pleine n'est disponible.
     """
-    # ADR-0011 D5 : tout en UTC. La fenêtre est ancrée sur l'init du run
-    # (00Z le matin, 12Z l'après-midi — cf. ``ancre_fenetre``), qui coïncide
-    # avec le début des données Single Runs (pas de past_days, pas de trou).
-    # h24 = [ancre ; ancre+24h], h48 = [ancre ; ancre+48h]. Les bins agro
-    # (nuit-douce) sont eux aussi définis sur l'heure UTC.
-    tz = "UTC"
-    debut = ancre_fenetre(now_utc, tz)
-    df = prevision.loc[prevision.index >= debut].copy()
-    if df.empty:
-        raise ValueError(
-            "La prévision ne contient aucune heure ≥ ancre de demi-journée — "
-            "vérifier la fraîcheur du fetch Open-Meteo."
-        )
-    df = df.sort_index()
+    tz = config["site"]["tz"]
+    df = prevision.sort_index().copy()
+    df.index = df.index.tz_convert(tz)
 
-    h24 = df.head(24)
-    h48 = df.head(48)
+    # Portion horaire seule (ADR-0014 D4), puis fenêtre = première période pleine.
+    df_h = portion_horaire(df)
+    periodes = periodes_pleines(df_h)
+    if not periodes:
+        raise ValueError(
+            "Aucune période de 6 h pleine dans la prévi MF — vérifier la fraîcheur du fetch."
+        )
+    debut = periodes[0][1]
+    df_win = df_h.loc[df_h.index >= debut]
+
+    h24 = df_win.head(24)
+    h48 = df_win.head(48)
 
     temperature_celsius_24h = h24["temperature_2m"] - KELVIN_OFFSET
     temperature_celsius_48h = h48["temperature_2m"] - KELVIN_OFFSET
 
-    # Min de la nuit À VENIR (J+1, heures UTC [0, 6)) — pour le risque
-    # maladie (« nuit douce »). La nuit actionnable est celle de la nuit
-    # prochaine (demain 00-06 UTC), pas celle déjà écoulée. NaN si non
-    # couverte.
+    # Min de la nuit locale À VENIR (J+1, [0, 6) locale) — risque maladie.
     jour_j1 = now_utc.tz_convert(tz).normalize() + pd.Timedelta(days=1)
-    idx_local = df.index.tz_convert(tz)
-    masque_nuit = (idx_local.normalize() == jour_j1) & (idx_local.hour >= 0) & (idx_local.hour < 6)
+    masque_nuit = (df.index.normalize() == jour_j1) & (df.index.hour >= 0) & (df.index.hour < 6)
     t_nuit_celsius = df.loc[masque_nuit, "temperature_2m"] - KELVIN_OFFSET
     t_min_nuit_prochaine = float(t_nuit_celsius.min()) if not t_nuit_celsius.empty else float("nan")
 
-    # ETP via le socle FAO Penman-Monteith (cohérence inter-apps).
-    site = config["site"]
-    etp_horaire_24h = calcul_etp(
-        h24[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
-    )
-    etp_horaire_48h = calcul_etp(
-        h48[_INPUTS_ETP], site["latitude"], site["longitude"], site["altitude"]
-    )
-    etp_24h = float(etp_horaire_24h.sum())
-    pluie_24h = float(h24["precipitation"].sum())
-
-    # Probabilité de pluie : colonne optionnelle (selon les variables
-    # demandées dans le fetch). On donne 0 si absente.
     def _prob_max(window: pd.DataFrame) -> float:
         if "probabilite_pluie_pct" not in window.columns:
             return 0.0
-        return float(window["probabilite_pluie_pct"].max())
+        valeurs = window["probabilite_pluie_pct"].dropna()
+        return float(valeurs.max()) if not valeurs.empty else 0.0
 
-    # Direction dominante sur 24h, pondérée par la vitesse.
     dir_deg = direction_dominante_vecteur(h24)
     dir_card = degrees_to_cardinal(dir_deg) if not np.isnan(dir_deg) else ""
 
@@ -235,15 +226,13 @@ def calculer_indicateurs(
         temperature_min_48h_celsius=float(temperature_celsius_48h.min()),
         temperature_max_48h_celsius=float(temperature_celsius_48h.max()),
         temperature_min_nuit_prochaine_celsius=t_min_nuit_prochaine,
-        cumul_pluie_24h_mm=pluie_24h,
+        cumul_pluie_24h_mm=float(h24["precipitation"].sum()),
         cumul_pluie_48h_mm=float(h48["precipitation"].sum()),
         vent_max_24h_kmh=float(h24["vitesse_vent_10m"].max() * MS_TO_KMH),
         rafales_max_24h_kmh=float(h24["rafales_vent_10m"].max() * MS_TO_KMH),
         direction_vent_dominante_deg=dir_deg if not np.isnan(dir_deg) else 0.0,
         direction_vent_dominante_cardinal=dir_card,
-        etp_jour_mm=etp_24h,
         prob_pluie_max_24h_pct=_prob_max(h24),
         prob_pluie_max_48h_pct=_prob_max(h48),
-        etp_horaire_48h=etp_horaire_48h,
-        prevision_t0_utc=df.index[0],
+        prevision_t0_local=df_win.index[0],
     )
