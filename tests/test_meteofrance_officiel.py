@@ -175,7 +175,7 @@ def test_obtenir_prevision_retry_sur_connect_timeout(monkeypatch) -> None:
     session = MagicMock()
     session.get.side_effect = [requests.ConnectTimeout("timed out"), resp_ok]
 
-    prevision = MeteoFranceOfficiel(session=session).obtenir_prevision(48.542, -1.6155)
+    prevision = MeteoFranceOfficiel(session=session).obtenir_prevision(48.543648, -1.611515)
 
     assert session.get.call_count == 2
     assert prevision.position["name"] == "Sains"
@@ -195,5 +195,5 @@ def test_obtenir_prevision_connect_timeout_persistant_leve(monkeypatch) -> None:
     session.get.side_effect = requests.ConnectTimeout("timed out")
 
     with pytest.raises(PrevisionIndisponibleError):
-        MeteoFranceOfficiel(session=session).obtenir_prevision(48.542, -1.6155)
+        MeteoFranceOfficiel(session=session).obtenir_prevision(48.543648, -1.611515)
     assert session.get.call_count == 4  # _MAX_TENTATIVES

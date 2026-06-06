@@ -33,9 +33,9 @@ sys.path.insert(0, str(SRC_DIR))
 import geo  # noqa: E402
 
 # Site de référence : 8 La Petite Claye, 35610 Pleine-Fougères
-# (géocodage Nominatim OSM). Cf. ADR-0001 règle 3.
-SITE_LAT = 48.5420
-SITE_LON = -1.6155
+# (géocodage BAN). Cf. ADR-0001 règle 3.
+SITE_LAT = 48.543648
+SITE_LON = -1.611515
 
 # 5 stations synthétiques. Coordonnées et altitudes vaguement
 # représentatives de la zone Bretagne-nord / Manche-ouest. Distance à

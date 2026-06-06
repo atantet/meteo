@@ -4,8 +4,8 @@
 
 # ----- Site de référence (ADR-0001 règle 3) -----
 site:
-  latitude: 48.5420
-  longitude: -1.6155
+  latitude: 48.543648
+  longitude: -1.611515
   altitude: 30
   tz: Europe/Paris
 

@@ -1,4 +1,4 @@
 Id_station,Nom,Latitude,Longitude,Altitude,distance
 S1,NORD_PROCHE,48.58,-1.55,50,6
+S2,EST_PROCHE,48.5,-1.4,70,16
 S3,SUD_PROCHE,48.4,-1.55,90,17
-S2,EST_PROCHE,48.5,-1.4,70,17

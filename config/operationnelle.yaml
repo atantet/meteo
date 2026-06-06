@@ -5,9 +5,9 @@
 
 # ----- Site de référence (cf. ADR-0001 règle 3) -----
 site:
-  # 8 La Petite Claye, 35610 Pleine-Fougères (Nominatim OSM).
-  latitude: 48.5420
-  longitude: -1.6155
+  # 8 La Petite Claye, 35610 Pleine-Fougères (BAN).
+  latitude: 48.543648
+  longitude: -1.611515
   altitude: 30
   tz: Europe/Paris
 

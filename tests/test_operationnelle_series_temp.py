@@ -20,7 +20,7 @@ from apps.operationnelle.series_temp import (  # noqa: E402
     preparer_horaire,
 )
 
-SITE_TEST = {"latitude": 48.5420, "longitude": -1.6155, "altitude": 30}
+SITE_TEST = {"latitude": 48.543648, "longitude": -1.611515, "altitude": 30}
 
 
 def _prevision_horaire_synthetique(n_jours: int = 4) -> pd.DataFrame:

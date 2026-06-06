@@ -11,8 +11,8 @@ import pytest
 def fake_payload() -> dict:
     """Réponse Open-Meteo synthétique pour 3 h de prévision."""
     return {
-        "latitude": 48.5420,
-        "longitude": -1.6155,
+        "latitude": 48.543648,
+        "longitude": -1.611515,
         "elevation": 30.0,
         "timezone": "UTC",
         "hourly_units": {
@@ -55,7 +55,7 @@ def test_obtenir_prevision_conversions_unites(fake_payload: dict) -> None:
     mock_session.get.return_value = mock_response
 
     client = OpenMeteoForecast(session=mock_session)
-    df = client.obtenir_prevision(latitude=48.5420, longitude=-1.6155, horizon_jours=1)
+    df = client.obtenir_prevision(latitude=48.543648, longitude=-1.611515, horizon_jours=1)
 
     # Index : tz-aware UTC.
     assert df.index.tz is not None

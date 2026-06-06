@@ -18,7 +18,7 @@ def test_load_config_defaut_repo() -> None:
     config = load_config(default_path=DEFAULT_CONFIG_PATH, local_override_path=None)
     for key in ("site", "source_meteo", "alertes", "ui"):
         assert key in config, f"Section manquante : {key}"
-    assert config["site"]["latitude"] == pytest.approx(48.5420)
+    assert config["site"]["latitude"] == pytest.approx(48.543648)
     # Double horizon : court (ARPEGE, guides + séries temp) et long
     # (ECMWF, tendance + cartes).
     assert config["source_meteo"]["horizon_court_jours"] == 4

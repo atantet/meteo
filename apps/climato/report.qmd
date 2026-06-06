@@ -43,7 +43,7 @@ import pandas as pd  # noqa: F401 — utilisé dans des cellules ultérieures
 # Introduction
 
 Ce rapport présente une **synthèse climatologique locale** pour le site
-de *La Petite Claye, 35610 Pleine-Fougères* (48.5420°N, 1.6155°W,
+de *La Petite Claye, 35610 Pleine-Fougères* (48.5436°N, 1.6115°W,
 altitude 30 m), à destination des décisions stratégiques de
 l'exploitation maraîchère : choix variétal, calendrier cultural,
 investissements en abris et irrigation.
@@ -64,7 +64,7 @@ spécifique non encore en place.
 | Élément | Choix | Justification |
 |---|---|---|
 | **Source historique** | CERRA via `archive-api.open-meteo.com` | Gratuit, sans authentification, ~5 km de résolution native sur l'Europe |
-| **Interpolation au site** | Open-Meteo accepte des coordonnées arbitraires (ici 48.5420 N, 1.6155 W) et renvoie les valeurs de la maille CERRA la plus proche (~5 km de côté). La méthode exacte (nearest-neighbor vs bilinéaire) n'est pas explicitement documentée côté Open-Meteo ; on traite donc le résultat comme représentatif de la maille englobante, pas du point lui-même. | Le gradient côtier breton (variation T° / pluie / vent côte → intérieur sur 10-20 km) est mieux capté qu'avec ERA5 25 km. SAFRAN 8 km serait équivalent mais demande Climatik INRAE. |
+| **Interpolation au site** | Open-Meteo accepte des coordonnées arbitraires (ici 48.5436 N, 1.6115 W) et renvoie les valeurs de la maille CERRA la plus proche (~5 km de côté). La méthode exacte (nearest-neighbor vs bilinéaire) n'est pas explicitement documentée côté Open-Meteo ; on traite donc le résultat comme représentatif de la maille englobante, pas du point lui-même. | Le gradient côtier breton (variation T° / pluie / vent côte → intérieur sur 10-20 km) est mieux capté qu'avec ERA5 25 km. SAFRAN 8 km serait équivalent mais demande Climatik INRAE. |
 | **Fenêtre temporelle** | 1991-2020 (30 ans, normale OMM standard) | Standard climatologique international |
 | **Calcul ETP** | FAO Penman-Monteith horaire via `meteo_socle.indices.etp_fao` | Cohérence inter-apps (cf. principe transverse #4) |
 | **Seuils d'analyse** | gel 0 °C, canicule 30 °C, pluie marquante 10 mm/24 h | Cf. `config/climato.yaml` |

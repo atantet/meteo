@@ -29,8 +29,8 @@ NOTES
 - La fenêtre 24 h en juin 2024 couvre lever/coucher solaire, nébulosité
   variable et pluie légère — couvre tous les chemins du code dans
   `calcul_etp` (y compris la propagation nuit-jour du clearness ratio).
-- Le centroïde commune Pleine-Fougères est utilisé comme site de
-  référence (cf. discipline géoloc grain commune, ADR-0001).
+- Le site de référence est l'adresse exacte 8 La Petite Claye
+  (géocodage BAN, cf. ADR-0001 règle 3).
 """
 
 from __future__ import annotations
@@ -51,9 +51,9 @@ sys.path.insert(0, str(SRC_DIR))
 import etp  # noqa: E402  (import après modification de sys.path)
 
 # Site de référence : 8 La Petite Claye, 35610 Pleine-Fougères
-# (géocodage Nominatim OSM). Inscrit en clair cf. ADR-0001 règle 3.
-SITE_LAT = 48.5420
-SITE_LON = -1.6155
+# (géocodage BAN). Inscrit en clair cf. ADR-0001 règle 3.
+SITE_LAT = 48.543648
+SITE_LON = -1.611515
 SITE_ALT = 30.0
 
 # Fenêtre d'entrée : 24 h en été (15 juin 2024).

@@ -22,8 +22,8 @@ NEAREST_CSV = GOLDEN_DIR / "geo_nearest_3.csv"
 INTERPOLATED_CSV = GOLDEN_DIR / "geo_interpolated_idw2.csv"
 
 # Site de référence cf. ADR-0001 règle 3.
-SITE_LAT = 48.5420
-SITE_LON = -1.6155
+SITE_LAT = 48.543648
+SITE_LON = -1.611515
 LATLON_LABELS = ["Latitude", "Longitude"]
 NB_NEAREST = 3
 

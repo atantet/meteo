@@ -19,9 +19,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 # tz="UTC" → l'heure « locale » coïncide avec l'UTC : les périodes 6 h
 # s'alignent sur l'index, ce qui rend les fenêtres prévisibles dans les tests.
-CONFIG_UTC = {"site": {"latitude": 48.5420, "longitude": -1.6155, "altitude": 30, "tz": "UTC"}}
+CONFIG_UTC = {"site": {"latitude": 48.543648, "longitude": -1.611515, "altitude": 30, "tz": "UTC"}}
 CONFIG_PARIS = {
-    "site": {"latitude": 48.5420, "longitude": -1.6155, "altitude": 30, "tz": "Europe/Paris"}
+    "site": {"latitude": 48.543648, "longitude": -1.611515, "altitude": 30, "tz": "Europe/Paris"}
 }
 
 
