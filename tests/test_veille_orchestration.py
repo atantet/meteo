@@ -225,5 +225,5 @@ def test_executer_veille_pipeline_complet_mf_offline() -> None:
     out = buf.getvalue()
     # Un seul appel HTTP (JSON au point, pas de run).
     assert sess.get.call_count == 1
-    # Label « Source » = prévision officielle MF (avec fraîcheur).
-    assert "Prévision officielle Météo-France" in out
+    # Section nommée (source par section, texte en capitales).
+    assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" in out

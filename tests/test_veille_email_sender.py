@@ -99,13 +99,13 @@ def test_composer_email_moment_deduit_de_l_heure() -> None:
     pm = composer_email(_ind(), [], config, datetime(2024, 6, 15, 18, 0))
     assert matin.sujet.startswith("Veille matin ")
     assert pm.sujet.startswith("Veille après-midi ")
-    # Titre HTML adapté de même.
-    assert "Veille du matin" in matin.html
-    assert "Veille de l'après-midi" in pm.html
+    # Titre HTML « Point météo du … — matin/après-midi ».
+    assert "Point météo du" in matin.html and "— matin" in matin.html
+    assert "Point météo du" in pm.html and "— après-midi" in pm.html
 
 
 def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
-    """Titre HTML après-midi : libellé 'de l'après-midi' + fraîcheur MF (updated_on)."""
+    """Titre « Point météo … — après-midi » + fraîcheur MF (updated_on) sous la section."""
     import pandas as pd
 
     from apps.veille.email import composer_html
@@ -120,8 +120,9 @@ def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
         tz_locale="Europe/Paris",
         updated_on=maj,
     )
-    assert "Veille de l'après-midi — prévision Météo-France du" in html
-    assert "12h00" in html
+    assert "Point météo du" in html and "— après-midi" in html
+    assert "Prévision Météo-France officielle" in html
+    assert "Mise à jour" in html and "12h00" in html
 
 
 def test_composer_texte_contient_alertes_et_indicateurs() -> None:
@@ -133,11 +134,10 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "INDICATEURS" in txt
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
-    assert "informationnel" in txt.lower()
-    # Footer source visible = prévision officielle MF (ADR-0014).
-    assert "Météo-France" in txt
-    # Date français.
-    assert "Samedi 15 juin" in txt
+    # Section MF officielle nommée (source par section, pas de footer).
+    assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" in txt
+    # Titre « Point météo du … » en date FR.
+    assert "Point météo du samedi 15 juin" in txt
     # Direction du vent dominante.
     assert "Vent direction dom." in txt
 

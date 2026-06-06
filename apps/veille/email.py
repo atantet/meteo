@@ -87,12 +87,6 @@ class EmailComposed:
     html: str
 
 
-# Source = prévision officielle Météo-France (ADR-0014). La fraîcheur (mise à
-# jour) est portée par le titre du mail, pas par ce libellé.
-SOURCE_MF = "Prévision officielle Météo-France (webservice.meteofrance.com)"
-SOURCE_DEFAUT = SOURCE_MF
-
-
 def _bloc_chart(chart_base64: str) -> str:
     """Bloc HTML pour le graphique 48 h embarqué (vide si non fourni)."""
     if not chart_base64:
@@ -225,7 +219,7 @@ def _bloc_vigilance_mf(
     # sans retry (si systématique, retarder le cron).
     if now is not None and (now - vigilance.update_time) > VIGILANCE_AGE_MAX:
         legende += (
-            ' · <span style="color:#a04000;">⚠ actualisation du cycle non encore publiée</span>'
+            '<br><span style="color:#a04000;">⚠ actualisation du cycle non encore publiée</span>'
         )
 
     titre = '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">Vigilance Météo-France</h3>'
@@ -472,8 +466,9 @@ def _bloc_cartes_synoptiques(
 
     return (
         '<div style="margin:18px 0 6px 0;">'
-        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
-        "Situation synoptique</h3>"
+        '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
+        'border-bottom:2px solid #eee;padding-bottom:4px;">'
+        "Situation synoptique</h2>"
         f"{section_metoffice}"
         f"{section_arome}"
         "</div>"
@@ -781,7 +776,7 @@ def _bloc_grille_indicateurs_48h(
 
     return (
         '<h3 style="margin:14px 0 6px 0;font-size:15px;color:#34495e;">'
-        "Tendance jusqu'à 48 h (Prévision Météo-France)</h3>" + "".join(tableaux)
+        "Tendance jusqu'à 48 h</h3>" + "".join(tableaux)
     )
 
 
@@ -802,37 +797,26 @@ def composer_sujet(
     )
 
 
-def _moment_avec_article(moment: str) -> str:
-    """``"matin"`` → ``"du matin"`` ; ``"après-midi"`` → ``"de l'après-midi"``.
-
-    Chaîne vide → vide (rétro-compat : pas de moment fourni).
-    """
-    if moment == "matin":
-        return "du matin"
-    if moment == "après-midi":
-        return "de l'après-midi"
-    return ""
-
-
 def composer_texte(
     ind: IndicateursVeille,
     alertes: list[Alerte],
     maintenant: datetime,
-    source: str = SOURCE_DEFAUT,
     tz_locale: str = "Europe/Paris",
     moment: str = "",
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
-    article = _moment_avec_article(moment)
     lignes: list[str] = []
-    titre = f"Veille {article}" if article else "Veille météo"
-    lignes.append(f"{titre} — {format_date_fr(maintenant)}")
+    moment_suffixe = f" — {moment}" if moment else ""
+    lignes.append(
+        f"Point météo du {format_date_fr(maintenant, capitalize_jour=False)}{moment_suffixe}"
+    )
     lignes.append("=" * 70)
+    lignes.append("PRÉVISION MÉTÉO-FRANCE OFFICIELLE")
     if updated_on is not None:
-        maj = updated_on.tz_convert(tz_locale).strftime("%d/%m/%Y %Hh%M %Z")
-        lignes.append(f"Prévision Météo-France du {maj}")
+        maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
+        lignes.append(f"  Mise à jour {maj}")
     lignes.append("")
 
     lignes.append("VIGILANCE EXPLOITATION :")
@@ -847,7 +831,7 @@ def composer_texte(
     # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
     tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
     if tendance_lignes:
-        lignes.append("TENDANCE 48 h (Prévision Météo-France) :")
+        lignes.append("TENDANCE 48 h :")
         lignes.extend(tendance_lignes)
         lignes.append("")
 
@@ -872,12 +856,6 @@ def composer_texte(
             "0-24 h, pondéré vitesse",
         )
     )
-    lignes.append("")
-    lignes.append("-" * 70)
-    lignes.append("Ce mail est un signal informationnel — vous gardez la décision")
-    lignes.append("(cf. principe #1 du projet).")
-    lignes.append("")
-    lignes.append(f"Source : {source}")
     return "\n".join(lignes)
 
 
@@ -885,7 +863,6 @@ def composer_html(
     ind: IndicateursVeille,
     alertes: list[Alerte],
     maintenant: datetime,
-    source: str = SOURCE_DEFAUT,
     chart_48h_base64: str = "",
     cartes_grille: CartesGrille | None = None,
     vigilance: VigilanceDepartement | None = None,
@@ -923,56 +900,48 @@ def composer_html(
         else "Détail horaire 48 h — UTC"
     )
 
-    # Footer minimal : seule la source (transparence). La fraîcheur (mise à jour)
-    # est dans le titre ; pas de Cron/Site/Fiches (redondants ou trompeurs).
-    footer = (
-        '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #eee;'
-        'font-size:11px;color:#888;line-height:1.5;">'
-        f'<div><strong style="color:#555;">Source</strong> : {source}</div>'
-        "</div>"
-    )
+    # Titre neutre : le mail agrège 3 sources (prévi MF, Vigilance MF, cartes
+    # synoptiques tierces) → pas de « prévision MF » dans le titre. La source est
+    # précisée par section (en-têtes), pas dans un footer.
+    mnt = pd.Timestamp(maintenant)
+    mnt = mnt.tz_localize("UTC") if mnt.tzinfo is None else mnt.tz_convert("UTC")
+    mnt_loc = mnt.tz_convert(tz_locale)
+    date_str = f"{JOURS_FR[mnt_loc.weekday()]} {mnt_loc.day} {MOIS_FR[mnt_loc.month - 1]}"
+    titre_h2 = f"Point météo du {date_str}" + (f" — {moment}" if moment else "")
 
-    # Titre = fraîcheur officielle MF (``updated_on``), c.-à-d. l'info que MF donne
-    # sur la prévi reçue (et non le début de fenêtre). Distingue les deux mails du
-    # jour via le moment d'envoi. Format monospace + fond clair, discret.
+    # Fraîcheur de la prévi officielle MF, sous l'en-tête de sa section.
+    maj_html = ""
     if updated_on is not None:
         maj_loc = updated_on.tz_convert(tz_locale)
-        date_html = (
-            '<span style="font-family:Menlo,Consolas,monospace;font-size:0.88em;'
-            'background:#f4f4f4;padding:1px 6px;border-radius:3px;color:#34495e;">'
-            f"{maj_loc.strftime('%d/%m/%Y %Hh%M %Z')}"
-            "</span>"
+        maj_html = (
+            '<p style="margin:0 0 6px 0;font-size:11px;color:#888;">'
+            f"Mise à jour {maj_loc.strftime('%d/%m %Hh%M %Z')}</p>"
         )
-    else:
-        date_html = "—"
-    article = _moment_avec_article(moment)
-    titre_h2 = (
-        f"Veille {article} — prévision Météo-France du {date_html}"
-        if article
-        else f"Prévision Météo-France du {date_html}"
+
+    section_mf = (
+        '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
+        'border-bottom:2px solid #eee;padding-bottom:4px;">'
+        "Prévision Météo-France officielle</h2>"
     )
 
     return f"""<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta charset="utf-8">
-<title>Veille météo</title>
+<title>Point météo</title>
 </head><body style="margin:0;padding:0;background:#f4f4f4;
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
-  <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">
-    {titre_h2}
-  </h2>
-  <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
-    {commune or "Pleine-Fougères"}
-  </p>
+  <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">{titre_h2}</h2>
+  <p style="margin:0 0 12px 0;font-size:13px;color:#888;">{commune or "—"}</p>
+  {section_mf}
+  {maj_html}
   {bloc_vigilance}
   {bloc_vigilance_exploitation}
   {bloc_grille}
-  {bloc_carte}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">{note_horaire}</h3>
   {_bloc_chart(chart_48h_base64)}
-  {footer}
+  {bloc_carte}
   {bloc_definitions}
 </div>
 </body></html>"""
