@@ -992,16 +992,10 @@ def main() -> None:
         return ts.strftime("%d/%m %HZ")
 
     st.caption(
-        "Deux modèles en parallèle, deux fenêtres par jour (UTC, alignées sur les "
-        "cycles de run) : Nuit (18-06 UTC) puis Jour (06-18 UTC). "
-        f"**Runs utilisés (UTC)** — ARPEGE Météo-France ~10 km : "
-        f"{_fmt_run_a2(_runs_a2[ARPEGE])} (0-{horizon_court} j) · "
-        f"ECMWF-HRES ~9 km : {_fmt_run_a2(_runs_a2[ECMWF_HRES])} (0-{horizon_long} j, "
-        "tendance longue) ; cellules « — » au-delà de l'horizon de chaque modèle. "
-        f"Passé ({n_past_days * 24} h) = stitch de runs explicites des créneaux précédents "
-        "pour les deux modèles — faire défiler vers la gauche. "
-        "Proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h, **dernier run "
-        "d'ensemble** (non épinglable ; son passé vient de ce même run)."
+        "Deux fenêtres de 12 h par jour (UTC) : Nuit (18-06) puis Jour (06-18). "
+        "« — » au-delà de l'horizon d'un modèle ; faire défiler vers la gauche pour "
+        f"le passé ({n_past_days * 24} h). Runs, modèles et proba : voir « Vérifier "
+        "les sources » en bas."
     )
 
     # Frontière passé/prévision = pivot UTC (00Z du jour). Les deux modèles
@@ -1271,22 +1265,22 @@ def main() -> None:
         with st.expander("Vérifier les sources"):
             st.markdown(
                 f"""
-- **Sources de données** : Open-Meteo (REST, sans authentification),
-  deux modèles distincts par échéance :
-  - **Court terme** ({horizon_court} j) — guides + séries temp :
-    ``{modele_court}`` (ARPEGE Météo-France, ~10 km).
-  - **Long terme** ({horizon_long} j) — tendance + cartes : ``{modele_long}``
-    (ECMWF IFS, ~9 km, référence mondiale).
-- **Analyse modèle ({n_past_days} j passés)** : récupérée via le
-  paramètre ``past_days`` d'Open-Meteo Forecast — chaque heure passée
-  correspond à la sortie T+0 du run ARPEGE le plus récent qui la
-  couvrait (typiquement les analyses 00 Z / 06 Z / 12 Z / 18 Z).
-  **Ce ne sont pas des observations directes** ni une vraie réanalyse
-  type ERA5 : ce sont les états initiaux du modèle pour ces heures,
-  donc cohérents avec la prévision en cours mais sujets à un éventuel
-  biais du modèle sur des phénomènes locaux mal capturés. Distingué
-  dans les courbes par un trait translucide (« Analyse modèle ») vs
-  opaque (« Prévision »).
+- **Modèles** (Open-Meteo *Single Runs*, REST sans authentification, runs
+  explicites — UTC) :
+  - **ARPEGE Météo-France ~10 km** — court terme (0-{horizon_court} j),
+    guides + séries : ``{modele_court}`` · run {_fmt_run_a2(_runs_a2[ARPEGE])}.
+  - **ECMWF-HRES ~9 km** — tendance longue (0-{horizon_long} j) : ``{modele_long}``
+    · run {_fmt_run_a2(_runs_a2[ECMWF_HRES])}.
+
+  Cellules « — » au-delà de l'horizon de chaque modèle.
+- **Passé ({n_past_days} j)** : **stitch de runs explicites** des créneaux
+  précédents (segments de 12 h, T+0→T+12 h), **pas de** ``past_days`` —
+  provenance exacte. **Ce ne sont pas des observations** ni une réanalyse type
+  ERA5 : ce sont les états initiaux du modèle, cohérents avec la prévision en
+  cours mais sujets au biais du modèle. Trait translucide (« analyse modèle »)
+  vs opaque (« prévision »).
+- **Proba pluie** : % de membres **ECMWF IFS-ENS** au cumul ≥ 1 mm/6 h
+  (dernier run d'ensemble, non épinglable ; son passé vient de ce même run).
 - **ETP** : calculée par le socle FAO Penman-Monteith horaire
   (``meteo_socle.indices.etp_fao.calcul_etp``), **pas** reprise du
   champ ``etp_open_meteo`` du fournisseur, pour cohérence avec
