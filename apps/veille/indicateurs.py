@@ -99,6 +99,7 @@ def portion_horaire(df: pd.DataFrame) -> pd.DataFrame:
 
 def periodes_pleines(
     df_horaire_local: pd.DataFrame,
+    apres: pd.Timestamp | None = None,
 ) -> list[tuple[str, pd.Timestamp, pd.Timestamp]]:
     """Périodes de 6 h locales **entièrement couvertes** par l'horaire (ADR-0014 D4).
 
@@ -108,6 +109,11 @@ def periodes_pleines(
     présentes**. On découpe ainsi sur les périodes pleines, jamais sur l'heure
     d'envoi : la première période partielle (queue d'heures déjà écoulées) est
     exclue, la dernière partielle (au-delà de l'horaire) aussi.
+
+    ``apres`` (heure d'envoi, tz-aware) : si fourni, on **écarte les périodes
+    déjà entièrement écoulées** (fin ≤ ``apres``) → la première période affichée
+    est la **période courante** (matin à 6 h 30, soir à 18 h 30). Sans ``apres``,
+    toutes les périodes pleines sont renvoyées (rétro-compat / tests).
 
     Returns
     -------
@@ -123,10 +129,11 @@ def periodes_pleines(
     p = debut_jour
     pas = pd.Timedelta(hours=PERIODE_H)
     while p <= fin:
+        fin_p = p + pas
         heures = [p + pd.Timedelta(hours=k) for k in range(PERIODE_H)]
-        if all(h in heures_presentes for h in heures):
-            out.append((LABEL_PAR_DEBUT[p.hour], p, p + pas))
-        p = p + pas
+        if all(h in heures_presentes for h in heures) and (apres is None or fin_p > apres):
+            out.append((LABEL_PAR_DEBUT[p.hour], p, fin_p))
+        p = fin_p
     return out
 
 
@@ -189,9 +196,10 @@ def calculer_indicateurs(
     df = prevision.sort_index().copy()
     df.index = df.index.tz_convert(tz)
 
-    # Portion horaire seule (ADR-0014 D4), puis fenêtre = première période pleine.
+    # Portion horaire seule (ADR-0014 D4) ; fenêtre = 1ʳᵉ période pleine non
+    # encore écoulée (période courante à l'heure d'envoi), pas une période passée.
     df_h = portion_horaire(df)
-    periodes = periodes_pleines(df_h)
+    periodes = periodes_pleines(df_h, apres=now_utc.tz_convert(tz))
     if not periodes:
         raise ValueError(
             "Aucune période de 6 h pleine dans la prévi MF — vérifier la fraîcheur du fetch."

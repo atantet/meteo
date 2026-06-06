@@ -80,7 +80,7 @@ def _payload_synthetique() -> dict:
     h0 = 1_780_700_400  # epoch s, heure ronde UTC
     return {
         "updated_on": h0 - 1800,
-        "position": {"name": "Saint-Rémy-du-Plain", "lat": 48.37, "lon": -1.57, "alti": 100},
+        "position": {"name": "Sains", "lat": 48.37, "lon": -1.57, "alti": 100},
         "forecast": [
             {
                 "dt": h0,
@@ -144,7 +144,7 @@ def test_parser_unites_socle() -> None:
 
     # Provenance.
     assert str(prev.updated_on.tz) == "UTC"
-    assert prev.position["name"] == "Saint-Rémy-du-Plain"
+    assert prev.position["name"] == "Sains"
 
 
 def test_parser_payload_vide_leve() -> None:

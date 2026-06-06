@@ -124,6 +124,31 @@ def _bloc_chart(chart_base64: str) -> str:
     )
 
 
+def _libelle_decalage_utc(
+    prevision_horaire: pd.DataFrame | None,
+    tz_locale: str = "Europe/Paris",
+) -> str:
+    """Texte discret du décalage UTC↔local sur la fenêtre (ex. « CEST = UTC+2 »).
+
+    La série temporelle est en **UTC** (axe fixe, ADR-0014) ; ce libellé aide à
+    convertir mentalement vers l'heure locale. Renvoie les **deux** décalages
+    (« CET = UTC+1 / CEST = UTC+2 ») si la fenêtre chevauche un changement
+    d'heure, ou « » si la prévision est absente.
+    """
+    if prevision_horaire is None or prevision_horaire.empty:
+        return ""
+    idx = pd.DatetimeIndex(prevision_horaire.index).tz_convert(tz_locale)
+    paires: dict[str, int] = {}
+    for ts in idx:
+        offset = ts.utcoffset()
+        nom = ts.tzname()
+        if offset is None or nom is None:
+            continue
+        paires[nom] = int(offset.total_seconds() // 3600)
+    parts = [f"{nom} = UTC{h:+d}" for nom, h in sorted(paires.items(), key=lambda p: p[1])]
+    return " / ".join(parts)
+
+
 DWD_URL_AFFICHEE = (
     "https://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png"
 )
@@ -603,10 +628,9 @@ def _bloc_grille_indicateurs_48h(
     """Grille par période de 6 h locale — pictos + T° + Pluie + Vent + HR (ADR-0014).
 
     Découpage sur les **périodes de 6 h pleines** de la prévi officielle MF
-    (``periodes_pleines`` sur la portion horaire) : seules les périodes
-    entièrement couvertes sont affichées (1ʳᵉ future → dernière pleine). Le picto
-    vient du ``weather_code`` MF (cohérent avec le cumul MF, ADR-0014). ``now_utc``
-    est conservé pour compat d'appel mais n'est plus utilisé (plus d'ancrage run).
+    (``periodes_pleines`` sur la portion horaire) : 1ʳᵉ période courante (non
+    encore écoulée à l'heure d'envoi ``now_utc``) → dernière pleine. Le picto
+    vient du ``weather_code`` MF (cohérent avec le cumul MF, ADR-0014).
     """
     if prevision_horaire is None:
         return ""
@@ -616,7 +640,8 @@ def _bloc_grille_indicateurs_48h(
     horaire = prevision_horaire.copy()
     horaire.index = pd.DatetimeIndex(horaire.index).tz_convert(tz_locale)
     horaire = portion_horaire(horaire)
-    periodes = periodes_pleines(horaire)
+    apres = now_utc.tz_convert(tz_locale) if now_utc is not None else None
+    periodes = periodes_pleines(horaire, apres=apres)
     if not periodes:
         return ""
 
@@ -906,6 +931,7 @@ def composer_html(
     seuils_config: dict[str, Any] | None = None,
     moment: str = "",
     tz_locale: str = "Europe/Paris",
+    commune: str | None = None,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
@@ -926,6 +952,13 @@ def composer_html(
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
     bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
     bloc_definitions = _bloc_definitions(seuils_config)
+    # Décalage UTC↔local pour la série temporelle (axe en UTC, ADR-0014).
+    decalage_utc = _libelle_decalage_utc(prevision_horaire, tz_locale)
+    note_horaire = (
+        f"Détail horaire 48 h — UTC ({decalage_utc})"
+        if decalage_utc
+        else "Détail horaire 48 h — UTC"
+    )
 
     lien_fiches = (
         f'<p style="margin:6px 0;font-size:12px;color:#888;">'
@@ -974,14 +1007,13 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     {titre_h2}
   </h2>
   <p style="margin:0 0 12px 0;font-size:13px;color:#888;">
-    La Petite Claye, Pleine-Fougères
+    {commune or "Pleine-Fougères"}
   </p>
   {bloc_vigilance}
   {bloc_vigilance_exploitation}
   {bloc_grille}
   {bloc_carte}
-  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">Détail horaire 48 h
-  <span style="font-weight:normal;font-size:12px;">(information secondaire)</span></h3>
+  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">{note_horaire}</h3>
   {_bloc_chart(chart_48h_base64)}
   <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
     Ce mail est un signal informationnel — vous gardez la décision.
@@ -1003,6 +1035,7 @@ def composer_email(
     vigilance: VigilanceDepartement | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
+    position: dict[str, Any] | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1019,6 +1052,19 @@ def composer_email(
     # par sa fraîcheur (updated_on).
     tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
     source = label_source_mf(updated_on, tz_locale)
+    # Lieu = commune réellement renvoyée par MF (point le plus proche, ADR-0014),
+    # pas l'adresse de l'exploitation : la prévi vaut pour ce point.
+    pos = position or {}
+    commune = pos.get("name")
+    if commune and pos.get("lat") is not None and pos.get("lon") is not None:
+        lon = pos["lon"]
+        site = (
+            f"{commune} — {pos['lat']:.4f} N, {abs(lon):.4f} "
+            f"{'E' if lon >= 0 else 'O'}, alt {pos.get('alti', '?')} m "
+            "(point Météo-France le plus proche)"
+        )
+    else:
+        site = commune or SITE_EXPLAIN
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
@@ -1032,6 +1078,7 @@ def composer_email(
         maintenant,
         url_fiches=url_fiches,
         source=source,
+        site=site,
         moment=moment,
         tz_locale=tz_locale,
         prevision_horaire=prevision_horaire,
@@ -1043,6 +1090,8 @@ def composer_email(
         maintenant,
         url_fiches=url_fiches,
         source=source,
+        site=site,
+        commune=commune,
         chart_48h_base64=chart_48h_base64,
         cartes_grille=cartes_grille,
         vigilance=vigilance,

@@ -40,11 +40,10 @@ def test_graphique_48h_base64_prefixe_data_uri() -> None:
 
 
 def test_graphique_48h_base64_prevision_vide() -> None:
-    """Aucune période de 6 h pleine (prévi trop courte) → chaîne vide (ADR-0014)."""
+    """Prévision sans portion horaire (DataFrame vide) → chaîne vide (ADR-0014)."""
     from apps.veille.charts import graphique_48h_base64
 
-    # 3 heures seulement → aucune période 6 h pleine → pas de graphique.
-    prevision = _prevision_synth().head(3)
+    prevision = _prevision_synth().head(0)
     now = pd.Timestamp("2024-06-15 00:00:00+00:00")
     assert graphique_48h_base64(prevision, now) == ""
 

@@ -26,7 +26,7 @@ import requests  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from .indicateurs import periodes_pleines, portion_horaire  # noqa: E402
+from .indicateurs import portion_horaire  # noqa: E402
 
 # Abréviations FR pour l'axe X du graphique 48h — évite la dépendance
 # à ``locale.setlocale("fr_FR.UTF-8")`` (souvent absent en CI / containers).
@@ -94,40 +94,40 @@ def graphique_48h_base64(
     tz_locale: str = "Europe/Paris",
     horizon_h: int = 48,
 ) -> str:
-    """Génère un PNG base64 du graph T° + pluie + proba sur ``horizon_h``.
+    """Génère un PNG base64 du graph T° + pluie + proba (prévi officielle MF).
+
+    Axe X **fixe en UTC**, aligné sur les jours calendaires (00:00 → 24:00 UTC),
+    donc **identique le matin et l'après-midi** (ADR-0014). Les paramètres
+    ``now_utc``, ``tz_locale`` et ``horizon_h`` sont conservés pour compat d'appel
+    mais ne sont plus utilisés (plus d'ancrage run ; fenêtre déduite des données).
 
     Parameters
     ----------
     prevision :
-        DataFrame indexé UTC (prévision officielle MF), converti en heure
-        locale pour l'affichage.
-    now_utc :
-        Référence temporelle (filtre forward-only).
-    tz_locale :
-        Fuseau horaire pour les ticks de l'axe X.
-    horizon_h :
-        Nombre d'heures de prévision affichées (défaut 48 — horizon
-        natif AROME France HD).
+        DataFrame indexé UTC (prévision officielle MF) ; affiché en UTC.
+    now_utc, tz_locale, horizon_h :
+        Conservés pour compat d'appel, inutilisés (cf. ci-dessus).
 
     Returns
     -------
     str
         ``data:image/png;base64,...`` à insérer dans ``<img src=...>``.
-        Si la prévision est vide, retourne une chaîne vide.
+        Chaîne vide si la prévision n'a pas de portion horaire.
     """
-    # ADR-0014 : fenêtre = de la 1ʳᵉ période de 6 h pleine (heure locale) à
-    # +horizon_h, sur la portion horaire de la prévi MF roulante. ``now_utc``
-    # n'est plus utilisé (plus d'ancrage run) mais conservé dans la signature.
-    del now_utc
-    prev_loc = prevision.copy()
-    prev_loc.index = prev_loc.index.tz_convert(tz_locale)
-    horaire = portion_horaire(prev_loc)
-    periodes = periodes_pleines(horaire)
-    if not periodes:
+    # ADR-0014 : axe FIXE en **UTC**, aligné sur les jours calendaires — de
+    # 00:00 UTC du 1er jour à 00:00 UTC (24 h) du dernier jour couvert. La prévi
+    # MF horaire finit pile à 00:00 UTC de J+2, donc l'axe est **identique le
+    # matin et l'après-midi** (2 jours pleins, sans queue vide). ``now_utc`` (plus
+    # d'ancrage run) et ``tz_locale`` ne servent plus ici.
+    del now_utc, tz_locale, horizon_h
+    prev_utc = prevision.copy()
+    prev_utc.index = pd.DatetimeIndex(prev_utc.index).tz_convert("UTC")
+    horaire = portion_horaire(prev_utc)
+    if horaire.empty:
         return ""
-    x_min = periodes[0][1]
-    x_max = x_min + pd.Timedelta(hours=horizon_h)
-    df = horaire.loc[(horaire.index >= x_min) & (horaire.index < x_max)].copy()
+    x_min = horaire.index.min().floor("D")  # 00:00 UTC du 1er jour
+    x_max = horaire.index.max().ceil("D")  # 24:00 UTC du dernier jour
+    df = horaire.loc[horaire.index >= x_min].copy()
     if df.empty:
         return ""
 
@@ -183,7 +183,7 @@ def graphique_48h_base64(
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
     ax_t.grid(True, alpha=0.3)
-    ax_t.set_title(f"Prévision {horizon_h} h — Météo-France (heure locale)")
+    ax_t.set_title("Prévision Météo-France (UTC)")
 
     # Pluie en barres + proba pluie en ligne (axe secondaire).
     if "precipitation" in df.columns:

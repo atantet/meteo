@@ -135,6 +135,7 @@ def executer_veille(
         vigilance=vigilance,
         prevision_horaire=prevision_df,
         updated_on=prevision.updated_on,
+        position=prevision.position,
     )
 
     if preview_path is not None:

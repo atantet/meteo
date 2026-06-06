@@ -64,7 +64,7 @@ def _prevision_mf(df: pd.DataFrame):
     return PrevisionMF(
         df=df,
         updated_on=pd.Timestamp("2024-06-15 05:30", tz="UTC"),
-        position={"name": "Saint-Rémy-du-Plain", "timezone": "Europe/Paris"},
+        position={"name": "Sains", "timezone": "Europe/Paris"},
     )
 
 
@@ -188,7 +188,7 @@ def _mf_payload(t_celsius: float = 12.0, n: int = 48, debut: str = "2024-06-15 0
     prob = [{"dt": int(idx[0].timestamp()), "rain": {"3h": 10, "6h": None}}]
     return {
         "updated_on": int(idx[0].timestamp()),
-        "position": {"name": "Saint-Rémy-du-Plain", "timezone": "Europe/Paris"},
+        "position": {"name": "Sains", "timezone": "Europe/Paris"},
         "forecast": forecast,
         "probability_forecast": prob,
     }
