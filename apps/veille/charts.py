@@ -187,7 +187,7 @@ def graphique_48h_base64(
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
     ax_t.grid(True, alpha=0.3)
-    ax_t.set_title("Prévision Météo-France (UTC)")
+    # Pas de titre de plot : redondant avec le sous-titre « Détail horaire … ».
 
     # Pluie en barres + proba pluie en ligne (axe secondaire).
     if "precipitation" in df.columns:
