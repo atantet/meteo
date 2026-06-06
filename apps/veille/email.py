@@ -219,7 +219,7 @@ def _bloc_vigilance_mf(
     # sans retry (si systématique, retarder le cron).
     if now is not None and (now - vigilance.update_time) > VIGILANCE_AGE_MAX:
         legende += (
-            '<br><span style="color:#a04000;">⚠ actualisation du cycle non encore publiée</span>'
+            '<br><span style="color:#a04000;">⚠ Actualisation du cycle non encore publiée</span>'
         )
 
     titre = '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">Vigilance Météo-France</h3>'
