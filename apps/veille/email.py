@@ -215,24 +215,28 @@ def _bloc_vigilance_mf(
     tz_locale: str = "Europe/Paris",
     now: pd.Timestamp | None = None,
 ) -> str:
-    """Bloc HTML Vigilance Météo-France pour le département configuré.
+    """Bloc HTML Vigilance Météo-France (webservice, ADR-0014).
 
-    - ``None`` (clé API non configurée, ou fetch échoué) → bloc vide.
-    - Tout vert → ligne compacte "tout vert".
-    - ≥ 1 phénomène ≥ jaune → mini-tableau filtrant les phénomènes
-      non-verts, avec niveaux J et J+1 colorés.
+    - ``None`` (fetch échoué) → bloc vide.
+    - Tout vert → ligne compacte "rien à signaler".
+    - ≥ 1 phénomène ≥ jaune → mini-tableau des phénomènes non-verts + niveau.
 
-    Source officielle d'État. Référence légale pour les phénomènes
-    dangereux (cf. méthodo "une seule méthode par phénomène").
+    Vigilance officielle d'État (servie par le webservice MF). Référence légale
+    pour les phénomènes dangereux (« une seule méthode par phénomène »). Niveau
+    **courant** (période de validité ~24 h), pas de découpage J/J+1.
     """
     if vigilance is None:
         return ""
 
     update_loc = vigilance.update_time.tz_convert(tz_locale)
+    validite = ""
+    if vigilance.fin_validite is not None:
+        fin_loc = vigilance.fin_validite.tz_convert(tz_locale)
+        validite = f"valide jusqu'au {fin_loc.strftime('%d/%m %Hh%M %Z')} · "
     legende = (
         f'<a href="{VIGILANCE_URL_AFFICHEE}" '
         'style="color:#888;text-decoration:underline;">Vigilance Météo-France</a> · '
-        f"département {vigilance.departement} · "
+        f"dépt {vigilance.departement} · {validite}"
         f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
     )
     # Fraîcheur (ADR-0014 D10) : carte plus vieille que ~12 h → l'actualisation du
@@ -243,24 +247,21 @@ def _bloc_vigilance_mf(
             ' · <span style="color:#a04000;">⚠ actualisation du cycle non encore publiée</span>'
         )
 
-    # Tous verts : on garde le titre de section (cohérence avec le cas
-    # "alerte présente") puis une ligne "rien à signaler" sur 48 h.
+    titre = '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">Vigilance Météo-France</h3>'
+
+    # Tous verts : ligne compacte "rien à signaler" (le dépt est dans la légende,
+    # pas de redondance).
     if vigilance.niveau_max_global <= 1:
         return (
-            '<div style="margin:12px 0 6px 0;">'
-            '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
-            "Vigilance Météo-France</h3>"
-            '<div style="padding:8px 12px;background:#f4f4f4;border-radius:4px;'
-            'font-size:12px;color:#555;">'
-            f"Aucune alerte sur les 48 h (département {vigilance.departement})."
-            '<div style="font-size:11px;color:#888;margin-top:4px;">'
-            f"{legende}</div>"
-            "</div>"
-            "</div>"
+            '<div style="margin:12px 0 6px 0;">' + titre + '<div style="padding:8px 12px;'
+            'background:#f4f4f4;border-radius:4px;font-size:12px;color:#555;">'
+            "Aucune vigilance en cours."
+            f'<div style="font-size:11px;color:#888;margin-top:4px;">{legende}</div>'
+            "</div></div>"
         )
 
     # Filtre phénomènes non-verts pour réduire le bruit.
-    actifs = [p for p in vigilance.phenomenes if p.niveau_max > 1]
+    actifs = [p for p in vigilance.phenomenes if p.niveau > 1]
 
     def cellule_niveau(niveau: int) -> str:
         c = _VIGILANCE_COULEURS.get(niveau, _VIGILANCE_COULEURS[1])
@@ -272,32 +273,25 @@ def _bloc_vigilance_mf(
             "</td>"
         )
 
-    lignes_html: list[str] = []
-    for p in actifs:
-        lignes_html.append(
-            "<tr>"
-            '<td style="padding:4px 8px;color:#555;font-size:12px;">'
-            f"{p.nom}</td>" + cellule_niveau(p.niveau_j) + cellule_niveau(p.niveau_j1) + "</tr>"
-        )
+    lignes_html = [
+        "<tr>"
+        f'<td style="padding:4px 8px;color:#555;font-size:12px;">{p.nom}</td>'
+        + cellule_niveau(p.niveau)
+        + "</tr>"
+        for p in actifs
+    ]
 
     return (
-        '<div style="margin:12px 0 6px 0;">'
-        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
-        "Vigilance Météo-France</h3>"
-        '<table cellpadding="0" cellspacing="0" border="0" '
-        'style="width:100%;border-collapse:collapse;'
+        '<div style="margin:12px 0 6px 0;">' + titre + '<table cellpadding="0" cellspacing="0" '
+        'border="0" style="width:100%;border-collapse:collapse;'
         'border:1px solid #eee;border-radius:4px;overflow:hidden;">'
         '<tr style="background:#fafafa;">'
         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888;'
         'font-weight:600;">Phénomène</th>'
         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
-        "font-weight:600;\">Aujourd'hui</th>"
-        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
-        'font-weight:600;">Demain</th>'
+        'font-weight:600;">Niveau</th>'
         "</tr>" + "".join(lignes_html) + "</table>"
-        '<p style="margin:4px 0 0 0;font-size:11px;color:#888;">'
-        f"{legende}"
-        "</p>"
+        f'<p style="margin:4px 0 0 0;font-size:11px;color:#888;">{legende}</p>'
         "</div>"
     )
 

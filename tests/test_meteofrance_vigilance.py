@@ -1,150 +1,98 @@
-"""Tests offline du parser Vigilance Météo-France.
+"""Tests offline du parser Vigilance Météo-France (webservice, ADR-0014).
 
-Couvre :
-- Parsing nominal d'un JSON DPVigilance avec un département en jaune.
-- Cas "tout vert" (aucun phénomène déclenché).
-- Cas département absent (fallback tous verts).
-- Robustesse face à un JSON mal formé.
-- Filtrage sur les phénomènes pertinents (pas de Crues/Avalanches/Submersion).
-- Désactivation gracieuse quand ENV absente (recuperer_vigilance retourne None).
+Couvre : parsing nominal (``phenomenons_max_colors``), cas tout vert, filtrage
+des phénomènes pertinents, robustesse JSON, niveau hors plage, et dégradation
+gracieuse sur erreur réseau.
 """
 
 from __future__ import annotations
 
-import os
+from unittest.mock import MagicMock
 
-import pytest
+import pandas as pd
+import requests
 
 from meteo_socle.sources.meteofrance_vigilance import (
-    ENV_APP_ID,
     PHENOMENES_PERTINENTS,
     parser_vigilance,
     recuperer_vigilance,
 )
 
 
-def _payload_vigilance(
-    departement: str = "35",
-    phen_j: dict[str, int] | None = None,
-    phen_j1: dict[str, int] | None = None,
+def _payload(
+    phen: dict[str, int] | None = None,
+    update_time: int = 1_780_718_405,
+    end_validity_time: int = 1_780_783_200,
 ) -> dict:
-    """Fabrique un payload DPVigilance minimal pour les tests."""
-    phen_j = phen_j or {}
-    phen_j1 = phen_j1 or {}
-
-    def items(d: dict[str, int]) -> list[dict]:
-        return [
-            {"phenomenon_id": pid, "phenomenon_max_color_id": niveau} for pid, niveau in d.items()
-        ]
-
+    """Payload ``currentphenomenons`` minimal du webservice MF."""
+    phen = phen or {}
     return {
-        "product": {
-            "update_time": "2026-05-31T16:00:00Z",
-            "periods": [
-                {
-                    "echeance": "J",
-                    "timelaps": {
-                        "domain_ids": [
-                            {"domain_id": departement, "phenomenon_items": items(phen_j)},
-                        ]
-                    },
-                },
-                {
-                    "echeance": "J1",
-                    "timelaps": {
-                        "domain_ids": [
-                            {"domain_id": departement, "phenomenon_items": items(phen_j1)},
-                        ]
-                    },
-                },
-            ],
-        }
+        "update_time": update_time,
+        "end_validity_time": end_validity_time,
+        "domain_id": "35",
+        "phenomenons_max_colors": [
+            {"phenomenon_id": pid, "phenomenon_max_color_id": niv} for pid, niv in phen.items()
+        ],
     }
 
 
-def test_parser_vigilance_tout_vert() -> None:
-    """Sans phénomène déclenché, tous les niveaux sont à 1 (vert)."""
-    payload = _payload_vigilance(departement="35")
-    res = parser_vigilance(payload, departement="35")
+def test_parser_tout_vert() -> None:
+    res = parser_vigilance(_payload(), departement="35")
     assert res is not None
     assert res.departement == "35"
     assert res.niveau_max_global == 1
-    assert all(p.niveau_j == 1 and p.niveau_j1 == 1 for p in res.phenomenes)
+    assert all(p.niveau == 1 for p in res.phenomenes)
+    # Horodatages parsés en UTC.
+    assert str(res.update_time.tz) == "UTC"
+    assert res.fin_validite is not None and str(res.fin_validite.tz) == "UTC"
 
 
-def test_parser_vigilance_orage_jaune_j_orange_j1() -> None:
-    """Un phénomène jaune J et orange J+1 → niveau_max = 3 (orange)."""
-    payload = _payload_vigilance(
-        departement="35",
-        phen_j={"3": 2},  # Orages jaune J
-        phen_j1={"3": 3},  # Orages orange J+1
-    )
-    res = parser_vigilance(payload, departement="35")
+def test_parser_orage_jaune() -> None:
+    res = parser_vigilance(_payload(phen={"3": 2}), departement="35")
     assert res is not None
     orages = next(p for p in res.phenomenes if p.code == 3)
-    assert orages.niveau_j == 2
-    assert orages.niveau_j1 == 3
-    assert orages.niveau_max == 3
-    assert res.niveau_max_global == 3
+    assert orages.niveau == 2
+    assert res.niveau_max_global == 2
 
 
-def test_parser_vigilance_filtre_phenomenes_pertinents() -> None:
-    """Seuls les phénomènes pertinents Pleine-Fougères sont exposés."""
-    payload = _payload_vigilance(
-        departement="35",
-        phen_j={
-            "3": 2,
-            "4": 4,
-            "8": 4,
-            "9": 4,
-        },  # Orages jaune + crues/avalanches/submersion rouges
-    )
-    res = parser_vigilance(payload, departement="35")
+def test_parser_filtre_phenomenes_pertinents() -> None:
+    # Orages jaune + crues/avalanches/submersion rouges (hors périmètre).
+    res = parser_vigilance(_payload(phen={"3": 2, "4": 4, "8": 4, "9": 4}), departement="35")
     assert res is not None
-    codes = {p.code for p in res.phenomenes}
-    assert codes == set(PHENOMENES_PERTINENTS)
-    # Le rouge sur avalanches/crues/submersion doit être ignoré (niveau max
-    # global lu uniquement sur les phénomènes retenus).
-    assert res.niveau_max_global == 2  # = jaune des orages, pas le rouge filtré
+    assert {p.code for p in res.phenomenes} == set(PHENOMENES_PERTINENTS)
+    # Le rouge des phénomènes filtrés ne remonte pas.
+    assert res.niveau_max_global == 2
 
 
-def test_parser_vigilance_departement_absent() -> None:
-    """Département non trouvé dans le payload → fallback tous verts."""
-    payload = _payload_vigilance(
-        departement="13",  # Bouches-du-Rhône, pas 35
-        phen_j={"6": 4},  # Canicule rouge dans le 13, ne doit pas remonter au 35
-    )
-    res = parser_vigilance(payload, departement="35")
-    assert res is not None
-    assert res.niveau_max_global == 1
+def test_parser_payload_malforme() -> None:
+    for data in ({}, {"phenomenons_max_colors": []}):
+        res = parser_vigilance(data, departement="35")
+        assert res is not None
+        assert res.niveau_max_global == 1
 
 
-def test_parser_vigilance_payload_malforme() -> None:
-    """Payload vide ou incomplet → ne crash pas, retourne tous verts."""
-    res = parser_vigilance({}, departement="35")
-    assert res is not None
-    assert res.niveau_max_global == 1
-
-    res = parser_vigilance({"product": {"periods": []}}, departement="35")
-    assert res is not None
-    assert res.niveau_max_global == 1
-
-
-def test_parser_vigilance_niveau_invalide_ignore() -> None:
-    """Un niveau hors plage [1,4] est ignoré silencieusement."""
-    payload = _payload_vigilance(
-        departement="35",
-        phen_j={"3": 7},  # Niveau hors plage
-    )
-    res = parser_vigilance(payload, departement="35")
+def test_parser_niveau_invalide_ignore() -> None:
+    res = parser_vigilance(_payload(phen={"3": 7}), departement="35")
     assert res is not None
     orages = next(p for p in res.phenomenes if p.code == 3)
-    assert orages.niveau_j == 1  # fallback vert
+    assert orages.niveau == 1  # hors plage → fallback vert
 
 
-def test_recuperer_vigilance_sans_cle_retourne_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Sans clé API, recuperer_vigilance retourne None sans appel réseau."""
-    monkeypatch.delenv(ENV_APP_ID, raising=False)
-    assert os.environ.get(ENV_APP_ID) is None
-    res = recuperer_vigilance(departement="35")
-    assert res is None
+def test_recuperer_vigilance_erreur_reseau_none() -> None:
+    """Erreur réseau → None (bloc Vigilance omis, dégradation gracieuse)."""
+    sess = MagicMock()
+    sess.get.side_effect = requests.ConnectionError("down")
+    assert recuperer_vigilance(departement="35", session=sess) is None
+
+
+def test_recuperer_vigilance_nominal_via_mock() -> None:
+    """Pipeline fetch → parse via session mockée (offline)."""
+    resp = MagicMock()
+    resp.json.return_value = _payload(phen={"3": 3})
+    resp.raise_for_status = MagicMock()
+    sess = MagicMock()
+    sess.get.return_value = resp
+    res = recuperer_vigilance(departement="35", session=sess)
+    assert res is not None
+    assert next(p for p in res.phenomenes if p.code == 3).niveau == 3
+    assert isinstance(res.update_time, pd.Timestamp)

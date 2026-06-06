@@ -1,46 +1,43 @@
-"""Client Vigilance Météo-France — API publique DPVigilance.
+"""Client Vigilance Météo-France — via le **webservice** (prévi roulante).
 
-Récupère le niveau de vigilance officiel par département pour les 9
-phénomènes de la Vigilance MF (vent violent, pluie-inondation, orages,
-crues, neige-verglas, canicule, grand froid, avalanches,
-vagues-submersion). Couverture J et J+1 (~48 h).
+Récupère le niveau de Vigilance officiel par département pour les 9 phénomènes
+(vent violent, pluie-inondation, orages, crues, neige-verglas, canicule, grand
+froid, avalanches, vagues-submersion).
 
-Authentification : OAuth 2.0 client_credentials avec ``application_id``
-obtenu sur le portail https://portail-api.meteofrance.fr (souscription
-à l'API "Données Publiques Vigilance" nécessaire).
-
-Variable d'env : ``METEOFRANCE_TOKEN`` (chaîne base64 ``user:password``
-fournie par le portail MF, sous "Application ID" — la même clé sert
-pour toutes les APIs souscrites avec une même application). Si absente,
-l'appel retourne ``None`` (mail envoyé sans bloc Vigilance, dégradé
-gracieux).
+**Source unifiée (ADR-0014)** : la Vigilance vient désormais du **même backend**
+que la prévision officielle (``webservice.meteofrance.com``), et non plus de
+l'API DPVigilance du portail (OAuth + ``METEOFRANCE_TOKEN``). C'est **la même
+Vigilance officielle d'État** (celle de l'appli/site MF), servie par le canal de
+la prévi roulante → un seul backend, un seul token (public, partagé avec
+``meteofrance_officiel``).
 
 Endpoint :
-- ``GET /public/DPVigilance/v1/cartevigilance/encours`` — carte JSON
-  des niveaux par département et phénomène pour J et J+1.
+- ``GET /v3/warning/currentphenomenons?domain=<dept>&depth=0`` — niveaux courants
+  par phénomène pour le département. Couvre la **période de validité courante**
+  (~24 h, ``end_validity_time``), pas un découpage J/J+1.
 
-Le format de réponse parsé est volontairement simple : on extrait pour
-un département donné le niveau max (J et J+1) de chaque phénomène
-pertinent, et on expose une dataclass plate pour le rendu HTML.
+Le format parsé reste plat : niveau (1-4) par phénomène pertinent + horodatages
+(émission ``update_time`` et fin de validité), pour le rendu HTML.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 import requests
 
+from ._http_retry import get_avec_retry
+from .meteofrance_officiel import DEFAULT_TOKEN, ENV_TOKEN
+
 logger = logging.getLogger(__name__)
 
-# Endpoints publics MF.
-TOKEN_URL = "https://portail-api.meteofrance.fr/token"
-API_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
+# Webservice MF (même backend que la prévi officielle, ADR-0014).
+WARNING_URL = "https://webservice.meteofrance.com/v3/warning/currentphenomenons"
 
-# Codes officiels MF des phénomènes Vigilance (cf. portail MF).
+# Codes officiels MF des phénomènes Vigilance.
 PHENOMENES_NOMS: dict[int, str] = {
     1: "Vent violent",
     2: "Pluie-inondation",
@@ -53,11 +50,9 @@ PHENOMENES_NOMS: dict[int, str] = {
     9: "Vagues-submersion",
 }
 
-# Phénomènes pertinents pour Pleine-Fougères (35) maraîchage + blé.
-# Crues exclues (Pleine-Fougères hors zone Couesnon inondable), avalanches
-# et vagues-submersion sans objet à 15 km de la baie sur plateau. Cf.
-# mémoire feedback "une-seule-methode-par-phenomene" et la décision
-# d'archivage des seuils maison canicule/pluie/vent.
+# Phénomènes pertinents pour Pleine-Fougères (35) maraîchage + blé. Crues
+# exclues (hors zone Couesnon inondable), avalanches et vagues-submersion sans
+# objet sur plateau. Cf. mémoire "une-seule-methode-par-phenomene".
 PHENOMENES_PERTINENTS: tuple[int, ...] = (1, 2, 3, 5, 6, 7)
 
 # Couleurs Vigilance MF (1=vert .. 4=rouge).
@@ -68,59 +63,60 @@ NIVEAU_NOMS: dict[int, str] = {
     4: "Rouge",
 }
 
-# Code département par défaut.
 DEPARTEMENT_DEFAUT = "35"
-
-# Variable d'env pour le token MF (partagée avec les autres APIs MF —
-# une seule application sur le portail = une seule clé pour tout).
-ENV_APP_ID = "METEOFRANCE_TOKEN"
 
 
 @dataclass
 class VigilancePhenomene:
-    """Niveau Vigilance pour un phénomène donné, J et J+1."""
+    """Niveau de Vigilance courant pour un phénomène (1=vert .. 4=rouge)."""
 
     code: int  # 1..9
     nom: str  # libellé court FR
-    niveau_j: int  # 1..4
-    niveau_j1: int  # 1..4
-
-    @property
-    def niveau_max(self) -> int:
-        """Pire des deux échéances — pour résumé compact."""
-        return max(self.niveau_j, self.niveau_j1)
+    niveau: int  # 1..4
 
 
 @dataclass
 class VigilanceDepartement:
-    """Vigilance complète pour un département à un instant donné."""
+    """Vigilance courante (~24 h) pour un département."""
 
     departement: str
-    update_time: pd.Timestamp  # UTC
-    phenomenes: list[VigilancePhenomene]
+    update_time: pd.Timestamp  # UTC : émission de la carte
+    fin_validite: pd.Timestamp | None  # UTC : fin de la période de validité
+    phenomenes: list[VigilancePhenomene] = field(default_factory=list)
 
     @property
     def niveau_max_global(self) -> int:
         """Pire niveau, tous phénomènes confondus — pour décision bandeau."""
         if not self.phenomenes:
             return 1
-        return max(p.niveau_max for p in self.phenomenes)
+        return max(p.niveau for p in self.phenomenes)
+
+
+def _ts(epoch: object) -> pd.Timestamp | None:
+    """Epoch (s) → Timestamp UTC, ``None`` si absent/illisible."""
+    if not isinstance(epoch, (int, float, str)):
+        return None
+    try:
+        return pd.Timestamp(int(epoch), unit="s", tz="UTC")
+    except (TypeError, ValueError):
+        return None
 
 
 def recuperer_vigilance(
     departement: str = DEPARTEMENT_DEFAUT,
-    application_id: str | None = None,
+    token: str | None = None,
     timeout: float = 10.0,
     session: requests.Session | None = None,
 ) -> VigilanceDepartement | None:
-    """Récupère et parse la Vigilance MF pour un département.
+    """Récupère et parse la Vigilance MF (webservice) pour un département.
 
     Parameters
     ----------
     departement :
         Code département à 2 chiffres (``"35"`` pour Ille-et-Vilaine).
-    application_id :
-        Clé API base64. Si ``None``, lue depuis l'env ``METEOFRANCE_TOKEN``.
+    token :
+        Token webservice MF. Par défaut : env ``METEOFRANCE_WS_TOKEN`` sinon la
+        valeur publique connue (partagée avec ``meteofrance_officiel``).
     timeout :
         Délai max HTTP (secondes).
     session :
@@ -129,48 +125,18 @@ def recuperer_vigilance(
     Returns
     -------
     VigilanceDepartement | None
-        ``None`` si la clé API est absente ou si la requête échoue.
-        L'absence ne casse pas le pipeline Veille (bloc skippé).
+        ``None`` si la requête échoue (le bloc Vigilance est alors omis —
+        dégradation gracieuse, le mail part sans).
     """
-    app_id = application_id or os.environ.get(ENV_APP_ID)
-    if not app_id:
-        logger.info(
-            "Vigilance MF désactivée : %s absent de l'environnement. "
-            "Configurer la clé API sur le portail MF pour activer.",
-            ENV_APP_ID,
-        )
-        return None
-
+    tok = token or os.environ.get(ENV_TOKEN, DEFAULT_TOKEN)
     sess = session or requests.Session()
+    params = {"domain": departement, "depth": "0", "token": tok}
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            token_resp = sess.post(
-                TOKEN_URL,
-                data={"grant_type": "client_credentials"},
-                headers={"Authorization": "Basic " + app_id},
-                timeout=timeout,
-                verify=False,
-                allow_redirects=False,
-            )
-        token_resp.raise_for_status()
-        token = token_resp.json()["access_token"]
-    except (requests.RequestException, KeyError, ValueError) as e:
-        logger.warning("Vigilance MF : impossible d'obtenir un token (%s)", e)
-        return None
-
-    try:
-        api_resp = sess.get(
-            API_URL,
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-            timeout=timeout,
-        )
-        api_resp.raise_for_status()
-        data = api_resp.json()
+        resp = get_avec_retry(sess, WARNING_URL, params=params, timeout=timeout)
+        data = resp.json()
     except (requests.RequestException, ValueError) as e:
-        logger.warning("Vigilance MF : erreur fetch (%s)", e)
+        logger.warning("Vigilance MF (webservice) : erreur fetch (%s)", e)
         return None
-
     return parser_vigilance(data, departement)
 
 
@@ -178,79 +144,43 @@ def parser_vigilance(
     data: dict,
     departement: str = DEPARTEMENT_DEFAUT,
 ) -> VigilanceDepartement | None:
-    """Parse le JSON DPVigilance et extrait le département demandé.
+    """Parse le JSON ``currentphenomenons`` du webservice MF.
 
-    Format MF (simplifié) :
+    Format (vérifié) :
 
     .. code-block:: json
 
         {
-          "product": {
-            "update_time": "2026-05-31T16:00:00Z",
-            "periods": [
-              {
-                "echeance": "J",
-                "timelaps": {
-                  "domain_ids": [
-                    {
-                      "domain_id": "35",
-                      "phenomenon_items": [
-                        {"phenomenon_id": "3", "phenomenon_max_color_id": 2},
-                        ...
-                      ]
-                    }
-                  ]
-                }
-              },
-              {"echeance": "J1", ...}
-            ]
-          }
+          "update_time": 1780718405,
+          "end_validity_time": 1780783200,
+          "domain_id": "35",
+          "phenomenons_max_colors": [
+            {"phenomenon_id": "1", "phenomenon_max_color_id": 1}, ...
+          ]
         }
 
-    Si le département n'est pas trouvé, les niveaux retournés sont tous
-    "vert" (1) — comportement défensif évitant les false alarms.
+    Les phénomènes absents de la réponse sont supposés verts (niveau 1).
     """
-    product = data.get("product") or {}
-    update_time_str = product.get("update_time") or product.get("created_at")
-    try:
-        if update_time_str:
-            update_time = pd.Timestamp(update_time_str).tz_convert("UTC")
-        else:
-            update_time = pd.Timestamp.now(tz="UTC")
-    except (TypeError, ValueError):
-        update_time = pd.Timestamp.now(tz="UTC")
-
-    # par_phenom[code] = {"J": niveau, "J1": niveau}
-    par_phenom: dict[int, dict[str, int]] = {pid: {"J": 1, "J1": 1} for pid in PHENOMENES_NOMS}
-
-    for period in product.get("periods") or []:
-        ech = str(period.get("echeance", "")).upper()
-        if ech not in ("J", "J1"):
+    if not isinstance(data, dict):
+        return None
+    par_phenom: dict[int, int] = dict.fromkeys(PHENOMENES_NOMS, 1)
+    for item in data.get("phenomenons_max_colors") or []:
+        try:
+            pid = int(item.get("phenomenon_id"))
+            niveau = int(item.get("phenomenon_max_color_id", 1))
+        except (TypeError, ValueError):
             continue
-        timelaps = period.get("timelaps") or {}
-        for dom in timelaps.get("domain_ids") or []:
-            if str(dom.get("domain_id")) != departement:
-                continue
-            for phen in dom.get("phenomenon_items") or []:
-                try:
-                    pid = int(phen.get("phenomenon_id"))
-                    niveau = int(phen.get("phenomenon_max_color_id", 1))
-                except (TypeError, ValueError):
-                    continue
-                if pid in par_phenom and niveau in NIVEAU_NOMS:
-                    par_phenom[pid][ech] = niveau
+        if pid in par_phenom and niveau in NIVEAU_NOMS:
+            par_phenom[pid] = niveau
 
+    update_time = _ts(data.get("update_time")) or pd.Timestamp.now(tz="UTC")
     phenomenes = [
-        VigilancePhenomene(
-            code=pid,
-            nom=PHENOMENES_NOMS[pid],
-            niveau_j=par_phenom[pid]["J"],
-            niveau_j1=par_phenom[pid]["J1"],
-        )
+        VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau=par_phenom[pid])
         for pid in PHENOMENES_PERTINENTS
     ]
     return VigilanceDepartement(
         departement=departement,
         update_time=update_time,
+        fin_validite=_ts(data.get("end_validity_time")),
         phenomenes=phenomenes,
     )

@@ -281,7 +281,7 @@ def _cartes_grille_factice():
 
 
 def _vigilance_jaune_orages():
-    """Fixture VigilanceDepartement avec Orages en jaune sur J et J+1."""
+    """Fixture VigilanceDepartement avec Orages en jaune (niveau courant)."""
     import pandas as pd
 
     from meteo_socle.sources.meteofrance_vigilance import (
@@ -292,17 +292,13 @@ def _vigilance_jaune_orages():
     )
 
     phenomenes = [
-        VigilancePhenomene(
-            code=pid,
-            nom=PHENOMENES_NOMS[pid],
-            niveau_j=2 if pid == 3 else 1,
-            niveau_j1=2 if pid == 3 else 1,
-        )
+        VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau=2 if pid == 3 else 1)
         for pid in PHENOMENES_PERTINENTS
     ]
     return VigilanceDepartement(
         departement="35",
         update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
+        fin_validite=pd.Timestamp("2026-06-01 04:00", tz="UTC"),
         phenomenes=phenomenes,
     )
 
@@ -407,8 +403,9 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
     vigilance_verte = VigilanceDepartement(
         departement="35",
         update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
+        fin_validite=pd.Timestamp("2026-06-01 04:00", tz="UTC"),
         phenomenes=[
-            VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau_j=1, niveau_j1=1)
+            VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau=1)
             for pid in PHENOMENES_PERTINENTS
         ],
     )
@@ -416,8 +413,10 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
     # Les deux titres de section sont rendus en <h3> même sans alerte.
     assert ">Vigilance Météo-France</h3>" in html
     assert ">Vigilance exploitation</h3>" in html
-    # Et chacun annonce séparément l'absence d'alerte sur 48 h.
-    assert html.count("Aucune alerte sur les 48 h") >= 2
+    # Chacun annonce séparément l'absence : « rien à signaler » côté MF,
+    # « aucune alerte » côté exploitation (libellés distincts, pas de redondance).
+    assert "Aucune vigilance en cours" in html
+    assert "Aucune alerte sur les 48 h" in html
 
 
 def test_composer_html_section_seuils_vigilance_en_pied() -> None:
