@@ -1,0 +1,63 @@
+# Eau, sécheresse, irrigation et forage {#sec-eau}
+
+C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage diversifié ; or la ressource bretonne est, paradoxalement, **vulnérable**, et son usage est de plus en plus **encadré**. Trois volets : la ressource souterraine, sa réglementation, et le pilotage de l'irrigation.
+
+## La ressource souterraine bretonne : abondante en apparence, fragile en réalité
+
+- La Bretagne repose sur des **aquifères de socle** (granite, schistes, grès, gneiss) où l'eau circule dans un **réseau de fractures**, et non dans de grands réservoirs poreux. Ce sont de **petits systèmes imbriqués, peu épais, à faible capacité de stockage** [@mougin2024 ; @oeb-secheresses].
+- Ces nappes sont **« réactives »** : faible inertie, cycle de remplissage/vidange **annuel** (et non pluriannuel comme les grands bassins sédimentaires). Elles dépendent donc étroitement des **pluies efficaces hivernales** [@oeb-secheresses ; @mougin2024].
+- D'où une **vulnérabilité paradoxale** : en l'absence de pluie, les nappes « se vident en quelques semaines (3 mois maximum) », si bien que **la moindre sécheresse météorologique se propage vite** aux nappes et aux rivières [@oeb-secheresses].
+- Ces nappes **soutiennent 40 à 80 % des débits** des cours d'eau bretons à l'étiage (cartographie SILURES, BRGM) : leur faiblesse estivale pèse directement sur les rivières — donc sur l'eau disponible et sur les milieux à protéger [@silures2008 ; @oeb-secheresses].
+- La **recharge** est concentrée d'**octobre à mars** ; seule une fraction de la pluie devient « pluie efficace » (~39 % selon l'OEB ; gradient ≈ 150 mm/an à Rennes contre ~600 mm à Quimper) [@oeb-secheresses]. **Le secteur de Pleine-Fougères est du côté sec de ce gradient.**
+- Épisode récent : après une recharge très tardive fin 2022 et un **février 2023 historiquement sec**, les nappes étaient sous les normales ; la situation s'est **rétablie à l'automne 2023** [@brgm-secheresse]. Illustration de la réactivité — le bon comme le mauvais arrivent vite.
+
+**Signal prospectif** : sous le réchauffement, l'OEB (d'après Météo-France) annonce des sécheresses des sols **plus intenses (+47 %)**, jusqu'à **+38 jours/an** de sols secs (Finistère), et des **débits d'étiage en baisse de −14 à −49 %** selon les modèles [@oeb-secheresses]. À prendre comme ordres de grandeur.
+
+## Le cadre réglementaire du prélèvement et du forage
+
+Le SDAGE Loire-Bretagne 2022-2027 (adopté le 3 mars 2022) **renforce la gestion quantitative** et l'intégration du climat : il fixe des débits de référence (QMNA5), identifie les secteurs en tension, et déploie la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc].
+
+Pour un **forage d'irrigation**, trois rubriques de la nomenclature « loi sur l'eau » (IOTA, art. R214-1) se cumulent [@legifrance-r214] :
+
+| Rubrique | Objet | Seuil |
+|---|---|---|
+| **1.1.1.0** | Création de l'ouvrage (forage non domestique) | **Déclaration, sans seuil de volume** |
+| **1.1.2.0** | Volume prélevé (hors ZRE) | **Déclaration > 10 000 m³/an** ; **Autorisation ≥ 200 000 m³/an** |
+| **1.3.1.0** | Prélèvement **en zone de répartition des eaux (ZRE)** | **Déclaration < 8 m³/h** ; **Autorisation ≥ 8 m³/h** |
+
+S'ajoute, pour toute prise en lien avec un cours d'eau, le respect d'un **débit réservé ≥ 10 % du module** (débit moyen interannuel) [@legifrance-l214-18]. Et, chaque été, les **arrêtés sécheresse** de la préfecture d'Ille-et-Vilaine peuvent restreindre l'irrigation selon quatre niveaux croissants : **vigilance, alerte, alerte renforcée, crise**. L'arrêté-cadre départemental (11 juin 2021) range le maraîchage parmi les **« cultures spéciales »** : dès le niveau *alerte*, l'irrigation y est interdite **de 11 h à 18 h** (créneau distinct des grandes cultures) [@pref35-secheresse].
+
+::: {.callout-important title="Classement ZRE : a priori non, à confirmer"}
+Le régime bascule selon que le secteur est, ou non, **classé en zone de répartition des eaux** : **hors ZRE**, le seuil de déclaration est de **10 000 m³/an** (volume) ; **en ZRE**, il tombe à **8 m³/h** (débit instantané) — bien plus contraignant. Or Pleine-Fougères relève du **SAGE Couesnon** (approuvé en 2013, exutoire en baie du Mont-Saint-Michel) [@gesteau-couesnon], et **le bassin du Couesnon ne figure pas** dans les ZRE d'Ille-et-Vilaine (limitées aux bassins **Vilaine** et **Oudon**) [@zre-loire-bretagne]. Le secteur est donc **vraisemblablement hors ZRE** — c'est le seuil de **10 000 m³/an** qui s'appliquerait. À **confirmer auprès de la DDTM 35** (et selon la position exacte de la parcelle, rattachement SAGE Couesnon vs *bassins côtiers de Dol*), de même que l'existence éventuelle d'un **OUGC**.
+:::
+
+## Le pilotage de l'irrigation en maraîchage diversifié
+
+La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-fiche37], complétée par le guide 2025 [@gabfrab2025], le guide Sud & Bio [@calcet2016] et le projet **IRRIBZH** du CTIFL, dédié au pilotage hydrique du maraîchage bio breton [@ctifl-irribzh].
+
+- **Bilan hydrique** : le besoin est l'évapotranspiration maximale **ETM = Kc × ETP** ; on suit la **réserve facilement utilisable (RFU)** du sol, alimentée par pluie + irrigation, diminuée de l'ETM [@agrobio35-fiche37]. (L'ETP de référence se calcule de façon standardisée, cf. la méthode SAFRAN [@vannier2012].)
+- **La texture commande la conduite** : RFU ≈ 60 % de la réserve utile en sol sableux, ≈ 40 % en sol argileux ; perméabilité ≈ 50 mm/h (sable), 13 mm/h (limon), 0,5 mm/h (argile). Sols sableux → apports **modérés et fréquents** (sinon lessivage) ; sols argileux → apports **plus importants et espacés** [@agrobio35-fiche37].
+- **Sous abri**, l'ETP est réduite (ETP sous abri ≈ **80 %** de l'ETP plein champ, car le vent y est absent) [@agrobio35-fiche37].
+- **Tensiométrie — seuils de décision** : 0 cbar = sol saturé (ne pas irriguer) ; 10-20 cbar = capacité au champ ; 30-40 cbar = irriguer (sols sableux) ; 40-50 cbar (sols argileux) ; **60-70 cbar = stress, urgent**. Deux tensiomètres (surface + 15-20 cm) recommandés [@agrobio35-fiche37].
+- **Goutte-à-goutte vs aspersion** : le goutte-à-goutte économise l'eau, cible l'apport et **ne mouille pas le feuillage** (moins de maladies cryptogamiques, cf. @sec-bioagresseurs) mais est inadapté aux sols très sableux ; l'aspersion stimule l'activité racinaire mais mouille le feuillage et peut provoquer **battance/ruissellement** [@agrobio35-fiche37].
+- **Conduite** : irriguer **le matin** (le feuillage sèche dans la journée → moins de maladies) ; l'excès d'eau lessive et asphyxie, le manque provoque montée à graines et accidents de nouaison [@agrobio35-fiche37].
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- **La contrainte n'est pas la pluie annuelle, c'est l'eau au bon moment.** Les hivers plus humides ne sécurisent pas l'été : les nappes de socle se vidant en quelques semaines, c'est la **disponibilité estivale** qui sera limitante — et de plus en plus encadrée.
+- **Le forage hérite des limites de la nappe et de la réglementation.** Sa fiabilité à 30 ans dépend (1) de la recharge hivernale, qui restera correcte voire un peu meilleure, mais (2) d'un étiage estival qui baisse (−14 à −49 % de débit), et (3) d'un cadre de prélèvement qui se durcit (HMUC, arrêtés sécheresse plus fréquents). **Ne pas considérer le forage comme une ressource illimitée et hors-sol.**
+- **Stocker l'eau d'hiver** (la saison excédentaire) pour l'été (la saison déficitaire) devient la logique structurante — à instruire en phase adaptation, avec son propre cadre réglementaire (retenues).
+- **L'efficience est le premier levier sans regret** : pilotage tensiométrique + bilan hydrique + goutte-à-goutte là où le sol le permet réduisent la dépendance au forage **quel que soit le scénario**.
+- **Vérifier le statut réglementaire du forage et du secteur (ZRE, SAGE, OUGC) est un préalable, pas un détail.**
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Points à confirmer (sources primaires locales)"}
+- Confirmer le statut **hors ZRE** auprès de la **DDTM 35**, le rattachement de la parcelle (**SAGE Couesnon** vs bassins côtiers de Dol) et l'existence éventuelle d'un **OUGC**.
+- **Restrictions exactes par niveau** de l'arrêté-cadre sécheresse 35 (jours/horaires/% pour l'irrigation maraîchère) : à lire dans les annexes de l'arrêté en vigueur. *À confirmer.*
+- **Paramètres opératoires HMUC** (QMNA5 retenu, volumes prélevables par sous-bassin) : version texte du guide [@guide-hmuc].
+- **Caractéristiques du forage d'Alexis** (profondeur, débit, niveau piézométrique, déclaration existante) : à intégrer pour passer de l'état de l'art au diagnostic.
+- Projections d'étiage à l'échelle du **bassin-versant local** (Explore2, INRAE).
+:::

@@ -1,0 +1,59 @@
+# Annexe A — Le forage de La Petite Claye (cas concret) {#sec-forage}
+
+::: {.callout-note}
+Cette annexe **applique** le cadre générique du @sec-eau au forage existant de l'exploitation. Contrairement au reste du document (autoporté et générique), elle est **spécifique au cas d'Alexis** et s'appuie sur les pièces communiquées (déclarations BSS/DRIRE, plan cadastral) et la fiche BSS [@infoterre-bss-tpha].
+:::
+
+## Identification
+
+- **Ouvrage** : forage, lieu-dit **La Petite Claye**, **Pleine-Fougères (35610)**, parcelle section **ZC**.
+- **Code BSS** : **BSS000TPHA** (ancien indice **02463X0553/F**) [@infoterre-bss-tpha].
+- **Réalisation** : **16 juillet 2002**, par SA Dol Forage (Dol-de-Bretagne).
+- **Régime déclaré à l'origine** : déclaration préalable de travaux souterrains (DRIRE Bretagne), puis déclaration après travaux — usage **« arrosage de serres »**.
+
+## Caractéristiques techniques (d'après les déclarations)
+
+| Caractéristique | Valeur déclarée |
+|---|---|
+| Profondeur réalisée | **76 m** (profondeur présumée au projet : 90 m) |
+| Équipement | ~8 m tubés, **~28 m crépinés**, cimentation de tête |
+| Débit | **≈ 5 à 6 m³/h** |
+| Volume annuel déclaré | **1 500 m³/an** |
+| Usage déclaré | arrosage de serres (usage agricole) |
+| Première arrivée d'eau | vers **58 m**, venues croissantes jusqu'à ~76 m |
+
+**Coupe géologique** (log de foration) : terre végétale (0–3 m), puis **schistes altérés**, **grès et schistes**, devenant **sains et durs en profondeur** (≈ 58–76 m). C'est un **profil d'altérite sur socle**, classique du Massif armoricain.
+
+## Nappe captée
+
+Le forage capte une **nappe de socle** dans les **schistes et grès briovériens** — entité hydrogéologique **BDLISA 173AC11** (secteur baie du Mont-Saint-Michel / Couesnon ; libellé exact à confirmer sur le portail) [@bdlisa-173ac11]. La ressource provient des **fissures de la roche** et de la frange d'altération, alimentées par la **recharge hivernale**.
+
+C'est exactement le type de nappe décrit au @sec-eau : **réactive, à faible inertie**, dépendante des pluies efficaces de l'hiver et **sensible à la sécheresse estivale** [@mougin2024 ; @oeb-secheresses]. Le débit modeste (5–6 m³/h) et la profondeur des venues (≥ 58 m) sont cohérents avec un aquifère de socle peu capacitif. Au sens de la directive-cadre sur l'eau, l'ouvrage relève de la **masse d'eau souterraine de socle du bassin versant du Couesnon** [@masse-eau-couesnon], dans le périmètre du **SAGE Couesnon** [@gesteau-couesnon].
+
+## Lecture réglementaire (cadre du @sec-eau)
+
+En appliquant la nomenclature IOTA [@legifrance-r214] aux valeurs déclarées :
+
+- **Création de l'ouvrage** (rubrique 1.1.1.0) : le forage relève de la **déclaration** — formalité accomplie en 2002.
+- **Volume prélevé** (rubrique 1.1.2.0, hors ZRE) : **1 500 m³/an ≪ 10 000 m³/an** → en dessous du seuil de déclaration au titre du volume.
+- **Classement ZRE** : le secteur (SAGE Couesnon) est **a priori hors ZRE** (les ZRE d'Ille-et-Vilaine se limitent aux bassins Vilaine et Oudon) [@zre-loire-bretagne] — c'est donc le seuil de **10 000 m³/an** qui s'applique, et non le 8 m³/h. Même *en hypothèse ZRE*, le débit **5–6 m³/h < 8 m³/h** ne relèverait que de la déclaration.
+
+::: {.callout-tip title="Position réglementaire : confortable au niveau d'usage de 2002"}
+Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire **souple** : volume et débit sont sous les seuils contraignants, même en hypothèse ZRE. **Mais** ces seuils s'apprécient à l'**usage réel actuel** : un maraîchage **diversifié** (plein champ + abris) peut consommer nettement plus que les 1 500 m³/an d'« arrosage de serres » de 2002. Et surtout, les **arrêtés sécheresse** [@pref35-secheresse] s'appliquent **quel que soit le volume**.
+:::
+
+## Lecture ressource & climat (cadre du @sec-eau et du @sec-climat)
+
+- La fiabilité estivale du forage dépend d'un **étiage de nappe** que les projections donnent **en baisse** (débits d'étiage −14 à −49 % à l'horizon +4 °C) [@oeb-secheresses] : à 30 ans, **plus de tension en fin d'été**, au moment où le maraîchage a le plus besoin d'eau.
+- La **recharge hivernale**, elle, devrait rester correcte voire un peu meilleure (hivers plus humides, @sec-climat) : d'où l'intérêt stratégique de **stocker l'eau d'hiver** plutôt que de compter sur un débit estival de nappe.
+- **Risque côtier** (@sec-cotiers) : La Petite Claye est en frange du **Marais de Dol**. Le forage est en **socle à 76 m**, a priori moins exposé qu'une nappe alluviale superficielle, mais la **salinisation** (intrusion, remontée de nappe salée) reste un risque à **surveiller dans la durée** (conductivité de l'eau).
+
+## Points à vérifier / compléter
+
+::: {.callout-warning}
+- **Usage réel actuel** : volume annuel effectivement prélevé vs 1 500 m³/an déclarés (compteur) — détermine le régime IOTA applicable aujourd'hui (seuil pertinent : 10 000 m³/an hors ZRE).
+- **Confirmer hors ZRE** et le rattachement de la parcelle (SAGE Couesnon vs bassins côtiers de Dol) auprès de la **DDTM 35** ; vérifier le **code DCE** exact de la masse d'eau [@masse-eau-couesnon].
+- **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit ; et identifier le **piézomètre ADES le plus proche** pour le suivi [@atlas-piezo-bretagne].
+- **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme.
+- **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique actuel.
+:::

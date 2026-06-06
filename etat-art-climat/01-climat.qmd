@@ -1,0 +1,50 @@
+# Climat observé et projeté en Bretagne {#sec-climat}
+
+Ce chapitre fixe la **toile de fond physique** dont dépendent tous les axes suivants : températures, précipitations, évaporation et indicateurs de sécheresse. Les autres chapitres y renvoient plutôt que de répéter les chiffres.
+
+## Ce que disent les observations
+
+- La Bretagne s'est **nettement réchauffée** : la température moyenne annuelle a augmenté de **+1,74 à +1,85 °C en 60 ans** (1960-2020), mesure établie sur cinq stations représentatives (Brest, Lorient, Pleurtuit, Rennes, Rostrenen). Le réchauffement est **plus marqué au printemps et en été** qu'en automne-hiver [@oracle2021].
+- Les **journées chaudes** se multiplient : le nombre de jours où la température maximale dépasse 25 °C a **quasiment doublé** entre 1959-1989 et 1990-2020, en particulier à Rennes [@oracle2021].
+- Cette évolution **allonge la saison de végétation** et, plus à l'est de la région (Rennes, secteur de Pleine-Fougères), accentue les **déficits hydriques estivaux** [@oracle2021 ; @meteofrance2019].
+- Le gradient régional reste marqué : l'**est de l'Ille-et-Vilaine est plus continental et plus sec** que la pointe finistérienne (la pluie efficace annuelle est de l'ordre de 150 mm à Rennes contre ~600 mm à Quimper, cf. @sec-eau).
+
+## Ce que disent les projections
+
+Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1976-2005**, dans le cadre TRACC.
+
+**À l'horizon 2050 (France à +2,7 °C)** [@meteofrance-futur-bzh] :
+
+- température moyenne annuelle bretonne : **≈ +1,8 °C** ;
+- **hivers plus humides** : précipitations de décembre à février en hausse (de **+5 % à +34 %** selon les modèles) ;
+- **étés plus secs** : précipitations estivales **≈ −11 %** ;
+- **pluies les plus fortes plus intenses** (**≈ +10 %**) ;
+- **jours de sécheresse** : de **124 à ≈ 140 jours/an**.
+
+**À l'horizon 2100 (France à +4 °C)** [@oeb-temperatures ; @oeb-precipitations] :
+
+- température moyenne annuelle : **+2,9 °C** en Bretagne, avec un gradient renforcé du nord-ouest (**+2,4 °C** en Finistère) au sud-est (**+3,2 °C** vers le golfe du Morbihan) ;
+- **journées chaudes (> 25 °C) : 2 à 5 fois plus nombreuses** — au minimum +17 jours (Finistère), au maximum **+54 jours** ;
+- **jours de gel divisés par trois** : de 23 à **7 jours/an** en moyenne régionale ;
+- **évaporation : +12 % à +33 %** selon les modèles ;
+- **précipitations : été −26 %, hiver +14 %** ; intensité des fortes pluies **+6 % à +34 %** sur l'année.
+
+::: {.callout-important title="Une nuance de méthode sur les pluies extrêmes"}
+L'Observatoire de l'environnement en Bretagne précise que les modèles climatiques régionaux **ne représentent pas les orages** : l'intensification estivale des fortes pluies est donc **potentiellement sous-estimée**, et la fourchette (+6 à +34 %) est large [@oeb-precipitations]. À manier comme une tendance, pas comme une valeur ferme.
+:::
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- Le signal dominant pour le maraîchage de Pleine-Fougères n'est **pas** « moins de pluie en général » mais une **redistribution saisonnière** : **hivers plus arrosés** (et plus érosifs, cf. @sec-sol) face à des **étés plus secs et plus chauds** avec une **évaporation en hausse**. Le **stress hydrique estival** structurera la conduite (cf. @sec-eau).
+- Le réchauffement est **acquis et mesuré** localement (+1,8 °C déjà sur 60 ans) : ce n'est pas une hypothèse lointaine mais une tendance en cours.
+- L'**est de l'Ille-et-Vilaine** est la partie de la Bretagne où le déficit hydrique estival est le plus sensible : le secteur est en première ligne, pas à l'abri par sa « réputation humide ».
+- La baisse des **jours de gel** est réelle, mais elle ne supprime pas le **risque de gel tardif** — au contraire (cf. @sec-phenologie).
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- Disposer des **chiffres 2050 différenciés été/hiver** et des indices agro-climatiques (ETP, déficit hydrique potentiel) au pas de temps mensuel pour le secteur de Rennes/Fougères, via DRIAS [@drias] et les fiches ORACLE actualisées [@oeb-bulletin2025].
+- Croiser avec **Explore2 (INRAE/Météo-France)** pour des projections à l'échelle du bassin-versant local.
+:::

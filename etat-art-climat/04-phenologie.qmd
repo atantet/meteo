@@ -1,0 +1,32 @@
+# Saisons, phénologie et gel tardif {#sec-phenologie}
+
+Le réchauffement ne fait pas que « réchauffer » : il **déplace le calendrier biologique** des cultures. Ce décalage ouvre des opportunités (saison plus longue) mais aussi un risque contre-intuitif majeur — le **gel tardif**.
+
+## Ce que disent les observations
+
+- L'allongement de la **saison de végétation** est documenté en Bretagne, conséquence directe de la hausse des températures et de la baisse des jours de gel (de 23 à 7 j/an à l'horizon +4 °C, cf. @sec-climat) [@oracle2021 ; @oeb-temperatures].
+- La douceur hivernale et printanière **avance le débourrement et la reprise de végétation** de plusieurs jours à plusieurs semaines selon les espèces — phénomène suivi par les réseaux d'observation phénologique [@obs-saisons-gel].
+
+## Le paradoxe du gel tardif
+
+Le point clé, contre-intuitif : **moins de jours de gel ne signifie pas moins de dégâts de gel**.
+
+- En avançant la phénologie, le réchauffement expose des **organes déjà sortis et sensibles** (bourgeons, jeunes pousses, fleurs) à des gelées tardives qui, elles, n'ont pas disparu [@obs-saisons-gel].
+- Le risque vient donc du **décalage** entre une végétation précoce et des coups de froid encore possibles au printemps — autant que du thermomètre lui-même [@obs-saisons-gel].
+- L'attribution scientifique va dans ce sens : le changement climatique aurait **augmenté d'environ 60 %** la probabilité qu'un épisode de gel survienne en pleine période de débourrement (travaux relayés par R. Vautard) [@obs-saisons-gel]. *Chiffre issu d'une source de vulgarisation citant des travaux ; à rattacher à la publication primaire pour un usage chiffré.*
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- **L'opportunité** : saison plus longue, semis précoces et arrière-saison étendue deviennent possibles — un atout pour la diversité et l'étalement de l'offre en vente directe.
+- **Le piège** : cette précocité **augmente l'exposition au gel tardif**. Avancer les plantations sans protection, c'est prendre plus de risque, pas moins.
+- Conséquence pratique : **maintenir une capacité de protection** (voiles P17, tunnels, gestion de l'irrigation antigel sous réserve de ressource) et **ne pas se fier au calendrier passé** — la « date des saints de glace » reste un repère prudent malgré des hivers doux.
+- Le **suivi météo fin du risque de gel au printemps** garde toute sa valeur : c'est un aléa qui, loin de disparaître, devient plus traître.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- Rattacher le « +60 % » à sa **publication primaire** (attribution event) avant tout usage chiffré.
+- Quantifier, pour le secteur de Pleine-Fougères, l'évolution conjointe de la **date de dernière gelée** et de la **date de reprise** des principales cultures, via DRIAS [@drias] et les réseaux phénologiques.
+:::

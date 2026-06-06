@@ -1,0 +1,38 @@
+# Événements extrêmes et risques côtiers locaux {#sec-cotiers}
+
+Ce chapitre traite des aléas **brutaux** — et d'une spécificité géographique forte de Pleine-Fougères : son appartenance au **Marais de Dol**, zone basse littorale de la **baie du Mont-Saint-Michel**.
+
+## Événements extrêmes (pluies, grêle, tempêtes)
+
+- L'intensification des **fortes pluies** (+6 % à +34 % sur l'année à +4 °C) est un signal régional [@oeb-precipitations], avec une **incertitude assumée** : les modèles ne représentent pas les orages, donc l'intensité estivale est possiblement **sous-estimée** (cf. @sec-climat). Conséquences directes : ruissellement, érosion (cf. @sec-sol), engorgement, dégâts mécaniques sur cultures et abris.
+- Les épisodes de **grêle** et de **vent/tempête** ne sont pas quantifiés régionalement dans les sources mobilisées ici — *lacune à combler* — mais constituent un risque matériel pour les abris (tunnels, voiles).
+
+## Le risque côtier : submersion, remontée de nappe, salinisation
+
+Pleine-Fougères fait partie des **22 communes du Marais de Dol** (~12 000 ha), zone de **polders** située en arrière du trait de côte de la baie du Mont-Saint-Michel.
+
+- Un **Plan de prévention des risques de submersion marine (PPRSM) du Marais de Dol** a été approuvé le **25 août 2016**, et un **PAPI** (Programme d'actions de prévention des inondations) « polders et marais de la baie du Mont-Saint-Michel » est **en mise en œuvre depuis mars 2024** [@ccdol-papi].
+- L'**élévation du niveau de la mer** amplifie la menace : elle accroît la **vulnérabilité aux submersions** et favorise la **remontée de la nappe** dans ces terres basses [@sage-dol].
+- Dans ce contexte, deux risques pèsent spécifiquement sur le maraîchage en zone basse : la **remontée de nappe** (engorgement des sols, asphyxie racinaire, fenêtres de travail réduites) et la **salinisation** potentielle des sols et de la ressource en eau souterraine peu profonde lors d'intrusions marines — à instruire localement.
+
+::: {.callout-important title="Une asymétrie d'exposition propre au lieu"}
+La plupart des secteurs maraîchers raisonnent le climat futur en termes de **sécheresse et chaleur**. Pleine-Fougères y est exposée **aussi**, mais cumule un risque **inverse et spécifique** lié à sa position de polder : **excès d'eau, submersion et sel**. Selon la parcelle (altitude, distance au trait de côte, profondeur de nappe), l'enjeu dominant peut être l'un **ou** l'autre. Le diagnostic doit être **parcellaire**.
+:::
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- **Connaître son exposition réglementaire et physique** : situer les parcelles vis-à-vis du **PPRSM** et du **PAPI** [@ccdol-papi], et caractériser la **profondeur et la qualité (salinité) de la nappe** sous l'exploitation.
+- En zone basse, la **gestion de l'excès d'eau** (drainage, planches surélevées, choix de parcelles) peut compter autant que la gestion de la sécheresse.
+- La **salinisation** de la ressource du forage est un risque à surveiller dans la durée (conductivité de l'eau) — il rejoint directement le fil rouge irrigation (cf. @sec-eau).
+- Les **abris** doivent être dimensionnés pour des **vents et pluies plus intenses**.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- **Quantifier la grêle et le vent** régionalement (sources Météo-France / DRIAS).
+- Récupérer les **cartes du PPRSM Marais de Dol** et les zonages d'aléa pour les parcelles concernées.
+- Documenter localement la **salinité de la nappe** et l'historique des intrusions marines (SAGE, BRGM).
+- Confirmer le **SAGE compétent** sur la commune et son volet « risques » [@sage-dol].
+:::

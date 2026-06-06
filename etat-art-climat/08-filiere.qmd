@@ -1,0 +1,66 @@
+# Filière, marché et socio-économie {#sec-filiere}
+
+Un état de l'art « impacts » serait incomplet sans le **contexte socio-économique** : la viabilité d'une exploitation maraîchère bio dépend aussi du **marché**, de sa **résilience structurelle** et de son **exposition aux chocs d'approvisionnement** — tous trois traversés par le changement climatique.
+
+## Marché du bio et vente directe
+
+- Après une **crise 2021-2023**, le marché du bio montre des **signes de reprise en 2024** : dépenses des ménages **+0,8 % en valeur, à 12,2 Md€** [@agencebio2025].
+- La **part du bio** dans les achats alimentaires des Français est de **5,6 %** en 2024 (stable) [@agencebio2025].
+- La reprise est **portée par les circuits courts** : magasins bio, commerce de proximité et **vente directe progressent chacun de +7 %** en 2024, tandis que la **grande distribution recule de −5 %** [@agencebio2025].
+- Débouché favorable au maraîchage : les **légumes bio progressent de +9 %** en 2024, principalement via circuits spécialisés et vente directe [@agencebio2025].
+- Tension offre/demande : les **surfaces bio reculent** (~−110 000 ha en deux ans), mais le **solde de producteurs reste positif** (+1 %) [@agencebio2025].
+
+Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segment d'Alexis :
+
+- la VD représente **13 % du marché alimentaire bio en 2022** (vs 11 % en 2012), soit **~1,5 Md€**, un volume **multiplié par 2 en dix ans** ;
+- **plus d'une exploitation bio sur trois** pratique la vente directe ;
+- les **légumes sont le 1er produit de la VD bio (~39 % des exploitations en VD)**, dont les trois quarts « spécialisés » ;
+- mais des structures **petites et fragiles** : les trois quarts ont une PBS < 100 000 €, le CA moyen en VD est de ~47 000 € et **35 % des répondants y font moins de 10 000 €** ;
+- **~44 % transforment** eux-mêmes une partie de leur production avant la vente.
+
+## Résilience par la diversité
+
+L'**Expertise scientifique collective INRAE** (2022) sur la diversité végétale chiffre des **co-bénéfices** convergents [@inrae-esco2022] :
+
+- amélioration de la **régulation des bioagresseurs** : couverts d'interculture **+125 %**, haies **+84 %**, associations multi-espèces **+60 %**, agroforesterie **+40 %** ;
+- **biodiversité fonctionnelle** : agroforesterie **+61 %**, rotations **+37 %**, couverts **+21 %** ;
+- **rendements maintenus ou accrus** (+2 à +47 % selon dispositifs) : la diversification **n'est pas un sacrifice de productivité**.
+- Ces co-bénéfices (sols, eau, carbone, régulation) sécurisent la production **face aux aléas** : c'est l'argument de la **diversité comme assurance** [@inrae-esco2022 ; @inrae-diversification].
+- Réserve : agroforesterie et diversification subissent de forts **verrouillages socio-économiques** (rentabilité court terme, débouchés) — la **vente directe**, en créant son propre débouché, lève une partie de ce frein [@inrae-diversification].
+
+## Dépendance aux intrants et exposition géopolitique
+
+- **Choc 2022** : prix des intrants agricoles **+25,9 %** (record), tiré par les **engrais +74,8 %** et l'**énergie +41,6 %** [@agreste2023-intrants].
+- Cause directe : flambée du **gaz** (intrant clé de l'ammoniac → engrais azotés) et tensions sur la mer Noire [@agreste2023-intrants].
+- Verrou structurel : le **gaz ≈ 80 % du coût de l'ammoniac** ; FranceAgriMer conclut à l'**impossibilité de découpler** l'agriculture française des importations d'engrais minéraux (surtout P et K) sans changement de modèle [@franceagrimer-engrais].
+- **Énergie** : le **maraîchage et l'horticulture** figurent parmi les OTEX les plus consommatrices (**> 20 tep/exploitation**, chauffage de serres surtout au gaz) — exposition directe forte [@ademe-solagro2018].
+- Levier : potentiel de **−26 % à −43 % de consommation d'énergie agricole d'ici 2050** (efficacité, agroécologie, ENR sur l'exploitation) [@ademe-solagro2018].
+- Cette dépendance aux marchés mondiaux est aussi soulignée, en mise en perspective, par la presse économique [@alteco2026].
+- **Levier d'autonomie azotée** : un engrais vert de légumineuse (vesce ~3 t/ha) peut **remettre à disposition 50 à 100 kg N/ha** pour la culture suivante [@grab-engraisverts] ; des systèmes « autonomes en azote » s'appuyant sur légumineuses et couverts sont documentés [@auton2020] (surtout en grandes cultures, transférabilité maraîchère à valider).
+
+## Viabilité économique du modèle
+
+- L'étude INRAE/AgroParisTech de la ferme du **Bec Hellouin** (maraîchage bio diversifié sur ~1 000 m², 76 cultures) donne un **revenu agricole net de 900 à 1 570 €/mois** pour un **revenu horaire de 5,4 à 9,5 €/h**, jugé « acceptable, voire supérieur » à la référence régionale — mais **inférieur au SMIC horaire** [@inrae-bechellouin]. *Étude monosite, à généraliser avec prudence.*
+- C'est le marqueur central de fragilité du modèle : **productivité élevée au m², mais rémunération horaire basse** — d'où l'importance de la valeur ajoutée (transformation, VD) et de la maîtrise des charges (eau, intrants, énergie).
+
+## Ancrage régional
+
+- En Bretagne, le bio représente **~10 % de la SAU** et ~15 % des fermes [@frab-chiffresbio] ; le Mémento agricole recense **1 692 fermes « légumes/horticulture » en Bretagne, dont 285 en Ille-et-Vilaine** (tous modes confondus) [@draaf-memento2025].
+- Dynamique d'installation soutenue : **~432 jeunes installés avec aides en 2023** ; les **cultures spécialisées (légumes, horticulture) concentrent ~28 % du travail salarié agricole** régional [@chambagri-abc2024].
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- Le **positionnement d'Alexis** (maraîchage diversifié bio en **vente directe**) est aligné sur le segment **le plus dynamique et le plus résilient** du marché (légumes +9 %, circuits courts +7 %) — un atout face à la volatilité de la GMS.
+- La **diversité des cultures** n'est pas qu'une valeur : c'est une **stratégie de résilience documentée** (régulation biologique, sols, étalement du risque et de l'offre). Le climat futur la rend **plus nécessaire**, pas moins.
+- **Réduire la dépendance aux intrants** (autonomie en fertilité via légumineuses/couverts/compost, sobriété énergétique, ENR) protège à la fois la marge et l'exposition aux chocs géopolitiques — convergent avec les leviers sol (@sec-sol) et eau (@sec-eau).
+- L'**autonomie** (eau, fertilité, énergie) est le fil qui relie adaptation climatique et robustesse économique.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- Pas de chiffre **maraîchage bio spécifique à l'Ille-et-Vilaine** isolé (les 285 fermes légumes sont tous modes confondus) : à chercher dans l'Observatoire FRAB.
+- Viabilité : l'étude Bec Hellouin est **monosite** ; à croiser avec une étude INRAE multi-fermes (revenu disponible ~14 k€/an, ~6,8 €/h — chiffre **à reconfirmer**, page source bloquée).
+- **AUTO'N** chiffré en grandes cultures, transférabilité maraîchère à valider ; mix énergétique ADEME/Solagro de référence 2011-2015 à actualiser.
+:::

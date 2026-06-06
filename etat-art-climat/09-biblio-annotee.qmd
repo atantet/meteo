@@ -1,0 +1,72 @@
+# Bibliographie annotée {#sec-biblio-annotee}
+
+Une fiche par source : **nature**, **robustesse** (voir la convention dans le chapitre *Cadre et méthode*), et **ce qu'on en tire**. Les codes de robustesse sont : *Primaire* (réglementaire/scientifique lu directement), *Officiel* (agence/service public), *Expert* (chercheurs identifiés hors revue), *Presse* (mise en perspective).
+
+## Cadre national & référentiel d'adaptation
+
+- **TRACC — Trajectoire de réchauffement de référence** [@tracc2025]. *Officiel (ministère).* Le cadre normatif retenu pour tout le dossier : +2,7 °C (2050) / +4 °C (2100) en métropole. **À en tirer** : raisonner l'adaptation sur une trajectoire haute assumée, pas sur un optimisme moyen.
+- **PNACC-3** [@pnacc3-2025]. *Officiel.* Plan national d'adaptation (2025) dont découle la TRACC. **À en tirer** : contexte institutionnel ; mobilisable pour les dispositifs d'accompagnement.
+
+## Climat de la Bretagne
+
+- **ORACLE Bretagne, édition 2021** [@oracle2021]. *Officiel (Chambre d'agriculture + Météo-France).* La pièce maîtresse historique : séries 1960-2020 sur 5 stations, indices agro-climatiques. **À en tirer** : le socle d'observations régionales (+1,8 °C/60 ans, jours échaudants ×2). Reste qualitatif sur les bioagresseurs des légumes.
+- **Météo-France, Caractérisation du climat en Bretagne (2019)** [@meteofrance2019]. *Officiel.* Synthèse régionale. **À en tirer** : tendances observées et premiers éléments de projection.
+- **OEB — températures futures** [@oeb-temperatures] et **précipitations futures** [@oeb-precipitations]. *Officiel (observatoire public, d'après DRIAS).* Les projections les plus à jour, calées TRACC. **À en tirer** : chiffres 2100 (+2,9 °C ; gel 23→7 j ; été −26 %, hiver +14 %) ; signale explicitement la sous-estimation des orages.
+- **Météo-France — Quel climat futur en Bretagne** [@meteofrance-futur-bzh]. *Officiel.* **À en tirer** : repères 2050 (+1,8 °C ; jours de sécheresse 124→140).
+- **DRIAS, les futurs du climat** [@drias]. *Officiel.* Portail de projections régionalisées. **À en tirer** : source primaire pour aller chercher les indices au pas mensuel et local.
+- **GIEC Normand (2021)** [@cantat2021]. *Expert.* Utile par proximité géographique (façade Manche). **À en tirer** : mise en perspective des aléas littoraux.
+- **Lamy, thèse sécheresses en Bretagne (2013)** [@lamy2013]. *Primaire (thèse).* **À en tirer** : approfondissement scientifique de la sécheresse bretonne, malgré son ancienneté.
+- **Livre Vert CLIMATOR (2010)** [@brisson2010]. *Officiel (ADEME).* Référence nationale fondatrice sur les impacts par espèce. **À en tirer** : cadre méthodologique ; à actualiser par les sources récentes.
+
+## Eau, ressource & réglementation
+
+- **Mougin & Boisson, vulnérabilité de la Bretagne à la sécheresse (2024)** [@mougin2024]. *Expert (hydrogéologues BRGM).* **À en tirer** : explication claire du paradoxe « région humide / nappes fragiles » (socle, faible inertie).
+- **OEB — sécheresses, vulnérabilités, adaptation** [@oeb-secheresses]. *Officiel.* **À en tirer** : chiffres clés (vidange < 3 mois ; pluie efficace ~39 % ; étiages −14 à −49 %).
+- **BRGM — eau souterraine et sécheresse (2023)** [@brgm-secheresse] ; **SIGES Bretagne** [@siges-bretagne] ; **SILURES (2008)** [@silures2008]. *Officiel / Expert.* **À en tirer** : état des nappes 2022-2023, portail de suivi, et le chiffre des 40-80 % du débit d'étiage soutenu par les nappes.
+- **SDAGE Loire-Bretagne 2022-2027** [@sdage-lb] et **Guide HMUC** [@guide-hmuc]. *Officiel (Agence de l'eau).* **À en tirer** : gestion quantitative, QMNA5, méthode de calcul des volumes prélevables.
+- **Code de l'environnement, R214-1 (IOTA)** [@legifrance-r214] et **L214-18 (débit réservé)** [@legifrance-l214-18]. *Primaire (réglementaire).* **À en tirer** : seuils exacts de déclaration/autorisation d'un forage et obligation de débit réservé.
+- **Préfecture 35 — arrêtés sécheresse** [@pref35-secheresse]. *Officiel.* **À en tirer** : cadre des restrictions estivales (4 niveaux) ; annexes détaillées à lire localement.
+- **Fiche GAB/FRAB n°37 (2021)** [@agrobio35-fiche37] ; **Guide irrigation GAB/FRAB (2025)** [@gabfrab2025] ; **planning d'irrigation** [@agrobio35-planning] ; **Sud & Bio (2016)** [@calcet2016] ; **Confédération paysanne (2023)** [@confpaysanne2023]. *Officiel/technique.* **À en tirer** : pilotage opérationnel (bilan hydrique, RFU, tensiométrie, choix des systèmes) et gestion quantitative collective.
+- **CTIFL — IRRIBZH** [@ctifl-irribzh]. *Officiel (institut technique).* **À en tirer** : projet dédié au pilotage hydrique du maraîchage bio breton — ressource à exploiter.
+- **Vannier & Braud, ETP SAFRAN (2012)** [@vannier2012]. *Primaire.* **À en tirer** : méthode de calcul d'une ETP de référence (utile pour le bilan hydrique).
+
+## Phénologie & gel tardif
+
+- **Observatoire des Saisons — gel et réchauffement (2023)** [@obs-saisons-gel]. *Officiel/Expert.* **À en tirer** : le paradoxe du gel tardif (avancement phénologique → exposition accrue) ; le « +60 % » à rattacher à sa source primaire.
+
+## Bioagresseurs
+
+- **INRAE — Encyclopédie des pucerons** [@inrae-pucerons]. *Officiel.* **À en tirer** : cycles accélérés, avancement des vols, expansion d'espèces ; chiffres à recouper avec les références primaires.
+- **INRAE Ephytia — mildiou** [@inrae-ephytia-mildiou] et **doryphore** [@inrae-ephytia-doryphore]. *Officiel.* **À en tirer** : épidémiologie de référence ; le mildiou est gouverné par l'**humectation (3-4 h) et la douceur**, ce qui conforte un indicateur fondé sur la T_min nocturne.
+- **INPN/MNHN — *Nezara viridula*** [@inpn-nezara]. *Officiel.* **À en tirer** : arrivée en France (2012) et remontée nord d'un ravageur méridional.
+- **OEB — bulletin 2025, agriculture & climat** [@oeb-bulletin2025]. *Officiel.* **À en tirer** : synthèse régionale récente (remontée d'adventices/ravageurs méridionaux).
+
+## Sol & érosion
+
+- **OEB — sols bretons** [@oeb-sols]. *Officiel.* **À en tirer** : dominance limoneuse, battance, 18 % du territoire à aléa élevé, état MO/pH, rôle des couverts.
+- **GIS Sol / INRAE — érosion des sols** [@gissol-erosion]. *Officiel.* **À en tirer** : mécanismes et fenêtre critique hivernale ; manque de chiffres régionaux.
+
+## Chaleur (cultures & travail)
+
+- **AoB PLANTS (2021)** [@aobpla2021] ; **Euphytica (2017)** [@euphytica2017] ; **bolting laitue (2022)** [@lettuce-bolting2022]. *Primaire (articles à comité de lecture).* **À en tirer** : seuils thermiques (nouaison dès 30 °C, pollen −50 % à 35 °C ; montée à graines de la laitue). Établis surtout sur tomate/conditions contrôlées → transposer avec prudence.
+- **INRS — travail à la chaleur : réglementation** [@inrs-chaleur-reglementation] et **ce qu'il faut retenir** [@inrs-chaleur-retenir]. *Officiel.* **À en tirer** : nouveau cadre 1ᵉʳ juillet 2025 (R. 4463-3), repères 28/30 °C, pénibilité C2P, prévention du coup de chaleur.
+
+## Risques côtiers locaux
+
+- **SAGE de Dol — submersion marine** [@sage-dol]. *Officiel.* **À en tirer** : élévation du niveau marin, remontée de nappe, gouvernance locale de l'eau et des risques.
+- **CC Pays de Dol / baie MSM — SLGRI & PAPI** [@ccdol-papi]. *Officiel.* **À en tirer** : PPRSM Marais de Dol (2016), PAPI polders (2024) ; zonages d'aléa à récupérer pour les parcelles.
+
+## Filière & socio-économie
+
+- **Agence Bio — chiffres 2024 (2025)** [@agencebio2025] et **étude vente directe (2023)** [@agencebio-vd2023] ; **baromètre CSA (2022)** [@csa2022]. *Officiel.* **À en tirer** : reprise 2024 portée par les circuits courts, légumes bio +9 %, profil vente directe.
+- **INRAE — ESCo diversité végétale (2022)** [@inrae-esco2022] et **diversification des cultures** [@inrae-diversification]. *Officiel (expertise collective).* **À en tirer** : la **diversité comme assurance** (co-bénéfices chiffrés régulation/biodiversité/rendement) ; verrouillages socio-économiques.
+- **Agreste — intrants 2022 (2023)** [@agreste2023-intrants] ; **FranceAgriMer — engrais** [@franceagrimer-engrais] ; **ADEME/Solagro — énergie (2018)** [@ademe-solagro2018]. *Officiel.* **À en tirer** : exposition aux chocs intrants/énergie (maraîchage > 20 tep/exploitation), leviers de sobriété et d'autonomie.
+- **Alternatives Économiques (2026)** [@alteco2026]. *Presse.* **À en tirer** : mise en perspective géopolitique uniquement ; ne pas utiliser comme source de données.
+
+## Pratiques & méthodes transverses
+
+- **ITAB — Produire des légumes biologiques (2020)** [@itab2020]. *Officiel/technique.* **À en tirer** : référentiel technique du maraîchage bio diversifié.
+- **CTIFL — ADICT** [@ctifl-adict] et **RMT ClimA** [@rmt-clima]. *Officiel.* **À en tirer** : programmes d'adaptation des itinéraires maraîchers (pour la phase 2).
+- **IDEA4 (2023)** [@idea4-2023]. *Officiel (méthode).* **À en tirer** : grille d'évaluation de la durabilité de l'exploitation.
+- **GES'TIM+ (2020)** [@gestim2020]. *Officiel.* **À en tirer** : méthodologie d'évaluation des impacts environnementaux (GES, énergie).
+- **Produire Bio (FNAB)** — infographie adaptation [@produirebio-infographie], arbre & AB [@produirebio-arbre], enjeux climatiques [@produirebio-enjeux]. *Officiel (réseau professionnel).* **À en tirer** : vulgarisation et retours de terrain ; entrées vers des références plus robustes.

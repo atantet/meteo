@@ -1,0 +1,42 @@
+project:
+  type: book
+  output-dir: _output
+
+lang: fr
+
+book:
+  title: "Changement climatique et maraîchage biologique diversifié"
+  subtitle: "État de l'art pour le secteur de Pleine-Fougères (Ille-et-Vilaine, baie du Mont-Saint-Michel) — impacts et apprentissages à 30 ans"
+  author: "Alexis Tantet"
+  date: "2026-06-06"
+  chapters:
+    - index.qmd
+    - 00-synthese.qmd
+    - 01-climat.qmd
+    - 02-eau.qmd
+    - 03-chaleur.qmd
+    - 04-phenologie.qmd
+    - 05-bioagresseurs.qmd
+    - 06-sol.qmd
+    - 07-extremes-cotiers.qmd
+    - 08-filiere.qmd
+    - 09-biblio-annotee.qmd
+    - 10-annexe-forage.qmd
+    - 11-axes-emergents.qmd
+    - references.qmd
+  reader-mode: true
+
+bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    fig-cap-location: bottom
+  # PDF optionnel : nécessite une distribution LaTeX (quarto install tinytex).
+  # pdf:
+  #   documentclass: scrreprt
+  #   papersize: a4
+  #   toc: true

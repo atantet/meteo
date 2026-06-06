@@ -1,0 +1,31 @@
+# Synthèse — les apprentissages à 30 ans {#sec-synthese}
+
+::: {.callout-note}
+Cette synthèse condense les huit axes en une vue d'ensemble hiérarchisée pour le cas de Pleine-Fougères. Elle se lit avant ou après le détail ; chaque point renvoie au chapitre qui l'étaye.
+:::
+
+## Le signal climatique en une phrase
+
+Pour le maraîchage de Pleine-Fougères, le changement climatique se résume moins à « plus chaud » qu'à une **redistribution saisonnière** : des **hivers plus doux, plus arrosés et plus érosifs**, et des **étés plus chauds, plus secs, avec une évaporation accrue** — le tout sur un territoire **doublement exposé** (sécheresse estivale *et* risque côtier d'excès d'eau / de sel). Référentiel : France à **+2,7 °C en 2050** (horizon de lecture), Bretagne **+1,8 °C** en moyenne annuelle à cette échéance (@sec-climat).
+
+## Les enjeux, par ordre d'importance pour l'exploitation
+
+1. **L'eau d'été et le forage (@sec-eau, @sec-forage).** Enjeu n°1. La nappe de socle qui alimente le forage est **réactive** : la recharge hivernale tiendra, mais l'**étiage estival baisse** (−14 à −49 % à terme) au moment du pic de besoin. Le forage (5-6 m³/h, 1 500 m³/an déclarés) est en **situation réglementaire souple** aujourd'hui, mais soumis aux **arrêtés sécheresse** et à un usage réel à réévaluer.
+
+2. **La chaleur extrême (@sec-chaleur).** Jours > 30 °C de plus en plus nombreux, nuits tropicales émergentes, vagues de chaleur ×2-2,5 d'ici 2050. Double impact : **avortement de nouaison / montée à graines** (tomate, laitue…) surtout sous abri, et **risque pour le travail** (cadre INRS renforcé en 2025).
+
+3. **La pression biologique (@sec-bioagresseurs).** Cycles de ravageurs accélérés, **espèces méridionales** qui remontent (*Nezara*), mildiou gouverné par l'**humectation + douceur nocturne** — pendant que la **régulation naturelle** (auxiliaires, pollinisateurs) se fragilise. La diversité et les infrastructures agroécologiques deviennent **fonctionnellement nécessaires**.
+
+4. **Le sol nu hivernal (@sec-sol).** Sur limon battant, les pluies d'hiver plus intenses signifient plus de **ruissellement, battance et érosion**. Les couverts d'hiver (−50 % de lessivage) sont un levier **sans regret**.
+
+5. **Le risque côtier spécifique (@sec-cotiers).** Position de polder (Marais de Dol) : **submersion, remontée de nappe, salinisation** — un risque *inverse* (excès d'eau/sel) que la plupart des secteurs maraîchers n'ont pas. Diagnostic à mener **parcelle par parcelle**.
+
+6. **Le contexte de marché (@sec-filiere).** Plutôt favorable : la **vente directe de légumes bio** est le segment le plus dynamique et le plus résilient. Mais modèle économiquement fragile (rémunération horaire basse) et exposé aux **chocs d'intrants/énergie**.
+
+## Le fil conducteur : l'autonomie
+
+Un même fil relie l'adaptation climatique et la robustesse de l'exploitation : **l'autonomie** — en eau (stocker l'hiver pour l'été), en fertilité (légumineuses, couverts, matière organique du sol), en énergie. C'est là que convergent les leviers « sans regret », efficaces quel que soit le scénario.
+
+## Ce que cette synthèse n'est pas
+
+Un état des **impacts**, pas un plan d'**adaptation** : les leviers ne sont qu'esquissés ici. Leur instruction (stockage, variétés, conduite, protection) relève d'une phase 2 dédiée. Plusieurs ramifications sont notées en @sec-axes-emergents.

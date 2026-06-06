@@ -1,0 +1,74 @@
+# Préface {.unnumbered}
+
+Ce document est un **état de l'art** des connaissances sur les impacts du changement climatique pour le **maraîchage biologique diversifié en vente directe**, dans le secteur de **Pleine-Fougères** (Ille-et-Vilaine, frange de la baie du Mont-Saint-Michel et du Marais de Dol).
+
+Il poursuit trois objectifs :
+
+1. **Synthétiser** l'état des connaissances scientifiques et institutionnelles sur les impacts climatiques pertinents pour ce système et ce territoire ;
+2. **Actualiser** cette synthèse au regard des publications les plus récentes (référentiel d'adaptation TRACC 2025, projections DRIAS relayées par l'Observatoire de l'environnement en Bretagne, données BRGM 2022-2023, chiffres Agence Bio 2024) ;
+3. **En dériver des apprentissages** pour la conduite de l'exploitation à l'**horizon 30 ans** (≈ 2025-2055).
+
+Il est **autoporté** : il n'est pas structuré par l'architecture d'un quelconque outil logiciel, et a vocation à rester lisible et citable indépendamment. Une seconde partie, consacrée aux **mesures d'adaptation**, viendra se calquer sur les mêmes axes ; le présent document traite d'abord des **impacts**.
+
+::: {.callout-note title="Comment lire ce document"}
+Chaque axe suit la même trame : ce que disent les **observations**, ce que disent les **projections**, les **apprentissages à 30 ans**, et les **points à approfondir**. Les affirmations sont rattachées à leur source par une référence cliquable. La bibliographie complète est en fin de document, doublée d'une **bibliographie annotée** (une fiche par source : nature, robustesse, ce qu'on en tire).
+:::
+
+# Cadre et méthode
+
+## Objet et périmètre
+
+Le **système** considéré est le maraîchage biologique **diversifié** (large gamme d'espèces légumières, plein champ et sous abri), en **vente directe / circuits courts**, irrigué — avec recours à un **forage**, problématique traitée comme fil rouge prioritaire mais non exclusif.
+
+Le **territoire** s'emboîte en trois échelles :
+
+- **Bretagne / Ille-et-Vilaine** : cadre régional du climat observé et projeté ;
+- **Bassin Loire-Bretagne** : cadre de la ressource en eau et de sa réglementation ;
+- **Baie du Mont-Saint-Michel / Marais de Dol** : zone basse littorale où se situe Pleine-Fougères, porteuse de risques spécifiques (submersion marine, remontée de nappe, salinisation).
+
+L'**horizon** retenu est de **30 ans** (≈ 2055). Il recouvre l'« horizon 2050 » des projections climatiques, qui sera donc notre point de lecture principal, la borne 2100 servant de repère de tendance longue.
+
+## Référentiel de réchauffement
+
+Pour éviter de raisonner sur des scénarios disparates, le document s'aligne sur la **Trajectoire de réchauffement de référence pour l'adaptation au changement climatique (TRACC)**, adoptée par la France dans le cadre du PNACC-3 (mars 2025) et inscrite au code de l'environnement le 23 janvier 2026 [@tracc2025 ; @pnacc3-2025]. Elle fixe, pour la métropole :
+
+| Horizon | Réchauffement France (vs préindustriel) |
+|--------:|:----------------------------------------|
+| 2030    | **+2,0 °C** |
+| **2050**| **+2,7 °C** *(horizon de lecture principal)* |
+| 2100    | **+4,0 °C** |
+
+Cette trajectoire correspond à un réchauffement **mondial de +3 °C en 2100** — c'est-à-dire un scénario *pessimiste mais réaliste* en l'absence d'accélération de l'action climatique, choisi délibérément comme base de dimensionnement de l'adaptation [@tracc2025]. Les projections régionales mobilisées ci-après (Météo-France, DRIAS, Observatoire de l'environnement en Bretagne) sont exprimées dans ce cadre, par rapport à la **période de référence 1976-2005**.
+
+## Échelles et sources de référence
+
+| Échelle | Sources de référence mobilisées |
+|---|---|
+| Monde / France | GIEC ; TRACC, PNACC-3 [@tracc2025] |
+| Bretagne | Météo-France [@meteofrance2019 ; @meteofrance-futur-bzh] ; DRIAS [@drias] ; Observatoire de l'environnement en Bretagne [@oeb-temperatures ; @oeb-precipitations] ; ORACLE Bretagne [@oracle2021] |
+| Eau / bassin | BRGM [@mougin2024 ; @brgm-secheresse] ; Agence de l'eau Loire-Bretagne [@sdage-lb] |
+| Local (baie MSM) | SAGE de Dol [@sage-dol] ; SLGRI/PAPI baie du Mont-Saint-Michel [@ccdol-papi] |
+
+## Convention de robustesse
+
+L'état de l'art mêle des sources de statut différent. Pour rester transparent — exigence de méthode pour ce dossier — chaque source est qualifiée, dans la **bibliographie annotée**, par l'un des niveaux suivants :
+
+- **Primaire** : texte réglementaire ou article scientifique à comité de lecture, lu directement.
+- **Officiel** : page ou rapport d'agence/service public (Météo-France, BRGM, INRAE, OEB, Agence de l'eau, INRS, Agence Bio, Agreste…).
+- **Expert** : publication signée par des chercheurs identifiés, hors revue à comité de lecture (ex. tribune d'hydrogéologues du BRGM).
+- **À confirmer** : information cohérente mais non vérifiée sur sa source primaire exacte ; signalée comme telle dans le texte.
+
+Un principe directeur : **distinguer systématiquement l'observé du projeté**. Les tendances passées (séries Météo-France, ORACLE) sont des mesures ; les valeurs futures sont **conditionnelles à un scénario** et assorties d'incertitudes de modèles — elles s'emploient comme **ordres de grandeur** orientant la décision, jamais comme des prédictions exactes.
+
+## Plan
+
+1. **Climat observé et projeté** (Bretagne, Ille-et-Vilaine)
+2. **Eau, sécheresse, irrigation et forage** — *fil rouge*
+3. **Chaleur extrême et stress thermique** (cultures, abris, travail)
+4. **Saisons, phénologie et gel tardif**
+5. **Bioagresseurs** (maladies, ravageurs, adventices, auxiliaires)
+6. **Sol et érosion**
+7. **Événements extrêmes et risques côtiers locaux**
+8. **Filière, marché et socio-économie**
+
+Puis la **bibliographie annotée**, deux **annexes** (A — application au forage de La Petite Claye ; B — axes émergents à instruire) et les **références citées**.

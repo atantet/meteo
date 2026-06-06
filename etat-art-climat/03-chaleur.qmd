@@ -1,0 +1,59 @@
+# Chaleur extrême et stress thermique {#sec-chaleur}
+
+Au-delà du réchauffement moyen (cf. @sec-climat), ce sont les **extrêmes chauds** qui endommagent les cultures et menacent le travail. Deux volets : les plantes, puis les personnes.
+
+## Effets sur les cultures
+
+Les seuils thermiques sont surtout documentés sur la **tomate**, espèce modèle du stress thermique — robustes, mais établis souvent en conditions contrôlées et à transposer avec prudence au panel maraîcher breton en plein champ et sous abri.
+
+- Dès **~30 °C**, la **nouaison** diminue chez la plupart des cultivars de tomate [@aobpla2021].
+- Au-delà de **~35 °C**, la plante est sévèrement affectée à plusieurs stades ; un stress chronique à 35 °C **fait chuter d'environ 50 % la viabilité du pollen** et augmente les fleurs déformées [@aobpla2021 ; @euphytica2017].
+- La cause première de l'**avortement des fruits** est cette baisse de viabilité du pollen sous température moyenne journalière trop élevée ; chez les génotypes les plus sensibles, la nouaison peut tomber **à zéro** (contre 41-91 % en conditions optimales) [@aobpla2021].
+- Chez la **laitue**, la chaleur induit une **montée à graines (bolting) rapide et irréversible**, qui dégrade la valeur commerciale [@lettuce-bolting2022].
+- Le contexte breton aggrave la combinaison **chaleur × sécheresse** : étés plus chauds **et** plus secs (précipitations estivales −26 % à +4 °C, cf. @sec-climat), notamment **sous abri/tunnel** où la surchauffe s'ajoute au déficit hydrique [@oeb-precipitations].
+
+**Repères par espèce** (à manier comme indicatifs — la plupart des seuils hauts viennent de la littérature internationale, hors contexte breton) :
+
+- **Tomate** : nouaison optimale jour 21-29 °C / nuit 18-21 °C ; au-delà de **jour > 32 °C avec nuit > 20 °C**, baisse de nouaison et de rendement ; au-dessus de **~30 °C le lycopène ne se forme plus** (défaut de coloration) [@aiello2021]. *Nuance* : la viabilité du pollen ne prédit pas la tolérance variétale au champ — raisonner « tolérance variétale terrain » plutôt qu'un seuil pollen unique.
+- **Laitue** : montaison déclenchée au-delà de **~24 °C jour / 16 °C nuit**, fortement accélérée > 30 °C ; croissance optimale 15-20 °C [@lettuce-bolting2022].
+- **Concombre, poivron, aubergine, haricot** : optima 20-30 °C selon l'espèce, avec chute de fleurs / défaut de nouaison sous forte chaleur, par les mêmes mécanismes polliniques que la tomate [@euphytica2017].
+- Côté **seuils bas** (zéros de végétation, source officielle FR) : concombre 15 °C, courgette 16 °C, tomate et aubergine 12 °C, haricot 10 °C, poivron 8 °C, chou 3-5 °C [@inra-ephytia-zeros] — utiles pour le calendrier de plantation.
+
+**Surchauffe sous abri** : l'air chaud mal évacué fait monter la température intérieure bien au-dessus de l'extérieur → fermeture stomatique, photosynthèse et croissance réduites, et chaleur + humidité favorisant mildiou/botrytis/oïdium (cf. @sec-bioagresseurs). La ventilation, l'ombrage/blanchiment estival et la gestion des consignes sont les leviers documentés [@oeb-vague-chaleur]. *Le pic de température absolu sous tunnel non ventilé n'est pas chiffré par une source robuste — à confirmer.*
+
+## Exposition projetée en Bretagne
+
+D'après l'Observatoire de l'environnement en Bretagne (données DRIAS/SAFRAN) [@oeb-vague-chaleur] :
+
+- les **jours > 30 °C** passeraient d'environ **8 j/an** (1976-2005, sud Ille-et-Vilaine / Morbihan) à **plus de 30 j/an** sous +4 °C ;
+- les **nuits > 20 °C** (« nuits tropicales »), quasi nulles aujourd'hui, atteindraient **plus de 20/an** au sud de la région sous +4 °C — facteur aggravant pour les cultures (respiration nocturne, avortement) et le sommeil/récupération des travailleurs ;
+- les **vagues de chaleur** seraient environ **2 à 2,5 fois plus fréquentes** dès l'horizon 2050 (+2,7 °C) ;
+- repère d'intensité déjà atteint : **record régional 41,6 °C à Bléruais (35) en 2022** [@oeb-vague-chaleur].
+
+## Effets sur le travail
+
+Le maraîchage est un **travail physique soutenu**, exposé en plein champ et plus encore sous abri. Le cadre de prévention (INRS, Code du travail) a été **renforcé en 2025** :
+
+- Repères de risque INRS : au-delà de **30 °C** (travail sédentaire) et **28 °C** (travail physique) — le maraîchage relève du seuil bas [@inrs-chaleur-retenir].
+- Le Code du travail ne fixe **pas** de température maximale interdisant le travail : l'obligation repose sur l'**évaluation des risques** (art. L. 4121-1) [@inrs-chaleur-reglementation].
+- **Depuis le 1ᵉʳ juillet 2025**, un nouveau cadre (art. R. 4463-3) impose des **mesures de prévention obligatoires**, alignées sur la **vigilance Météo-France** (jaune/orange/rouge), avec réévaluation quotidienne des risques en vigilance rouge [@inrs-chaleur-reglementation].
+- **Pénibilité (C2P)** : une exposition > 900 h/an à ≥ 30 °C ouvre des points au compte de prévention ; les **moins de 18 ans** ne peuvent être affectés à des travaux exposant à des températures extrêmes (art. D. 4153-36) [@inrs-chaleur-reglementation].
+- Risques santé majeurs : **coup de chaleur** (température corporelle > 40,6 °C) et déshydratation, précédés de signes d'alerte (fatigue, sueurs excessives, nausées, céphalées, vertiges, crampes) ; **létalité du coup de chaleur de l'ordre de 15-25 %** [@inrs-chaleur-retenir ; @inrs-accidents].
+- **Acclimatation** : elle s'acquiert en **8 à 12 jours** d'exposition progressive et se **perd en ~8 jours** d'arrêt [@inrs-accidents] — argument pour anticiper l'organisation avant les premières vagues.
+- **Mortalité au travail** (suivi Santé publique France relayé par l'INRS) : plusieurs accidents du travail mortels possiblement liés à la chaleur chaque été (ex. **12 en 2020, dont 5 en agriculture/forêt**), une part notable concernant le **BTP et l'agriculture** [@inrs-accidents].
+- *Repère de méthode* : l'INRS souligne que la **température seule est insuffisante** (l'humidité, le rayonnement et la tenue comptent) — un indice combiné de type **WBGT** est plus robuste qu'un seuil sec.
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- Avec **+17 à +54 jours/an au-dessus de 25 °C** à l'horizon 2100 (cf. @sec-climat), les **pics > 30-35 °C** deviendront récurrents : les cultures sensibles à la chaleur (tomate, laitue, fruits) verront des **épisodes d'avortement de nouaison et de montée à graines** plus fréquents, surtout sous abri.
+- Le **calendrier de production** est un levier de premier ordre : décaler les créneaux sensibles hors des fenêtres caniculaires, ventiler/ombrer les abris.
+- La **chaleur est aussi un risque humain et réglementaire** : organisation du travail (horaires décalés, pauses, hydratation), prise en compte de la vigilance Météo-France, et obligations renforcées depuis juillet 2025 — à intégrer au document unique d'évaluation des risques.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- Les seuils hauts par espèce viennent surtout de la **littérature internationale** (souvent sur tomate, en conditions contrôlées) : à confronter aux fiches **CTIFL/ITAB** et au retour terrain breton [@itab2020 ; @ctifl-adict]. Seuils hauts **choux et fraise** non sourcés ; **pic de température sous tunnel** non chiffré.
+- Côté travail : l'INRS ne chiffre pas, dans les pages lues, les **volumes d'hydratation / fréquences de pause** (ne pas inventer un « 3 L/jour ») — se référer aux brochures ED 6371 / ED 6532.
+:::

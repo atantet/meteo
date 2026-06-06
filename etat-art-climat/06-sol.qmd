@@ -1,0 +1,37 @@
+# Sol et érosion {#sec-sol}
+
+Le sol est le capital du maraîcher. Or la redistribution saisonnière des pluies (hivers plus arrosés et plus intenses, cf. @sec-climat) frappe précisément les **sols limoneux** dominants en Bretagne, **sensibles à la battance et à l'érosion**.
+
+## Ce que disent les observations
+
+- En Bretagne, les **particules limoneuses** (2-50 µm) forment **plus de 50 %** de la fraction minérale du sol : bonne rétention d'eau, mais **sensibilité au tassement** [@oeb-sols].
+- Les sols limoneux nord-armoricains forment facilement une **croûte de battance** peu perméable, génératrice de **ruissellement** ; l'aléa d'érosion est **élevé sur 18 % du territoire breton** [@oeb-sols].
+- Le **maraîchage laisse souvent les sols peu couverts**, ce qui **accroît le risque d'érosion hivernale** [@oeb-sols].
+- Il existe une **fenêtre critique** : les croûtes de battance se forment dès **fin novembre**, alors que le couvert protecteur d'un semis d'automne ne se développe qu'en **mars-avril** — un hiver de sol nu coïncidant avec le maximum de risque [@gissol-erosion].
+- État chimique : matière organique des sols cultivés bretons entre **2,5 et 10 %** (gradient est-ouest) ; **39 % des analyses 2005-2009** montraient un **pH < 6** (acidité défavorable à la structure et à la vie biologique) [@oeb-sols].
+
+**Ordres de grandeur de l'érosion** (nationaux, faute de mesure bretonne dédiée) : la perte moyenne par érosion hydrique en France est de **~1,5 t/ha/an**, et une perte **> 1 t/ha/an est considérée comme irréversible** à l'échelle humaine (la pédogenèse est plus lente que l'ablation) ; **~1/5 du territoire** est en aléa moyen à très fort, et dans plusieurs régions de l'Ouest **plus de 20 % de la surface** subit > 2 t/ha/an [@cgdd-erosion]. Sur limons, la **battance déclenche le ruissellement sur pentes faibles (< 5 %) et par pluies modérées** [@lebissonnais1996].
+
+**Effet protecteur des couverts, quantifié** : un couvert d'interculture réduit la **lixiviation du nitrate d'environ 50 %** sur la période de drainage et peut piéger **> 100 kg N/ha** [@arvalis-cipan] ; il stocke aussi du carbone (~0,15 t C/ha/an) là où une **jachère nue en déstocke ~0,6 t C/ha/an** [@ifen2007-carbone].
+
+## Ce que disent les projections
+
+- Le forçage climatique **aggrave mécaniquement le potentiel érosif** : précipitations hivernales **+14 %** et fortes pluies **+6 % à +34 %** sur l'année à l'horizon +4 °C, sur des sols battants [@oeb-precipitations] (avec la réserve sur la sous-estimation des orages, cf. @sec-climat).
+- **Matière organique** : la décomposition augmente avec la température, donc le réchauffement **accélère la minéralisation** ; référence tempérée quantifiée : en Angleterre & Pays de Galles, **perte de carbone de ~0,6 %/an** de la teneur initiale (0-15 cm) sur 1978-2003, en partie attribuée au climat [@ifen2007-carbone]. À l'échelle nationale, les effets contraires (productivité accrue vs minéralisation) bornent la variation des stocks **entre +2 % et −2 % sur ~20 ans** [@inrae-4p1000].
+- **Tendance bretonne observée** : déstockage de carbone des sols agricoles français de l'ordre de **−1,7 % sur dix ans** (1990-95 → 1999-2004), avec une **baisse marquée sur la façade atlantique** (dont sud Bretagne), attribuée surtout à la **conversion prairies → cultures** et à l'approfondissement du travail du sol [@ifen2007-carbone ; @oeb-carbone-sols]. *Données s'arrêtant à 2004, à actualiser avec le RMQS récent.*
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- Le **sol nu hivernal** est le point faible : sur limon battant, les pluies d'hiver plus intenses signifient **plus de ruissellement, de battance et de pertes** (terre, matière organique, éléments minéraux).
+- Les **couverts végétaux d'hiver** sont reconnus comme la protection efficace de la période la plus risquée (lessivage, érosion), tout en apportant de la matière organique et en structurant le sol [@oeb-sols] : c'est un levier **sans regret**, utile quel que soit le scénario.
+- Entretenir la **matière organique et corriger l'acidité** (pH) soutient à la fois la structure (résistance à la battance), la **réserve en eau** (donc la résilience à la sécheresse, cf. @sec-eau) et la vie biologique (donc la régulation des bioagresseurs, cf. @sec-bioagresseurs). Les enjeux sol/eau/ravageurs sont liés.
+- La **réduction du travail du sol** et la couverture permanente méritent d'être instruites en phase adaptation.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- Les taux d'érosion cités sont **nationaux/régionaux Ouest**, pas une mesure bretonne ; les couverts (−50 % lessivage) et la fourchette ±2 %/20 ans proviennent de résumés à reconfirmer en lecture directe. À renforcer via les travaux **Le Bissonnais** (battance/stabilité des limons) et le **RMQS 2ᵉ campagne** pour l'évolution récente des stocks bretons.
+- Le « 18 % du territoire breton » est un **aléa**, pas une mesure de pertes.
+:::

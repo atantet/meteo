@@ -1,0 +1,47 @@
+# Bioagresseurs : maladies, ravageurs, adventices, auxiliaires {#sec-bioagresseurs}
+
+Le réchauffement modifie la **pression biologique** sur les cultures : il accélère les cycles des ravageurs, déplace leurs aires, change les conditions d'infection des maladies, et désynchronise parfois les auxiliaires. La littérature institutionnelle bretonne reste **qualitative** sur le maraîchage ; les mécanismes ci-dessous proviennent surtout de l'INRAE.
+
+## Maladies : l'humectation et la douceur nocturne, plus que la pluie
+
+Le cas du **mildiou** (*Phytophthora infestans*, pomme de terre et tomate) est central pour le maraîchage breton :
+
+- La germination des zoospores exige de l'**eau libre ou une humidité saturante** ; l'**infection se déclenche en 3 à 4 heures d'humectation foliaire** sur tomate [@inrae-ephytia-mildiou].
+- Les optima thermiques sont modérés (libération des zoospores ~13 °C, croissance du mycélium ~23 °C), avec un développement possible **dès les basses températures** [@inrae-ephytia-mildiou].
+- **Conséquence pratique** : ce sont les **nuits douces avec rosée / humectation prolongée** — et non la pluie seule — qui gouvernent l'infection. Cela conforte une lecture du risque fondée sur la **température minimale nocturne** et la **durée d'humectation**, et milite pour des pratiques limitant le feuillage mouillé (goutte-à-goutte, irrigation du matin, cf. @sec-eau).
+
+## Ravageurs : cycles accélérés, aires en expansion vers le nord
+
+- **Pucerons** : potentiellement **18 → 23 générations/an pour +2 °C** ; le premier vol de *Myzus persicae* a avancé d'environ **2,5 semaines en 40 ans** (du 24 mai dans les années 1960 au 7 mai). Le nombre d'espèces capturées en Europe a augmenté d'**~20 % en 30 ans**, le réchauffement favorisant l'expansion vers le nord d'espèces jusque-là méridionales [@inrae-pucerons]. *Chiffres non datés finement sur la page lue ; à recouper avec les références primaires de l'encyclopédie.*
+- **Punaise verte du sud (*Nezara viridula*)** : espèce méridionale **observée en France à partir de 2012**, en **remontée vers le nord**, polyphage (> 145 genres) dont tomate, poivron, haricot, chou-fleur [@inpn-nezara]. L'**attribution au réchauffement** dispose d'un appui scientifique : la limite d'aire coïncide avec l'**isotherme 5 °C de janvier** ; au-delà, l'espèce parvient à **hiverner hors de son aire d'origine**. Cas chiffré au Japon : front nord **décalé d'environ +70 km** en ~40 ans, corrélé à **+1 à +2 °C** des températures hivernales [@musolin2007]. *L'Ille-et-Vilaine (~48,5°N) est en zone d'avancée plausible, mais sans chiffre d'attribution local.*
+- **À surveiller** : la **punaise diabolique** (*Halyomorpha halys*), autre pentatomide thermophile polyphage en expansion (cf. @sec-axes-emergents).
+- **Doryphore** : piloté par la chaleur (sortie de diapause > 10 °C), son cycle se réduit à **~1 mois lors d'étés chauds** (contre 2-3 mois), avec **1 à 4 générations/an** et jusqu'à 3 générations successives certaines années [@inrae-ephytia-doryphore].
+- Plus largement, l'OEB note que la hausse estivale « favorise l'émergence de certains ravageurs et adventices inféodés jusqu'alors au sud de la Loire » [@oracle2021 ; @oeb-bulletin2025].
+
+## Pollinisateurs
+
+- Une part importante des cultures dépend de la **pollinisation animale** ; au plan mondial, **~35 % du volume alimentaire** en dépend, et la part de l'agriculture tributaire des pollinisateurs a fortement augmenté en cinquante ans [@fao2011-pollinisation]. En maraîchage, courgette, concombre, fève, haricot et fraise sont directement concernés.
+- Le réchauffement induit des **décalages temporels** (floraison vs activité des pollinisateurs) et **spatiaux** (distributions) susceptibles de réduire la fécondation [@fao2011-pollinisation]. *Réserve importante : la FAO qualifie elle-même de « faibles » les preuves empiriques de cette désynchronisation sur cultures — risque plausible mais mal quantifié.*
+
+## Adventices et auxiliaires
+
+- **Adventices** : remontée d'espèces méridionales favorisée par les étés plus chauds [@oracle2021] (qualitatif, sans chiffre régional).
+- **Auxiliaires** : risque de **désynchronisation phénologique** — parasitoïdes ou prédateurs émergeant avant la disponibilité de leurs hôtes/proies ; l'activité des coccinelles dépend d'un seuil (~11 °C). Le décalage des cycles peut **réduire la régulation naturelle**, justement là où la pression ravageurs augmente [@inrae-pucerons].
+
+## Apprentissages à 30 ans
+
+::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
+- La **pression maladie** ne se lit pas qu'à la pluie : **nuits douces + humectation** sont le moteur du mildiou. D'où l'intérêt persistant d'un indicateur de risque fondé sur la **T_min nocturne**, et de pratiques d'irrigation qui gardent le feuillage sec.
+- La **pression ravageurs va monter** : cycles plus rapides, davantage de générations, et **nouveaux venus** méridionaux (type *Nezara*). Le maraîchage diversifié bio devra s'appuyer plus que jamais sur la **régulation biologique** — qui est elle-même fragilisée par les désynchronisations.
+- C'est un argument fort pour la **diversité et les infrastructures agroécologiques** (haies, bandes fleuries, couverts) qui soutiennent les auxiliaires (cf. @sec-filiere) : moins une assurance de confort qu'une **nécessité fonctionnelle** sous climat futur.
+- **Surveillance accrue** : la veille sanitaire gagne en importance à mesure que les calendriers historiques perdent en fiabilité. Le **Bulletin de santé du végétal « Cultures légumières » de Bretagne** suit déjà chou, oignon/échalote, salade, poireau, céleri, carotte, pomme de terre, et pilote l'alerte par des **modèles épidémiologiques** (mildiou pomme de terre, **MILONI** mildiou oignon-échalote, **SEPTOCEL** septoriose céleri, **SWAT** mouche du chou) [@bsv-legumes-bretagne] — une ressource d'outillage directement mobilisable.
+:::
+
+## À approfondir
+
+::: {.callout-warning title="Limites et compléments"}
+- **Chiffres pucerons** : ils proviennent de l'**encyclopédie INRAE** (d'après le réseau de piégeage EXAMINE et Hullé et al. 2010), non d'un article daté lu intégralement — à présenter comme tels, pas comme « article scientifique ».
+- **Désynchronisation pollinisateurs / floraison** : risque réel mais **mal quantifié sur cultures** (la FAO elle-même qualifie ses preuves de faibles).
+- **Bilan annuel des BSV légumes Bretagne** (pression inhabituelle, émergence) : à dépouiller bulletin par bulletin [@bsv-legumes-bretagne].
+- Paramètres T/humectation **Ephytia** à revérifier sur la page source (rendu JavaScript) pour citation exacte.
+:::
