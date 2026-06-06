@@ -900,7 +900,7 @@ def main() -> None:
     debut_loc = pd.Timestamp(maintenant).tz_convert(tz_site).to_pydatetime()
     st.markdown(
         '<h2 style="margin:0 0 4px 0;font-size:24px;color:#2c3e50;">'
-        f"Prévision du {format_date_fr(debut_loc)} pour {horizon_long} jours"
+        f"Prévision du {format_date_fr(debut_loc, capitalize_jour=False)} pour {horizon_long} jours"
         "</h2>",
         unsafe_allow_html=True,
     )
