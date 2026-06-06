@@ -972,10 +972,6 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_carte}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">{note_horaire}</h3>
   {_bloc_chart(chart_48h_base64)}
-  <p style="margin:16px 0 0 0;font-size:12px;color:#888;font-style:italic;">
-    Ce mail est un signal informationnel — vous gardez la décision.
-    Les seuils sont des défauts opérationnels, ajustables dans la config.
-  </p>
   {footer}
   {bloc_definitions}
 </div>

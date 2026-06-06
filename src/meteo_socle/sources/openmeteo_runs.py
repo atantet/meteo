@@ -44,7 +44,6 @@ from dataclasses import dataclass, field
 import pandas as pd
 import requests
 
-from ..indices.temps_sensible import serie_code_temps
 from ._http_retry import get_avec_retry
 from .openmeteo import appliquer_conventions_socle
 
@@ -102,18 +101,6 @@ _VARS_COEUR = (
     "weather_code",
     "cloud_cover",
 )
-# AROME fournit les trois couches de nébulosité et la CAPE (mais ni le
-# ``weather_code`` ni le ``cloud_cover`` total — 0/72 h vérifié) : on s'en
-# sert pour dériver nous-mêmes le temps sensible cohérent avec le cumul AROME
-# (cf. ``meteo_socle.indices.temps_sensible`` et ADR-0013).
-VARS_AROME: tuple[str, ...] = (
-    *_VARS_COEUR,
-    "cloud_cover_low",
-    "cloud_cover_mid",
-    "cloud_cover_high",
-    "cape",
-)
-VARS_ARPEGE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 # Séries mono-modèle App 2 (ARPEGE court, ECMWF-HRES long) : cœur + rayonnement.
 VARS_MONO_MODELE: tuple[str, ...] = (*_VARS_COEUR, "shortwave_radiation")
 
@@ -181,59 +168,6 @@ def creneaux_precedents(now_utc: pd.Timestamp, n: int) -> list[tuple[str, pd.Tim
             creneau, jour = "matin", jour
         out.append((creneau, jour))
     return out
-
-
-def ancre_creneau(now_utc: pd.Timestamp) -> pd.Timestamp:
-    """Init du run-cœur (AROME) du créneau courant = ancre de fenêtre UTC.
-
-    C'est le 00Z (matin) ou 12Z (après-midi) de J. Sert d'ancre d'affichage
-    (fenêtre `[ancre ; ancre+48 h]`) et de borne des bins de période UTC
-    (0-6/6-12/12-18/18-24). Cf. ADR-0011 D5.
-    """
-    creneau, jour = creneau_run(now_utc)
-    return runs_du_creneau(creneau, jour)[AROME]
-
-
-def fusionner_priorite(frames: list[pd.DataFrame]) -> pd.DataFrame:
-    """Fusionne N DataFrames par priorité décroissante (ordre de la liste).
-
-    Pour chaque cellule, la valeur du 1er DataFrame disponible (non-NaN) est
-    retenue ; les suivants ne comblent que les trous (``combine_first`` en
-    cascade). Remplace l'ancien ``_fusionner_modeles`` sur colonnes suffixées :
-    en Single Runs chaque modèle est un appel séparé → DataFrames distincts à
-    colonnes déjà au nom socle.
-    """
-    if not frames:
-        raise ValueError("fusionner_priorite : aucune frame")
-    resultat = frames[0]
-    for autre in frames[1:]:
-        resultat = resultat.combine_first(autre)
-    # Coercition float : une colonne tout-NaN (object) casserait les ufuncs
-    # numpy aval (cf. _fusionner_modeles legacy).
-    for col in resultat.columns:
-        resultat[col] = pd.to_numeric(resultat[col], errors="coerce")
-    return resultat.sort_index()
-
-
-@dataclass
-class ResultatPrevision:
-    """Prévision fusionnée + provenance exacte des runs (ADR-0011 D5/D7)."""
-
-    df: pd.DataFrame
-    creneau: str
-    jour: pd.Timestamp
-    runs_demandes: dict[str, pd.Timestamp]
-    # Runs déterministes effectivement servis (sous-ensemble de runs_demandes :
-    # un modèle dont le run était muet est absent — contribution omise, D8).
-    runs_utilises: dict[str, pd.Timestamp] = field(default_factory=dict)
-    # True si la proba d'ensemble (ECMWF IFS-ENS) a été ajoutée. C'est une
-    # grandeur d'ensemble (dernier run, non épinglable) → pas dans runs_utilises.
-    proba_ensemble: bool = False
-
-    @property
-    def ancre_utc(self) -> pd.Timestamp:
-        """Init du run-cœur (AROME) = ancre de fenêtre UTC."""
-        return self.runs_demandes[AROME]
 
 
 # Un créneau-run précédent fournit 12 h de passé (créneaux espacés de 12 h, D6).
@@ -382,73 +316,6 @@ class OpenMeteoSingleRuns:
         # agrège par max sur sa fenêtre → pic 6 h).
         proba = proba_bin.reindex(mat.index, method="ffill")
         return proba.rename("probabilite_pluie_pct")
-
-    def obtenir_prevision(
-        self,
-        latitude: float,
-        longitude: float,
-        horizon_jours: int,
-        now_utc: pd.Timestamp,
-    ) -> ResultatPrevision:
-        """Prévision App 1 fusionnée pour le créneau courant.
-
-        Cœur **déterministe** : un run par modèle (table D3), fusion par priorité
-        AROME → ARPEGE (rayonnement + queue). La **proba** est ajoutée ensuite,
-        depuis les membres d'**ensemble** ECMWF (non déterministe — cf.
-        ``obtenir_proba_ensemble``). Chaque contribution manquante est omise (D8).
-        Lève ``PrevisionIndisponibleError`` si même le cœur AROME manque.
-        """
-        creneau, jour = creneau_run(now_utc)
-        runs = runs_du_creneau(creneau, jour)
-
-        # Priorité décroissante : AROME (cœur) puis ARPEGE (rayonnement + queue).
-        specs = (
-            (AROME, runs[AROME], VARS_AROME),
-            (ARPEGE, runs[ARPEGE], VARS_ARPEGE),
-        )
-        frames: list[pd.DataFrame] = []
-        runs_utilises: dict[str, pd.Timestamp] = {}
-        for modele, run, variables in specs:
-            df = self.obtenir_run(modele, run, latitude, longitude, horizon_jours, variables)
-            if df is not None and not df.empty:
-                frames.append(df)
-                runs_utilises[modele] = run
-
-        if not frames:
-            raise PrevisionIndisponibleError(
-                f"Aucun run disponible pour le créneau {creneau} {jour.date()} (cœur AROME inclus)."
-            )
-
-        fusion = fusionner_priorite(frames)
-
-        # Temps sensible dérivé des CHAMPS AROME (cohérent avec le cumul AROME).
-        # AROME ne fournit pas de ``weather_code`` (0/72 h) : sans ce calcul, le
-        # code serait comblé par ARPEGE → picto incohérent avec la pluie AROME
-        # (cf. ADR-0013). On dérive donc le code et on l'impose là où les champs
-        # AROME existent, en gardant le code fusionné en repli pour la queue.
-        try:
-            code_derive = serie_code_temps(fusion, hours=1)
-            if "weather_code" in fusion.columns:
-                fusion["weather_code"] = code_derive.combine_first(fusion["weather_code"])
-            else:
-                fusion["weather_code"] = code_derive
-        except KeyError as e:
-            logger.warning("Temps sensible dérivé indisponible (champs manquants) : %s", e)
-
-        # Proba d'ensemble (ECMWF IFS-ENS, dernier run) ajoutée à la fusion.
-        proba = self.obtenir_proba_ensemble(latitude, longitude, horizon_jours)
-        proba_ensemble = proba is not None
-        if proba is not None:
-            fusion["probabilite_pluie_pct"] = proba.reindex(fusion.index)
-
-        return ResultatPrevision(
-            df=fusion,
-            creneau=creneau,
-            jour=jour,
-            runs_demandes=runs,
-            runs_utilises=runs_utilises,
-            proba_ensemble=proba_ensemble,
-        )
 
     def obtenir_serie_avec_passe(
         self,

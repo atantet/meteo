@@ -15,10 +15,8 @@ from meteo_socle.sources.openmeteo_runs import (
     ECMWF_HRES,
     OpenMeteoSingleRuns,
     PrevisionIndisponibleError,
-    ancre_creneau,
     creneau_run,
     creneaux_precedents,
-    fusionner_priorite,
     runs_du_creneau,
 )
 
@@ -63,56 +61,6 @@ def test_runs_du_creneau_apres_midi() -> None:
     assert runs[AROME] == pd.Timestamp("2024-06-15 12:00:00+00:00")
     # ECMWF-HRES après-midi → 00Z du jour.
     assert runs[ECMWF_HRES] == pd.Timestamp("2024-06-15 00:00:00+00:00")
-
-
-def test_ancre_creneau_est_init_run_coeur() -> None:
-    # Matin → 00Z du jour ; après-midi → 12Z.
-    assert ancre_creneau(pd.Timestamp("2024-06-15 09:00:00+00:00")) == pd.Timestamp(
-        "2024-06-15 00:00:00+00:00"
-    )
-    assert ancre_creneau(pd.Timestamp("2024-06-15 18:00:00+00:00")) == pd.Timestamp(
-        "2024-06-15 12:00:00+00:00"
-    )
-
-
-# --------------------------------------------------------------------------- #
-# Fusion par priorité (D2)
-# --------------------------------------------------------------------------- #
-
-
-def test_fusionner_priorite_arome_gagne_arpege_comble() -> None:
-    idx = pd.date_range("2024-06-15 00:00", periods=3, freq="h", tz="UTC")
-    # AROME : 0-2 h, cœur sans rayonnement.
-    arome = pd.DataFrame(
-        {"temperature_2m": [283.15, 283.15, 283.15], "rayonnement_global": [float("nan")] * 3},
-        index=idx,
-    )
-    # ARPEGE : 0-2 h, température différente (ne doit PAS gagner) + rayonnement.
-    arpege = pd.DataFrame(
-        {"temperature_2m": [284.0, 284.0, 284.0], "rayonnement_global": [0.0, 360000.0, 720000.0]},
-        index=idx,
-    )
-    fusion = fusionner_priorite([arome, arpege])
-    # AROME prioritaire sur la température.
-    assert fusion["temperature_2m"].iloc[0] == pytest.approx(283.15)
-    # Rayonnement comblé par ARPEGE (AROME NaN).
-    assert fusion["rayonnement_global"].iloc[1] == pytest.approx(360000.0)
-
-
-def test_fusionner_priorite_etend_la_queue_au_dela_dhorizon_arome() -> None:
-    # AROME ne couvre que 0-1 h ; ARPEGE couvre 0-3 h → la queue vient d'ARPEGE.
-    arome = pd.DataFrame(
-        {"temperature_2m": [283.15, 283.15]},
-        index=pd.date_range("2024-06-15 00:00", periods=2, freq="h", tz="UTC"),
-    )
-    arpege = pd.DataFrame(
-        {"temperature_2m": [284.0, 284.0, 284.0, 284.0]},
-        index=pd.date_range("2024-06-15 00:00", periods=4, freq="h", tz="UTC"),
-    )
-    fusion = fusionner_priorite([arome, arpege])
-    assert len(fusion) == 4
-    assert fusion["temperature_2m"].iloc[0] == pytest.approx(283.15)  # AROME
-    assert fusion["temperature_2m"].iloc[3] == pytest.approx(284.0)  # ARPEGE (queue)
 
 
 # --------------------------------------------------------------------------- #
@@ -214,53 +162,6 @@ def test_obtenir_run_payload_vide_renvoie_none() -> None:
         AROME, pd.Timestamp("2024-06-15 00:00:00+00:00"), 0, 0, 3, ("temperature_2m",)
     )
     assert df is None
-
-
-# --------------------------------------------------------------------------- #
-# Orchestration fusion App 1 (D2 + D8)
-# --------------------------------------------------------------------------- #
-
-
-def test_obtenir_prevision_fusion_complete() -> None:
-    # ECMWF (= ecmwf_ifs025) est appelé par obtenir_proba_ensemble (membres).
-    sess = _session_par_modele(
-        {AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: _PAYLOAD_ECMWF_ENS}
-    )
-    client = OpenMeteoSingleRuns(session=sess)
-    res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
-
-    # Cœur AROME prioritaire (10 °C, pas 11 d'ARPEGE).
-    assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
-    # Rayonnement comblé par ARPEGE.
-    assert res.df["rayonnement_global"].iloc[1] == pytest.approx(100.0 * 3600.0)
-    # Proba = cumul 6 h ≥ 1 mm : 2/5 membres (m01, m02) sur le bin → 40 %,
-    # rediffusé sur les 3 h du bin.
-    assert res.df["probabilite_pluie_pct"].iloc[2] == pytest.approx(40.0)
-    assert res.df["probabilite_pluie_pct"].iloc[0] == pytest.approx(40.0)
-    assert res.proba_ensemble is True
-    # Provenance déterministe = AROME + ARPEGE (la proba n'est PAS un run).
-    assert set(res.runs_utilises) == {AROME, ARPEGE}
-    assert res.creneau == "matin"
-    assert res.ancre_utc == pd.Timestamp("2024-06-15 00:00:00+00:00")
-
-
-def test_obtenir_prevision_omet_proba_si_ensemble_muet() -> None:
-    # Ensemble (proba) muet → proba omise, le reste part (D8).
-    sess = _session_par_modele({AROME: _PAYLOAD_AROME, ARPEGE: _PAYLOAD_ARPEGE, ECMWF: None})
-    client = OpenMeteoSingleRuns(session=sess)
-    res = client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
-
-    assert "probabilite_pluie_pct" not in res.df.columns
-    assert res.proba_ensemble is False
-    assert res.df["temperature_2m"].iloc[0] == pytest.approx(283.15)
-    assert set(res.runs_utilises) == {AROME, ARPEGE}
-
-
-def test_obtenir_prevision_tout_muet_leve_indisponible() -> None:
-    sess = _session_par_modele({AROME: None, ARPEGE: None, ECMWF: None})
-    client = OpenMeteoSingleRuns(session=sess)
-    with pytest.raises(PrevisionIndisponibleError):
-        client.obtenir_prevision(48.54, -1.62, 3, pd.Timestamp("2024-06-15 09:00:00+00:00"))
 
 
 def test_obtenir_proba_ensemble_cumul_6h_par_bin() -> None:
