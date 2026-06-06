@@ -28,7 +28,7 @@ Cette annexe **applique** le cadre générique du @sec-eau au forage existant de
 
 Le forage capte une **nappe de socle** dans les **schistes et grès briovériens** — entité hydrogéologique **BDLISA 173AC11** (secteur baie du Mont-Saint-Michel / Couesnon ; libellé exact à confirmer sur le portail) [@bdlisa-173ac11]. La ressource provient des **fissures de la roche** et de la frange d'altération, alimentées par la **recharge hivernale**.
 
-C'est exactement le type de nappe décrit au @sec-eau : **réactive, à faible inertie**, dépendante des pluies efficaces de l'hiver et **sensible à la sécheresse estivale** [@mougin2024 ; @oeb-secheresses]. Le débit modeste (5–6 m³/h) et la profondeur des venues (≥ 58 m) sont cohérents avec un aquifère de socle peu capacitif. Au sens de la directive-cadre sur l'eau, l'ouvrage relève de la **masse d'eau souterraine de socle du bassin versant du Couesnon** [@masse-eau-couesnon], dans le périmètre du **SAGE Couesnon** [@gesteau-couesnon].
+C'est exactement le type de nappe décrit au @sec-eau : **réactive, à faible inertie**, dépendante des pluies efficaces de l'hiver et **sensible à la sécheresse estivale** [@mougin2024 ; @oeb-secheresses]. Le débit modeste (5–6 m³/h) et la profondeur des venues (≥ 58 m) sont cohérents avec un aquifère de socle peu capacitif. Au sens de la directive-cadre sur l'eau, l'ouvrage relève de la **masse d'eau souterraine de socle du bassin versant du Couesnon** [@masse-eau-couesnon], dans le périmètre du **SAGE Couesnon** [@gesteau-couesnon]. Le secteur est à la **jonction de deux unités de socle voisines** : Couesnon (BDLISA 173AC11) et Marais de Dol (BDLISA 173AC10). Pour le suivi de la ressource, la station ADES la plus proche est le **Piézomètre du Calvaire à Bonnemain** (BSS 02465X0061/F, profondeur 49 m, ~12-13 km au sud-ouest), qui instrumente l'unité du Marais de Dol [@ades-bonnemain].
 
 ## Lecture réglementaire (cadre du @sec-eau)
 
@@ -53,7 +53,7 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 ::: {.callout-warning}
 - **Usage réel actuel** : volume annuel effectivement prélevé vs 1 500 m³/an déclarés (compteur) — détermine le régime IOTA applicable aujourd'hui (seuil pertinent : 10 000 m³/an hors ZRE).
 - **Confirmer hors ZRE** et le rattachement de la parcelle (SAGE Couesnon vs bassins côtiers de Dol) auprès de la **DDTM 35** ; vérifier le **code DCE** exact de la masse d'eau [@masse-eau-couesnon].
-- **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit ; et identifier le **piézomètre ADES le plus proche** pour le suivi [@atlas-piezo-bretagne].
+- **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit (InfoTerre inaccessible à distance). Suivi de tendance possible via le piézomètre ADES de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne].
 - **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme.
 - **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique actuel.
 :::
