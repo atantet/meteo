@@ -899,15 +899,10 @@ def main() -> None:
     maintenant = pd.Timestamp.now(tz="UTC").to_pydatetime()
     debut_loc = pd.Timestamp(maintenant).tz_convert(tz_site).to_pydatetime()
     st.markdown(
-        '<h2 style="margin:0 0 4px 0;font-size:24px;color:#2c3e50;">'
-        f"Prévision du {format_date_fr(debut_loc, capitalize_jour=False)} pour {horizon_long} jours"
+        '<h2 style="margin:0 0 12px 0;font-size:24px;color:#2c3e50;">'
+        f"Prévision du {format_date_fr(debut_loc, capitalize_jour=False)} "
+        "— La Petite Claye, Pleine-Fougères"
         "</h2>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="margin:0 0 12px 0;font-size:13px;color:#888;">'
-        "La Petite Claye, Pleine-Fougères"
-        "</p>",
         unsafe_allow_html=True,
     )
 
