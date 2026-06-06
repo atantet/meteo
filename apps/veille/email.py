@@ -6,10 +6,8 @@ des indicateurs et alertes calculés.
 Le ton reste informationnel (cf. principe n°1). L'utilisateur garde
 son jugement empirique pour décider.
 
-Chaque indicateur est annoté de sa **fenêtre temporelle** (entre
-crochets, gris discret) et le footer du mail rappelle la **source des
-données** + la **méthode de calcul ETP** + la programmation du cron
-(principe n°5 transparence).
+Le titre porte la **fraîcheur officielle MF** (``updated_on``) et le footer
+rappelle la **source** (principe n°5 transparence). Cf. ADR-0014.
 
 **Palette de couleurs** : Bang Wong 2011 (Nature Methods), choisie pour
 être distinguable par les daltoniens (deutéranopie + protanopie,
@@ -89,26 +87,9 @@ class EmailComposed:
     html: str
 
 
-# Source = prévision officielle Météo-France (ADR-0014). Plus de modèles bruts
-# ni de runs : un produit fusionné/expertisé, étiqueté par sa fraîcheur (updated_on).
+# Source = prévision officielle Météo-France (ADR-0014). La fraîcheur (mise à
+# jour) est portée par le titre du mail, pas par ce libellé.
 SOURCE_MF = "Prévision officielle Météo-France (webservice.meteofrance.com)"
-CRON_EXPLAIN = "6 h 30 et 18 h 30 (heure locale)"
-SITE_EXPLAIN = "8 La Petite Claye, 35610 Pleine-Fougères (48.5420 N, 1.6155 W, alt 30 m)"
-
-
-def label_source_mf(updated_on: pd.Timestamp | None, tz_locale: str = "Europe/Paris") -> str:
-    """Libellé « Source » = prévision officielle MF + sa fraîcheur (ADR-0014 D1/D9).
-
-    ``updated_on`` (tz-aware UTC) est l'heure d'émission officielle de la prévi
-    (champ ``updated_on`` du webservice). Affichée en heure locale.
-    """
-    if updated_on is None:
-        return SOURCE_MF
-    loc = updated_on.tz_convert(tz_locale)
-    return f"{SOURCE_MF} · mise à jour {loc.strftime('%d/%m %Hh%M %Z')}"
-
-
-# Repli si ``updated_on`` non fourni (appel legacy / test).
 SOURCE_DEFAUT = SOURCE_MF
 
 
@@ -837,13 +818,11 @@ def composer_texte(
     ind: IndicateursVeille,
     alertes: list[Alerte],
     maintenant: datetime,
-    url_fiches: str = "",
     source: str = SOURCE_DEFAUT,
-    cron: str = CRON_EXPLAIN,
-    site: str = SITE_EXPLAIN,
     tz_locale: str = "Europe/Paris",
     moment: str = "",
     prevision_horaire: pd.DataFrame | None = None,
+    updated_on: pd.Timestamp | None = None,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     article = _moment_avec_article(moment)
@@ -851,13 +830,9 @@ def composer_texte(
     titre = f"Veille {article}" if article else "Veille météo"
     lignes.append(f"{titre} — {format_date_fr(maintenant)}")
     lignes.append("=" * 70)
-    if ind.prevision_t0_local is not None:
-        # 1ʳᵉ période de 6 h locale affichée (heure locale, ADR-0014 D4).
-        t0_loc = ind.prevision_t0_local.tz_convert(tz_locale)
-        fenetre_label = f"à partir du {t0_loc.strftime('%d/%m/%Y %Hh00')}"
-    else:
-        fenetre_label = "—"
-    lignes.append(f"Prévision {fenetre_label}")
+    if updated_on is not None:
+        maj = updated_on.tz_convert(tz_locale).strftime("%d/%m/%Y %Hh%M %Z")
+        lignes.append(f"Prévision Météo-France du {maj}")
     lignes.append("")
 
     lignes.append("VIGILANCE EXPLOITATION :")
@@ -903,10 +878,6 @@ def composer_texte(
     lignes.append("(cf. principe #1 du projet).")
     lignes.append("")
     lignes.append(f"Source : {source}")
-    lignes.append(f"Cron   : {cron}")
-    lignes.append(f"Site   : {site}")
-    if url_fiches:
-        lignes.append(f"Fiches : {url_fiches}")
     return "\n".join(lignes)
 
 
@@ -914,10 +885,7 @@ def composer_html(
     ind: IndicateursVeille,
     alertes: list[Alerte],
     maintenant: datetime,
-    url_fiches: str = "",
     source: str = SOURCE_DEFAUT,
-    cron: str = CRON_EXPLAIN,
-    site: str = SITE_EXPLAIN,
     chart_48h_base64: str = "",
     cartes_grille: CartesGrille | None = None,
     vigilance: VigilanceDepartement | None = None,
@@ -926,6 +894,7 @@ def composer_html(
     moment: str = "",
     tz_locale: str = "Europe/Paris",
     commune: str | None = None,
+    updated_on: pd.Timestamp | None = None,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework)."""
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
@@ -954,39 +923,33 @@ def composer_html(
         else "Détail horaire 48 h — UTC"
     )
 
-    lien_fiches = (
-        f'<p style="margin:6px 0;font-size:12px;color:#888;">'
-        f'Fiches indices : <a href="{url_fiches}" style="color:#888;">{url_fiches}</a></p>'
-        if url_fiches
-        else ""
-    )
-
+    # Footer minimal : seule la source (transparence). La fraîcheur (mise à jour)
+    # est dans le titre ; pas de Cron/Site/Fiches (redondants ou trompeurs).
     footer = (
         '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #eee;'
         'font-size:11px;color:#888;line-height:1.5;">'
         f'<div><strong style="color:#555;">Source</strong> : {source}</div>'
-        f'<div><strong style="color:#555;">Cron</strong> : {cron}</div>'
-        f'<div><strong style="color:#555;">Site</strong> : {site}</div>'
-        f"{lien_fiches}"
         "</div>"
     )
 
-    # Fenêtre de prévision : 1ʳᵉ période de 6 h locale affichée (ADR-0014 D4).
-    # Format monospace + fond clair pour la rendre légèrement distinctive.
-    if ind.prevision_t0_local is not None:
-        t0_loc = ind.prevision_t0_local.tz_convert(tz_locale)
+    # Titre = fraîcheur officielle MF (``updated_on``), c.-à-d. l'info que MF donne
+    # sur la prévi reçue (et non le début de fenêtre). Distingue les deux mails du
+    # jour via le moment d'envoi. Format monospace + fond clair, discret.
+    if updated_on is not None:
+        maj_loc = updated_on.tz_convert(tz_locale)
         date_html = (
             '<span style="font-family:Menlo,Consolas,monospace;font-size:0.88em;'
             'background:#f4f4f4;padding:1px 6px;border-radius:3px;color:#34495e;">'
-            f"{t0_loc.strftime('%d/%m/%Y %Hh00')}"
+            f"{maj_loc.strftime('%d/%m/%Y %Hh%M %Z')}"
             "</span>"
         )
     else:
         date_html = "—"
-    # Titre adapté au moment d'envoi (distingue les deux mails du jour).
     article = _moment_avec_article(moment)
     titre_h2 = (
-        f"Veille {article} — prévision du {date_html}" if article else f"Prévision du {date_html}"
+        f"Veille {article} — prévision Météo-France du {date_html}"
+        if article
+        else f"Prévision Météo-France du {date_html}"
     )
 
     return f"""<!DOCTYPE html>
@@ -1041,24 +1004,11 @@ def composer_email(
     générique.
     """
     email_cfg = config["email"]
-    url_fiches = email_cfg.get("url_fiches_indices", "") or ""
-    # ADR-0014 : tout en heure locale ; source = prévision officielle MF étiquetée
-    # par sa fraîcheur (updated_on).
+    # ADR-0014 : tout en heure locale ; source = prévision officielle MF (la
+    # fraîcheur ``updated_on`` est portée par le titre, pas le footer).
     tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
-    source = label_source_mf(updated_on, tz_locale)
-    # Lieu = commune réellement renvoyée par MF (point le plus proche, ADR-0014),
-    # pas l'adresse de l'exploitation : la prévi vaut pour ce point.
-    pos = position or {}
-    commune = pos.get("name")
-    if commune and pos.get("lat") is not None and pos.get("lon") is not None:
-        lon = pos["lon"]
-        site = (
-            f"{commune} — {pos['lat']:.4f} N, {abs(lon):.4f} "
-            f"{'E' if lon >= 0 else 'O'}, alt {pos.get('alti', '?')} m "
-            "(point Météo-France le plus proche)"
-        )
-    else:
-        site = commune or SITE_EXPLAIN
+    # Lieu = commune réellement renvoyée par MF (point le plus proche, ADR-0014).
+    commune = (position or {}).get("name")
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
@@ -1070,21 +1020,16 @@ def composer_email(
         ind,
         alertes,
         maintenant,
-        url_fiches=url_fiches,
-        source=source,
-        site=site,
         moment=moment,
         tz_locale=tz_locale,
         prevision_horaire=prevision_horaire,
+        updated_on=updated_on,
     )
     alertes_config = config.get("alertes", {})
     html = composer_html(
         ind,
         alertes,
         maintenant,
-        url_fiches=url_fiches,
-        source=source,
-        site=site,
         commune=commune,
         chart_48h_base64=chart_48h_base64,
         cartes_grille=cartes_grille,
@@ -1093,5 +1038,6 @@ def composer_email(
         seuils_config=alertes_config,
         moment=moment,
         tz_locale=tz_locale,
+        updated_on=updated_on,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

@@ -96,17 +96,19 @@ def graphique_48h_base64(
 ) -> str:
     """Génère un PNG base64 du graph T° + pluie + proba (prévi officielle MF).
 
-    Axe X **fixe en UTC**, aligné sur les jours calendaires (00:00 → 24:00 UTC),
-    donc **identique le matin et l'après-midi** (ADR-0014). Les paramètres
-    ``now_utc``, ``tz_locale`` et ``horizon_h`` sont conservés pour compat d'appel
-    mais ne sont plus utilisés (plus d'ancrage run ; fenêtre déduite des données).
+    Axe X en **UTC** aligné sur les jours calendaires (00:00 → 24:00 UTC) ;
+    données tracées **à partir de ``now_utc``** (l'heure d'envoi), donc la série
+    du matin part le matin et celle de l'après-midi l'après-midi, sur un axe de
+    même structure (ADR-0014).
 
     Parameters
     ----------
     prevision :
         DataFrame indexé UTC (prévision officielle MF) ; affiché en UTC.
-    now_utc, tz_locale, horizon_h :
-        Conservés pour compat d'appel, inutilisés (cf. ci-dessus).
+    now_utc :
+        Heure d'envoi (tz-aware) : début des données tracées.
+    tz_locale, horizon_h :
+        Conservés pour compat d'appel, inutilisés.
 
     Returns
     -------
@@ -114,20 +116,22 @@ def graphique_48h_base64(
         ``data:image/png;base64,...`` à insérer dans ``<img src=...>``.
         Chaîne vide si la prévision n'a pas de portion horaire.
     """
-    # ADR-0014 : axe FIXE en **UTC**, aligné sur les jours calendaires — de
-    # 00:00 UTC du 1er jour à 00:00 UTC (24 h) du dernier jour couvert. La prévi
-    # MF horaire finit pile à 00:00 UTC de J+2, donc l'axe est **identique le
-    # matin et l'après-midi** (2 jours pleins, sans queue vide). ``now_utc`` (plus
-    # d'ancrage run) et ``tz_locale`` ne servent plus ici.
-    del now_utc, tz_locale, horizon_h
+    # ADR-0014 : axe en **UTC** aligné sur les jours calendaires (00:00 → 24:00).
+    # Les **données** sont tracées à partir de l'heure d'envoi (``now_utc``) : la
+    # série du matin part le matin, celle de l'après-midi l'après-midi — l'axe
+    # (jours pleins) reste structurellement le même. ``tz_locale``/``horizon_h``
+    # ne servent plus.
+    del tz_locale, horizon_h
+    now = pd.Timestamp(now_utc)
+    now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
     prev_utc = prevision.copy()
     prev_utc.index = pd.DatetimeIndex(prev_utc.index).tz_convert("UTC")
     horaire = portion_horaire(prev_utc)
     if horaire.empty:
         return ""
-    x_min = horaire.index.min().floor("D")  # 00:00 UTC du 1er jour
-    x_max = horaire.index.max().ceil("D")  # 24:00 UTC du dernier jour
-    df = horaire.loc[horaire.index >= x_min].copy()
+    x_min = now.floor("D")  # 00:00 UTC du jour d'envoi
+    x_max = horaire.index.max().ceil("D")  # 24:00 UTC du dernier jour couvert
+    df = horaire.loc[horaire.index >= now].copy()  # données dès l'envoi
     if df.empty:
         return ""
 

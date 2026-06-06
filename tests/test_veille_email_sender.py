@@ -105,21 +105,22 @@ def test_composer_email_moment_deduit_de_l_heure() -> None:
 
 
 def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
-    """Titre HTML après-midi : libellé 'de l'après-midi' + fenêtre à 12h00."""
+    """Titre HTML après-midi : libellé 'de l'après-midi' + fraîcheur MF (updated_on)."""
     import pandas as pd
 
     from apps.veille.email import composer_html
 
-    # t0 = 12 h locale (Europe/Paris été = 10:00 UTC).
-    t0 = pd.Timestamp("2024-06-15 10:00:00+00:00")
+    # updated_on = 10:00 UTC = 12:00 locale (Europe/Paris été).
+    maj = pd.Timestamp("2024-06-15 10:00:00+00:00")
     html = composer_html(
-        _ind(prevision_t0_local=t0),
+        _ind(),
         [],
         datetime(2024, 6, 15, 16, 0),
         moment="après-midi",
         tz_locale="Europe/Paris",
+        updated_on=maj,
     )
-    assert "Veille de l'après-midi" in html
+    assert "Veille de l'après-midi — prévision Météo-France du" in html
     assert "12h00" in html
 
 
