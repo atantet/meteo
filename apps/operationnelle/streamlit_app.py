@@ -978,7 +978,7 @@ def main() -> None:
     # ----- §1 Tendance jour/nuit × N j × 2 modèles -----
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        f"Tendance {horizon_long} jours — ARPEGE · ECMWF IFS"
+        f"Tendance {horizon_long} jours"
         "</h3>",
         unsafe_allow_html=True,
     )
