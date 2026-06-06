@@ -141,7 +141,7 @@ def _fetch_proba(
 
     Grandeur d'**ensemble**, non déterministe (ADR-0011/0014 D8) : aucun run
     épinglable → dernier run d'ensemble, avec son passé (``past_days``). Affichée
-    sur une ligne dédiée, rattachée à la série ARPEGE pour l'agrégation.
+    sur une ligne dédiée, rattachée à la série ECMWF (trame 10 j) pour l'agrégation.
     ``slot_now`` sert de clé de cache (un fetch par créneau). ``None`` si muet.
     """
     src = OpenMeteoSingleRuns()
