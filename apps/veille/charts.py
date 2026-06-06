@@ -99,7 +99,8 @@ def graphique_48h_base64(
     Parameters
     ----------
     prevision :
-        DataFrame indexé UTC sorti de ``OpenMeteoForecast``.
+        DataFrame indexé UTC (prévision officielle MF), converti en heure
+        locale pour l'affichage.
     now_utc :
         Référence temporelle (filtre forward-only).
     tz_locale :
@@ -182,7 +183,7 @@ def graphique_48h_base64(
     ax_t.set_ylabel("T° (°C)", color=COULEUR_T)
     ax_t.tick_params(axis="y", labelcolor=COULEUR_T)
     ax_t.grid(True, alpha=0.3)
-    ax_t.set_title(f"Prévision {horizon_h} h — Open-Meteo AROME France HD")
+    ax_t.set_title(f"Prévision {horizon_h} h — Météo-France (heure locale)")
 
     # Pluie en barres + proba pluie en ligne (axe secondaire).
     if "precipitation" in df.columns:
