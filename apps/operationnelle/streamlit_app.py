@@ -71,15 +71,12 @@ from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     RU_PAR_CM_DE_TF,
 )
 from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
-    AROME,
     ARPEGE,
     ECMWF,
     ECMWF_HRES,
-    VARS_AROME,
     VARS_MONO_MODELE,
     OpenMeteoSingleRuns,
     creneau_run,
-    fusionner_priorite,
     runs_du_creneau,
 )
 
@@ -133,46 +130,22 @@ def _fetch_prevision(
 
 
 @st.cache_data(ttl=3600)
-def _fetch_ligne_arome(
+def _fetch_proba(
     latitude: float,
     longitude: float,
+    horizon_jours: int,
     slot_now: pd.Timestamp,
-    _arpege_etendu: pd.DataFrame,
     n_jours_passe: int = 2,
-) -> pd.DataFrame:
-    """Ligne « AROME » de la grille tendance : cœur AROME + **passé stitché**.
+) -> pd.Series | None:
+    """Proba de pluie d'ensemble (ECMWF IFS-ENS) — % au cumul ≥ 1 mm/6 h.
 
-    Comme les lignes ARPEGE/ECMWF, le passé est fait de **runs explicites**
-    (``obtenir_serie_avec_passe`` : ``n_jours_passe`` jours de segments 12 h des
-    créneaux précédents), pas de ``past_days``. Le rayonnement (qu'AROME ne
-    fournit pas) est comblé par l'**ARPEGE étendu déjà fetché** (``_arpege_etendu``,
-    passé en argument non hashé pour éviter un double stitch). La **proba**
-    d'ensemble est ajoutée avec son passé (``past_days`` : un ensemble n'a pas de
-    run épinglable). On clippe la fin à l'horizon AROME (init + 48 h) ; au-delà
-    c'est le territoire des lignes ARPEGE/ECMWF. La partie *prévision* reste
-    identique à l'e-mail Veille (mêmes runs, même fusion par priorité).
+    Grandeur d'**ensemble**, non déterministe (ADR-0011/0014 D8) : aucun run
+    épinglable → dernier run d'ensemble, avec son passé (``past_days``). Affichée
+    sur une ligne dédiée, rattachée à la série ARPEGE pour l'agrégation.
+    ``slot_now`` sert de clé de cache (un fetch par créneau). ``None`` si muet.
     """
     src = OpenMeteoSingleRuns()
-    serie_arome = src.obtenir_serie_avec_passe(
-        AROME,
-        AROME,
-        latitude,
-        longitude,
-        2,
-        slot_now,
-        variables=VARS_AROME,
-        n_jours_passe=n_jours_passe,
-    )
-    # AROME cœur prioritaire ; ARPEGE étendu comble le rayonnement (→ ETP) et
-    # tout trou, sur passé comme futur.
-    fusion = fusionner_priorite([serie_arome.df, _arpege_etendu])
-    # forecast_days=3 (et non 2) pour couvrir tout le futur AROME jusqu'à
-    # ancre+48 h (l'ensemble part de l'heure réelle, pas de l'init AROME).
-    proba = src.obtenir_proba_ensemble(latitude, longitude, 3, past_days=n_jours_passe)
-    if proba is not None:
-        fusion["probabilite_pluie_pct"] = proba.reindex(fusion.index)
-    fin = serie_arome.run_courant + pd.Timedelta(hours=48)
-    return fusion.loc[fusion.index < fin]
+    return src.obtenir_proba_ensemble(latitude, longitude, horizon_jours, past_days=n_jours_passe)
 
 
 @st.cache_data(ttl=3600)
@@ -383,7 +356,6 @@ def _afficher_grille_tendance(
         agreger_par_fenetre,
     )
     from apps.shared.dates_fr import JOURS_FR
-    from apps.shared.pictograms import icone_base64
 
     # Fond légèrement grisé pour la 2e sous-ligne (ECMWF) — meilleure
     # séparation des blocs « indicateur » que des traits plus épais.
@@ -511,28 +483,6 @@ def _afficher_grille_tendance(
             f"{html_val}</td>"
         )
 
-    # Bordure pivot adaptée au fond sombre du bandeau picto : la
-    # couleur `#34495e` se confond avec le fond ; on bascule sur un
-    # jaune-orange contrasté (cohérent avec les rafales Veille).
-    bordure_pivot_picto = "border-left:3px solid #f2c14e;"
-
-    def _cellule_picto(cellule, est_nuit: bool = False, est_pivot: bool = False) -> str:
-        bordure = bordure_pivot_picto if est_pivot else "border-left:1px solid #2c3e50;"
-        if cellule is None or cellule.code_picto is None:
-            return (
-                '<td style="padding:4px;text-align:center;color:#ccc;font-size:13px;'
-                f'background:{_FOND_PICTO};{bordure}">—</td>'
-            )
-        uri = icone_base64(cellule.code_picto, nuit=est_nuit)
-        return (
-            '<td style="padding:2px 4px;text-align:center;'
-            f'background:{_FOND_PICTO};{bordure}">'
-            f'<img src="{uri}" alt="{cellule.libelle_picto}" '
-            f'title="{cellule.libelle_picto}" '
-            'style="width:56px;height:56px;display:block;margin:0 auto;">'
-            "</td>"
-        )
-
     def _ligne_variable(
         libelle: str,
         format_fn,
@@ -564,40 +514,16 @@ def _afficher_grille_tendance(
             lignes.append("<tr>" + "".join(cellules) + "</tr>")
         return lignes
 
-    def _lignes_picto() -> list[str]:
-        """Bandeau picto sombre, 2 sous-lignes (une par modèle).
-
-        Pour la cellule « nuit », on passe `est_nuit=True` au rendu picto
-        pour utiliser la variante lune Meteocons (clear-night, etc.).
-        """
-        lignes = []
-        for i, (label, agg) in enumerate(agreges):
-            cellules: list[str] = []
-            if i == 0:
-                cellules.append(_td_variable("Météo", sur_fond_sombre=True))
-            cellules.append(_td_modele(label, _FOND_PICTO, sur_fond_sombre=True))
-            for idx_j, jour in enumerate(jours_tous):
-                for fenetre_idx, fenetre in enumerate((FENETRE_NUIT, FENETRE_JOUR)):
-                    est_pivot = idx_j == idx_pivot and fenetre_idx == 0
-                    cellules.append(
-                        _cellule_picto(
-                            agg.get((jour, fenetre)),
-                            est_nuit=(fenetre == FENETRE_NUIT),
-                            est_pivot=est_pivot,
-                        )
-                    )
-            lignes.append(f'<tr style="background:{_FOND_PICTO};">' + "".join(cellules) + "</tr>")
-        return lignes
-
     def _ligne_proba() -> list[str]:
         """Ligne dédiée « Proba pluie » — grandeur d'**ensemble** (ECMWF IFS-ENS).
 
         Découplée des lignes-modèles déterministes : la proba ne sort d'aucun
-        d'eux (ni AROME ni ARPEGE ni l'ECMWF-HRES de la tendance), mais des
-        membres IFS-ENS (% au cumul ≥ 1 mm/6 h). Une seule sous-ligne. Source =
-        l'agrégat de la fusion App 1 (ligne « AROME ») qui porte la proba.
+        d'eux (ni ARPEGE ni l'ECMWF-HRES de la tendance), mais des membres
+        IFS-ENS (% au cumul ≥ 1 mm/6 h). Une seule sous-ligne. La proba est
+        rattachée à la série ECMWF (cf. ``_fetch_proba`` ; trame 10 j) pour
+        l'agrégation.
         """
-        agg_proba = next((agg for label, agg in agreges if label == "AROME"), None)
+        agg_proba = next((agg for label, agg in agreges if label == "ECMWF IFS"), None)
         if not agg_proba:
             return []
         bg = "white"
@@ -622,8 +548,7 @@ def _afficher_grille_tendance(
         return ["<tr>" + "".join(cellules) + "</tr>"]
 
     corps = (
-        _lignes_picto()
-        + _ligne_variable("T° moy/extr.", _fmt_t_cell, besoin_fenetre=True)
+        _ligne_variable("T° moy/extr.", _fmt_t_cell, besoin_fenetre=True)
         + _ligne_variable("Pluie", _fmt_pluie_cell)
         + _ligne_proba()
         + _ligne_variable("Vent moy / raf.", _fmt_vent_cell)
@@ -1024,16 +949,17 @@ def main() -> None:
             st.error(f"Erreur de récupération des prévisions : {e}")
             st.stop()
 
-        # Ligne AROME : cœur AROME + passé stitché (comme ARPEGE/ECMWF),
-        # rayonnement comblé par l'ARPEGE étendu, proba avec passé. La prévision
-        # reste = e-mail Veille. Dégradation gracieuse : si le run AROME est muet,
-        # on l'omet et le dashboard part avec ARPEGE + ECMWF (pas de st.stop()).
+        # Proba de pluie d'ensemble (ECMWF IFS-ENS), rattachée à la série ECMWF
+        # (même centre, et trame longue 10 j → proba non tronquée). Dégradation
+        # gracieuse : si l'ensemble est muet, on omet la proba (pas de st.stop()).
         try:
-            prevision_arome = _fetch_ligne_arome(
-                site["latitude"], site["longitude"], slot_now, prevision_courte_etendue, n_past_days
+            proba = _fetch_proba(
+                site["latitude"], site["longitude"], horizon_long, slot_now, n_past_days
             )
+            if proba is not None:
+                prevision_longue["probabilite_pluie_pct"] = proba.reindex(prevision_longue.index)
         except Exception:  # noqa: BLE001
-            prevision_arome = None
+            pass
 
     quotidien_court = calculer_indicateurs_quotidiens(prevision_courte, config, now_utc=now_utc)
     quotidien_court = jours_complets_seulement(quotidien_court, prevision_courte)
@@ -1049,16 +975,16 @@ def main() -> None:
     prevision = prevision_courte
     quotidien = quotidien_court
 
-    # ----- §1 Tendance jour/nuit × N j × 3 modèles -----
+    # ----- §1 Tendance jour/nuit × N j × 2 modèles -----
     st.markdown(
         '<h3 style="margin:8px 0 8px 0;font-size:20px;color:#2c3e50;">'
-        f"Tendance {horizon_long} jours — AROME · ARPEGE · ECMWF IFS"
+        f"Tendance {horizon_long} jours — ARPEGE · ECMWF IFS"
         "</h3>",
         unsafe_allow_html=True,
     )
     # Provenance exacte : init de chaque run servi pour ce créneau (ADR-0011 D3).
-    # AROME et ARPEGE partagent le run de la demi-journée ; ECMWF-HRES prend le
-    # dernier run long 00/12Z. La proba n'a pas de run épinglable (ensemble).
+    # ARPEGE prend le run de la demi-journée ; ECMWF-HRES le dernier run long
+    # 00/12Z. La proba n'a pas de run épinglable (ensemble).
     _creneau_a2, _jour_a2 = creneau_run(slot_now)
     _runs_a2 = runs_du_creneau(_creneau_a2, _jour_a2)
 
@@ -1066,26 +992,22 @@ def main() -> None:
         return ts.strftime("%d/%m %HZ")
 
     st.caption(
-        "Trois modèles en parallèle, deux fenêtres par jour (UTC, alignées sur les "
+        "Deux modèles en parallèle, deux fenêtres par jour (UTC, alignées sur les "
         "cycles de run) : Nuit (18-06 UTC) puis Jour (06-18 UTC). "
-        f"**Runs utilisés (UTC)** — AROME France HD ~1,3 km : {_fmt_run_a2(_runs_a2[AROME])} "
-        "(cœur, ± 48 h autour de l'init, identique à l'e-mail Veille) · "
-        f"ARPEGE Météo-France ~10 km : {_fmt_run_a2(_runs_a2[ARPEGE])} (0-{horizon_court} j) · "
+        f"**Runs utilisés (UTC)** — ARPEGE Météo-France ~10 km : "
+        f"{_fmt_run_a2(_runs_a2[ARPEGE])} (0-{horizon_court} j) · "
         f"ECMWF-HRES ~9 km : {_fmt_run_a2(_runs_a2[ECMWF_HRES])} (0-{horizon_long} j, "
         "tendance longue) ; cellules « — » au-delà de l'horizon de chaque modèle. "
         f"Passé ({n_past_days * 24} h) = stitch de runs explicites des créneaux précédents "
-        "pour les trois modèles — faire défiler vers la gauche. "
+        "pour les deux modèles — faire défiler vers la gauche. "
         "Proba pluie : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h, **dernier run "
         "d'ensemble** (non épinglable ; son passé vient de ce même run)."
     )
 
-    # Frontière passé/prévision = pivot UTC (00Z du jour). Les trois modèles
-    # portent le passé stitché (runs explicites) ; AROME est borné à ± 48 h
-    # autour de l'init (son horizon), d'où « — » au-delà.
+    # Frontière passé/prévision = pivot UTC (00Z du jour). Les deux modèles
+    # portent le passé stitché (runs explicites).
     etp_arpege_etendu = etp_horaire_socle(prevision_courte_etendue, site)
     series_tendance: list[tuple[str, pd.DataFrame, pd.Series | None]] = []
-    if prevision_arome is not None and not prevision_arome.empty:
-        series_tendance.append(("AROME", prevision_arome, etp_horaire_socle(prevision_arome, site)))
     series_tendance.append(("ARPEGE", prevision_courte_etendue, etp_arpege_etendu))
     series_tendance.append(("ECMWF IFS", prevision_longue, etp_long))
     _afficher_grille_tendance(

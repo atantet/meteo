@@ -25,9 +25,9 @@ source_meteo:
   # (Open-Meteo `meteofrance_arpege_europe`).
   horizon_court_jours: 4
   modele_court: meteofrance_arpege_europe
-  # Horizon long : 7 j → tendance + cartes géographiques. Modèle ECMWF
-  # IFS (Open-Meteo `ecmwf_ifs025`).
-  horizon_long_jours: 7
+  # Horizon long : 10 j → tendance (ADR-0014 D5). Modèle ECMWF IFS
+  # (Open-Meteo `ecmwf_ifs025`, ~15 j dispo ; on plafonne à 10).
+  horizon_long_jours: 10
   modele_long: ecmwf_ifs025
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----

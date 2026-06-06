@@ -185,11 +185,8 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     # 3 heures sont toutes en « jour » → 3 mm jour, 0 mm nuit.
     assert cell_nuit.pluie_mm == pytest.approx(0.0, abs=1e-6)
     assert cell_jour.pluie_mm == pytest.approx(3.0, abs=1e-6)
-
-    # Picto : pluie (code 61) en jour (6-8 h) → picto jour non-None ; nuit
-    # (0-5 h, peu nuageux code 1) → picto nuit non-None aussi.
-    assert cell_jour.code_picto is not None
-    assert cell_nuit.code_picto is not None
+    # Plus de pictogramme dans l'App 2 (ADR-0014 D2).
+    assert not hasattr(cell_jour, "code_picto")
 
 
 def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:

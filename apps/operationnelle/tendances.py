@@ -4,8 +4,6 @@ Agrège une prévision horaire Open-Meteo en cellules « fenêtre × jour »,
 chaque cellule portant les variables agrégées attendues par la grille
 de tendance :
 
-- ``code_picto`` (weather_code dominant)
-- ``libelle`` (label texte du code dominant)
 - ``t_mean`` et ``t_extreme`` (T_max pour la fenêtre « jour », T_min pour
   la fenêtre « nuit »)
 - ``pluie_mm`` (cumul de la fenêtre)
@@ -41,9 +39,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from apps.shared.pictograms import code_dominant_fenetre
-from apps.shared.pictograms import libelle as libelle_picto
-
 # Fenêtre jour : 6 h ≤ h < 18 h UTC (12 h). Le reste est « nuit » (18-06 UTC).
 # ADR-0011 D5 : tout en UTC, aligné sur les cycles de run (l'appelant passe
 # tz_locale="UTC" pour binner sur l'heure UTC).
@@ -72,10 +67,12 @@ _CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
 
 @dataclass(frozen=True)
 class CelluleFenetre:
-    """Variables agrégées sur une fenêtre (jour OU nuit) d'un jour civil."""
+    """Variables agrégées sur une fenêtre (jour OU nuit) d'un jour civil.
 
-    code_picto: int | None
-    libelle_picto: str
+    Pas de pictogramme (ADR-0014 D2 : l'App 2 compare les modèles en
+    quantitatif ; le verdict illustré est l'affaire de l'App 1).
+    """
+
     t_mean: float
     t_extreme: float  # t_max si « jour », t_min si « nuit »
     pluie_mm: float
@@ -182,9 +179,6 @@ def _agreger_cellule(
 
     direction_deg = _direction_moyenne_ponderee(group)
 
-    code = code_dominant_fenetre(group["weather_code"]) if "weather_code" in group.columns else None
-    lib = libelle_picto(code) if code is not None else ""
-
     etp_mm = (
         float(etp_fenetre.dropna().sum())
         if etp_fenetre is not None and not etp_fenetre.dropna().empty
@@ -192,8 +186,6 @@ def _agreger_cellule(
     )
 
     return CelluleFenetre(
-        code_picto=code,
-        libelle_picto=lib,
         t_mean=t_mean,
         t_extreme=t_extreme,
         pluie_mm=pluie_mm,

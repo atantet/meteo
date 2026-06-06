@@ -22,7 +22,7 @@ def test_load_config_defaut_repo() -> None:
     # Double horizon : court (ARPEGE, guides + séries temp) et long
     # (ECMWF, tendance + cartes).
     assert config["source_meteo"]["horizon_court_jours"] == 4
-    assert config["source_meteo"]["horizon_long_jours"] == 7
+    assert config["source_meteo"]["horizon_long_jours"] == 10
     assert config["source_meteo"]["modele_court"] == "meteofrance_arpege_europe"
     assert config["source_meteo"]["modele_long"] == "ecmwf_ifs025"
     # Cohérence avec App 1 Veille sur les seuils.

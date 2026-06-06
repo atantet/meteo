@@ -82,9 +82,8 @@ def test_grille_tendance_proba_en_ligne_dediee(monkeypatch):
         return d
 
     series = [
-        ("AROME", _serie(avec_proba=True), None),
         ("ARPEGE", _serie(avec_proba=False), None),
-        ("ECMWF IFS", _serie(avec_proba=False), None),
+        ("ECMWF IFS", _serie(avec_proba=True), None),
     ]
     streamlit_app._afficher_grille_tendance(series, horizon_jours=2, tz_locale="UTC")
     html = "\n".join(captures)
