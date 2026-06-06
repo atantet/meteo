@@ -18,9 +18,10 @@ dans l'archéologie git.
 | [0007](0007-modele-mildiou-tomate-sous-abri.md) | Modèle risque mildiou tomate sous abri (Smith periods 1956) | Accepté |
 | [0008](0008-coefficient-etp-tunnel.md) | Coefficient de réduction ET₀ sous tunnel froid (k_tunnel) | Accepté |
 | [0010](0010-doctrine-pragmatique-lwd.md) | Doctrine pragmatique LWD (rollback Smith ← HR ≥ 90 %, abandon Magarey théorique) | Accepté |
-| [0011](0011-single-runs-api-runs-explicites.md) | Prévision via Single Runs API (runs explicites, analyse vs prévision) | Proposé |
+| [0011](0011-single-runs-api-runs-explicites.md) | Prévision via Single Runs API (runs explicites, analyse vs prévision) | Proposé · amendé par [0014](0014-prevision-officielle-mf-veille.md) (périmètre → App 2) |
 | [0012](0012-licence-gpl.md) | Licence du dépôt : GPL-3.0-or-later | Accepté |
-| [0013](0013-temps-sensible-arome.md) | Temps sensible (pictogramme) dérivé des champs AROME (port MET Norway) | Accepté |
+| [0013](0013-temps-sensible-arome.md) | Temps sensible (pictogramme) dérivé des champs AROME (port MET Norway) | Accepté · part. déprécié par [0014](0014-prevision-officielle-mf-veille.md) (App 1) |
+| [0014](0014-prevision-officielle-mf-veille.md) | Veille sur prévision officielle MF (heure locale) ; Opérationnelle sur ARPEGE + ECMWF (UTC) | Accepté |
 
 ## Convention
 

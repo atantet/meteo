@@ -6,6 +6,13 @@ Accepté — 2026-06-05. Application de [ADR-0011](0011-single-runs-api-runs-exp
 (question Q1, cohérence des modèles) ; rendu possible par
 [ADR-0012](0012-licence-gpl.md) (licence GPL).
 
+> **Partiellement déprécié par [ADR-0014](0014-prevision-officielle-mf-veille.md)
+> (2026-06-06)** : l'**App 1 (Veille)** prend le pictogramme de la prévision
+> officielle Météo-France (orage inclus, cohérent avec le cumul MF) ; l'**App 2
+> abandonne les pictogrammes**. Le port MET Norway décrit ici n'est donc **plus
+> utilisé en primaire** par aucune des deux apps — il est **conservé dans le socle
+> comme repli** (App 1 si MF muet, et queue) et utilitaire.
+
 ## Contexte
 
 Bug observé le 2026-06-05 (Veille du matin) : pour **vendredi après-midi**, le

@@ -7,6 +7,14 @@
 la **prévision** vers la **Single Runs API**, l'API *Forecast* étant **entièrement
 retirée** (aucun repli). Hors périmètre : climato/historique (restent SAFRAN/ERA5).
 
+> **Amendé par [ADR-0014](0014-prevision-officielle-mf-veille.md) (2026-06-06)** :
+> périmètre **restreint à l'App 2 (Opérationnelle)**. La Veille (App 1) bascule sur
+> la prévision officielle Météo-France (roulante, heure locale). L'App 2 reste sur
+> Single Runs (UTC) mais **réduite à ARPEGE + ECMWF** (AROME retiré, ~48 h désormais
+> couverts par la Veille) et **sans pictogramme**. La **proba d'ensemble ECMWF
+> IFS-ENS est conservée** pour l'App 2 (seule l'App 1 ne l'utilise plus, au profit de
+> la proba calibrée MF).
+
 ## Contexte
 
 Besoin déclencheur : **afficher honnêtement le run de modèle réellement utilisé**
