@@ -1,0 +1,49 @@
+# Adaptation — chaleur, gel tardif et travail {#sec-adapt-chaleur}
+
+::: {.callout-note}
+Leviers pour les axes chaleur (@sec-chaleur) et phénologie/gel (@sec-phenologie), plus le volet travail. Beaucoup de valeurs chiffrées proviennent d'essais du **Sud-Ouest/Sud** : à recaler en conditions bretonnes (humidité plus forte → condensation/maladies).
+:::
+
+## Chaleur sur les cultures et sous abri
+
+- **Blanchiment de serre** : abaisse la température de **5 à 10 °C** en période estivale vs serre non blanchie [@ca-ombrage-serre2022]. *Limite* : ombrage permanent pénalisant hors pics.
+- **Écrans / produits d'ombrage** : baisse de **5 à 8,5 °C** dans la serre ombragée lors des pics, effet « d'autant plus important en période caniculaire » ; certains produits agissent dès 25-35 °C, avec une **meilleure nouaison** des tomates observée [@ca-ombrage-serre2022]. *Condition* : l'**aération reste indispensable** même avec ombrage.
+- **Filet d'ombrage pilotable** : un écran réduit la transmission lumineuse d'environ 35 % ; comme le rendement (tomate) dépend du rayonnement, l'intérêt est d'**ombrer seulement aux pics** plutôt qu'en permanence [@ca-ombrage-serre2022].
+- **Brumisation / fog** : piste étudiée par le CTIFL en complément de l'ombrage ; valeurs non disponibles dans les sources lues — *à compléter*.
+
+## Gel tardif
+
+(Repères : Mémo gel en maraîchage, Chambre d'agriculture de Haute-Garonne — gel **radiatif** du Sud-Ouest, transposable avec prudence [@ca31-gel2026].)
+
+- **Voiles de forçage P17-P30** : gain **+1 à +3 °C** ; **double voile** = effet cumulé (transmission lumineuse résiduelle ~66 %). *Limites* : arceaux nécessaires, **confinement favorable aux maladies** (sclerotinia, botrytis) → limiter la durée ; **sous −3 °C la bâche gèle**, découvrir au dégel.
+- **Petits tunnels / abris froids** : gain ~**2 °C**. *Limite* : risque d'**inversion thermique** (nuit calme, ciel clair) → garder un minimum d'aération.
+- **Aspersion antigel** (protection par chaleur latente) : **« pratique à risque en maraîchage »**, déconseillée sous abri (condensation, nécroses au gouttage) [@ca31-gel2026].
+- **Choix variétal, dates et endurcissement des plants** ; **placement parcellaire** : éviter les cuvettes/bas-fonds, favoriser la circulation de l'air ; un **sol humide** amortit mieux (inertie thermique) [@ca31-gel2026].
+- **Repères de sensibilité** : très sensibles 0 à −1 °C (solanacées, courgette, concombre, haricot ; fleur de fraisier dès −1 °C) ; tomate/pomme de terre jusqu'à −2 °C ; sensibles −3/−5 °C (carotte, salade, choux-fleurs) ; tolérants (mâche, épinard, poireau) [@ca31-gel2026].
+
+## Saison allongée
+
+Opportunité (démarrage plus précoce, étalement) mais **exposition accrue au gel tardif** : les hivers doux réduisent les heures de froid et avancent la reprise — la floraison/levée est plus exposée [@inrae-fruitiers-froid] (cf. le paradoxe du @sec-phenologie).
+
+## Travail à la chaleur
+
+- **Cadre réglementaire 2025** : décret n° 2025-482 du 27 mai 2025 (articles **R. 4463-1 à -8** du Code du travail), en vigueur au **1ᵉʳ juillet 2025** ; les mesures se déclenchent dès la **vigilance jaune** Météo-France [@legifrance-decret-chaleur2025 ; @inrs-chaleur-reglementation].
+- **Mesures** (art. R. 4463-3) : aménagement des postes, **adaptation des horaires** et des pauses, réduction du rayonnement, **eau potable fraîche** à volonté, intégration au plan de prévention [@legifrance-decret-chaleur2025].
+- **MSA** (agriculture) : seuils d'alerte **30 °C** (travail sédentaire) / **28 °C** (travail physique) ; **≥ 3 L d'eau/jour/personne** en l'absence d'eau courante ; ombrage des postes, zones de repos [@msa-chaleur].
+- **Coup de chaleur** : température corporelle > 39 °C → appeler le 15/112 [@inrs-accidents].
+
+## Priorisation à 30 ans
+
+::: {.callout-tip title="Lecture pour l'exploitation"}
+- **Sous abri** : ombrage **pilotable** + aération = couple gagnant (la chaleur, pas seulement le froid, devient un sujet sous tunnel).
+- **Gel** : la protection (voiles, placement) reste payante car le risque ne disparaît pas (cf. @sec-phenologie) ; garder une capacité de couverture mobilisable.
+- **Travail** : ce n'est plus optionnel — obligation réglementaire depuis juillet 2025, à inscrire au document unique.
+:::
+
+## À valider localement
+
+::: {.callout-warning}
+- Transposition des gains (voiles +1-3 °C, ombrage 5-10 °C) en **conditions bretonnes** (humidité → maladies sous voile).
+- Part **advectif/radiatif** du gel local et fréquence des gelées tardives sur le réseau Météo-France.
+- **Variétés tolérantes** à la chaleur et **décalage de calendrier** chiffré : non documentés ici, à compléter (CTIFL/ITAB).
+:::

@@ -1,0 +1,50 @@
+# Adaptation — filière, autonomie et risques côtiers {#sec-adapt-filiere}
+
+::: {.callout-note}
+Leviers pour la filière/socio-économie (@sec-filiere) et les risques côtiers locaux (@sec-cotiers), avec le fil conducteur de l'**autonomie** (intrants, énergie) dégagé en @sec-synthese.
+:::
+
+## Résilience économique et gestion du risque
+
+- **Diversification des cultures et des débouchés** : renforce la résilience, mais ne « tient » économiquement que si des **débouchés stables** sont organisés en parallèle — bénéfice non automatique [@inrae-diversification]. La **vente directe / circuits courts** (segment le plus dynamique, cf. @sec-filiere) sécurise le prix.
+- **Assurance multirisque climatique (réforme 2023)** : subvention de prime portée à **70 %** ; au-delà du seuil de pertes, l'État prend **90 %** (assurés). **Indemnité de solidarité nationale (ISN)** pour les aléas exceptionnels, y compris non-assurés : seuil de déclenchement **50 % de pertes** pour les **légumes**, indemnisation des non-assurés **45 % (2023) → 35 % (2025)** [@minagri-assurance2023]. *Limite* : pour un non-assuré, ces 50 % de pertes constituent une franchise lourde.
+- **Déduction pour épargne de précaution (DEP)** : lissage du revenu face aux aléas, **plafond 150 000 €**, avec exonération partielle (**30 %**) des sommes employées à renforcer la résilience [@minagri-dep]. *Limite* : suppose une capacité d'épargne — moins accessible en phase d'installation (DJA).
+
+## Autonomie en intrants
+
+- **Engrais verts à base de légumineuses** : apport d'azote et amélioration de structure pour la culture suivante [@inrae-engraisvert]. *Limite documentée* : en maraîchage bio intensif (cycles courts), l'**incertitude sur la minéralisation** rend l'ajustement délicat (risque de rendement insuffisant ou de **lixiviation**).
+- **Compost de ferme / matières organiques** : soutient l'autonomie azotée et l'économie circulaire territoriale, dans un contexte de **dépendance nationale** aux engrais importés [@inrae-compost] (cf. @sec-filiere).
+
+## Autonomie énergétique
+
+- Les **serres et abris hauts représentent ~10 % de la consommation d'énergie agricole** : c'est le **poste de sobriété** majeur pour ce type d'exploitation [@ademe-solagro2018]. Solutions : pompes à chaleur, déshumidification thermodynamique, conduite économe.
+- **Énergies renouvelables** sur l'exploitation (photovoltaïque, agrivoltaïsme) : retours d'expérience documentés, y compris serres PV [@solagro-serre-pv]. *Limite* : arbitrage **ombrage / rendement cultural** à instruire ; pas de ratio de production chiffré dans les sources lues.
+
+## Risques côtiers (Marais de Dol)
+
+Contexte : marais de **12 000 ha**, partie basse à **2,5-3 m NGF**, marée centennale SHOM à **8,55 m NGF**, régime mégatidal [@atlas-aleas-littoraux2015 ; @sage-dol].
+
+- **Gestion de l'excès d'eau** : drainage (fossés, drains, modelé de surface) — la plupart des cultures tempérées souffrant de l'anoxie ; le drainage en zone humide est **juridiquement encadré** [@inrae-mots-drainage].
+- **Planches / buttes surélevées** pour éviter l'humidité stagnante.
+- **Choix de parcelles** selon altitude et profondeur de nappe (zone basse vs arrière-pays).
+- **Salinité** : suivi de la conductivité de l'eau et du sol, et espèces tolérantes — *transposition à valider* (le drainage anti-salinité documenté vient de contextes méditerranéens irrigués, pas du polder breton).
+- Articulation avec le **PAPI** baie du Mont-Saint-Michel et le zonage de submersion (cf. @sec-cotiers).
+
+## Priorisation à 30 ans
+
+::: {.callout-tip title="Lecture pour l'exploitation"}
+- **Diversification + vente directe** : socle de résilience déjà en place — à consolider.
+- **Autonomie intrants/énergie** : réduit l'exposition aux chocs (cf. @sec-filiere) tout en servant l'adaptation — convergent avec les leviers sol (@sec-adapt-bioagresseurs-sol).
+- **Gestion du risque** (assurance MRC + DEP) : filet de sécurité face à des aléas plus fréquents — à arbitrer selon la trésorerie.
+- **Côtier** : relève d'un **diagnostic parcellaire** (altitude, nappe, salinité), pas d'une recette générale.
+:::
+
+## À valider localement
+
+::: {.callout-warning}
+- **Altitude et profondeur de nappe** des parcelles vs cote centennale ; périmètre et prescriptions du **PAPI / PPRL** (non lus ici).
+- **Salinité réelle** de l'eau et du sol avant tout choix d'espèces tolérantes.
+- Dispositifs **assurance/DEP** : cadre **mouvant** (lois de finances) — vérifier l'état en vigueur.
+- L'aléa **submersion** est probablement **sous-estimé** par l'atlas 2015 (sans rehausse climatique) : se référer aux PPRL/PAPI récents.
+- Chiffres énergie ADEME/Solagro datés (2015-2019), à actualiser.
+:::

@@ -8,7 +8,7 @@ Il poursuit trois objectifs :
 2. **Actualiser** cette synthèse au regard des publications les plus récentes (référentiel d'adaptation TRACC 2025, projections DRIAS relayées par l'Observatoire de l'environnement en Bretagne, données BRGM 2022-2023, chiffres Agence Bio 2024) ;
 3. **En dériver des apprentissages** pour la conduite de l'exploitation à l'**horizon 30 ans** (≈ 2025-2055).
 
-Il est **autoporté** : il n'est pas structuré par l'architecture d'un quelconque outil logiciel, et a vocation à rester lisible et citable indépendamment. Une seconde partie, consacrée aux **mesures d'adaptation**, viendra se calquer sur les mêmes axes ; le présent document traite d'abord des **impacts**.
+Il est **autoporté** : il n'est pas structuré par l'architecture d'un quelconque outil logiciel, et a vocation à rester lisible et citable indépendamment. Il est organisé en deux parties : la **Partie I — Impacts** (inventaire des effets, par axe) et la **Partie II — Adaptation** (leviers documentés, calqués sur les mêmes axes), suivies des annexes.
 
 ::: {.callout-note title="Comment lire ce document"}
 Chaque axe suit la même trame : ce que disent les **observations**, ce que disent les **projections**, les **apprentissages à 30 ans**, et les **points à approfondir**. Les affirmations sont rattachées à leur source par une référence cliquable. La bibliographie complète est en fin de document, doublée d'une **bibliographie annotée** (une fiche par source : nature, robustesse, ce qu'on en tire).
@@ -62,6 +62,8 @@ Un principe directeur : **distinguer systématiquement l'observé du projeté**.
 
 ## Plan
 
+**Partie I — Impacts** (8 axes) :
+
 1. **Climat observé et projeté** (Bretagne, Ille-et-Vilaine)
 2. **Eau, sécheresse, irrigation et forage** — *fil rouge*
 3. **Chaleur extrême et stress thermique** (cultures, abris, travail)
@@ -70,5 +72,7 @@ Un principe directeur : **distinguer systématiquement l'observé du projeté**.
 6. **Sol et érosion**
 7. **Événements extrêmes et risques côtiers locaux**
 8. **Filière, marché et socio-économie**
+
+**Partie II — Adaptation** (leviers, calqués sur les mêmes axes) : eau/irrigation/forage ; chaleur, gel et travail ; bioagresseurs et sol ; filière, autonomie et risques côtiers.
 
 Puis la **bibliographie annotée**, deux **annexes** (A — application au forage de La Petite Claye ; B — axes émergents à instruire) et les **références citées**.

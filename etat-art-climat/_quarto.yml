@@ -12,17 +12,27 @@ book:
   chapters:
     - index.qmd
     - 00-synthese.qmd
-    - 01-climat.qmd
-    - 02-eau.qmd
-    - 03-chaleur.qmd
-    - 04-phenologie.qmd
-    - 05-bioagresseurs.qmd
-    - 06-sol.qmd
-    - 07-extremes-cotiers.qmd
-    - 08-filiere.qmd
-    - 09-biblio-annotee.qmd
-    - 10-annexe-forage.qmd
-    - 11-axes-emergents.qmd
+    - part: "Partie I — Impacts"
+      chapters:
+        - 01-climat.qmd
+        - 02-eau.qmd
+        - 03-chaleur.qmd
+        - 04-phenologie.qmd
+        - 05-bioagresseurs.qmd
+        - 06-sol.qmd
+        - 07-extremes-cotiers.qmd
+        - 08-filiere.qmd
+    - part: "Partie II — Adaptation"
+      chapters:
+        - 12-adapt-eau.qmd
+        - 13-adapt-chaleur-gel.qmd
+        - 14-adapt-bioagresseurs-sol.qmd
+        - 15-adapt-filiere-cotier.qmd
+    - part: "Annexes"
+      chapters:
+        - 09-biblio-annotee.qmd
+        - 10-annexe-forage.qmd
+        - 11-axes-emergents.qmd
     - references.qmd
   reader-mode: true
 

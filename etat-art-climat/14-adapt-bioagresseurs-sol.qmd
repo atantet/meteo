@@ -1,0 +1,42 @@
+# Adaptation — bioagresseurs et sol {#sec-adapt-bioagresseurs-sol}
+
+::: {.callout-note}
+Leviers pour les axes bioagresseurs (@sec-bioagresseurs) et sol/érosion (@sec-sol). Ces deux axes partagent un même socle de pratiques (diversité, couverts, haies, matière organique) — d'où leur regroupement.
+:::
+
+## Biodiversité fonctionnelle et régulation des bioagresseurs
+
+L'Expertise scientifique collective INRAE 2022 (~2 000 références) chiffre l'effet de la diversité végétale sur le **contrôle des bioagresseurs** [@inrae-esco2022] :
+
+- **couverts d'interculture : +125 %** de régulation ; **haies : +84 %** ; **associations d'espèces : +60 %** (avec rendement de la culture **+20 à +40 %**) ; **agroforesterie : +40 %** (et **+61 %** de biodiversité fonctionnelle) ; rotations : **+37 %** de biodiversité.
+- *Limites majeures* : ce sont des **effets moyens multi-contextes** (grandes cultures majoritaires) — **non transposables tels quels** au maraîchage ; l'ESCo souligne que les effets **économiques** à l'échelle exploitation sont « mitigés » (positifs, neutres ou négatifs).
+
+Autres leviers (documentés, peu chiffrés dans les sources lues) :
+
+- **Bandes fleuries** pérennes et diversifiées : augmentent le **parasitisme** des ravageurs (nectar accessible aux parasitoïdes) — l'effet sur le parasitisme ne garantit pas la réduction des dégâts.
+- **Filets anti-insectes** (barrière physique) : efficacité variable selon site/ravageur ; référence disponible surtout en arboriculture (*Drosophila suzukii*) [@ctifl-drosophila-filets] — **à requalifier par espèce maraîchère** (altise, mouche du chou…) et maille adaptée.
+- **Protection biologique intégrée, biocontrôle, prophylaxie, variétés résistantes, surveillance (BSV, modèles MILONI/SEPTOCEL/mildiou)** : leviers de fond du maraîchage bio (cf. @sec-bioagresseurs), à mobiliser d'autant plus que la pression et les désynchronisations augmentent.
+
+## Sol et érosion
+
+- **Couverts d'interculture** : réduisent d'environ **50 %** la lixiviation du nitrate vs sol nu ; chaque tonne de matière sèche capte **25-30 kg N/ha**, et un couvert restitue jusqu'à **~80-100 kg N/ha** à la culture suivante [@arvalis-cipan]. *Conditions* : **date de semis** précoce déterminante ; fenêtres d'interculture souvent courtes en maraîchage.
+- **Apports organiques / compost de ferme** : levier de stockage de carbone à **coût négatif** (léger gain) retenu par l'étude 4p1000 [@inrae-4p1000].
+- **Réduction du travail du sol (TCS, sol vivant)** : augmente le stockage de carbone **en surface**, mais l'effet **disparaît sur l'ensemble du profil** [@inrae-4p1000]. *À pondérer* : le bénéfice réel en maraîchage porte surtout sur la **structure, la battance, l'infiltration et la vie du sol** — non capté par ce seul indicateur carbone.
+- **Haies / agroforesterie** : effet **brise-vent sur ~10× la hauteur** de la haie, modération microclimatique de l'ordre de **±5 °C**, meilleure infiltration (moins de ruissellement) ; stockage de l'ordre de **~5,9 t éq.CO₂/km/an** pour une haie pluristrate gérée dans le Grand Ouest [@afac-resphaies2023]. *Limites* : valeurs de synthèse ; dépend de l'orientation (vents O/SO), du type et de l'âge de la haie.
+- **Objectif 4p1000** : +0,4 %/an de carbone (0-30 cm) ; principe = « les bonnes pratiques aux bons endroits » plutôt qu'une pratique uniforme [@inrae-4p1000].
+
+## Priorisation à 30 ans
+
+::: {.callout-tip title="Lecture pour l'exploitation"}
+- **Diversité + couverts + haies** = triple bénéfice (régulation des bioagresseurs, protection du sol contre la battance/érosion, microclimat et infiltration) : c'est le **cœur de la résilience** d'un système bio diversifié, et un levier largement **sans regret**.
+- Sur **limon battant** (cf. @sec-sol), la **couverture permanente du sol** (couverts, paillage, résidus) est le point d'appui contre les pluies d'hiver plus intenses.
+- La régulation biologique se construit **dans la durée** (haies, bandes fleuries) : à engager tôt.
+:::
+
+## À valider localement
+
+::: {.callout-warning}
+- Les **% de l'ESCo** sont des moyennes dominées par les grandes cultures : à confronter aux réseaux légumes bio (Agrobio 35, DEPHY légumes) avant d'en attendre les mêmes effets.
+- Effet **anti-battance/anti-érosion des couverts sur limons bretons** : non chiffré dans les sources lues ; dépend de la date de semis et de la couverture précoce.
+- **Orientation des haies** vs vents dominants et géométrie parcellaire à étudier sur site.
+:::

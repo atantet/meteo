@@ -1,0 +1,43 @@
+# Adaptation — eau, irrigation et forage {#sec-adapt-eau}
+
+::: {.callout-note}
+Leviers d'adaptation pour l'axe prioritaire (impacts au @sec-eau et @sec-forage). Registre **non prescriptif** : chaque levier est présenté avec sa preuve d'efficacité, ses limites et ses conditions de pertinence — l'arbitrage revient au maraîcher selon son terrain.
+:::
+
+## Efficience de l'irrigation
+
+- **Goutte-à-goutte vs aspersion** : la conversion apporte de l'ordre de **20-30 %** d'économie d'eau (valeurs d'experts), avec une fourchette mesurée à la parcelle de **17-43 %** en plein champ/tunnel [@inrae-irstea-efficience2016]. *Limites* : exige une eau **filtrée** (colmatage des goutteurs), peu adapté aux sols très sableux (lessivage), gain conditionné à la **maîtrise** du système ; goutteurs autorégulants requis sur pente > 4 % [@agrobio35-fiche37].
+- **Pilotage** (tensiométrie, sondes capacitives, bilan hydrique ETP, OAD) : l'amélioration du pilotage relève l'efficience de **10 à 40 %**, la conduite tensiométrique atteignant jusqu'à ~42 % d'économie dans certains essais [@inrae-irstea-efficience2016]. Seuils tensiométriques opérationnels et coefficients culturaux disponibles [@agrobio35-fiche37] ; outil dédié au maraîchage bio breton : IRRIBZH [@ctifl-irribzh]. *Limites* : mesure ponctuelle (placement et suivi hebdomadaire nécessaires).
+
+## Stockage de l'eau d'hiver
+
+Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la saison déficitaire.
+
+- **Retenue de substitution** (ouvrage étanche, déconnecté du milieu en étiage, rempli hors étiage). Réglementation « plan d'eau » : **≥ 3 ha → autorisation**, **> 1 000 m² et < 3 ha → déclaration** ; **implantation interdite en zone humide ou en travers d'un cours d'eau** [@dreal-retenues2012]. Aide de l'Agence de l'eau possible **jusqu'à 70 %**, mais subordonnée à un **PTGE** (projet de territoire pour la gestion de l'eau) [@dreal-retenues2012]. *Limites* : très encadré en zone tendue ; proximité de zones humides en baie du Mont-Saint-Michel (cf. @sec-cotiers).
+- **Récupération des eaux de toiture** de tunnels/serres (règle 1 mm de pluie = 1 L/m²) [@agrobio35-fiche37]. *Limites* : volume borné par la surface et la pluviométrie ; ressource surtout hivernale/printanière → ne couvre le pic estival qu'avec un stockage suffisant (dimensionnement à calculer localement).
+
+## Sols « éponge »
+
+- **Matière organique, paillage/mulch, couverts** augmentent la réserve utile et limitent l'évaporation [@geco-paillage ; @gabfrab2025]. La RFU vaut ~60 % de la réserve utile en sol sableux, ~40 % en argileux [@agrobio35-fiche37]. *Limite* : effet **qualitatif** dans les sources officielles lues — pas de gain de réserve utile chiffré par point de MO ; à raisonner avec les apports (risque d'excès d'azote).
+
+## Esquive et sobriété
+
+- **Choix d'espèces/variétés peu exigeantes**, **décalage de calendrier**, et **priorisation des cultures** en période de restriction. Rappel réglementaire : en *alerte* sécheresse, le maraîchage (« cultures spéciales ») ne peut irriguer **de 11 h à 18 h** [@pref35-secheresse] (cf. @sec-eau).
+
+## Priorisation à 30 ans
+
+::: {.callout-tip title="Lecture pour l'exploitation"}
+- **Efficience (pilotage + goutte-à-goutte)** : levier **sans regret**, efficace immédiatement et quel que soit le scénario — à prioriser.
+- **Stockage de l'eau d'hiver** : levier **structurant** mais lourd (réglementation, investissement, foncier) — à instruire tôt car les délais sont longs.
+- **Sols-éponge** : co-bénéfice eau/sol (cf. @sec-adapt-bioagresseurs-sol), à mener de pair.
+- L'ensemble vise à **réduire la dépendance au débit estival du forage**, dont la projection est à la baisse.
+:::
+
+## À valider localement
+
+::: {.callout-warning}
+- Statut **ZRE** et faisabilité d'une **retenue** (proximité zone humide baie MSM, PTGE existant ?) — cf. @sec-eau.
+- **Réserve utile réelle** de la parcelle (texture, cailloux, MO) par analyse de sol.
+- **Dimensionnement** de la récupération de toiture (surface tunnels × pluviométrie locale).
+- Les % d'efficience viennent surtout de **grandes cultures/arboriculture** : transposition au maraîchage diversifié breton à confirmer.
+:::
