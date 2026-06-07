@@ -12,7 +12,14 @@ Définitions des termes techniques employés dans ce document. Objectif : permet
 
 **Horizon / scénario.** Une projection est **conditionnelle** à un scénario d'émissions ; « horizon 2050 » désigne une moyenne climatique autour de 2050, pas une prévision pour une année précise.
 
-**Journée chaude.** Jour où la température maximale dépasse un seuil (ici **25 °C**). À distinguer de la **nuit tropicale** (température minimale > 20 °C).
+**Indices de température (Météo-France)** [@meteofrance-seuils] :
+
+- **Jour de gel** : journée où la température **minimale ≤ 0 °C**.
+- **Journée chaude** : température **maximale > 25 °C** ; **forte chaleur** au-delà de **30 °C**, très forte chaleur au-delà de **35 °C**.
+- **Nuit tropicale** : température **minimale ≥ 20 °C**.
+- **Vague de chaleur** : au sens national, l'**indicateur thermique** (moyenne de 30 stations) est **≥ 25,3 °C** au moins un jour **et ≥ 23,4 °C pendant au moins 3 jours consécutifs** ; la **canicule** y ajoute un risque sanitaire (seuils départementaux de vigilance).
+
+**Indices de précipitation.** Un **jour de pluie** cumule **≥ 1 mm** ; l'« intensité des fortes pluies » suit le **cumul du jour le plus pluvieux de l'année** (les modèles sous-estiment les orages, cf. @sec-climat).
 
 **Vigilance (Météo-France).** Niveaux d'alerte météo **jaune / orange / rouge**, sur lesquels s'appuie désormais la réglementation du travail à la chaleur.
 
@@ -31,6 +38,10 @@ Définitions des termes techniques employés dans ce document. Objectif : permet
 **Étiage.** Période de plus basses eaux d'un cours d'eau (généralement été-automne). Le **débit d'étiage** est le débit pendant cette période.
 
 **QMNA5.** Débit mensuel minimal annuel de **fréquence quinquennale sèche** : le niveau d'étiage atteint en moyenne **une année sur cinq**. Référence réglementaire du partage de l'eau [@sdage-lb].
+
+**VCN10.** **Débit moyen minimal sur 10 jours consécutifs** dans l'année — l'indicateur d'**étiage** estival utilisé par Explore2 ; *VCN10 quinquennal* = de fréquence cinq ans.
+
+**DOE / DCR.** **Débit d'objectif d'étiage** (à respecter en moyenne **8 années sur 10** pour satisfaire usages et milieux) et **débit de crise** (en deçà duquel seuls les usages prioritaires — eau potable, sécurité — sont maintenus), définis à une station de référence [@acgq-couesnon ; @sdage-lb].
 
 **Module.** Débit **moyen interannuel** d'un cours d'eau (sa « moyenne » de long terme).
 
