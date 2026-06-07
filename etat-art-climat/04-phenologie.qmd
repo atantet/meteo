@@ -5,15 +5,27 @@ Le réchauffement ne fait pas que « réchauffer » : il **déplace le calendrie
 ## Ce que disent les observations
 
 - L'allongement de la **saison de végétation** est documenté en Bretagne, conséquence directe de la hausse des températures et de la baisse des jours de gel (de 23 à 7 j/an à l'horizon +4 °C, cf. @sec-climat) [@oracle2021 ; @oeb-temperatures].
-- La douceur hivernale et printanière **avance le débourrement et la reprise de végétation** de plusieurs jours à plusieurs semaines selon les espèces — phénomène suivi par les réseaux d'observation phénologique [@obs-saisons-gel].
+- La douceur hivernale et printanière **avance le calendrier biologique**. *Attention au transfert de données* : cet avancement est surtout **quantifié sur les espèces pérennes** — arbres fruitiers (débourrement avancé de ~10-15 jours chez le cerisier) et flore sauvage suivie par les réseaux phénologiques [@obs-saisons-gel ; @inrae-fruitiers-froid]. Pour le **maraîchage**, la phénologie qui compte est autre : **semis et plantations possibles plus tôt**, **levée et reprise plus rapides**, **montaison plus précoce**, et surtout une **exposition accrue des jeunes plants et des cultures hivernantes au gel tardif**.
 
 ## Le paradoxe du gel tardif
 
 Le point clé, contre-intuitif : **moins de jours de gel ne signifie pas moins de dégâts de gel**.
 
-- En avançant la phénologie, le réchauffement expose des **organes déjà sortis et sensibles** (bourgeons, jeunes pousses, fleurs) à des gelées tardives qui, elles, n'ont pas disparu [@obs-saisons-gel].
+- En avançant la phénologie, le réchauffement expose des **stades sensibles** à des gelées tardives qui, elles, n'ont pas disparu : bourgeons et fleurs chez les pérennes, mais surtout — en maraîchage — **jeunes plants, semis levés et cultures de printemps avancées** [@obs-saisons-gel].
 - Le risque vient donc du **décalage** entre une végétation précoce et des coups de froid encore possibles au printemps — autant que du thermomètre lui-même [@obs-saisons-gel].
-- L'attribution scientifique va dans ce sens : le changement climatique aurait **augmenté d'environ 60 %** la probabilité qu'un épisode de gel survienne en pleine période de débourrement (travaux relayés par R. Vautard) [@obs-saisons-gel]. *Chiffre issu d'une source de vulgarisation citant des travaux ; à rattacher à la publication primaire pour un usage chiffré.*
+- L'attribution scientifique va dans ce sens : le changement climatique aurait **augmenté d'environ 60 %** la probabilité qu'un épisode de gel survienne en pleine période de débourrement (travaux relayés par R. Vautard) [@obs-saisons-gel]. *Indicateur **arboricole/ligneux** (débourrement), à transposer au maraîchage avec prudence ; chiffre de vulgarisation à rattacher à sa publication primaire.*
+
+## Sensibilité des légumes au gel
+
+La sensibilité varie fortement **selon le légume, le stade** (plus la culture est développée, plus elle est sensible), l'état hydrique et la durée du gel — les **plants en pépinière** sont les plus exposés [@ca31-gel2026] :
+
+| Catégorie | Légumes | Seuil indicatif |
+|---|---|---|
+| **Très sensibles** | solanacées (poivron, aubergine dès 0 °C ; tomate et pomme de terre jusqu'à −2 °C), courgette, concombre, haricot, courge, fenouil, céleri ; **fleur de fraisier dès −1 °C** | **0 à −1 °C** |
+| **Sensibles** | betterave rouge, radis noir, **carotte, salade** (brûlures foliaires, cœur), brocoli, chou-fleur | **−3 à −5 °C** |
+| **Tolérants** | mâche, épinard, blette, choux de Bruxelles et frisé, **poireau** (jusqu'à ~−7 °C) | très bas |
+
+Le **gel radiatif** (nuits calmes, ciel clair) est le plus fréquent ; les **bas-fonds** sont à éviter pour les cultures sensibles [@ca31-gel2026]. *Repères Midi-Pyrénées, à transposer avec prudence en Bretagne (humidité plus forte → rosée/condensation sous voile ; gel advectif côtier possible).*
 
 ## Apprentissages à 30 ans
 
