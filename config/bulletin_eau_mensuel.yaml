@@ -32,4 +32,4 @@ pluie:
 
 diffusion:
   # False = dry-run (imprime, n'envoie pas). True = envoi SMTP réel.
-  envoi_reel: false
+  envoi_reel: true
