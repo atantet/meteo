@@ -28,7 +28,7 @@ Le **territoire** s'emboîte en trois échelles :
 
 **Implantation de l'exploitation.** Les parcelles se répartissent sur **trois bassins versants** :
 
-- **La Petite Claye** (Pleine-Fougères), site **principal de maraîchage diversifié irrigué** (forage, cf. @sec-forage), est **à cheval sur deux bassins** : le **Couesnon** (SAGE Couesnon) et le **Marais de Dol** (SAGE des bassins côtiers de la région de Dol) ;
+- **La Petite Claye** (Pleine-Fougères), site **principal de maraîchage diversifié irrigué** (forage, cf. @sec-forage), est **à cheval sur deux sous-bassins** : sa **majeure partie — dont le forage — draine vers Le Guyoult** (masse d'eau FRGR1597, versant **côtier de Dol** → SAGE des bassins côtiers de la région de Dol), le reste vers **Le Chenelais** (FRGR0023, affluent du **Couesnon** → SAGE Couesnon) ;
 - les parcelles de **Saint-Malo**, sur le bassin **Rance-Frémur**, portent le **blé panifiable** (pain de ferme) et **ne sont pas irriguées**.
 
 Le **fil rouge eau/irrigation** de ce document concerne donc spécifiquement **La Petite Claye** ; les parcelles de blé, non irriguées, restent exposées aux autres aléas (chaleur, gel…) mais sortent de la problématique forage.

@@ -42,7 +42,7 @@ Définitions des termes techniques employés dans ce document. Objectif : permet
 
 **Recharge.** Reconstitution des réserves souterraines par infiltration des pluies efficaces, concentrée d'**octobre à mars**.
 
-**Masse d'eau souterraine.** Unité de gestion de la directive-cadre sur l'eau (code **FRGG…**). **BDLISA** est le référentiel des entités hydrogéologiques ; la **BSS** (Banque du Sous-Sol) recense les forages.
+**Masse d'eau.** Unité de gestion de la directive-cadre sur l'eau : **de rivière** (code **FRGR…**) ou **souterraine / nappe** (code **FRGG…**). Un **forage relève d'une masse d'eau souterraine**, même s'il se situe sur le bassin versant d'une rivière donnée — les deux référentiels ne coïncident pas. **BDLISA** est le référentiel des entités hydrogéologiques ; la **BSS** (Banque du Sous-Sol) recense les forages.
 
 ## Réglementation de l'eau
 
