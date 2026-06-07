@@ -64,6 +64,7 @@ L'état de l'art mêle des sources de statut différent. Pour rester transparent
 - **Officiel** : page ou rapport d'agence/service public (Météo-France, BRGM, INRAE, OEB, Agence de l'eau, INRS, Agence Bio, Agreste…).
 - **Expert** : publication signée par des chercheurs identifiés, hors revue à comité de lecture (ex. tribune d'hydrogéologues du BRGM).
 - **À confirmer** : information cohérente mais non vérifiée sur sa source primaire exacte ; signalée comme telle dans le texte.
+- **Presse** : article de presse, mobilisé seulement pour mise en perspective, jamais comme source de données.
 
 Un principe directeur : **distinguer systématiquement l'observé du projeté**. Les tendances passées (séries Météo-France, ORACLE) sont des mesures ; les valeurs futures sont **conditionnelles à un scénario** et assorties d'incertitudes de modèles — elles s'emploient comme **ordres de grandeur** orientant la décision, jamais comme des prédictions exactes.
 

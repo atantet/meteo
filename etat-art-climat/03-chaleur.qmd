@@ -19,7 +19,7 @@ Les seuils thermiques sont surtout documentés sur la **tomate**, espèce modèl
 - **Concombre, poivron, aubergine, haricot** : optima 20-30 °C selon l'espèce, avec chute de fleurs / défaut de nouaison sous forte chaleur, par les mêmes mécanismes polliniques que la tomate [@euphytica2017].
 - Côté **seuils bas** (zéros de végétation, source officielle FR) : concombre 15 °C, courgette 16 °C, tomate et aubergine 12 °C, haricot 10 °C, poivron 8 °C, chou 3-5 °C [@inra-ephytia-zeros] — utiles pour le calendrier de plantation.
 
-**Surchauffe sous abri** : l'air chaud mal évacué fait monter la température intérieure bien au-dessus de l'extérieur → fermeture stomatique, photosynthèse et croissance réduites, et chaleur + humidité favorisant mildiou/botrytis/oïdium (cf. @sec-bioagresseurs). La ventilation, l'ombrage/blanchiment estival et la gestion des consignes sont les leviers documentés [@oeb-vague-chaleur]. *Le pic de température absolu sous tunnel non ventilé n'est pas chiffré par une source robuste — à confirmer.*
+**Surchauffe sous abri** : l'air chaud mal évacué fait monter la température intérieure bien au-dessus de l'extérieur → fermeture stomatique, photosynthèse et croissance réduites, et chaleur + humidité favorisant mildiou/botrytis/oïdium (cf. @sec-bioagresseurs). La ventilation, l'ombrage/blanchiment estival et la gestion des consignes sont les leviers documentés [@oeb-vague-chaleur].
 
 ## Exposition projetée en Bretagne
 
@@ -36,7 +36,7 @@ Le maraîchage est un **travail physique soutenu**, exposé en plein champ et pl
 
 - Repères de risque INRS : au-delà de **30 °C** (travail sédentaire) et **28 °C** (travail physique) — le maraîchage relève du seuil bas [@inrs-chaleur-retenir].
 - Le Code du travail ne fixe **pas** de température maximale interdisant le travail : l'obligation repose sur l'**évaluation des risques** (art. L. 4121-1) [@inrs-chaleur-reglementation].
-- **Depuis le 1ᵉʳ juillet 2025**, un nouveau cadre (art. R. 4463-3) impose des **mesures de prévention obligatoires**, alignées sur la **vigilance Météo-France** (jaune/orange/rouge), avec réévaluation quotidienne des risques en vigilance rouge [@inrs-chaleur-reglementation].
+- **Depuis le 1ᵉʳ juillet 2025**, un nouveau cadre (art. R. 4463-3) impose des **mesures de prévention obligatoires**, alignées sur la **vigilance Météo-France** : déclenchées **dès la vigilance jaune** (jaune/orange/rouge), avec réévaluation quotidienne des risques en vigilance rouge [@inrs-chaleur-reglementation].
 - **Pénibilité (C2P)** : une exposition > 900 h/an à ≥ 30 °C ouvre des points au compte de prévention ; les **moins de 18 ans** ne peuvent être affectés à des travaux exposant à des températures extrêmes (art. D. 4153-36) [@inrs-chaleur-reglementation].
 - Risques santé majeurs : **coup de chaleur** (température corporelle > 40,6 °C) et déshydratation, précédés de signes d'alerte (fatigue, sueurs excessives, nausées, céphalées, vertiges, crampes) ; **létalité du coup de chaleur de l'ordre de 15-25 %** [@inrs-chaleur-retenir ; @inrs-accidents].
 - **Acclimatation** : elle s'acquiert en **8 à 12 jours** d'exposition progressive et se **perd en ~8 jours** d'arrêt [@inrs-accidents] — argument pour anticiper l'organisation avant les premières vagues.

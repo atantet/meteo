@@ -13,7 +13,7 @@ Leviers pour les axes chaleur (@sec-chaleur) et phénologie/gel (@sec-phenologie
 
 ## Gel tardif
 
-(Repères : Mémo gel en maraîchage, Chambre d'agriculture de Haute-Garonne — gel **radiatif** du Sud-Ouest, transposable avec prudence [@ca31-gel2026].)
+(Repères : Mémo gel en maraîchage, Chambres d'agriculture de Midi-Pyrénées — gel **radiatif** du Sud-Ouest, transposable avec prudence [@ca31-gel2026].)
 
 - **Voiles de forçage P17-P30** : gain **+1 à +3 °C** ; **double voile** = effet cumulé (transmission lumineuse résiduelle ~66 %). *Limites* : arceaux nécessaires, **confinement favorable aux maladies** (sclerotinia, botrytis) → limiter la durée ; **sous −3 °C la bâche gèle**, découvrir au dégel.
 - **Petits tunnels / abris froids** : gain ~**2 °C**. *Limite* : risque d'**inversion thermique** (nuit calme, ciel clair) → garder un minimum d'aération.
@@ -30,7 +30,7 @@ Opportunité (démarrage plus précoce, étalement) mais **exposition accrue au 
 - **Cadre réglementaire 2025** : décret n° 2025-482 du 27 mai 2025 (articles **R. 4463-1 à -8** du Code du travail), en vigueur au **1ᵉʳ juillet 2025** ; les mesures se déclenchent dès la **vigilance jaune** Météo-France [@legifrance-decret-chaleur2025 ; @inrs-chaleur-reglementation].
 - **Mesures** (art. R. 4463-3) : aménagement des postes, **adaptation des horaires** et des pauses, réduction du rayonnement, **eau potable fraîche** à volonté, intégration au plan de prévention [@legifrance-decret-chaleur2025].
 - **MSA** (agriculture) : seuils d'alerte **30 °C** (travail sédentaire) / **28 °C** (travail physique) ; **≥ 3 L d'eau/jour/personne** en l'absence d'eau courante ; ombrage des postes, zones de repos [@msa-chaleur].
-- **Coup de chaleur** : température corporelle > 39 °C → appeler le 15/112 [@inrs-accidents].
+- **Coup de chaleur** : dès **39 °C** de température corporelle (signe d'alerte ; le coup de chaleur avéré correspond à ~40,6 °C, cf. @sec-chaleur), **appeler le 15/112** [@inrs-accidents].
 
 ## Priorisation à 30 ans
 

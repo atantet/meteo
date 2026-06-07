@@ -57,7 +57,7 @@ Le régime bascule selon que le secteur est, ou non, **classé en zone de répar
 
 La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-fiche37], complétée par le guide 2025 [@gabfrab2025], le guide Sud & Bio [@calcet2016] et le projet **IRRIBZH** du CTIFL, dédié au pilotage hydrique du maraîchage bio breton [@ctifl-irribzh].
 
-- **Bilan hydrique** : le besoin est l'évapotranspiration maximale **ETM = Kc × ETP** ; on suit la **réserve facilement utilisable (RFU)** du sol, alimentée par pluie + irrigation, diminuée de l'ETM [@agrobio35-fiche37]. (L'ETP de référence se calcule de façon standardisée, cf. la méthode SAFRAN [@vannier2012].)
+- **Bilan hydrique** : le besoin est l'évapotranspiration maximale **ETM = Kc × ETP** ; on suit la **réserve facilement utilisable (RFU)** du sol, alimentée par pluie + irrigation, diminuée de l'ETM [@agrobio35-fiche37]. (L'ETP de référence suit la formule **FAO Penman-Monteith**, telle qu'employée dans la réanalyse SAFRAN [@vannier2012].)
 - **La texture commande la conduite** : RFU ≈ 60 % de la réserve utile en sol sableux, ≈ 40 % en sol argileux ; perméabilité ≈ 50 mm/h (sable), 13 mm/h (limon), 0,5 mm/h (argile). Sols sableux → apports **modérés et fréquents** (sinon lessivage) ; sols argileux → apports **plus importants et espacés** [@agrobio35-fiche37].
 - **Sous abri**, l'ETP est réduite (ETP sous abri ≈ **80 %** de l'ETP plein champ, car le vent y est absent) [@agrobio35-fiche37].
 - **Tensiométrie — seuils de décision** : 0 cbar = sol saturé (ne pas irriguer) ; 10-20 cbar = capacité au champ ; 30-40 cbar = irriguer (sols sableux) ; 40-50 cbar (sols argileux) ; **60-70 cbar = stress, urgent**. Deux tensiomètres (surface + 15-20 cm) recommandés [@agrobio35-fiche37].

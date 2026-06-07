@@ -7,7 +7,7 @@ Ce chapitre fixe la **toile de fond physique** dont dépendent tous les axes sui
 - La Bretagne s'est **nettement réchauffée** : la température moyenne annuelle a augmenté de **+1,74 à +1,85 °C en 60 ans** (1960-2020), mesure établie sur cinq stations représentatives (Brest, Lorient, Pleurtuit, Rennes, Rostrenen). Le réchauffement est **plus marqué au printemps et en été** qu'en automne-hiver [@oracle2021].
 - Les **journées chaudes** se multiplient : le nombre de jours où la température maximale dépasse 25 °C a **quasiment doublé** entre 1959-1989 et 1990-2020, en particulier à Rennes [@oracle2021].
 - Cette évolution **allonge la saison de végétation** et, plus à l'est de la région (Rennes, secteur de Pleine-Fougères), accentue les **déficits hydriques estivaux** [@oracle2021 ; @meteofrance2019].
-- Le gradient régional reste marqué : l'**est de l'Ille-et-Vilaine est plus continental et plus sec** que la pointe finistérienne (la pluie efficace annuelle est de l'ordre de 150 mm à Rennes contre ~600 mm à Quimper, cf. @sec-eau).
+- Le gradient régional reste marqué : l'**est de l'Ille-et-Vilaine est plus continental et plus sec** que la pointe finistérienne (la pluie efficace annuelle est de l'ordre de 150 mm à Rennes contre ~600 mm à Quimper [@oeb-secheresses], cf. @sec-eau).
 
 ## Ce que disent les projections
 
@@ -37,7 +37,7 @@ L'Observatoire de l'environnement en Bretagne précise que les modèles climatiq
 
 ::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
 - Le signal dominant pour le maraîchage de Pleine-Fougères n'est **pas** « moins de pluie en général » mais une **redistribution saisonnière** : **hivers plus arrosés** (et plus érosifs, cf. @sec-sol) face à des **étés plus secs et plus chauds** avec une **évaporation en hausse**. Le **stress hydrique estival** structurera la conduite (cf. @sec-eau).
-- Le réchauffement est **acquis et mesuré** localement (+1,8 °C déjà sur 60 ans) : ce n'est pas une hypothèse lointaine mais une tendance en cours.
+- Le réchauffement est **acquis et mesuré** localement (+1,8 °C déjà sur 1960-2020) : ce n'est pas une hypothèse lointaine mais une tendance en cours. *Par coïncidence, le réchauffement **additionnel** projeté à 2050 (≈ +1,8 °C vs 1976-2005) est du même ordre que celui déjà observé — deux choses distinctes.*
 - L'**est de l'Ille-et-Vilaine** est la partie de la Bretagne où le déficit hydrique estival est le plus sensible : le secteur est en première ligne, pas à l'abri par sa « réputation humide ».
 - La baisse des **jours de gel** est réelle, mais elle ne supprime pas le **risque de gel tardif** — au contraire (cf. @sec-phenologie).
 :::
