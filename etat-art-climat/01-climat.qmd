@@ -24,7 +24,7 @@ Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1
 **À l'horizon 2100 (France à +4 °C)** [@oeb-temperatures ; @oeb-precipitations] :
 
 - température moyenne annuelle : **+2,9 °C** en Bretagne, avec un gradient renforcé du nord-ouest (**+2,4 °C** en Finistère) au sud-est (**+3,2 °C** vers le golfe du Morbihan) ;
-- **journées chaudes (> 25 °C) : 2 à 5 fois plus nombreuses** — au minimum +17 jours (Finistère), au maximum **+54 jours** ;
+- **journées chaudes (> 25 °C) : 2 à 5 fois plus nombreuses qu'en 1976-2005** — au minimum +17 jours (Finistère), au maximum **+54 jours** ;
 - **jours de gel divisés par trois** : de 23 à **7 jours/an** en moyenne régionale ;
 - **évaporation : +12 % à +33 %** selon les modèles ;
 - **précipitations : été −26 %, hiver +14 %** ; intensité des fortes pluies **+6 % à +34 %** sur l'année.

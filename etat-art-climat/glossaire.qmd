@@ -1,0 +1,83 @@
+# Glossaire {#sec-glossaire}
+
+Définitions des termes techniques employés dans ce document. Objectif : permettre de lire sans ambiguïté des formulations comme « *jusqu'à +38 jours/an de sols secs* » ou « *la pluie efficace alimente 39 % de la ressource* ».
+
+## Climat et projections
+
+**Période de référence (1976-2005).** Climat passé servant de base de comparaison aux projections : une valeur projetée « +1,8 °C » s'entend *par rapport à la moyenne 1976-2005*. C'est la référence des données DRIAS/Observatoire de l'environnement en Bretagne utilisées ici.
+
+**Normale climatique.** Moyenne d'une variable météo sur 30 ans (p. ex. 1991-2020), standard de l'Organisation météorologique mondiale.
+
+**TRACC.** Trajectoire de réchauffement de référence pour l'adaptation au changement climatique : cadre national fixant **+2,7 °C en 2050** et **+4 °C en 2100** pour la métropole [@tracc2025]. Les projections du document s'y alignent.
+
+**Horizon / scénario.** Une projection est **conditionnelle** à un scénario d'émissions ; « horizon 2050 » désigne une moyenne climatique autour de 2050, pas une prévision pour une année précise.
+
+**Journée chaude.** Jour où la température maximale dépasse un seuil (ici **25 °C**). À distinguer de la **nuit tropicale** (température minimale > 20 °C).
+
+**Vigilance (Météo-France).** Niveaux d'alerte météo **jaune / orange / rouge**, sur lesquels s'appuie désormais la réglementation du travail à la chaleur.
+
+## Eau : le cycle et la sécheresse
+
+**Évapotranspiration de référence (ETP).** Demande climatique d'évaporation pour un couvert de référence (gazon), calculée par la méthode FAO Penman-Monteith [@vannier2012]. L'**ETM** (évapotranspiration maximale d'une culture) = ETP × **Kc** (coefficient cultural).
+
+**Pluie efficace.** Fraction des précipitations qui, une fois l'évapotranspiration assurée et la réserve du sol remplie, **ruisselle ou s'infiltre** pour alimenter cours d'eau et nappes. En Bretagne, de l'ordre de **39 %** des précipitations [@oeb-secheresses] ; le reste retourne à l'atmosphère.
+
+**Sécheresse — trois maillons d'une même chaîne** [@oeb-secheresses] :
+
+- **Sécheresse météorologique** : déficit de **précipitations** sur une période, par rapport à la normale. Premier maillon.
+- **Sécheresse des sols** (dite *édaphique* ou *agricole*) : déficit d'**humidité du sol** pénalisant les cultures, mesuré par un indice d'humidité des sols. Un **« jour de sols secs »** est un jour où cette humidité passe sous un seuil ; « +38 jours/an de sols secs » signifie donc 38 journées sèches supplémentaires par an *par rapport à la référence*.
+- **Sécheresse hydrologique** : baisse des **débits** des cours d'eau et des **niveaux de nappes**. Dernier maillon ; en Bretagne, la faible inertie des nappes fait que la sécheresse météo s'y propage en quelques semaines.
+
+**Étiage.** Période de plus basses eaux d'un cours d'eau (généralement été-automne). Le **débit d'étiage** est le débit pendant cette période.
+
+**QMNA5.** Débit mensuel minimal annuel de **fréquence quinquennale sèche** : le niveau d'étiage atteint en moyenne **une année sur cinq**. Référence réglementaire du partage de l'eau [@sdage-lb].
+
+**Module.** Débit **moyen interannuel** d'un cours d'eau (sa « moyenne » de long terme).
+
+**Débit réservé.** Débit minimal qu'un ouvrage doit **laisser à l'aval** pour la vie aquatique : au moins **10 % du module** [@legifrance-l214-18].
+
+## Eaux souterraines
+
+**Nappe de socle.** Aquifère logé dans des **roches dures fissurées** (granite, schiste, grès), où l'eau circule dans les fractures. **Faible capacité de stockage** et **faible inertie** (cycle annuel), au contraire des grandes nappes sédimentaires — d'où la vulnérabilité bretonne à la sécheresse.
+
+**Recharge.** Reconstitution des réserves souterraines par infiltration des pluies efficaces, concentrée d'**octobre à mars**.
+
+**Masse d'eau souterraine.** Unité de gestion de la directive-cadre sur l'eau (code **FRGG…**). **BDLISA** est le référentiel des entités hydrogéologiques ; la **BSS** (Banque du Sous-Sol) recense les forages.
+
+## Réglementation de l'eau
+
+**IOTA.** Nomenclature « loi sur l'eau » des **installations, ouvrages, travaux et activités** soumis à **déclaration** ou **autorisation** (article R214-1) [@legifrance-r214]. Un forage et son prélèvement y relèvent de rubriques distinctes.
+
+**ZRE (zone de répartition des eaux).** Secteur où la ressource est jugée **insuffisante** au regard des besoins : les seuils de prélèvement y sont **abaissés** (gestion stricte).
+
+**SAGE / SDAGE.** Schémas d'aménagement et de gestion des eaux, à l'échelle d'un sous-bassin (SAGE) ou du grand bassin Loire-Bretagne (SDAGE) [@sdage-lb].
+
+## Sol et agronomie
+
+**Réserve utile (RU).** Quantité d'eau du sol **disponible pour les plantes** entre la capacité au champ et le point de flétrissement. La **réserve facilement utilisable (RFU)** en est la fraction mobilisable **sans stress** (≈ 60 % de la RU en sol sableux, ≈ 40 % en argileux) [@agrobio35-fiche37].
+
+**Battance.** Tendance d'un sol (surtout **limoneux**) à former en surface une **croûte** peu perméable sous l'effet des pluies, génératrice de ruissellement et d'érosion.
+
+**Couvert d'interculture / CIPAN.** Culture implantée **entre deux cultures principales** ; protège le sol, **piège l'azote** (culture intermédiaire piège à nitrate) et apporte de la matière organique.
+
+**Humectation foliaire.** Durée pendant laquelle le **feuillage reste mouillé** (rosée, pluie) : facteur déterminant de l'infection par le **mildiou**, davantage que la pluie elle-même.
+
+**Phénologie.** Calendrier des **stades de développement** d'une plante (débourrement, floraison…). Son **avancement** sous climat plus doux est au cœur du paradoxe du gel tardif.
+
+## Bioagresseurs
+
+**Bioagresseur.** Organisme nuisible aux cultures : **ravageur** (insecte…), **maladie** (champignon, bactérie) ou **adventice** (« mauvaise herbe »).
+
+**Auxiliaire.** Organisme **utile** régulant les bioagresseurs (prédateurs, parasitoïdes, pollinisateurs).
+
+**Protection biologique intégrée (PBI).** Stratégie combinant auxiliaires, biocontrôle et prophylaxie plutôt que traitements systématiques.
+
+## Risques côtiers
+
+**Submersion marine.** Inondation temporaire de terres basses par la mer (forte marée + surcote de tempête).
+
+**Remontée de nappe.** Élévation du niveau de la nappe superficielle jusqu'à engorger les sols — favorisée, en zone basse, par l'élévation du niveau marin.
+
+**Salinisation.** Augmentation de la teneur en sel de l'eau ou du sol (intrusion marine, biseau salé).
+
+**NGF.** Nivellement général de la France : système d'**altitudes** de référence (le marais de Dol culmine à 2,5-3 m NGF dans sa partie basse).

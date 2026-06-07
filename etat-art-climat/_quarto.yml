@@ -30,6 +30,7 @@ book:
         - 15-adapt-filiere-cotier.qmd
     - part: "Annexes"
       chapters:
+        - glossaire.qmd
         - 09-biblio-annotee.qmd
         - 10-annexe-forage.qmd
         - 11-axes-emergents.qmd

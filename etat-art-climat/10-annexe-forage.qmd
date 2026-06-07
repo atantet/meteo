@@ -44,7 +44,7 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 
 ## Lecture ressource & climat (cadre du @sec-eau et du @sec-climat)
 
-- La fiabilité estivale du forage dépend d'un **étiage de nappe** que les projections donnent **en baisse** (débits d'étiage −14 à −49 % à l'horizon +4 °C) [@oeb-secheresses] : à 30 ans, **plus de tension en fin d'été**, au moment où le maraîchage a le plus besoin d'eau.
+- La fiabilité estivale du forage suit l'état de la **nappe de socle** en fin d'été. Les projections portent sur les **débits d'étiage des *cours d'eau*** (proxy de cet état, pas le débit de pompage lui-même) : **−14 à −49 %** à l'horizon +4 °C, avec un étiage allongé [@oeb-secheresses]. À 30 ans, cela signifie **plus de tension en fin d'été**, au moment où le maraîchage a le plus besoin d'eau. *Projeter le débit du forage proprement dit est une autre question — cf. ci-dessous.*
 - La **recharge hivernale**, elle, devrait rester correcte voire un peu meilleure (hivers plus humides, @sec-climat) : d'où l'intérêt stratégique de **stocker l'eau d'hiver** plutôt que de compter sur un débit estival de nappe.
 - **Risque côtier** (@sec-cotiers) : La Petite Claye est en frange du **Marais de Dol**. Le forage est en **socle à 76 m**, a priori moins exposé qu'une nappe alluviale superficielle, mais la **salinisation** (intrusion, remontée de nappe salée) reste un risque à **surveiller dans la durée** (conductivité de l'eau).
 
@@ -54,6 +54,7 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 - **Usage réel actuel** : volume annuel effectivement prélevé vs 1 500 m³/an déclarés (compteur) — détermine le régime IOTA applicable aujourd'hui (seuil pertinent : 10 000 m³/an hors ZRE).
 - **Confirmer hors ZRE** et le rattachement de la parcelle (SAGE Couesnon vs bassins côtiers de Dol) auprès de la **DDTM 35** ; vérifier le **code DCE** exact de la masse d'eau [@masse-eau-couesnon].
 - **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit (InfoTerre inaccessible à distance). Suivi de tendance possible via le piézomètre ADES de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne].
+- **Peut-on projeter le débit du forage ?** *(question ouverte, à approfondir)* Le « −14 à −49 % » concerne l'étiage des cours d'eau, pas le débit de pompage. Une projection du forage demanderait de croiser les **projections de recharge des nappes** d'Explore2 [@explore2], le **débit spécifique** et le niveau piézométrique de l'ouvrage, et le suivi du piézomètre de Bonnemain [@ades-bonnemain] — sans modèle hydrogéologique local, on en restera à une **tendance** (baisse de la disponibilité estivale), pas à un débit chiffré.
 - **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme.
 - **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique actuel.
 :::
