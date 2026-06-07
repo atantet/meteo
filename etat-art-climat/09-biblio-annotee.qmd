@@ -12,7 +12,7 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 - **ORACLE Bretagne, édition 2021** [@oracle2021]. *Officiel (Chambre d'agriculture + Météo-France).* La pièce maîtresse historique : séries 1960-2020 sur 5 stations, indices agro-climatiques. **À en tirer** : le socle d'observations régionales (+1,8 °C/60 ans, jours échaudants ×2). Reste qualitatif sur les bioagresseurs des légumes.
 - **Météo-France, Caractérisation du climat en Bretagne (2019)** [@meteofrance2019]. *Officiel.* Synthèse régionale. **À en tirer** : tendances observées et premiers éléments de projection.
 - **OEB — températures futures** [@oeb-temperatures] et **précipitations futures** [@oeb-precipitations]. *Officiel (observatoire public, d'après DRIAS).* Les projections les plus à jour, calées TRACC. **À en tirer** : chiffres 2100 (+2,9 °C ; gel 23→7 j ; été −26 %, hiver +14 %) ; signale explicitement la sous-estimation des orages.
-- **Météo-France — Quel climat futur en Bretagne** [@meteofrance-futur-bzh]. *Officiel.* **À en tirer** : repères 2050 (+1,8 °C ; jours de sécheresse 124→140).
+- **Météo-France — Quel climat futur en Bretagne** [@meteofrance-futur-bzh]. *Officiel.* **À en tirer** : repères 2050 (+1,8 °C ; jours de sols secs 124→140).
 - **DRIAS, les futurs du climat** [@drias]. *Officiel.* Portail de projections régionalisées. **À en tirer** : source primaire pour aller chercher les indices au pas mensuel et local.
 - **GIEC Normand (2021)** [@cantat2021]. *Expert.* Utile par proximité géographique (façade Manche). **À en tirer** : mise en perspective des aléas littoraux.
 - **Lamy, thèse sécheresses en Bretagne (2013)** [@lamy2013]. *Primaire (thèse).* **À en tirer** : approfondissement scientifique de la sécheresse bretonne, malgré son ancienneté.
@@ -66,7 +66,7 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 ## Pratiques & méthodes transverses
 
 - **ITAB — Produire des légumes biologiques (2020)** [@itab2020]. *Officiel/technique.* **À en tirer** : référentiel technique du maraîchage bio diversifié.
-- **CTIFL — ADICT** [@ctifl-adict] et **RMT ClimA** [@rmt-clima]. *Officiel.* **À en tirer** : programmes d'adaptation des itinéraires maraîchers (pour la phase 2).
+- **CTIFL — ADICT** [@ctifl-adict] et **RMT ClimA** [@rmt-clima]. *Officiel.* **À en tirer** : programmes d'adaptation des itinéraires maraîchers (Partie II — adaptation).
 - **IDEA4 (2023)** [@idea4-2023]. *Officiel (méthode).* **À en tirer** : grille d'évaluation de la durabilité de l'exploitation.
 - **GES'TIM+ (2020)** [@gestim2020]. *Officiel.* **À en tirer** : méthodologie d'évaluation des impacts environnementaux (GES, énergie).
 - **Produire Bio (FNAB)** — infographie adaptation [@produirebio-infographie], arbre & AB [@produirebio-arbre], enjeux climatiques [@produirebio-enjeux]. *Officiel (réseau professionnel).* **À en tirer** : vulgarisation et retours de terrain ; entrées vers des références plus robustes.

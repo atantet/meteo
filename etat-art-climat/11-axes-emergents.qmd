@@ -4,7 +4,7 @@ La consolidation des sources a fait apparaître des **thèmes adjacents** qui d�
 
 ## Issus de la recherche (signalés par les sources)
 
-1. **Eau d'hiver : stockage et retenues.** Le déséquilibre hivers excédentaires / étés déficitaires (@sec-eau, @sec-forage) pointe vers le stockage comme levier structurant — avec son propre cadre réglementaire (création de retenue, régime IOTA). *Relève surtout de la phase 2 (adaptation).*
+1. **Eau d'hiver : stockage et retenues.** Le déséquilibre hivers excédentaires / étés déficitaires (@sec-eau, @sec-forage) pointe vers le stockage comme levier structurant — avec son propre cadre réglementaire (création de retenue, régime IOTA). *Relève surtout de l'adaptation (Partie II) et de ses approfondissements.*
 
 2. **Qualité de l'eau et du sol (au-delà de la quantité).** Nitrates, pesticides, salinité de la nappe de socle, fer/manganèse : la **qualité** de la ressource du forage et la teneur des sols conditionnent autant l'usage que la quantité. Convergent avec les enjeux bio et littoraux.
 
@@ -24,4 +24,4 @@ La consolidation des sources a fait apparaître des **thèmes adjacents** qui d�
 
 ## Note de cadrage
 
-Ces axes ne remettent pas en cause la structure en huit thèmes : ils en sont des **ramifications**. Plusieurs (stockage de l'eau, autonomie azotée, variétés tolérantes) relèvent davantage de la **phase 2 « adaptation »** que de l'inventaire des impacts. Ils sont consignés ici pour ne pas être perdus.
+Ces axes ne remettent pas en cause la structure en huit thèmes : ils en sont des **ramifications**. Plusieurs (stockage de l'eau, autonomie azotée, variétés tolérantes) relèvent davantage de l'**adaptation (Partie II)** — voire de ses approfondissements — que de l'inventaire des impacts. Ils sont consignés ici pour ne pas être perdus.
