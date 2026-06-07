@@ -70,10 +70,12 @@ jobs:
         run: quarto install tinytex
 
       - name: Render état de l'art → HTML + PDF (livre Quarto)
-        run: |
-          # Le livre n'a pas de chunks de code : Quarto produit
-          # directement HTML + PDF dans etat-art-climat/_output/.
-          quarto render etat-art-climat
+        # IMPORTANT : rendu DEPUIS le dossier du livre. Lancé depuis la
+        # racine, Quarto lit le .env.example de la racine et exige ses
+        # variables (dotenvQuartoProfile) — absentes en CI (pas de .env),
+        # d'où un échec MissingEnvVarsError. Le livre n'a pas de chunks.
+        working-directory: etat-art-climat
+        run: quarto render
 
       - name: Préparer le contenu Pages (site/)
         run: |
