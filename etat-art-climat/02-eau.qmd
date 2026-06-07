@@ -49,15 +49,18 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 - **Le forage hérite des limites de la nappe et de la réglementation.** Sa fiabilité à 30 ans dépend (1) de la recharge hivernale, qui restera correcte voire un peu meilleure, mais (2) d'un étiage estival qui baisse (−14 à −49 % de débit), et (3) d'un cadre de prélèvement qui se durcit (HMUC, arrêtés sécheresse plus fréquents). **Ne pas considérer le forage comme une ressource illimitée et hors-sol.**
 - **Stocker l'eau d'hiver** (la saison excédentaire) pour l'été (la saison déficitaire) devient la logique structurante — à instruire en phase adaptation, avec son propre cadre réglementaire (retenues).
 - **L'efficience est le premier levier sans regret** : pilotage tensiométrique + bilan hydrique + goutte-à-goutte là où le sol le permet réduisent la dépendance au forage **quel que soit le scénario**.
-- **Vérifier le statut réglementaire du forage et du secteur (ZRE, SAGE, OUGC) est un préalable, pas un détail.**
+- **Le statut réglementaire est établi et favorable** : secteur **hors ZRE** (seuil applicable 10 000 m³/an), forage déclaré pour 1 500 m³/an — la contrainte dominante n'est donc pas le régime de prélèvement mais les **restrictions sécheresse** estivales.
 :::
 
 ## À approfondir
 
-::: {.callout-warning title="Points à confirmer (sources primaires locales)"}
-- Confirmer le statut **hors ZRE** auprès de la **DDTM 35** et l'existence éventuelle d'un **OUGC** (le parcellaire de La Petite Claye chevauche les SAGE **Couesnon** et **bassins côtiers de Dol**).
-- **Restrictions exactes par niveau** de l'arrêté-cadre sécheresse 35 (jours/horaires/% pour l'irrigation maraîchère) : à lire dans les annexes de l'arrêté en vigueur. *À confirmer.*
-- **Paramètres opératoires HMUC** (QMNA5 retenu, volumes prélevables par sous-bassin) : version texte du guide [@guide-hmuc].
-- **Caractéristiques du forage d'Alexis** (profondeur, débit, niveau piézométrique, déclaration existante) : à intégrer pour passer de l'état de l'art au diagnostic.
-- Récupérer les **chiffres détaillés** de l'étude **HMUC Couesnon** et des fiches **Explore2** du secteur [@explore2 ; @bv-couesnon] dès publication (étiages projetés au bassin local).
+::: {.callout-note title="Ce qui est établi (données locales)"}
+- **Hors ZRE.** Le secteur du forage (sous-bassin du **Guyoult**, FRGR1597, SAGE des bassins côtiers de Dol) comme la part **Chenelais** (FRGR0023, SAGE Couesnon) ne relèvent pas d'une zone de répartition des eaux — les ZRE d'Ille-et-Vilaine se limitent aux bassins **Vilaine** et **Oudon** [@zre-loire-bretagne]. C'est donc le **seuil de 10 000 m³/an** qui s'applique (et non le 8 m³/h) ; pas d'OUGC en secteur hors ZRE.
+- **Forage caractérisé** (cf. @sec-forage) : 76 m, **5-6 m³/h**, **1 500 m³/an déclarés** — très en deçà du seuil ; nappe captée **FRGG123** (socle, « Bassin versant du Marais de Dol »).
+:::
+
+::: {.callout-warning title="Ce qui reste ouvert"}
+- **Détail des restrictions sécheresse** par niveau (au-delà du créneau *alerte* 11 h-18 h déjà connu) : à lire dans l'arrêté-cadre 35 en vigueur [@pref35-secheresse].
+- **Chiffres d'étiage et de recharge au bassin local** : fiches **Explore2** du secteur et étude **HMUC** (Couesnon / côtiers de Dol), dès publication [@explore2 ; @bv-couesnon ; @guide-hmuc].
+- **Qualité de l'eau du forage** (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) : analyse à réaliser — base de la surveillance.
 :::

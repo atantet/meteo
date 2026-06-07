@@ -50,11 +50,14 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 
 ## Points à vérifier / compléter
 
-::: {.callout-warning}
-- **Usage réel actuel** : volume annuel effectivement prélevé vs 1 500 m³/an déclarés (compteur) — détermine le régime IOTA applicable aujourd'hui (seuil pertinent : 10 000 m³/an hors ZRE).
-- **Confirmer hors ZRE** auprès de la **DDTM 35** : le forage est sur le sous-bassin du **Guyoult** (FRGR1597 → SAGE des bassins côtiers de Dol), une autre partie du parcellaire sur le **Chenelais** (FRGR0023 → SAGE Couesnon). La masse d'eau souterraine captée est **FRGG123 (« Bassin versant du Marais de Dol »)** ; reste à suivre son **état quantitatif DCE**.
-- **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit (InfoTerre inaccessible à distance). Suivi de tendance possible via le piézomètre ADES de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne].
-- **Peut-on projeter le débit du forage ?** *(question ouverte, à approfondir)* Le « −14 à −49 % » concerne l'étiage des cours d'eau, pas le débit de pompage. Une projection du forage demanderait de croiser les **projections de recharge des nappes** d'Explore2 [@explore2], le **débit spécifique** et le niveau piézométrique de l'ouvrage, et le suivi du piézomètre de Bonnemain [@ades-bonnemain] — sans modèle hydrogéologique local, on en restera à une **tendance** (baisse de la disponibilité estivale), pas à un débit chiffré.
-- **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme.
-- **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique actuel.
+::: {.callout-note title="Établi (données locales)"}
+- **Hors ZRE** : le forage (sous-bassin du **Guyoult**, FRGR1597 → SAGE des bassins côtiers de Dol) et la part **Chenelais** (FRGR0023 → SAGE Couesnon) ne sont pas en zone de répartition des eaux (ZRE 35 = Vilaine, Oudon) [@zre-loire-bretagne] → **seuil 10 000 m³/an**, pas 8 m³/h.
+- **Régime** : 1 500 m³/an déclarés ≪ 10 000 → **déclaration de l'ouvrage** (faite en 2002), pas d'autorisation de volume. Nappe captée : **FRGG123** (socle, « Bassin versant du Marais de Dol »).
+:::
+
+::: {.callout-warning title="À compléter (terrain / suivi)"}
+- **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme et du risque de salinisation côtière.
+- **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique et niveau piézométrique au repos actuels (fiche BSS [@infoterre-bss-tpha] ; suivi de tendance via le piézomètre de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne]).
+- **État quantitatif DCE** de FRGG123 et chiffres locaux d'étiage/recharge (Explore2, HMUC) — informatif [@explore2].
+- **Peut-on projeter le débit du forage ?** *(question ouverte)* Le « −14 à −49 % » est l'étiage des cours d'eau, pas le pompage. Une projection demanderait les **projections de recharge des nappes** d'Explore2 [@explore2], le **débit spécifique** et le niveau piézométrique de l'ouvrage, et le suivi de Bonnemain [@ades-bonnemain] — sans modèle hydrogéologique local, on en reste à une **tendance** (baisse de la disponibilité estivale), pas à un débit chiffré.
 :::
