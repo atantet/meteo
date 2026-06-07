@@ -67,6 +67,8 @@ L'état de l'art mêle des sources de statut différent. Pour rester transparent
 
 Un principe directeur : **distinguer systématiquement l'observé du projeté**. Les tendances passées (séries Météo-France, ORACLE) sont des mesures ; les valeurs futures sont **conditionnelles à un scénario** et assorties d'incertitudes de modèles — elles s'emploient comme **ordres de grandeur** orientant la décision, jamais comme des prédictions exactes.
 
+Un **second principe** : signaler la **provenance** des données. Beaucoup de références agronomiques disponibles portent sur d'**autres filières** (grandes cultures, arboriculture) ou sur des **conditions contrôlées** (espèces-modèles en serre expérimentale) ; leur transfert au **maraîchage diversifié breton**, de plein champ et sous abri, est rarement direct. Chaque fois qu'un chiffre est **transposé** — d'un arbre, d'une grande culture, d'un autre climat — le document le signale : c'est alors un ordre d'idée à valider au terrain, non une donnée maraîchère locale.
+
 ## Plan
 
 **Partie I — Impacts** (8 axes) :

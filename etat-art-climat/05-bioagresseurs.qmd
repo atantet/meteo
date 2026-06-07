@@ -1,6 +1,6 @@
 # Bioagresseurs : maladies, ravageurs, adventices, auxiliaires {#sec-bioagresseurs}
 
-Le réchauffement modifie la **pression biologique** sur les cultures : il accélère les cycles des ravageurs, déplace leurs aires, change les conditions d'infection des maladies, et désynchronise parfois les auxiliaires. La littérature institutionnelle bretonne reste **qualitative** sur le maraîchage ; les mécanismes ci-dessous proviennent surtout de l'INRAE.
+Le réchauffement modifie la **pression biologique** sur les cultures : il accélère les cycles des ravageurs, déplace leurs aires, change les conditions d'infection des maladies, et désynchronise parfois les auxiliaires. **Provenance des données** : les éléments directement **maraîchers** ici sont le **mildiou** (tomate, pomme de terre), le **doryphore** (pomme de terre) et la veille du **Bulletin de santé du végétal « légumes » de Bretagne** ; les autres (pucerons, pollinisation) sont des **mécanismes généraux**, non spécifiques au maraîchage, à lire comme tendances. La littérature institutionnelle bretonne reste par ailleurs **qualitative** sur les bioagresseurs des légumes.
 
 ## Maladies : l'humectation et la douceur nocturne, plus que la pluie
 

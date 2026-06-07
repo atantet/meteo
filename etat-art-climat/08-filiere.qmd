@@ -20,7 +20,7 @@ Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segm
 
 ## Résilience par la diversité
 
-L'**Expertise scientifique collective INRAE** (2022) sur la diversité végétale chiffre des **co-bénéfices** convergents [@inrae-esco2022] :
+L'**Expertise scientifique collective INRAE** (2022) sur la diversité végétale chiffre des **co-bénéfices** convergents (effets moyens **multi-contextes, à dominante grandes cultures** — à transposer au maraîchage avec prudence) [@inrae-esco2022] :
 
 - amélioration de la **régulation des bioagresseurs** : couverts d'interculture **+125 %**, haies **+84 %**, associations multi-espèces **+60 %**, agroforesterie **+40 %** ;
 - **biodiversité fonctionnelle** : agroforesterie **+61 %**, rotations **+37 %**, couverts **+21 %** ;

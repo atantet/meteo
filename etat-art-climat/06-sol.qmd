@@ -12,7 +12,7 @@ Le sol est le capital du maraîcher. Or la redistribution saisonnière des pluie
 
 **Ordres de grandeur de l'érosion** (nationaux, faute de mesure bretonne dédiée) : la perte moyenne par érosion hydrique en France est de **~1,5 t/ha/an**, et une perte **> 1 t/ha/an est considérée comme irréversible** à l'échelle humaine (la pédogenèse est plus lente que l'ablation) ; **~1/5 du territoire** est en aléa moyen à très fort, et dans plusieurs régions de l'Ouest **plus de 20 % de la surface** subit > 2 t/ha/an [@cgdd-erosion]. Sur limons, la **battance déclenche le ruissellement sur pentes faibles (< 5 %) et par pluies modérées** [@lebissonnais1996].
 
-**Effet protecteur des couverts, quantifié** : un couvert d'interculture réduit la **lixiviation du nitrate d'environ 50 %** sur la période de drainage et peut piéger **> 100 kg N/ha** [@arvalis-cipan] ; il stocke aussi du carbone (~0,15 t C/ha/an) là où une **jachère nue en déstocke ~0,6 t C/ha/an** [@ifen2007-carbone].
+**Effet protecteur des couverts, quantifié** : un couvert d'interculture réduit la **lixiviation du nitrate d'environ 50 %** sur la période de drainage et peut piéger **> 100 kg N/ha** [@arvalis-cipan] ; il stocke aussi du carbone (~0,15 t C/ha/an) là où une **jachère nue en déstocke ~0,6 t C/ha/an** [@ifen2007-carbone]. *Ces chiffres viennent des **grandes cultures** (Arvalis, GIS Sol) ; le principe vaut en maraîchage, mais les fenêtres d'interculture y sont souvent plus courtes.*
 
 ## Ce que disent les projections
 
