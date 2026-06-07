@@ -1,7 +1,13 @@
-name: Publier rapport Climato (Quarto → Pages)
+name: Publier le site (Pages) — climato + état de l'art
 
-# Déclencheurs : changement du code climato, manuel, et tous les 1ers
-# du mois (rafraîchir avec la donnée la plus récente).
+# Un seul site GitHub Pages par dépôt : ce workflow assemble TOUT le
+# site en une fois et le déploie. Rapport climato à la racine, livre
+# « état de l'art » (HTML + PDF) sous /etat-art-climat/.
+# GitHub Pages remplaçant l'intégralité du site à chaque déploiement,
+# les deux contenus doivent être (re)construits ensemble ici.
+#
+# Déclencheurs : changement du climato OU de l'état de l'art, manuel,
+# et tous les 1ers du mois (rafraîchir le climato).
 on:
   push:
     branches: [main]
@@ -10,6 +16,7 @@ on:
       - "src/meteo_socle/**"
       - "config/climato.yaml"
       - "data/climato/**"
+      - "etat-art-climat/**"
       - "environment-dev.yml"
       - ".github/workflows/climato-publish.yml"
   workflow_dispatch:
@@ -54,19 +61,32 @@ jobs:
         with:
           version: "1.6.42"
 
-      - name: Render report.qmd → HTML
+      - name: Render report.qmd → HTML (climato)
         run: |
           # Quarto exécute les chunks Python via l'env conda meteo.
           quarto render apps/climato/report.qmd --to html
 
+      - name: Installer TinyTeX (PDF de l'état de l'art)
+        run: quarto install tinytex
+
+      - name: Render état de l'art → HTML + PDF (livre Quarto)
+        run: |
+          # Le livre n'a pas de chunks de code : Quarto produit
+          # directement HTML + PDF dans etat-art-climat/_output/.
+          quarto render etat-art-climat
+
       - name: Préparer le contenu Pages (site/)
         run: |
           mkdir -p site
+          # Climato à la racine du site.
           cp apps/climato/report.html site/index.html
           # Si Quarto produit un dossier _files/, le copier aussi.
           if [ -d apps/climato/report_files ]; then
             cp -r apps/climato/report_files site/
           fi
+          # État de l'art (HTML + PDF) sous /etat-art-climat/.
+          mkdir -p site/etat-art-climat
+          cp -r etat-art-climat/_output/. site/etat-art-climat/
 
       - name: Upload artifact Pages
         uses: actions/upload-pages-artifact@v3

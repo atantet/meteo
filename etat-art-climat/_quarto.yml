@@ -35,6 +35,7 @@ book:
         - 11-axes-emergents.qmd
     - references.qmd
   reader-mode: true
+  downloads: [pdf]
 
 bibliography: references.bib
 
@@ -45,8 +46,13 @@ format:
     toc-depth: 3
     number-sections: true
     fig-cap-location: bottom
-  # PDF optionnel : nécessite une distribution LaTeX (quarto install tinytex).
-  # pdf:
-  #   documentclass: scrreprt
-  #   papersize: a4
-  #   toc: true
+  pdf:
+    documentclass: scrreprt
+    papersize: a4
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    fig-cap-location: bottom
+    geometry:
+      - margin=2.5cm
