@@ -1,0 +1,6 @@
+# Archives locales des PDF sources réellement utilisés (transparence / reproductibilité).
+# Les PDF ne sont PAS versionnés (poids + non-redistribution de documents tiers dans
+# un dépôt public). Seul le manifeste README.md l'est : il liste fichier → source → URL → usage.
+*.pdf
+*.PDF
+*.zip

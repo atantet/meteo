@@ -11,11 +11,20 @@ C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage
 - La **recharge** est concentrée d'**octobre à mars** ; seule une fraction de la pluie devient « pluie efficace » (~39 % selon l'OEB ; gradient ≈ 150 mm/an à Rennes contre ~600 mm à Quimper) [@oeb-secheresses]. **Le secteur de Pleine-Fougères est du côté sec de ce gradient.**
 - Épisode récent : après une recharge très tardive fin 2022 et un **février 2023 historiquement sec**, les nappes étaient sous les normales ; la situation s'est **rétablie à l'automne 2023** [@brgm-secheresse]. Illustration de la réactivité — le bon comme le mauvais arrivent vite.
 
-**Signal prospectif** (horizon +4 °C, écarts à la référence 1976-2005) : sécheresses des sols **plus intenses** (pic d'intensité **+47 %**) ; **sols secs plus fréquents** — environ **+23 jours/an en Ille-et-Vilaine** et jusqu'à **+38 j/an dans le Finistère**, à rapporter à une référence d'**environ 125 jours/an** ; **débits d'étiage en baisse de −14 à −49 %**, avec un **étiage allongé de 5 à plus de 40 jours** [@oeb-secheresses]. Ces signaux régionaux relèvent du cadre **Explore2** (INRAE/Météo-France), qui fournit des projections hydrologiques (débits, étiages, recharge) par bassin versant aux horizons 2050 et 2100 [@explore2] ; localement, une **étude HMUC du bassin du Couesnon** projette le fonctionnement hydrologique à 2030 et 2050 pour définir les volumes prélevables [@bv-couesnon]. À prendre comme ordres de grandeur.
+**Signal prospectif.** À l'échelle régionale (réf. 1976-2005), l'OEB annonce à +4 °C des sécheresses des sols **plus intenses** (pic d'intensité **+47 %**), des **sols secs plus fréquents** (≈ **+23 j/an en Ille-et-Vilaine**, +38 j/an en Finistère, sur une référence d'**~125 j/an**) et des **débits d'étiage −14 à −49 %**, l'étiage s'allongeant de 5 à plus de 40 jours [@oeb-secheresses].
+
+Au plus près du terrain, **Explore2** (INRAE/Météo-France) édite une fiche pour le sous-secteur **« Côtiers du Couesnon canalisé »** — la maille la plus locale pour Pleine-Fougères (réf. **1991-2020**) [@explore2-bretagne] :
+
+| Indicateur (médiane inter-modèles) | +2,7 °C (≈ 2050) | +4 °C (≈ 2100) |
+|---|---|---|
+| **Étiage estival** (VCN10 été) | **−11 %** (−62 à +22) | **−22 %** (−69 à +21) |
+| **Recharge annuelle** des nappes | **+4 %** (−5 à +21) | **+5 %** (−16 à +34) |
+
+Lecture clé : la **recharge annuelle reste quasi stable** (la hausse hivernale compense), mais l'**étiage estival baisse nettement**, avec une **forte dispersion inter-modèles** (jusqu'à −62/−69 %) qui traduit un vrai risque d'étiages sévères. Autrement dit, la nappe se reconstitue l'hiver, mais le **creux estival se durcit** — au moment du pic de besoin du maraîchage. À noter : **aucune tendance d'étiage significative n'est encore observée sur 1968-2024**, le signal est *projeté* [@oeb-secheresses].
 
 ## Le cadre réglementaire du prélèvement et du forage
 
-Le SDAGE Loire-Bretagne 2022-2027 (adopté le 3 mars 2022) **renforce la gestion quantitative** et l'intégration du climat : il fixe des débits de référence (QMNA5), identifie les secteurs en tension, et déploie la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc].
+Le SDAGE Loire-Bretagne 2022-2027 (adopté le 3 mars 2022) **renforce la gestion quantitative** et l'intégration du climat : il fixe des débits de référence (QMNA5), identifie les secteurs en tension, et déploie la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc]. Localement, l'**étude de gestion quantitative du bassin du Couesnon** (préalable à la HMUC, lancée fin 2023) fixe un **débit d'objectif d'étiage de 0,38 m³/s à Romazy** (à respecter 8 ans sur 10) et identifie des sous-bassins **en tension** — dont le **Chenelais**, l'un des deux sous-bassins de La Petite Claye [@acgq-couesnon].
 
 Pour un **forage d'irrigation**, trois rubriques de la nomenclature « loi sur l'eau » (IOTA, art. R214-1) se cumulent [@legifrance-r214] :
 
@@ -25,7 +34,20 @@ Pour un **forage d'irrigation**, trois rubriques de la nomenclature « loi sur l
 | **1.1.2.0** | Volume prélevé (hors ZRE) | **Déclaration > 10 000 m³/an** ; **Autorisation ≥ 200 000 m³/an** |
 | **1.3.1.0** | Prélèvement **en zone de répartition des eaux (ZRE)** | **Déclaration < 8 m³/h** ; **Autorisation ≥ 8 m³/h** |
 
-S'ajoute, pour toute prise en lien avec un cours d'eau, le respect d'un **débit réservé ≥ 10 % du module** (débit moyen interannuel) [@legifrance-l214-18]. Et, chaque été, les **arrêtés sécheresse** de la préfecture d'Ille-et-Vilaine peuvent restreindre l'irrigation selon quatre niveaux croissants : **vigilance, alerte, alerte renforcée, crise**. L'arrêté-cadre départemental (11 juin 2021) range le maraîchage parmi les **« cultures spéciales »** : dès le niveau *alerte*, l'irrigation y est interdite **de 11 h à 18 h** (créneau distinct des grandes cultures) [@pref35-secheresse].
+S'ajoute, pour toute prise en lien avec un cours d'eau, le respect d'un **débit réservé ≥ 10 % du module** (débit moyen interannuel) [@legifrance-l214-18]. Et, chaque été, les **arrêtés sécheresse** de la préfecture d'Ille-et-Vilaine peuvent restreindre l'irrigation selon quatre niveaux croissants : **vigilance, alerte, alerte renforcée, crise** [@pref35-secheresse]. L'arrêté-cadre en vigueur (n° 35-2023-07-28-00002, **28 juillet 2023**) range le maraîchage parmi les **« cultures spéciales »** et fixe, pour celles-ci de plein champ [@arrete-secheresse35-2023] :
+
+| Niveau | Cultures spéciales (plein champ) |
+|---|---|
+| Vigilance | réduction volontaire des consommations |
+| **Alerte** | irrigation **interdite 11 h-18 h**, *sauf* **goutte-à-goutte / micro-aspersion ou outil de pilotage** (registre mensuel) |
+| **Alerte renforcée** | interdite **9 h-20 h**, mêmes dérogations (registre hebdomadaire) |
+| Crise | sur décision du préfet : mesures d'alerte renforcée ou interdiction |
+
+Point décisif : la **dérogation goutte-à-goutte / pilotage** lève l'interdiction horaire jusqu'au niveau *alerte renforcée* — un argument de plus pour l'irrigation localisée. Les serres/tunnels sont plus souples (réduction volontaire en alerte) ; les grandes cultures, à l'inverse, sont interdites 10 h-20 h. Il n'y a **pas de pourcentage de réduction de volume** : la contrainte est horaire, assortie d'un registre de prélèvement.
+
+::: {.callout-tip title="Pour La Petite Claye"}
+L'irrigation y est principalement **localisée** — **goutte-à-goutte et micro-aspersion sous tunnel**, **goutte-à-goutte en plein champ** — donc **exemptée** des interdictions horaires jusqu'au niveau *alerte renforcée*. Seule l'**aspersion de plein champ** y serait soumise (interdite 11 h-18 h en alerte, 9 h-20 h en alerte renforcée), à moins de la **piloter par sonde** (qui ouvre la même dérogation).
+:::
 
 ::: {.callout-important title="Classement ZRE : a priori non, à confirmer"}
 Le régime bascule selon que le secteur est, ou non, **classé en zone de répartition des eaux** : **hors ZRE**, le seuil de déclaration est de **10 000 m³/an** (volume) ; **en ZRE**, il tombe à **8 m³/h** (débit instantané) — bien plus contraignant. Or le parcellaire relève des **SAGE Couesnon** (sous-bassin du Chenelais) et **des bassins côtiers de la région de Dol** (sous-bassin du Guyoult, **où se situe le forage**) [@gesteau-couesnon ; @me-guyoult] ; **ni le Couesnon ni les bassins côtiers de Dol ne figurent** dans les ZRE d'Ille-et-Vilaine (limitées aux bassins **Vilaine** et **Oudon**) [@zre-loire-bretagne]. Le secteur est donc **vraisemblablement hors ZRE** — c'est le seuil de **10 000 m³/an** qui s'appliquerait. À **confirmer auprès de la DDTM 35** (le forage est sur le sous-bassin du **Guyoult** — SAGE des bassins côtiers de Dol, cf. @sec-forage), de même que l'existence éventuelle d'un **OUGC**.
@@ -46,7 +68,7 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 
 ::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
 - **La contrainte n'est pas la pluie annuelle, c'est l'eau au bon moment.** Les hivers plus humides ne sécurisent pas l'été : les nappes de socle se vidant en quelques semaines, c'est la **disponibilité estivale** qui sera limitante — et de plus en plus encadrée.
-- **Le forage hérite des limites de la nappe et de la réglementation.** Sa fiabilité à 30 ans dépend (1) de la recharge hivernale, qui restera correcte voire un peu meilleure, mais (2) d'un étiage estival qui baisse (−14 à −49 % de débit), et (3) d'un cadre de prélèvement qui se durcit (HMUC, arrêtés sécheresse plus fréquents). **Ne pas considérer le forage comme une ressource illimitée et hors-sol.**
+- **Le forage hérite des limites de la nappe et de la réglementation.** Sa fiabilité à 30 ans dépend (1) de la **recharge** hivernale, qui reste **quasi stable** (Explore2 : +4 à +5 %/an au sous-secteur Couesnon), mais (2) d'un **étiage estival qui baisse** (localement **−11 % vers 2050, −22 % vers 2100** ; jusqu'à −49 % à l'échelle bretonne), et (3) d'un cadre de prélèvement encadré (arrêtés sécheresse). **Ne pas considérer le forage comme une ressource illimitée et hors-sol.**
 - **Stocker l'eau d'hiver** (la saison excédentaire) pour l'été (la saison déficitaire) devient la logique structurante — à instruire en phase adaptation, avec son propre cadre réglementaire (retenues).
 - **L'efficience est le premier levier sans regret** : pilotage tensiométrique + bilan hydrique + goutte-à-goutte là où le sol le permet réduisent la dépendance au forage **quel que soit le scénario**.
 - **Le statut réglementaire est établi et favorable** : secteur **hors ZRE** (seuil applicable 10 000 m³/an), forage déclaré pour 1 500 m³/an — la contrainte dominante n'est donc pas le régime de prélèvement mais les **restrictions sécheresse** estivales.
@@ -60,7 +82,7 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 :::
 
 ::: {.callout-warning title="Ce qui reste ouvert"}
-- **Détail des restrictions sécheresse** par niveau (au-delà du créneau *alerte* 11 h-18 h déjà connu) : à lire dans l'arrêté-cadre 35 en vigueur [@pref35-secheresse].
-- **Chiffres d'étiage et de recharge au bassin local** : fiches **Explore2** du secteur et étude **HMUC** (Couesnon / côtiers de Dol), dès publication [@explore2 ; @bv-couesnon ; @guide-hmuc].
 - **Qualité de l'eau du forage** (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) : analyse à réaliser — base de la surveillance.
+- **HMUC Couesnon proprement dite** (DCR chiffré, **volumes prélevables**, projections datées 2030/2050) : étude lancée fin 2023, **non encore publiée** [@acgq-couesnon].
+- **Granularité par masse d'eau** : Explore2 raisonne par secteur hydrographique (J0 « Côtiers du Couesnon canalisé »), pas par masse d'eau — pas de chiffre plus fin pour le Guyoult (FRGR1597) ou la nappe FRGG123.
 :::

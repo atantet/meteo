@@ -19,7 +19,7 @@ Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1
 - **hivers plus humides** : précipitations de décembre à février en hausse (de **+5 % à +34 %** selon les modèles) ;
 - **étés plus secs** : précipitations estivales **≈ −11 %** ;
 - **pluies les plus fortes plus intenses** (**≈ +10 %**) ;
-- **jours de sécheresse** : de **124 à ≈ 140 jours/an**.
+- **jours de sols secs** (SWI < 0,5, cf. @sec-glossaire) : de **124 à ≈ 140 jours/an**.
 
 **À l'horizon 2100 (France à +4 °C)** [@oeb-temperatures ; @oeb-precipitations] :
 

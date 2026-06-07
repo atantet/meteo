@@ -25,7 +25,7 @@ Définitions des termes techniques employés dans ce document. Objectif : permet
 **Sécheresse — trois maillons d'une même chaîne** [@oeb-secheresses] :
 
 - **Sécheresse météorologique** : déficit de **précipitations** sur une période, par rapport à la normale. Premier maillon.
-- **Sécheresse des sols** (dite *édaphique* ou *agricole*) : déficit d'**humidité du sol** pénalisant les cultures, mesuré par un indice d'humidité des sols. Un **« jour de sols secs »** est un jour où cette humidité passe sous un seuil ; « +38 jours/an de sols secs » signifie donc 38 journées sèches supplémentaires par an *par rapport à la référence*.
+- **Sécheresse des sols** (dite *édaphique* ou *agricole*) : déficit d'**humidité du sol** pénalisant les cultures, mesuré par l'**indice d'humidité des sols (SWI**, *Soil Wetness Index*) — rapport entre l'eau du sol disponible pour la plante un jour donné et sa valeur maximale, de **0 (sol extrêmement sec) à 1 (extrêmement humide)**. **Météo-France considère un sol comme *sec* lorsque SWI < 0,5** (et *très humide* au-dessus de 0,8) [@meteofrance-climatHD-swi]. Un **« jour de sols secs »** est un jour sous ce seuil ; « +38 jours/an de sols secs » = 38 journées sèches de plus par an *par rapport à la référence* (~125 j/an). *(Les « jours de sécheresse » au @sec-climat désignent le même indice.)*
 - **Sécheresse hydrologique** : baisse des **débits** des cours d'eau et des **niveaux de nappes**. Dernier maillon ; en Bretagne, la faible inertie des nappes fait que la sécheresse météo s'y propage en quelques semaines.
 
 **Étiage.** Période de plus basses eaux d'un cours d'eau (généralement été-automne). Le **débit d'étiage** est le débit pendant cette période.
