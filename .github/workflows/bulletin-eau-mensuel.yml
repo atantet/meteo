@@ -1,0 +1,49 @@
+name: Bulletin eau mensuel
+
+# Envoi MENSUEL de l'état de la ressource en eau (nappe Bonnemain +
+# restrictions VigiEau + écart de pluie). Contrairement à la Veille
+# (quotidienne, sensible au lag), un bulletin mensuel se moque du lag
+# 2-4 h de GitHub Actions → on garde un `schedule` natif ici (pas besoin
+# de cron-job.org). Le 1er du mois à 06:00 UTC + déclenchement manuel.
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+# Permissions minimales : lecture du code seulement (pas de push).
+permissions:
+  contents: read
+
+jobs:
+  bulletin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda + env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment-dev.yml
+          auto-activate-base: false
+          use-mamba: true
+
+      - name: Exécuter le bulletin eau
+        env:
+          # Mêmes secrets SMTP que la Veille (même boîte mail). Aucun
+          # secret en clair ici. L'envoi réel dépend de `diffusion.envoi_reel`
+          # dans config/bulletin_eau_mensuel.yaml.
+          VEILLE_SMTP_HOST: ${{ secrets.VEILLE_SMTP_HOST }}
+          VEILLE_SMTP_PORT: ${{ secrets.VEILLE_SMTP_PORT }}
+          VEILLE_SMTP_USER: ${{ secrets.VEILLE_SMTP_USER }}
+          VEILLE_SMTP_PASSWORD: ${{ secrets.VEILLE_SMTP_PASSWORD }}
+          VEILLE_EMAIL_FROM: ${{ secrets.VEILLE_EMAIL_FROM }}
+          VEILLE_EMAIL_TO: ${{ secrets.VEILLE_EMAIL_TO }}
+        run: python -m apps.bulletin_eau_mensuel

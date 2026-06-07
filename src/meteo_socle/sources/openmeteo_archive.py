@@ -91,6 +91,43 @@ class OpenMeteoArchive:
         response = get_avec_retry(self.session, API_URL, params=params, timeout=120)
         return self._parse(response.json())
 
+    def obtenir_precip_quotidien(
+        self,
+        latitude: float,
+        longitude: float,
+        start_date: str,
+        end_date: str,
+    ) -> pd.Series:
+        """Cumul de précipitation **quotidien** (mm) entre deux dates (incluses).
+
+        Utilise le endpoint ``daily=precipitation_sum`` (bien plus léger que
+        l'horaire pour de longues périodes, ex. une normale 1991-2020).
+
+        Returns
+        -------
+        pd.Series
+            Indexée par date (``DatetimeIndex`` naïf, jour), valeurs en mm
+            (les jours sans donnée sont écartés).
+        """
+        params: dict[str, str] = {
+            "latitude": f"{latitude}",
+            "longitude": f"{longitude}",
+            "start_date": start_date,
+            "end_date": end_date,
+            "daily": "precipitation_sum",
+            "models": self.modele,
+            "timezone": "UTC",
+            "precipitation_unit": "mm",
+        }
+        response = get_avec_retry(self.session, API_URL, params=params, timeout=120)
+        daily = response.json()["daily"]
+        s = pd.Series(
+            data=pd.to_numeric(daily["precipitation_sum"], errors="coerce"),
+            index=pd.to_datetime(daily["time"]),
+        )
+        s.index.name = "date"
+        return s.dropna()
+
     @staticmethod
     def _parse(payload: dict) -> pd.DataFrame:
         """Réutilise les mêmes conversions que `OpenMeteoForecast._parse`."""

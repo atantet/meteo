@@ -1,0 +1,35 @@
+# Configuration — Bulletin eau mensuel (produit-mail léger)
+#
+# État mensuel de la ressource en eau pour La Petite Claye : niveau de
+# nappe (proxy Bonnemain), restrictions sécheresse en vigueur (VigiEau),
+# écart de pluie récent à la normale. Observation uniquement — aucune
+# prévision saisonnière, aucune décision automatique.
+#
+# Override local : copier en `config/bulletin_eau_mensuel.local.yaml`.
+
+site:
+  latitude: 48.543648
+  longitude: -1.611515
+  commune_insee: "35216" # Pleine-Fougères
+
+# Nappe : piézomètre proxy de tendance régionale (PAS le forage).
+nappe:
+  code_bss: "02465X0061/F"
+  nom_station: "Piézomètre du Calvaire, Bonnemain"
+
+# Restrictions sécheresse : profil usager pour les règles applicables.
+restrictions:
+  profil: "exploitation"
+
+# Anomalie de pluie : cumul récent vs normale (réanalyse ERA5+ERA5T).
+# era5_seamless = faible latence (~5 j), couvre la fenêtre récente ET la
+# période de référence ; ERA5-Land (climato) serait trop latent ici.
+pluie:
+  fenetre_jours: 90
+  reference_debut_annee: 1991
+  reference_fin_annee: 2020
+  modele: "era5_seamless"
+
+diffusion:
+  # False = dry-run (imprime, n'envoie pas). True = envoi SMTP réel.
+  envoi_reel: false

@@ -70,6 +70,7 @@ from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
 )
+from meteo_socle.indices.seuils_reference import etiquettes_temperature  # noqa: E402
 from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
     ARPEGE,
     ECMWF,
@@ -711,6 +712,58 @@ def _rendre_tableau_detail(
     st.markdown(html, unsafe_allow_html=True)
 
 
+def _rendre_contexte_meteo(quotidien: pd.DataFrame) -> None:
+    """Bande de **libellés de contexte Météo-France**, jour par jour.
+
+    Descriptif uniquement (nomme ce qu'est la T° du jour au sens des
+    indices MF officiels) — ce n'est **pas** une alerte : la Vigilance MF
+    reste seule sur chaleur/froid. Texte seulement, pas de coloration.
+    """
+    if quotidien is None or quotidien.empty:
+        return
+    if "t_min_celsius" not in quotidien.columns or "t_max_celsius" not in quotidien.columns:
+        return
+
+    en_tete = (
+        '<tr style="background:#fafafa;">'
+        '<th style="padding:6px 8px;text-align:left;color:#34495e;'
+        'font-size:13px;position:sticky;left:0;background:#fafafa;">Repères</th>'
+        + "".join(
+            f'<th style="padding:6px 8px;text-align:center;font-size:11px;'
+            f'color:#888;white-space:nowrap;">'
+            f"{d.strftime('%a %d %b').capitalize()}</th>"
+            for d in quotidien.index
+        )
+        + "</tr>"
+    )
+
+    cellules = [
+        '<th style="padding:6px 8px;text-align:left;font-size:12px;'
+        'color:#34495e;position:sticky;left:0;background:white;">Météo-France</th>'
+    ]
+    for _date, row in quotidien.iterrows():
+        labels = etiquettes_temperature(row["t_min_celsius"], row["t_max_celsius"])
+        contenu = "<br>".join(labels) if labels else "—"
+        couleur = "#34495e" if labels else "#ccc"
+        cellules.append(
+            '<td style="padding:6px 8px;text-align:center;font-size:12px;'
+            f'color:{couleur};line-height:1.3;">{contenu}</td>'
+        )
+
+    html = (
+        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;'
+        "border:1px solid #eee;border-radius:4px;margin-top:8px;"
+        'margin-bottom:8px;">'
+        '<table style="border-collapse:collapse;min-width:100%;'
+        'font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'
+        + en_tete
+        + "<tr>"
+        + "".join(cellules)
+        + "</tr></table></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 _PREFIXE_OVERRIDE = "op_override__"
 
 
@@ -860,6 +913,15 @@ def _afficher_section_decisions(quotidien: pd.DataFrame, site_tz: str) -> None:
     exploitation = _appliquer_overrides_session(exploitation_base)
     today = pd.Timestamp.now(tz=site_tz).normalize().tz_localize(None)
     guides = evaluer_decisions(quotidien, exploitation, today)
+
+    with st.expander("Repères Météo-France (contexte, sans alerte)"):
+        st.caption(
+            "Libellés descriptifs des indices de température Météo-France "
+            "(gel ≤ 0 °C, journée chaude > 25 °C, forte chaleur > 30 °C, "
+            "très forte > 35 °C, nuit tropicale ≥ 20 °C). Contexte de lecture "
+            "uniquement — la Vigilance Météo-France reste la seule alerte."
+        )
+        _rendre_contexte_meteo(quotidien)
 
     if not guides:
         st.info("Aucun guide applicable cette semaine (tout hors saison ou données insuffisantes).")
