@@ -52,7 +52,7 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 
 ::: {.callout-warning}
 - **Usage réel actuel** : volume annuel effectivement prélevé vs 1 500 m³/an déclarés (compteur) — détermine le régime IOTA applicable aujourd'hui (seuil pertinent : 10 000 m³/an hors ZRE).
-- **Confirmer hors ZRE** et le rattachement de la parcelle (SAGE Couesnon vs bassins côtiers de Dol) auprès de la **DDTM 35** ; vérifier le **code DCE** exact de la masse d'eau [@masse-eau-couesnon].
+- **Confirmer hors ZRE** auprès de la **DDTM 35** et le **rattachement du forage** : le parcellaire de La Petite Claye chevauche les SAGE Couesnon et bassins côtiers de Dol, le forage relevant *a priori* du Couesnon (BDLISA 173AC11) ; vérifier le **code DCE** exact de la masse d'eau [@masse-eau-couesnon].
 - **Fiche BSS complète** [@infoterre-bss-tpha] : coordonnées exactes, niveau piézométrique au repos, essai de débit (InfoTerre inaccessible à distance). Suivi de tendance possible via le piézomètre ADES de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne].
 - **Peut-on projeter le débit du forage ?** *(question ouverte, à approfondir)* Le « −14 à −49 % » concerne l'étiage des cours d'eau, pas le débit de pompage. Une projection du forage demanderait de croiser les **projections de recharge des nappes** d'Explore2 [@explore2], le **débit spécifique** et le niveau piézométrique de l'ouvrage, et le suivi du piézomètre de Bonnemain [@ades-bonnemain] — sans modèle hydrogéologique local, on en restera à une **tendance** (baisse de la disponibilité estivale), pas à un débit chiffré.
 - **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme.

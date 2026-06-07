@@ -26,6 +26,13 @@ Le **territoire** s'emboîte en trois échelles :
 - **Bassin Loire-Bretagne** : cadre de la ressource en eau et de sa réglementation ;
 - **Baie du Mont-Saint-Michel / Marais de Dol** : zone basse littorale où se situe Pleine-Fougères, porteuse de risques spécifiques (submersion marine, remontée de nappe, salinisation).
 
+**Implantation de l'exploitation.** Les parcelles se répartissent sur **trois bassins versants** :
+
+- **La Petite Claye** (Pleine-Fougères), site **principal de maraîchage diversifié irrigué** (forage, cf. @sec-forage), est **à cheval sur deux bassins** : le **Couesnon** (SAGE Couesnon) et le **Marais de Dol** (SAGE des bassins côtiers de la région de Dol) ;
+- les parcelles de **Saint-Malo**, sur le bassin **Rance-Frémur**, portent le **blé panifiable** (pain de ferme) et **ne sont pas irriguées**.
+
+Le **fil rouge eau/irrigation** de ce document concerne donc spécifiquement **La Petite Claye** ; les parcelles de blé, non irriguées, restent exposées aux autres aléas (chaleur, gel…) mais sortent de la problématique forage.
+
 L'**horizon** retenu est de **30 ans** (≈ 2055). Il recouvre l'« horizon 2050 » des projections climatiques, qui sera donc notre point de lecture principal, la borne 2100 servant de repère de tendance longue.
 
 ## Référentiel de réchauffement
