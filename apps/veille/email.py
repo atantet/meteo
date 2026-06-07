@@ -780,16 +780,40 @@ def _bloc_grille_indicateurs_48h(
     )
 
 
+def _titre_mail(maintenant: datetime, moment: str = "", tz_locale: str = "Europe/Paris") -> str:
+    """Titre commun au sujet, au titre HTML et au corps texte.
+
+    « Météo du <jour J/MM> » (date locale), suffixé « <moment> »
+    quand l'envoi distingue matin / après-midi. Source unique pour que le
+    sujet du mail et son titre affiché soient alignés.
+    """
+    mnt = pd.Timestamp(maintenant)
+    mnt = mnt.tz_localize("UTC") if mnt.tzinfo is None else mnt.tz_convert("UTC")
+    mnt_loc = mnt.tz_convert(tz_locale)
+    date_str = f"{JOURS_FR[mnt_loc.weekday()]} {mnt_loc.day}/{mnt_loc.month:02d}"
+    return f"Météo du {date_str}" + (f" {moment}" if moment else "")
+
+
 def composer_sujet(
-    alertes: list[Alerte], maintenant: datetime, template: str, moment: str = ""
+    alertes: list[Alerte],
+    maintenant: datetime,
+    template: str,
+    moment: str = "",
+    tz_locale: str = "Europe/Paris",
 ) -> str:
     """Formate le sujet selon template config.
 
-    Variables disponibles : ``{date}`` (YYYY-MM-DD), ``{alertes_resume}``
-    (ex. "gel + vent fort" ou "RAS"), ``{alertes_count}``, ``{moment}``
-    ("matin"/"après-midi" — distingue les deux envois du jour).
+    Variables disponibles : ``{titre}`` (titre identique au contenu, ex.
+    "Météo du samedi 7/06 après-midi"), ``{alertes_resume}``
+    (ex. "gel + vent fort" ou "RAS"), ``{date}`` (YYYY-MM-DD),
+    ``{alertes_count}``, ``{moment}`` ("matin"/"après-midi").
+
+    Le template par défaut ``"{titre} — {alertes_resume}"`` aligne le sujet
+    sur le titre affiché, en conservant le résumé d'alertes (« RAS » ou autre)
+    en fin de ligne.
     """
     return template.format(
+        titre=_titre_mail(maintenant, moment, tz_locale),
         date=maintenant.strftime("%Y-%m-%d"),
         alertes_resume=resume_alertes(alertes),
         alertes_count=len(alertes),
@@ -808,10 +832,7 @@ def composer_texte(
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile."""
     lignes: list[str] = []
-    moment_suffixe = f" — {moment}" if moment else ""
-    lignes.append(
-        f"Point météo du {format_date_fr(maintenant, capitalize_jour=False)}{moment_suffixe}"
-    )
+    lignes.append(_titre_mail(maintenant, moment, tz_locale))
     lignes.append("=" * 70)
     lignes.append("PRÉVISION MÉTÉO-FRANCE OFFICIELLE")
     if updated_on is not None:
@@ -903,11 +924,7 @@ def composer_html(
     # Titre neutre : le mail agrège 3 sources (prévi MF, Vigilance MF, cartes
     # synoptiques tierces) → pas de « prévision MF » dans le titre. La source est
     # précisée par section (en-têtes), pas dans un footer.
-    mnt = pd.Timestamp(maintenant)
-    mnt = mnt.tz_localize("UTC") if mnt.tzinfo is None else mnt.tz_convert("UTC")
-    mnt_loc = mnt.tz_convert(tz_locale)
-    date_str = f"{JOURS_FR[mnt_loc.weekday()]} {mnt_loc.day} {MOIS_FR[mnt_loc.month - 1]}"
-    titre_h2 = f"Point météo du {date_str}" + (f" — {moment}" if moment else "")
+    titre_h2 = _titre_mail(maintenant, moment, tz_locale)
 
     # Fraîcheur de la prévi officielle MF, sous l'en-tête de sa section.
     maj_html = ""
@@ -928,7 +945,7 @@ def composer_html(
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta charset="utf-8">
-<title>Point météo</title>
+<title>Météo</title>
 </head><body style="margin:0;padding:0;background:#f4f4f4;
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
@@ -980,7 +997,9 @@ def composer_email(
     )
     # Moment d'envoi (matin / après-midi) = heure locale (cron 6h30/18h30, D4).
     moment = moment_envoi(now_utc_ts, tz_locale)
-    sujet = composer_sujet(alertes, maintenant, email_cfg["sujet_template"], moment=moment)
+    sujet = composer_sujet(
+        alertes, maintenant, email_cfg["sujet_template"], moment=moment, tz_locale=tz_locale
+    )
     texte = composer_texte(
         ind,
         alertes,

@@ -166,10 +166,11 @@ vigilance_mf:
 email:
   # html_mobile : table compacte responsive ; alt: texte_simple
   format: html_mobile
-  # Template du sujet, variables : {date}, {alertes_count},
-  # {alertes_resume}, {moment} ("matin"/"après-midi" — distingue les deux
-  # envois du jour, déduit de l'heure locale d'envoi).
-  sujet_template: "Veille {moment} {date} — {alertes_resume}"
+  # Template du sujet. Par défaut le sujet reprend le titre affiché dans le
+  # mail ({titre}, ex. "Météo du samedi 7/06 après-midi") suivi du
+  # résumé d'alertes ("RAS" ou autre). Variables : {titre}, {alertes_resume},
+  # {date}, {alertes_count}, {moment} ("matin"/"après-midi").
+  sujet_template: "{titre} — {alertes_resume}"
   # Lien depuis chaque indicateur vers sa "fiche indice" sur Pages
   # (publiée plus tard). Aligne avec le principe #5 transparence.
   inclure_lien_fiches_indices: true

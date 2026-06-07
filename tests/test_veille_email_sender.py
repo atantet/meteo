@@ -90,22 +90,35 @@ def test_composer_email_moment_deduit_de_l_heure() -> None:
 
     config = {
         "site": {"tz": "Europe/Paris"},
-        "email": {"sujet_template": "Veille {moment} {date} — {alertes_resume}"},
+        "email": {"sujet_template": "{titre} — {alertes_resume}"},
     }
     # Moment = créneau de run UTC (bornes 05:30 / 17:30 UTC), ADR-0011 D3.
     # 07:00 UTC → matin.
     matin = composer_email(_ind(), [], config, datetime(2024, 6, 15, 7, 0))
     # 18:00 UTC (≥ 17:30) → après-midi.
     pm = composer_email(_ind(), [], config, datetime(2024, 6, 15, 18, 0))
-    assert matin.sujet.startswith("Veille matin ")
-    assert pm.sujet.startswith("Veille après-midi ")
-    # Titre HTML « Point météo du … — matin/après-midi ».
-    assert "Point météo du" in matin.html and "— matin" in matin.html
-    assert "Point météo du" in pm.html and "— après-midi" in pm.html
+    # Sujet aligné sur le titre affiché, suffixé du résumé d'alertes (RAS).
+    assert matin.sujet.startswith("Météo du") and "matin — RAS" in matin.sujet
+    assert pm.sujet.startswith("Météo du") and "après-midi — RAS" in pm.sujet
+    # Titre HTML « Météo du … matin/après-midi » (tiret seulement devant RAS).
+    assert "Météo du" in matin.html and "matin" in matin.html
+    assert "Météo du" in pm.html and "après-midi" in pm.html
+
+
+def test_sujet_aligne_sur_titre_du_contenu() -> None:
+    """Le sujet = titre affiché du mail + résumé d'alertes (RAS ou autre)."""
+    from apps.veille.email import _titre_mail, composer_sujet
+
+    maintenant = datetime(2024, 6, 15, 16, 0)
+    titre = _titre_mail(maintenant, moment="après-midi")
+    sujet = composer_sujet([], maintenant, "{titre} — {alertes_resume}", moment="après-midi")
+    # Le sujet commence exactement par le titre du contenu, puis « — RAS ».
+    assert sujet == f"{titre} — RAS"
+    assert sujet.startswith(titre)
 
 
 def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
-    """Titre « Point météo … — après-midi » + fraîcheur MF (updated_on) sous la section."""
+    """Titre « Météo … après-midi » + fraîcheur MF (updated_on) sous la section."""
     import pandas as pd
 
     from apps.veille.email import composer_html
@@ -120,7 +133,7 @@ def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
         tz_locale="Europe/Paris",
         updated_on=maj,
     )
-    assert "Point météo du" in html and "— après-midi" in html
+    assert "Météo du" in html and "après-midi" in html
     assert "Prévision Météo-France officielle" in html
     assert "Mise à jour" in html and "12h00" in html
 
@@ -136,8 +149,8 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "8.0" in txt or "8" in txt  # T° min
     # Section MF officielle nommée (source par section, pas de footer).
     assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" in txt
-    # Titre « Point météo du … » en date FR.
-    assert "Point météo du samedi 15 juin" in txt
+    # Titre « Météo du … » en date courte (jour J/MM).
+    assert "Météo du samedi 15/06" in txt
     # Direction du vent dominante.
     assert "Vent direction dom." in txt
 
