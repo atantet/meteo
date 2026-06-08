@@ -45,15 +45,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup conda env meteo
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           activate-environment: meteo
           environment-file: environment-dev.yml
-          auto-activate-base: false
+          auto-activate: false
+          conda-remove-defaults: true
           use-mamba: true
 
       - name: Setup Quarto (binaire officiel)
@@ -91,10 +92,10 @@ jobs:
           cp -r etat-art-climat/_output/. site/etat-art-climat/
 
       - name: Upload artifact Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
