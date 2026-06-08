@@ -28,7 +28,9 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 
 **Précautions de lecture.** Maille **nationale (40 bassins versants)**, trop grossière pour le cas du Guyoult ; la Bretagne n'y est **pas** un point chaud d'irrigation (≠ Adour, Escaut, sud-Loire). C'est une **prospective**, pas une prévision : des trajectoires contrastées dépendant de choix de société.
 
-**Pour aller plus loin.** La **Note d'analyse n° 148** (mêmes auteurs) en résume les enseignements ; une **étude à paraître** confronte demande et ressource par territoire (identification des zones de tension) — à surveiller. *Transcription structurée archivée localement (`sources/`).*
+**Le second volet est paru (juin 2025).** La confrontation *demande ↔ ressource* annoncée a été publiée : **Note d'analyse n° 156, *L'eau en 2050 : graves tensions sur les écosystèmes et les usages*** (+ document technique DT n° 2025-03) [@francestrategie-eau-tension2025]. En croisant la demande et les débits Explore2 (modèles SMASH/ORCHIDEE, eaux de surface, RCP 8.5) à 2050, scénario tendanciel : **consommation estivale +161 %**, **88 % du territoire en tension** (83 % en tension sévère en août), et **écosystèmes stressés sur 100 % des bassins en année sèche** (≈ 50 % même en année humide). *Précaution* : étude **nationale**, **muette sur la Bretagne** et limitée aux **eaux de surface** (≠ nappe de socle du forage) → à lire comme **contexte directionnel**, pas comme un chiffre local.
+
+**Pour aller plus loin.** La **Note d'analyse n° 148** (mêmes auteurs) résume le rapport « demande » de janvier 2025. *Transcriptions structurées archivées localement (`sources/`).*
 
 ## Explore2 — *Les futurs de l'eau* (INRAE / OiEau / Météo-France / BRGM, 2024) {#sec-lecture-explore2}
 
@@ -66,7 +68,7 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 
 **Cadre en vigueur — SDAGE Loire-Bretagne 2022-2027.** Adopté le **3 mars 2022**, il **renforce la gestion quantitative** : débits de référence (**QMNA5**), identification des secteurs en tension, et déploiement de la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc].
 
-**Ce qui se prépare — adaptation et SDAGE 2028-2033.** L'Agence de l'eau construit sa **stratégie d'adaptation au changement climatique** via la **démarche prospective « Loire-Bretagne 2050 »**, destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. *Travail en cours : la page consultée ne porte pas encore de chiffre de débit consolidé — le quantitatif local reste, à ce jour, la fiche Explore2 J0.*
+**Ce qui se prépare — adaptation et SDAGE 2028-2033.** L'Agence de l'eau construit sa **stratégie d'adaptation au changement climatique** via la **démarche prospective « Loire-Bretagne 2050 »**, destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. Première étape concrète : l'**État des lieux 2025** du bassin (diagnostic préalable au SDAGE 2028-2033 — **2 203 masses d'eau**, état et pressions) a été adopté le 10 décembre 2025 et publié en 2026 [@sdage-edl2025] ; il ne descend toutefois pas, dans la version consultée, au détail chiffré du Guyoult ou de la nappe FRGG123. *Travail en cours : pas encore de chiffre de débit consolidé — le quantitatif local reste, à ce jour, la fiche Explore2 J0.*
 
 **Déclinaison locale — deux études engagées, non publiées.**
 

@@ -58,7 +58,7 @@ en bas. Il est versionné : il fait foi sur *quoi re-vérifier, à quel rythme, 
 | **HMUC du bassin du Couesnon** (chiffrée : DCR, volumes prélevables, projections 2030/2050) | 1re règle locale de partage de l'eau opposable (sous-bassin Chenelais) | Syndicat BV Couesnon — bassin-couesnon.fr | étude lancée fin 2023, **non publiée** |
 | **Pré-HMUC du SAGE des bassins côtiers de Dol** | Territoire **du forage** (Guyoult) — référence locale la plus directe | SBCDol — sage-dol.fr | engagée, **non publiée** |
 | **SDAGE Loire-Bretagne 2028-2033** | Stratégie climat = enjeu n°1, sur Explore2 ; cadre de prélèvement à venir | eau-loire-bretagne.fr | en préparation (consultation ~2026-27) |
-| **France Stratégie — étude « demande vs ressource »** | Confronte demande (rapport 2025) et ressource par territoire → zones de tension | strategie.gouv.fr | annoncée « à paraître » |
+| ~~France Stratégie — étude « demande vs ressource »~~ | Confronte demande (rapport 2025) et ressource par territoire → zones de tension | strategie-plan.gouv.fr | **PARU** (NA 156 + DT 2025-03, 25 juin 2025) — **intégré le 2026-06-08** (`francestrategie-eau-tension2025`) |
 
 ## Ce qui est attendu d'Alexis à chaque veille
 
@@ -124,6 +124,14 @@ thématique ; PR sans merge automatique.
 
 ## Journal des révisions
 
+- **2026-06-08 — Traitement de l'issue de veille #4** (1ʳᵉ passe). **Intégré** : France Stratégie
+  NA 156 *L'eau en 2050* (confrontation demande↔ressource, jalon paru — national, muet sur la
+  Bretagne) ; **État des lieux 2025** Loire-Bretagne (préalable SDAGE 2028-2033) ; brochure
+  consolidée **OEB Chiffres clés 2025** ; **23ᵉ Baromètre Agence Bio** (reprise conso 2025) ;
+  **sécheresse été 2025** en Ille-et-Vilaine (bassins côtiers/forage en alerte). 5 entrées bib
+  ajoutées, 1 transcription archivée. **Différé / à surveiller à la prochaine passe** : *Chiffres
+  du bio 2025* (non parus, attendus fin juin 2026) ; nouvel **arrêté-cadre sécheresse 35**
+  (consultation publique référencée) ; HMUC Couesnon et pré-HMUC SAGE Dol (toujours non publiées).
 - **2026-06 — Création.** Mise en place de la veille. État initial : livre complet (Parties I/II
   + annexes A/B/C), 20 fichiers, dernier rendu CI vert. Intégrations récentes : prospective
   France Stratégie « demande en eau 2050 », note SDAGE 2028-2033 / pré-HMUC SAGE Dol, annexe C
