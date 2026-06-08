@@ -1,6 +1,6 @@
 # Eau, sécheresse, irrigation et forage {#sec-eau}
 
-C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage diversifié ; or la ressource bretonne est, paradoxalement, **vulnérable**, et son usage est de plus en plus **encadré**. Quatre volets : la ressource souterraine, **la demande et son évolution**, la réglementation, et le pilotage de l'irrigation.
+C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage diversifié ; or la ressource bretonne est, paradoxalement, **vulnérable**, et son usage est de plus en plus **encadré**. Trois volets : la ressource souterraine, **la demande et son évolution**, et la réglementation. Le **pilotage de l'irrigation** — technique de conduite et levier d'efficience — relève de l'adaptation (cf. @sec-adapt-eau).
 
 ## La ressource souterraine bretonne : abondante en apparence, fragile en réalité
 
@@ -80,17 +80,6 @@ L'irrigation y est principalement **localisée** — **goutte-à-goutte et micro
 ::: {.callout-important title="Classement ZRE : hors ZRE"}
 Le régime bascule selon que le secteur est, ou non, **classé en zone de répartition des eaux** : **hors ZRE**, le seuil de déclaration est de **10 000 m³/an** (volume) ; **en ZRE**, il tombe à **8 m³/h** (débit instantané) — bien plus contraignant. Or le parcellaire relève des **SAGE Couesnon** (sous-bassin du Chenelais) et **des bassins côtiers de la région de Dol** (sous-bassin du Guyoult, **où se situe le forage**) [@gesteau-couesnon ; @me-guyoult] ; **ni le Couesnon ni les bassins côtiers de Dol ne figurent** dans les ZRE d'Ille-et-Vilaine (limitées aux bassins **Vilaine** et **Oudon**) [@zre-loire-bretagne]. Le secteur est donc **hors ZRE** : c'est le seuil de **10 000 m³/an** qui s'applique (et non le 8 m³/h), sans OUGC. Le forage est précisément sur le sous-bassin du **Guyoult** (SAGE des bassins côtiers de Dol, cf. @sec-forage).
 :::
-
-## Le pilotage de l'irrigation en maraîchage diversifié
-
-La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-fiche37], complétée par le guide 2025 [@gabfrab2025], le guide Sud & Bio [@calcet2016] et le projet **IRRIBZH** du CTIFL, dédié au pilotage hydrique du maraîchage bio breton [@ctifl-irribzh].
-
-- **Bilan hydrique** : le besoin est l'évapotranspiration maximale **ETM = Kc × ETP** ; on suit la **réserve facilement utilisable (RFU)** du sol, alimentée par pluie + irrigation, diminuée de l'ETM [@agrobio35-fiche37]. (L'ETP de référence suit la formule **FAO Penman-Monteith**, telle qu'employée dans la réanalyse SAFRAN [@vannier2012].)
-- **La texture commande la conduite** : RFU ≈ 60 % de la réserve utile en sol sableux, ≈ 40 % en sol argileux ; perméabilité ≈ 50 mm/h (sable), 13 mm/h (limon), 0,5 mm/h (argile). Sols sableux → apports **modérés et fréquents** (sinon lessivage) ; sols argileux → apports **plus importants et espacés** [@agrobio35-fiche37].
-- **Sous abri**, l'ETP est réduite (ETP sous abri ≈ **80 %** de l'ETP plein champ, car le vent y est absent) [@agrobio35-fiche37].
-- **Tensiométrie — seuils de décision** : 0 cbar = sol saturé (ne pas irriguer) ; 10-20 cbar = capacité au champ ; 30-40 cbar = irriguer (sols sableux) ; 40-50 cbar (sols argileux) ; **60-70 cbar = stress, urgent**. Deux tensiomètres (surface + 15-20 cm) recommandés [@agrobio35-fiche37].
-- **Goutte-à-goutte vs aspersion** : le goutte-à-goutte économise l'eau, cible l'apport et **ne mouille pas le feuillage** (moins de maladies cryptogamiques, cf. @sec-bioagresseurs) mais est inadapté aux sols très sableux ; l'aspersion stimule l'activité racinaire mais mouille le feuillage et peut provoquer **battance/ruissellement** [@agrobio35-fiche37].
-- **Conduite** : irriguer **le matin** (le feuillage sèche dans la journée → moins de maladies) ; l'excès d'eau lessive et asphyxie, le manque provoque montée à graines et accidents de nouaison [@agrobio35-fiche37].
 
 ## Apprentissages à 30 ans
 
