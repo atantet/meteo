@@ -33,6 +33,6 @@ La plupart des secteurs maraîchers raisonnent le climat futur en termes de **s�
 ::: {.callout-warning title="Limites et compléments"}
 - **Quantifier la grêle et le vent** régionalement (sources Météo-France / DRIAS).
 - Récupérer les **cartes du PPRSM Marais de Dol** et les zonages d'aléa pour les parcelles concernées.
-- Documenter localement la **salinité de la nappe** et l'historique des intrusions marines (SAGE, BRGM).
-- Confirmer le **SAGE compétent** sur la commune et son volet « risques » [@sage-dol].
+- Documenter localement la **salinité de la nappe** et l'historique des intrusions marines (SAGE, BRGM) — premiers repères rassurants : pas de signal de salinité aux qualitomètres ADES voisins (cf. @sec-adapt-filiere).
+- **SAGE compétent : confirmé.** La commune est à cheval sur le **SAGE Couesnon** et le **SAGE des bassins côtiers de Dol** — le cœur de l'exploitation relève de **Dol** (cf. @sec-forage) ; reste à consulter son **volet « risques »** [@sage-dol].
 :::
