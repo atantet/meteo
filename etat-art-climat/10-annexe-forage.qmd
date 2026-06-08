@@ -11,6 +11,28 @@ Cette annexe **applique** le cadre générique du @sec-eau au forage existant de
 - **Réalisation** : **16 juillet 2002**, par SA Dol Forage (Dol-de-Bretagne).
 - **Régime déclaré à l'origine** : déclaration préalable de travaux souterrains (DRIRE Bretagne), puis déclaration après travaux — usage **« arrosage de serres »**.
 
+## Parcellaire et zones humides
+
+L'EARL exploite **~7 ha** de maraîchage à Pleine-Fougères (section cadastrale **ZC**, lieu-dit « La Petite Claye » ; les parcelles de blé à Saint-Malo, hors périmètre maraîchage, ne sont pas reprises). Le croisement du parcellaire cadastral avec l'**inventaire des zones humides du SAGE Couesnon** [@inventaire-zh-couesnon] donne :
+
+| Parcelle | Lieu-dit | Surface (ha) | Exploitée par l'EARL | Usage | En zone humide |
+|---|---|---|---|---|---|
+| ZC6 | La Petite Claye | 0,62 | oui | bitunnel | non |
+| ZC14 | La Petite Claye | 1,48 | oui | plein champ | non |
+| ZC15 | La Petite Claye | 0,64 | oui | tunnel | non |
+| ZC17 | La Petite Claye | 1,63 | oui (échange de jouissance) | maraîchage | non |
+| ZC19 | La Petite Claye | 0,59 | oui | maraîchage | non |
+| ZC20 (partie nord) | La Petite Claye | 1,00 | oui (bail) | maraîchage | non |
+| ZC26 | La Petite Claye | 0,52 | oui | prairie permanente | non |
+| ZC132 · ZC196 · ZC198 | La Petite Claye | 0,61 | oui | serre, maison, abords | non |
+| ZD14 | Le Pré de la Fontaine | 0,38 | non (échangée) | — | **oui (100 %)** |
+| ZD18 | Le Pré de la Fontaine | 0,26 | non (échangée) | — | non |
+| ZD19 | Le Pré de la Fontaine | 1,51 | non (échangée) | — | non |
+
+**Les parcelles effectivement exploitées (toute la section ZC) sont hors zone humide inventoriée.** La seule parcelle classée — **ZD14**, à « Le Pré de la Fontaine » — relève d'un **échange de jouissance** (cultivée par une autre exploitation), pas du parcellaire maraîcher. Conséquence directe : le critère **« zone humide » ne contraint pas l'implantation d'une éventuelle retenue** sur le cœur de l'exploitation (cf. @sec-adapt-eau).
+
+*Source : inventaire ZH du SAGE Couesnon (campagne 2008-2011, MAJ 2019, validé CLE) [@inventaire-zh-couesnon], croisé avec le parcellaire cadastral (données locales). Un inventaire n'est pas exhaustif : le critère réglementaire (sol hydromorphe **ou** flore hygrophile) pourrait classer ponctuellement davantage — à vérifier au cas par cas avant travaux.*
+
 ## Caractéristiques techniques (d'après les déclarations)
 
 | Caractéristique | Valeur déclarée |
