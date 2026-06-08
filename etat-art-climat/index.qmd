@@ -8,6 +8,8 @@ Il poursuit trois objectifs :
 2. **Actualiser** cette synthèse au regard des publications les plus récentes (référentiel d'adaptation TRACC 2025, projections DRIAS relayées par l'Observatoire de l'environnement en Bretagne, données BRGM 2022-2023, chiffres Agence Bio 2024) ;
 3. **En dériver des apprentissages** pour la conduite de l'exploitation à l'**horizon 30 ans** (≈ 2025-2055).
 
+Au-delà des seuls **impacts physiques** du climat, ce document suit aussi l'**évolution prospective du contexte humain** qui conditionnera l'adaptation : la **ressource en eau** d'abord, mais également la **demande** (usages concurrents), le **cadre réglementaire** (restrictions, partage de l'eau) et, plus largement, le **contexte socio-économique** (filière, marché, intrants, énergie). Ces trajectoires-là évoluent en partie **indépendamment du climat** et sont **plus incertaines** : elles sont rapportées comme **tendances et points de vigilance**, sans extrapolation au-delà des sources fiables (cf. la convention de robustesse ci-après). Elles **complètent** la lecture climatique, elles ne la remplacent pas.
+
 Il est **autoporté** : il n'est pas structuré par l'architecture d'un quelconque outil logiciel, et a vocation à rester lisible et citable indépendamment. Il est organisé en deux parties : la **Partie I — Impacts** (inventaire des effets, par axe) et la **Partie II — Adaptation** (leviers documentés, calqués sur les mêmes axes), suivies des annexes.
 
 ::: {.callout-note title="Comment lire ce document"}
@@ -75,6 +77,8 @@ L'état de l'art mêle des sources de statut différent. Pour rester transparent
 Un principe directeur : **distinguer systématiquement l'observé du projeté**. Les tendances passées (séries Météo-France, ORACLE) sont des mesures ; les valeurs futures sont **conditionnelles à un scénario** et assorties d'incertitudes de modèles — elles s'emploient comme **ordres de grandeur** orientant la décision, jamais comme des prédictions exactes.
 
 Un **second principe** : signaler la **provenance** des données. Beaucoup de références agronomiques disponibles portent sur d'**autres filières** (grandes cultures, arboriculture) ou sur des **conditions contrôlées** (espèces-modèles en serre expérimentale) ; leur transfert au **maraîchage diversifié breton**, de plein champ et sous abri, est rarement direct. Chaque fois qu'un chiffre est **transposé** — d'un arbre, d'une grande culture, d'un autre climat — le document le signale : c'est alors un ordre d'idée à valider au terrain, non une donnée maraîchère locale.
+
+Un **troisième principe**, parce que ce dossier déborde le seul climat : sur la **demande en eau, la réglementation et le socio-économique**, rester **prudent**. Ces trajectoires sont **incertaines et politiquement contingentes** (choix de société, lois de finances, révisions de SDAGE) — on les présente comme des **tendances documentées et des points de vigilance**, jamais comme des projections fermes, et l'on **complète plutôt qu'on ne tranche** lorsque les sources fiables manquent.
 
 ## Plan
 

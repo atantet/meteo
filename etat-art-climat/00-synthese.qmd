@@ -26,6 +26,10 @@ Pour le maraîchage de Pleine-Fougères, le changement climatique se résume moi
 
 Un même fil relie l'adaptation climatique et la robustesse de l'exploitation : **l'autonomie** — en eau (stocker l'hiver pour l'été), en fertilité (légumineuses, couverts, matière organique du sol), en énergie. C'est là que convergent les leviers « sans regret », efficaces quel que soit le scénario.
 
+## Un contexte humain qui bouge aussi
+
+L'adaptation ne se joue pas qu'**face au climat**. La **demande en eau** concurrente, le **cadre réglementaire** (restrictions estivales, volumes prélevables à venir via les HMUC et le SDAGE 2028-2033) et le **contexte socio-économique** (marché du bio, intrants, énergie) évoluent en parallèle — parfois **indépendamment** de la trajectoire de température, et de façon **plus incertaine**. Ils sont suivis ici comme **tendances et points de vigilance** (surtout aux @sec-eau et @sec-filiere), pas comme des projections fermes : autant de raisons **supplémentaires** d'anticiper, qui s'ajoutent au signal climatique sans s'y substituer.
+
 ## Des impacts aux leviers
 
 Cette synthèse hiérarchise les **impacts** (Partie I). Les **leviers d'adaptation** correspondants sont développés en Partie II, axe par axe et dans le même registre non prescriptif : efficience et stockage de l'eau (@sec-adapt-eau) ; ombrage, protection contre le gel et travail (@sec-adapt-chaleur) ; diversité, couverts et haies (@sec-adapt-bioagresseurs-sol) ; résilience économique, autonomie et risques côtiers (@sec-adapt-filiere). Plusieurs ramifications restent notées en @sec-axes-emergents.
