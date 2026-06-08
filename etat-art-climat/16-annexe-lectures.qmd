@@ -28,7 +28,9 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 
 **Précautions de lecture.** Maille **nationale (40 bassins versants)**, trop grossière pour le cas du Guyoult ; la Bretagne n'y est **pas** un point chaud d'irrigation (≠ Adour, Escaut, sud-Loire). C'est une **prospective**, pas une prévision : des trajectoires contrastées dépendant de choix de société.
 
-**Pour aller plus loin.** La **Note d'analyse n° 148** (mêmes auteurs) en résume les enseignements ; une **étude à paraître** confronte demande et ressource par territoire (identification des zones de tension) — à surveiller. *Transcription structurée archivée localement (`sources/`).*
+**Le second volet est paru (juin 2025).** La confrontation *demande ↔ ressource* annoncée a été publiée : **Note d'analyse n° 156, *L'eau en 2050 : graves tensions sur les écosystèmes et les usages*** (+ document technique DT n° 2025-03) [@francestrategie-eau-tension2025]. En croisant la demande et les débits Explore2 (modèles SMASH/ORCHIDEE, eaux de surface, RCP 8.5) à 2050, scénario tendanciel : **consommation estivale +161 %**, **88 % du territoire en tension** (83 % en tension sévère en août), et **écosystèmes stressés sur 100 % des bassins en année sèche** (≈ 50 % même en année humide). *Précaution* : étude **nationale**, **muette sur la Bretagne** et limitée aux **eaux de surface** (≠ nappe de socle du forage) → à lire comme **contexte directionnel**, pas comme un chiffre local.
+
+**Pour aller plus loin.** La **Note d'analyse n° 148** (mêmes auteurs) résume le rapport « demande » de janvier 2025. *Transcriptions structurées archivées localement (`sources/`).*
 
 ## Explore2 — *Les futurs de l'eau* (INRAE / OiEau / Météo-France / BRGM, 2024) {#sec-lecture-explore2}
 
@@ -66,7 +68,7 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 
 **Cadre en vigueur — SDAGE Loire-Bretagne 2022-2027.** Adopté le **3 mars 2022**, il **renforce la gestion quantitative** : débits de référence (**QMNA5**), identification des secteurs en tension, et déploiement de la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc].
 
-**Ce qui se prépare — adaptation et SDAGE 2028-2033.** L'Agence de l'eau construit sa **stratégie d'adaptation au changement climatique** via la **démarche prospective « Loire-Bretagne 2050 »**, destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. *Travail en cours : la page consultée ne porte pas encore de chiffre de débit consolidé — le quantitatif local reste, à ce jour, la fiche Explore2 J0.*
+**Ce qui se prépare — adaptation et SDAGE 2028-2033.** L'Agence de l'eau construit sa **stratégie d'adaptation au changement climatique** via la **démarche prospective « Loire-Bretagne 2050 »**, destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. Première étape concrète : l'**État des lieux 2025** du bassin (diagnostic préalable au SDAGE 2028-2033 — **2 203 masses d'eau**, état et pressions) a été adopté le 10 décembre 2025 et publié en 2026 [@sdage-edl2025] ; il ne descend toutefois pas, dans la version consultée, au détail chiffré du Guyoult ou de la nappe FRGG123. *Travail en cours : pas encore de chiffre de débit consolidé — le quantitatif local reste, à ce jour, la fiche Explore2 J0.*
 
 **Déclinaison locale — deux études engagées, non publiées.**
 
@@ -78,6 +80,30 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 **Précautions de lecture.** Les HMUC locales étant **non publiées**, il n'existe **pas encore de volume prélevable chiffré et daté** pour le secteur ; la trajectoire est qualitative (resserrement), pas quantifiée localement.
 
 **Pour aller plus loin.** Suivre la publication de la **HMUC Couesnon** et de la **pré-HMUC Dol** ; pour le cadre bassin, la **démarche Loire-Bretagne 2050** et le **guide HMUC** détaillent la méthode de calcul des volumes prélevables.
+
+## État des lieux 2025 du bassin Loire-Bretagne {#sec-lecture-edl2025}
+
+**Nature et portée.** Diagnostic réglementaire (directive-cadre sur l'eau) de l'**état des masses d'eau** et des **pressions**, préalable au **SDAGE 2028-2033** [@sdage-edl2025]. Adopté par le comité de bassin le 10 décembre 2025. **2 203 masses d'eau** (2 059 de surface dont 1 886 cours d'eau, 144 souterraines). Notre secteur relève de la commission territoriale **« Vilaine et côtiers bretons »**. *Robustesse : officiel (agence de l'eau).* C'est le document le plus **local et officiel** sur l'état de nos eaux.
+
+**Résultats clés (bassin, 2023).** Cours d'eau : **21,4 %** en bon état écologique (−2,3 pts vs 2017), 64 % en bon état chimique ; **nappes souterraines : 73 % en bon état quantitatif, 57 % en bon état chimique**. **Risque 2033 élevé** (≈ 90 % des cours d'eau en risque de non-respect des objectifs). Volet climat fondé sur **Explore2** (mêmes narratifs orange/jaune/violet/vert) : réchauffement observé **+1,7 °C** ; fin de siècle ≈ **+4 °C** (**été +4,5 °C**), **ETP +15 à +30 %**, **étiages plus sévères** ; la **grêle** est citée comme aléa montant **pour le maraîchage**.
+
+::: {.callout-important title="Ce qui nous concerne — état officiel de nos masses d'eau (tableurs EDL 2025)"}
+*Échelle DCE : 1 très bon · 2 bon · 3 moyen · 4 médiocre · 5 mauvais · 0 indéterminé.*
+
+| Masse d'eau | Code | Écologique | Chimique | Quantitatif | Risque 2033 |
+|---|---|---|---|---|---|
+| **Nappe du forage** (« BV du Marais de Dol », SAGE Dol) | FRGG123 | — | **bon** | **bon** | **non** (stable) |
+| **Le Guyoult** (exutoire du forage, SAGE Dol) | FRGR1597 | **moyen** | indéterminé | — | **en risque** |
+| **Le Chenelais** (sous-bassin Couesnon de La Petite Claye) | FRGR0023 | **bon** | **bon** | — | **non** (nitrates 35 mg/L, en amélioration) |
+
+- **Côté forage, c'est rassurant** : la **nappe captée (FRGG123) est en bon état quantitatif *et* chimique, non en risque 2033, tendance stable**. Ce n'est pas contradictoire avec l'étiage estival projeté en baisse (Explore2) : l'état *multi-annuel* d'une masse d'eau n'est pas la *tension estivale ponctuelle*.
+- **Point d'attention** : **Le Guyoult**, cours d'eau récepteur, est en **état écologique moyen et en risque 2033** — milieu de surface aval à ne pas dégrader.
+- **Qualité** : nitrates au Chenelais à **35 mg/L** (< 50, en amélioration) — repère avant l'analyse d'eau du forage.
+:::
+
+**Précautions de lecture.** L'état est un diagnostic **à l'échelle de la masse d'eau** (plusieurs km²), pas du forage ni de la parcelle ; le **bon état quantitatif** de la nappe **n'exonère pas** des restrictions sécheresse estivales. État daté de 2023, climat au pas du bassin.
+
+**Pour aller plus loin.** Le rapport complet (484 p.), les **tableurs** par masse d'eau et la **carte dynamique** de l'agence permettent de descendre au détail ; le **SDAGE 2028-2033** (en préparation) fixera ensuite les objectifs et, via les HMUC, les volumes prélevables (cf. @sec-lecture-sdage).
 
 ## Climat de la Bretagne — ORACLE et Observatoire de l'environnement en Bretagne {#sec-lecture-climat}
 

@@ -11,7 +11,7 @@ Ce chapitre fixe la **toile de fond physique** dont dépendent tous les axes sui
 
 ## Ce que disent les projections
 
-Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1976-2005**, dans le cadre TRACC.
+Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1976-2005**, dans le cadre TRACC. Ces indicateurs régionaux sont par ailleurs rassemblés dans la brochure consolidée de l'OEB *Chiffres clés de l'évolution du climat en Bretagne* (édition 2025) [@oeb-chiffres-cles2025].
 
 **À l'horizon 2050 (France à +2,7 °C)** [@meteofrance-futur-bzh] :
 
