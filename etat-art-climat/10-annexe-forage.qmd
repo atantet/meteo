@@ -33,6 +33,24 @@ L'EARL exploite **~7 ha** de maraîchage à Pleine-Fougères (section cadastrale
 
 *Source : inventaire ZH du SAGE Couesnon (campagne 2008-2011, MAJ 2019, validé CLE) [@inventaire-zh-couesnon], croisé avec le parcellaire cadastral (données locales). Un inventaire n'est pas exhaustif : le critère réglementaire (sol hydromorphe **ou** flore hygrophile) pourrait classer ponctuellement davantage — à vérifier au cas par cas avant travaux.*
 
+## Caractérisation du sol (diagnostic 2025)
+
+Un **diagnostic de sol** (Agrobio 35, septembre 2025) a porté sur trois profils représentatifs [@diagsol-lapetiteclaye2025] : **bitunnel (ZC6)**, **tunnel (ZC15)** et **plein champ (ZC14, « PC A1 »)**. Sols **bruns acides sur socle** (cornéennes/schistes à cordiérite), de texture **limono-argileuse à sablo-argileuse**.
+
+| Profil (parcelle) | MO | C/N | CEC (saturation) | pH eau | Hydromorphie | Structure |
+|---|---|---|---|---|---|---|
+| Plein champ (ZC14) | 2,5 % | 9,7 | 83 (105 %) | 7,3 | **aucune sur 80 cm** | grumeleuse, vie biologique active sur 40 cm |
+| Bitunnel (ZC6) | 3,3 % | 8,4 | 97 (> 120 %) | 8,0 | traces (rouille) en profondeur | très fine sur 25-30 cm, **compactée au-delà** |
+| Tunnel (ZC15) | 3,4 % | 10 | 116 (> 120 %) | 7,9 | — | sous abri, porosité surtout mécanique |
+
+**Ce qu'on en retient pour l'eau et l'adaptation :**
+
+- **Réserve utile** : texture limono- à sablo-argileuse sur socle → RU **moyenne à bonne sur sol épais**, mais **stress hydrique rapide sur les parties superficielles**. Cela renseigne l'item « réserve utile réelle » de @sec-adapt-eau.
+- **Matière organique déjà correcte** (2,5 % en plein champ, 3,3-3,4 % sous abri) : le levier « sols-éponge » n'est donc **pas d'en ajouter**. La **CEC est sursaturée (> 120 %)** et le **pH élevé (7,3 à 8,0)** — signe d'apports passés excédentaires ; le levier utile est la **qualité** de la MO (apports plus pailleux/compostés, **engrais verts** courts) et la **réduction des apports**, pas l'accumulation (cf. @sec-adapt-bioagresseurs-sol).
+- **Structure et infiltration** : **bonnes en plein champ** (porosité biologique sur 40 cm), mais **dégradées sous abri** (sol très fin sur 25-30 cm puis compacté, porosité purement mécanique) → infiltration et réserve en eau moindres sous tunnel ; un **décompactage profond** y serait utile (mais difficile à mener sous abri).
+- **Hydraulique sous abri** : drainage moins bon, **remontées capillaires** lors des hivers pluvieux → intérêt d'un **drainage périphérique** et de la **récupération d'eau de toiture** (rejoint le levier stockage, @sec-adapt-eau).
+- **Recoupement zone humide** : la **faible hydromorphie** observée (aucune trace sur 80 cm en plein champ ; seulement quelques traces en profondeur sous bitunnel) **corrobore**, par une source indépendante, le classement **hors zone humide** des parcelles exploitées (cf. ci-dessus).
+
 ## Caractéristiques techniques (d'après les déclarations)
 
 | Caractéristique | Valeur déclarée |
