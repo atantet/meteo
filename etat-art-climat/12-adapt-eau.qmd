@@ -41,7 +41,7 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 
 ::: {.callout-warning}
 - **Faisabilité d'une retenue** : le **verrou « zone humide » est levé pour le cœur maraîcher** — d'après l'inventaire du **SAGE Couesnon**, les parcelles **effectivement exploitées** (section ZC, « La Petite Claye ») sont **hors zone humide** (tableau parcellaire en @sec-forage) ; seule une parcelle de « Le Pré de la Fontaine », **non exploitée par l'EARL**, est classée. Restent à lever : l'**aide de l'Agence de l'eau (≤ 70 %)**, conditionnée à un **PTGE** non identifié à ce jour sur le territoire (cf. *Stockage de l'eau d'hiver*), et le **dimensionnement**. *(Statut ZRE : déjà tranché — hors ZRE, cf. @sec-eau.)*
-- **Réserve utile réelle** de la parcelle (texture, cailloux, MO) par analyse de sol.
+- **Réserve utile** : premières données par le diagnostic de sol 2025 (texture limono- à sablo-argileuse → RU moyenne à bonne sur sol épais, faible sur superficiel ; MO déjà correcte, structure dégradée sous abri) — détail en @sec-forage ; restent à préciser cailloux et profondeur par sondages.
 - **Dimensionnement** de la récupération de toiture (surface tunnels × pluviométrie locale).
 - Les % d'efficience viennent surtout de **grandes cultures/arboriculture** : transposition au maraîchage diversifié breton à confirmer.
 :::
