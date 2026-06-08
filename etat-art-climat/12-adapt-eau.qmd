@@ -1,9 +1,5 @@
 # Adaptation — eau, irrigation et forage {#sec-adapt-eau}
 
-::: {.callout-note}
-Leviers d'adaptation pour l'axe prioritaire (impacts au @sec-eau et @sec-forage). Registre **non prescriptif** : chaque levier est présenté avec sa preuve d'efficacité, ses limites et ses conditions de pertinence — l'arbitrage revient au maraîcher selon son terrain.
-:::
-
 ## Efficience de l'irrigation
 
 - **Goutte-à-goutte vs aspersion** : la conversion apporte de l'ordre de **20-30 %** d'économie d'eau (valeurs d'experts), avec une fourchette mesurée à la parcelle de **17-43 %** en plein champ/tunnel [@inrae-irstea-efficience2016]. *Limites* : exige une eau **filtrée** (colmatage des goutteurs), peu adapté aux sols très sableux (lessivage), gain conditionné à la **maîtrise** du système ; goutteurs autorégulants requis sur pente > 4 % [@agrobio35-fiche37].
