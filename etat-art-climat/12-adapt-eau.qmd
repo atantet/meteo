@@ -7,7 +7,11 @@ Leviers d'adaptation pour l'axe prioritaire (impacts au @sec-eau et @sec-forage)
 ## Efficience de l'irrigation
 
 - **Goutte-à-goutte vs aspersion** : la conversion apporte de l'ordre de **20-30 %** d'économie d'eau (valeurs d'experts), avec une fourchette mesurée à la parcelle de **17-43 %** en plein champ/tunnel [@inrae-irstea-efficience2016]. *Limites* : exige une eau **filtrée** (colmatage des goutteurs), peu adapté aux sols très sableux (lessivage), gain conditionné à la **maîtrise** du système ; goutteurs autorégulants requis sur pente > 4 % [@agrobio35-fiche37].
-- **Pilotage** (tensiométrie, sondes capacitives, bilan hydrique ETP, OAD) : l'amélioration du pilotage relève l'efficience de **10 à 40 %**, la conduite tensiométrique atteignant jusqu'à ~42 % d'économie dans certains essais [@inrae-irstea-efficience2016]. Seuils tensiométriques opérationnels et coefficients culturaux disponibles [@agrobio35-fiche37] ; outil dédié au maraîchage bio breton : IRRIBZH [@ctifl-irribzh]. *Limites* : mesure ponctuelle (placement et suivi hebdomadaire nécessaires).
+- **Pilotage** (tensiométrie, sondes capacitives, bilan hydrique ETP, OAD) : l'amélioration du pilotage relève l'efficience de **10 à 40 %**, la conduite tensiométrique atteignant jusqu'à ~42 % d'économie dans certains essais [@inrae-irstea-efficience2016] ; la prospective nationale retient une économie de **~25 %** pour les outils de pilotage (capteurs, programmateurs, logiciels) [@francestrategie-demande-eau2025]. Seuils tensiométriques opérationnels et coefficients culturaux disponibles [@agrobio35-fiche37] ; outil dédié au maraîchage bio breton : IRRIBZH [@ctifl-irribzh]. *Limites* : mesure ponctuelle (placement et suivi hebdomadaire nécessaires).
+
+::: {.callout-warning title="Garde-fou — l'effet rebond"}
+Gagner en efficience ne garantit pas de **prélever moins**. La littérature documente un **effet rebond** : une irrigation plus efficace peut conduire à **irriguer de nouvelles surfaces** ou à cultiver des espèces plus exigeantes, si bien que le volume total prélevé **augmente** [@francestrategie-demande-eau2025]. L'efficience n'est un levier d'économie *réelle* que si le **volume prélevé est piloté comme objectif** (et non la seule dose à la plante) — point d'autant plus sensible que la ressource estivale se raréfie.
+:::
 
 ## Stockage de l'eau d'hiver
 
@@ -18,7 +22,8 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 
 ## Sols « éponge »
 
-- **Matière organique, paillage/mulch, couverts** augmentent la réserve utile et limitent l'évaporation [@geco-paillage ; @gabfrab2025]. La RFU vaut ~60 % de la réserve utile en sol sableux, ~40 % en argileux [@agrobio35-fiche37]. *Limite* : effet **qualitatif** dans les sources officielles lues — pas de gain de réserve utile chiffré par point de MO ; à raisonner avec les apports (risque d'excès d'azote).
+- **Matière organique, paillage/mulch, couverts** augmentent la réserve utile et limitent l'évaporation [@geco-paillage ; @gabfrab2025]. La RFU vaut ~60 % de la réserve utile en sol sableux, ~40 % en argileux [@agrobio35-fiche37]. Un repère **chiffré et spécifiquement maraîcher** existe : le **paillage des sols réduit les besoins en irrigation de 22 à 44 %** en cultures maraîchères (projet ClimaLeg-Eau, cité par France Stratégie) [@francestrategie-demande-eau2025]. *Limites* : fourchette large, issue du **maraîchage francilien** (à confirmer en Bretagne) et conditionnée à la **disponibilité de paille/biomasse** ; à raisonner avec les apports (risque d'excès d'azote).
+- **Pratiques agroécologiques / bio** dans leur ensemble (meilleure infiltration, eau stockée dans le sol) : la même prospective retient un gain de **−10 % (2030) à −20 % (2050)** de besoins par unité de surface irriguée [@francestrategie-demande-eau2025] — ordre de grandeur national, convergent avec le levier sol (cf. @sec-adapt-bioagresseurs-sol).
 
 ## Esquive et sobriété
 

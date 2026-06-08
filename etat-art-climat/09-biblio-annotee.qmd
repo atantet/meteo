@@ -29,6 +29,7 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 - **Fiche GAB/FRAB n°37 (2021)** [@agrobio35-fiche37] ; **Guide irrigation GAB/FRAB (2025)** [@gabfrab2025] ; **planning d'irrigation** [@agrobio35-planning] ; **Sud & Bio (2016)** [@calcet2016] ; **Confédération paysanne (2023)** [@confpaysanne2023]. *Officiel/technique.* **À en tirer** : pilotage opérationnel (bilan hydrique, RFU, tensiométrie, choix des systèmes) et gestion quantitative collective.
 - **CTIFL — IRRIBZH** [@ctifl-irribzh]. *Officiel (institut technique).* **À en tirer** : projet dédié au pilotage hydrique du maraîchage bio breton — ressource à exploiter.
 - **Vannier & Braud, ETP SAFRAN (2012)** [@vannier2012]. *Primaire.* **À en tirer** : méthode de calcul d'une ETP de référence (utile pour le bilan hydrique).
+- **France Stratégie — La demande en eau, prospective 2050 (2025)** [@francestrategie-demande-eau2025]. *Officiel.* **À en tirer** : le pendant « demande » d'Explore2 (qui traite la ressource). L'irrigation devient le poste de prélèvement dominant, concentré l'été → conflits d'usage. Leviers maraîchers chiffrés (paillage −22/−44 %, pilotage −25 %, agroécologie −10/−20 %) et garde-fou de l'effet rebond. Maille nationale (40 BV), trop grossière pour le cas local : à lire comme tendance, pas comme valeur de secteur.
 
 ## Phénologie & gel tardif
 

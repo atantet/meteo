@@ -4,3 +4,5 @@
 *.pdf
 *.PDF
 *.zip
+# Transcriptions Markdown des PDF tiers (dérivées : non redistribuées non plus).
+*-transcription.md

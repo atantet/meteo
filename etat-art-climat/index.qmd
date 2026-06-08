@@ -33,6 +33,10 @@ Le **territoire** s'emboîte en trois échelles :
 
 Le **fil rouge eau/irrigation** de ce document concerne donc spécifiquement **La Petite Claye** ; les parcelles de blé, non irriguées, restent exposées aux autres aléas (chaleur, gel…) mais sortent de la problématique forage.
 
+::: {.callout-important title="Pourquoi anticiper, dès maintenant"}
+Au-delà du climat lui-même, c'est l'**équilibre entre la ressource et sa demande** qui se déplace. Côté ressource, les projections hydroclimatiques (Explore2) annoncent un étiage estival qui se durcit (cf. @sec-eau). Côté demande, la prospective nationale de France Stratégie montre qu'à l'horizon 2050 l'**irrigation devient le premier poste de prélèvement** et se **concentre sur les mois les plus chauds** — précisément quand la ressource est au plus bas — avec un risque d'**intensification des conflits d'usage** [@francestrategie-demande-eau2025]. Ce double mouvement, et le **cadre réglementaire qui l'accompagne** (Plan eau 2023, restrictions sécheresse, gestion quantitative par bassin), évolue **indépendamment de la seule trajectoire de température**. C'est la raison d'être de ce dossier : non pas prédire, mais **se doter de repères robustes pour décider** — sur l'eau d'abord, mais aussi sur la chaleur, le gel, les sols et la filière.
+:::
+
 L'**horizon** retenu est de **30 ans** (≈ 2055). Il recouvre l'« horizon 2050 » des projections climatiques, qui sera donc notre point de lecture principal, la borne 2100 servant de repère de tendance longue.
 
 ## Référentiel de réchauffement

@@ -18,6 +18,10 @@ Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segm
 - mais des structures **petites et fragiles** : les trois quarts ont une PBS < 100 000 €, le CA moyen en VD est de ~47 000 € et **35 % des répondants y font moins de 10 000 €** ;
 - **~44 % transforment** eux-mêmes une partie de leur production avant la vente.
 
+::: {.callout-note title="Vigilance — un débouché porteur, mais une demande en eau qui monte"}
+La dynamique « légumes » ne tient pas qu'au marché bio : la prospective nationale de France Stratégie projette une **croissance des surfaces en légumes frais dans *tous* ses scénarios** d'ici 2050 (souveraineté alimentaire, végétalisation des régimes) [@francestrategie-demande-eau2025] — à rebours du maïs, en recul partout. Pour un maraîcher, c'est un **contexte de demande favorable**, mais qui a une contrepartie : à l'échelle nationale, cette montée des cultures légumières et fruitières **tire la demande en eau d'irrigation**, là où d'autres usages (énergie) reculent. Le positionnement d'Alexis est donc porté par la tendance, **à condition de sécuriser l'eau** (cf. @sec-eau, @sec-adapt-eau) — l'avantage de débouché et la contrainte de ressource progressent de pair.
+:::
+
 ## Résilience par la diversité
 
 L'**Expertise scientifique collective INRAE** (2022) sur la diversité végétale chiffre des **co-bénéfices** convergents (effets moyens **multi-contextes, à dominante grandes cultures** — à transposer au maraîchage avec prudence) [@inrae-esco2022] :
