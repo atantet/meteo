@@ -60,6 +60,68 @@ en bas. Il est versionné : il fait foi sur *quoi re-vérifier, à quel rythme, 
 | **SDAGE Loire-Bretagne 2028-2033** | Stratégie climat = enjeu n°1, sur Explore2 ; cadre de prélèvement à venir | eau-loire-bretagne.fr | en préparation (consultation ~2026-27) |
 | **France Stratégie — étude « demande vs ressource »** | Confronte demande (rapport 2025) et ressource par territoire → zones de tension | strategie.gouv.fr | annoncée « à paraître » |
 
+## Ce qui est attendu d'Alexis à chaque veille
+
+La routine **propose** (une issue), elle n'**applique** rien. Voici précisément ton rôle :
+
+**S'il y a des nouveautés :**
+1. **Lire** la section « Nouveautés détectées » de l'issue.
+2. Pour chaque item, **trancher** en cochant : *à intégrer* / *à différer* / *à écarter* (un mot de justification suffit).
+3. Ouvrir une **session Claude Code dans le dépôt `meteo`** et écrire : **« traite l'issue de veille #N »** (préciser les items retenus si tu n'en gardes qu'une partie). Claude fait **toute** l'intégration — archivage de la source, rédaction du chapitre, `references.bib`, manifeste, render, PR. **Tu n'édites rien à la main.**
+4. **Relire la PR** que Claude ouvrira (valeurs exactes, provenance, lisibilité) puis la **merger** → la CI republie le site (HTML + PDF). L'issue se ferme à la fusion.
+
+**S'il n'y a rien de neuf :** rien à intégrer — **fermer simplement l'issue** (elle prouve que la vérification a eu lieu).
+
+> En résumé, tu n'interviens qu'à **deux moments** : décider *quoi* intégrer (l'issue) et valider *comment* c'est rédigé (la PR). Tout le reste est automatisé ou délégué à une session Claude locale.
+
+## Gabarit de l'issue de veille
+
+La routine (et toute révision manuelle) produit une issue suivant **exactement** ce gabarit.
+Titre : `Veille état de l'art — AAAA-MM` (suffixe ` — rien de neuf` si aucune nouveauté).
+Label : `veille`.
+
+```markdown
+## Synthèse
+Veille du {date}. **{N} nouveauté(s)** à arbitrer{, dont {J} jalon(s) paru(s)} ·
+**{M} source(s) vérifiée(s) sans changement**.
+<!-- si rien : « Aucune nouveauté — cette issue est une trace de vérification, rien à intégrer. » -->
+
+## 👉 Ce qui est attendu de toi (Alexis)
+<!-- si nouveautés -->
+1. Lis « Nouveautés détectées » et **coche** ta décision pour chaque item.
+2. En session Claude Code dans `meteo`, écris : **« traite l'issue de veille #{N} »** (précise les items retenus). Claude fait l'intégration ; tu n'édites rien à la main.
+3. **Relis la PR** de Claude (valeurs exactes, provenance, lisibilité) puis **merge** → la CI republie le site.
+4. L'issue se ferme à la fusion de la PR.
+<!-- si rien de neuf -->
+- Rien à intégrer. **Ferme simplement cette issue.**
+
+## Nouveautés détectées
+### 1. {source / jalon} — {titre court}
+- **Lien** : {url}
+- **Type** : nouvelle édition / jalon paru / révision réglementaire
+- **Robustesse** : primaire / officiel / scientifique / expert
+- **Ce qui change** : {valeur/édition citée aujourd'hui → nouvelle valeur ; ou « publication parue »}
+- **À mettre à jour** : `etat-art-climat/{fichier}.qmd` · bib `{clef}` · `sources/README.md`
+- **Reco de l'agent** : intégrer maintenant / continuer à surveiller / écarter — {pourquoi}
+- **Ta décision** : [ ] intégrer  [ ] différer  [ ] écarter
+<!-- répéter par item -->
+
+## Vérifié sans changement (traçabilité)
+- {source} — {url} — inchangé depuis {dernière vérif}
+- {jalon} — toujours non publié au {date}
+
+## Pour Claude — rappel de la procédure d'intégration
+Archiver la source dans `sources/` (+ transcription Markdown si volumineux) ; **valeurs exactes**
+(pas d'approximation) avec **valeur historique 1976-2005 entre parenthèses** pour tout chiffre
+projeté ; **signaler la provenance** d'une donnée transposée (hors maraîchage breton) ; **une seule
+méthode par phénomène** ; **pas de référence « ADR-XXXX »** dans le texte affiché ; bumper « dernière
+révision » (préface + ce fichier) + compléter le journal ; `quarto render` (0 warning) ; commit
+thématique ; PR sans merge automatique.
+
+---
+*Généré par la routine « Veille état de l'art climat » le {date}. Prochaine veille : {next}.*
+```
+
 ## Journal des révisions
 
 - **2026-06 — Création.** Mise en place de la veille. État initial : livre complet (Parties I/II
