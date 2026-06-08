@@ -81,6 +81,30 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 
 **Pour aller plus loin.** Suivre la publication de la **HMUC Couesnon** et de la **pré-HMUC Dol** ; pour le cadre bassin, la **démarche Loire-Bretagne 2050** et le **guide HMUC** détaillent la méthode de calcul des volumes prélevables.
 
+## État des lieux 2025 du bassin Loire-Bretagne {#sec-lecture-edl2025}
+
+**Nature et portée.** Diagnostic réglementaire (directive-cadre sur l'eau) de l'**état des masses d'eau** et des **pressions**, préalable au **SDAGE 2028-2033** [@sdage-edl2025]. Adopté par le comité de bassin le 10 décembre 2025. **2 203 masses d'eau** (2 059 de surface dont 1 886 cours d'eau, 144 souterraines). Notre secteur relève de la commission territoriale **« Vilaine et côtiers bretons »**. *Robustesse : officiel (agence de l'eau).* C'est le document le plus **local et officiel** sur l'état de nos eaux.
+
+**Résultats clés (bassin, 2023).** Cours d'eau : **21,4 %** en bon état écologique (−2,3 pts vs 2017), 64 % en bon état chimique ; **nappes souterraines : 73 % en bon état quantitatif, 57 % en bon état chimique**. **Risque 2033 élevé** (≈ 90 % des cours d'eau en risque de non-respect des objectifs). Volet climat fondé sur **Explore2** (mêmes narratifs orange/jaune/violet/vert) : réchauffement observé **+1,7 °C** ; fin de siècle ≈ **+4 °C** (**été +4,5 °C**), **ETP +15 à +30 %**, **étiages plus sévères** ; la **grêle** est citée comme aléa montant **pour le maraîchage**.
+
+::: {.callout-important title="Ce qui nous concerne — état officiel de nos masses d'eau (tableurs EDL 2025)"}
+*Échelle DCE : 1 très bon · 2 bon · 3 moyen · 4 médiocre · 5 mauvais · 0 indéterminé.*
+
+| Masse d'eau | Code | Écologique | Chimique | Quantitatif | Risque 2033 |
+|---|---|---|---|---|---|
+| **Nappe du forage** (« BV du Marais de Dol », SAGE Dol) | FRGG123 | — | **bon** | **bon** | **non** (stable) |
+| **Le Guyoult** (exutoire du forage, SAGE Dol) | FRGR1597 | **moyen** | indéterminé | — | **en risque** |
+| **Le Chenelais** (sous-bassin Couesnon de La Petite Claye) | FRGR0023 | **bon** | **bon** | — | **non** (nitrates 35 mg/L, en amélioration) |
+
+- **Côté forage, c'est rassurant** : la **nappe captée (FRGG123) est en bon état quantitatif *et* chimique, non en risque 2033, tendance stable**. Ce n'est pas contradictoire avec l'étiage estival projeté en baisse (Explore2) : l'état *multi-annuel* d'une masse d'eau n'est pas la *tension estivale ponctuelle*.
+- **Point d'attention** : **Le Guyoult**, cours d'eau récepteur, est en **état écologique moyen et en risque 2033** — milieu de surface aval à ne pas dégrader.
+- **Qualité** : nitrates au Chenelais à **35 mg/L** (< 50, en amélioration) — repère avant l'analyse d'eau du forage.
+:::
+
+**Précautions de lecture.** L'état est un diagnostic **à l'échelle de la masse d'eau** (plusieurs km²), pas du forage ni de la parcelle ; le **bon état quantitatif** de la nappe **n'exonère pas** des restrictions sécheresse estivales. État daté de 2023, climat au pas du bassin.
+
+**Pour aller plus loin.** Le rapport complet (484 p.), les **tableurs** par masse d'eau et la **carte dynamique** de l'agence permettent de descendre au détail ; le **SDAGE 2028-2033** (en préparation) fixera ensuite les objectifs et, via les HMUC, les volumes prélevables (cf. @sec-lecture-sdage).
+
 ## Climat de la Bretagne — ORACLE et Observatoire de l'environnement en Bretagne {#sec-lecture-climat}
 
 **Nature et portée.** Deux corpus complémentaires : **ORACLE Bretagne** (Observatoire régional sur l'agriculture et le changement climatique) pour le climat **observé**, et les indicateurs de l'**Observatoire de l'environnement en Bretagne (OEB)** issus de DRIAS/Météo-France pour le climat **projeté** [@oracle2021 ; @oeb-temperatures ; @oeb-precipitations]. Ils fournissent la **toile de fond physique** de tout le dossier (cf. @sec-climat). *Robustesse : officiel.*

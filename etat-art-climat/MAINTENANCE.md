@@ -126,7 +126,10 @@ thématique ; PR sans merge automatique.
 
 - **2026-06-08 — Traitement de l'issue de veille #4** (1ʳᵉ passe). **Intégré** : France Stratégie
   NA 156 *L'eau en 2050* (confrontation demande↔ressource, jalon paru — national, muet sur la
-  Bretagne) ; **État des lieux 2025** Loire-Bretagne (préalable SDAGE 2028-2033) ; brochure
+  Bretagne) ; **État des lieux 2025** Loire-Bretagne (préalable SDAGE 2028-2033) — **étude
+  approfondie** du rapport (484 p.) + tableurs officiels → **état de nos masses d'eau** : nappe du
+  forage FRGG123 bon (quanti+chim)/non-risque, Chenelais bon, Guyoult moyen/en-risque ; fiche
+  dédiée en annexe C, résout l'item « état DCE FRGG123 » de l'annexe forage ; brochure
   consolidée **OEB Chiffres clés 2025** ; **23ᵉ Baromètre Agence Bio** (reprise conso 2025) ;
   **sécheresse été 2025** en Ille-et-Vilaine (bassins côtiers/forage en alerte). 5 entrées bib
   ajoutées, 1 transcription archivée. **Différé / à surveiller à la prochaine passe** : *Chiffres

@@ -93,6 +93,7 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 ::: {.callout-note title="Ce qui est établi (données locales)"}
 - **Hors ZRE.** Le secteur du forage (sous-bassin du **Guyoult**, FRGR1597, SAGE des bassins côtiers de Dol) comme la part **Chenelais** (FRGR0023, SAGE Couesnon) ne relèvent pas d'une zone de répartition des eaux — les ZRE d'Ille-et-Vilaine se limitent aux bassins **Vilaine** et **Oudon** [@zre-loire-bretagne]. C'est donc le **seuil de 10 000 m³/an** qui s'applique (et non le 8 m³/h) ; pas d'OUGC en secteur hors ZRE.
 - **Forage caractérisé** (cf. @sec-forage) : 76 m, **5-6 m³/h**, **1 500 m³/an déclarés** — très en deçà du seuil ; nappe captée **FRGG123** (socle, « Bassin versant du Marais de Dol »).
+- **État officiel des masses d'eau (État des lieux 2025 Loire-Bretagne)** : la **nappe captée FRGG123 est en bon état *quantitatif* et *chimique*, non en risque 2033** (tendance stable) — rassurant pour le forage ; **Le Chenelais** (FRGR0023) est en **bon état** (nitrates 35 mg/L, en amélioration) ; en revanche **Le Guyoult** (FRGR1597, cours d'eau récepteur du forage) est en **état écologique moyen et en risque 2033** [@sdage-edl2025]. Détail et nuances en @sec-lecture-edl2025.
 :::
 
 ::: {.callout-warning title="Ce qui reste ouvert"}

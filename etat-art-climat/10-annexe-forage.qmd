@@ -53,11 +53,12 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 ::: {.callout-note title="Établi (données locales)"}
 - **Hors ZRE** : le forage (sous-bassin du **Guyoult**, FRGR1597 → SAGE des bassins côtiers de Dol) et la part **Chenelais** (FRGR0023 → SAGE Couesnon) ne sont pas en zone de répartition des eaux (ZRE 35 = Vilaine, Oudon) [@zre-loire-bretagne] → **seuil 10 000 m³/an**, pas 8 m³/h.
 - **Régime** : 1 500 m³/an déclarés ≪ 10 000 → **déclaration de l'ouvrage** (faite en 2002), pas d'autorisation de volume. Nappe captée : **FRGG123** (socle, « Bassin versant du Marais de Dol »).
+- **État DCE de la nappe (État des lieux 2025 Loire-Bretagne)** : FRGG123 en **bon état *quantitatif* et *chimique***, **non en risque** pour 2033, tendance **stable** [@sdage-edl2025]. À l'échelle de la masse d'eau, la ressource captée n'est donc **pas en déséquilibre déclaré** — ce qui n'efface pas la **tension estivale ponctuelle** (étiage de nappe qui se creuse, cf. Bonnemain ci-dessus, et arrêtés sécheresse).
 :::
 
 ::: {.callout-warning title="À compléter (terrain / suivi)"}
 - **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme et du risque de salinisation côtière.
 - **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique et niveau piézométrique au repos actuels (fiche BSS [@infoterre-bss-tpha] ; suivi de tendance via le piézomètre de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne]).
-- **État quantitatif DCE** de FRGG123 et chiffres locaux d'étiage/recharge (Explore2, HMUC) — informatif [@explore2].
+- **Chiffres locaux d'étiage/recharge** datés (Explore2 J0 ; HMUC à paraître) — *l'état quantitatif DCE de FRGG123 est désormais connu (bon, non en risque), cf. encadré « Établi » ci-dessus* [@explore2].
 - **Peut-on relier le niveau de nappe (Bonnemain) au débit du forage ?** *(question ouverte)* Un piézomètre mesure un **niveau**, pas un débit ; le lien physique passe par le **débit spécifique** de l'ouvrage (Q/rabattement, issu d'un essai de pompage) : niveau bas en fin d'été → épaisseur saturée moindre → débit soutenable plus faible. **Sur l'historique, aucune corrélation mesurée n'est possible** faute de suivi du forage (seul l'essai de 2002 existe) — Bonnemain reste un **analogue de tendance**. Pour calibrer le lien niveau→débit : (1) **essai de pompage** (débit spécifique), (2) **sonde de niveau** dans le forage sur 1-2 saisons, à corréler avec Bonnemain [@ades-bonnemain]. La projection *future* resterait alors une **tendance** (via la recharge Explore2 [@explore2]), pas un débit chiffré sans modèle hydrogéologique local.
 :::
