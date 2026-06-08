@@ -60,6 +60,17 @@ en bas. Il est versionné : il fait foi sur *quoi re-vérifier, à quel rythme, 
 | **SDAGE Loire-Bretagne 2028-2033** | Stratégie climat = enjeu n°1, sur Explore2 ; cadre de prélèvement à venir | eau-loire-bretagne.fr | en préparation (consultation ~2026-27) |
 | ~~France Stratégie — étude « demande vs ressource »~~ | Confronte demande (rapport 2025) et ressource par territoire → zones de tension | strategie-plan.gouv.fr | **PARU** (NA 156 + DT 2025-03, 25 juin 2025) — **intégré le 2026-06-08** (`francestrategie-eau-tension2025`) |
 
+### Grain à extraire des HMUC locales quand elles paraîtront
+
+Dès publication de la **HMUC Couesnon** ou de la **pré-HMUC Dol**, récupérer (pour mettre à jour `02-eau`, `10-annexe-forage`, annexe C) :
+
+- **DOE/DCR chiffrés** par point nodal d'étiage et leur **évolution datée** (horizons 2030/2050).
+- **Volume prélevable** estival et sa **répartition par usage** (la part irrigation en particulier).
+- **Classement du Guyoult (FRGR1597) et du Chenelais (FRGR0023)** : en tension ? sous quelles règles d'étiage ?
+- **Lien nappe FRGG123 ↔ étiage du Guyoult** : la nappe de socle est-elle réputée influencer le débit (donc encadrée), ou non ?
+- **Statut hors ZRE confirmé** (donc toujours pas d'OUGC ni de quota individuel) — ou évolution.
+- **Règles opposables nouvelles** (seuils de restriction, périodes, débits seuils) susceptibles de toucher un forage déclaré à 1 500 m³/an.
+
 ## Ce qui est attendu d'Alexis à chaque veille
 
 La routine **propose** (une issue), elle n'**applique** rien. Voici précisément ton rôle :
@@ -124,6 +135,7 @@ thématique ; PR sans merge automatique.
 
 ## Journal des révisions
 
+- **2026-06-08 — Approfondissement « À approfondir » du chapitre Climat (hors veille).** Résolu l'item indices agro-climatiques : ajout **ETP +10 % à 2050** (Météo-France, hausse homogène → transposable Bretagne ; `meteofrance-ressource-eau`) et du **bilan hydrique potentiel** (−45 mm/an 2050 → −116 mm/an 2100, *flag national*) ; détail mensuel local explicitement renvoyé à l'app climato ; croisement Explore2 pointé vers `02-eau`. Exploité la **fiche ORACLE 2021 « irrigation des légumes »** (archivée + transcrite ; `oracle-legumes2021`) → **ETP estivale observée ≈ +60 mm 1960-2020** et réchauffement saisonnier moyen 5 stations (été +1,9 / automne +1,5 °C) ajoutés aux observations. **Méthode HMUC** approfondie en annexe C (18.3) : champ (surface + souterrain), répartition **par usage** par le préfet, quota individuel **seulement en ZRE via OUGC** → hors ZRE = pas de quota, contrainte = seuils + restrictions ; checklist « grain à extraire des HMUC » ajoutée ci-dessus. Vérifié au passage : **HMUC Couesnon et pré-HMUC Dol toujours non publiées** (juin 2026). *Précaution actée : Rennes ≠ Pleine-Fougères (plus continentale) ; ne pas confondre Pleine-Fougères et Fougères.*
 - **2026-06-08 — Traitement de l'issue de veille #4** (1ʳᵉ passe). **Intégré** : France Stratégie
   NA 156 *L'eau en 2050* (confrontation demande↔ressource, jalon paru — national, muet sur la
   Bretagne) ; **État des lieux 2025** Loire-Bretagne (préalable SDAGE 2028-2033) — **étude

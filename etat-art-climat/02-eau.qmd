@@ -1,6 +1,6 @@
 # Eau, sécheresse, irrigation et forage {#sec-eau}
 
-C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage diversifié ; or la ressource bretonne est, paradoxalement, **vulnérable**, et son usage est de plus en plus **encadré**. Trois volets : la ressource souterraine, sa réglementation, et le pilotage de l'irrigation.
+C'est le **fil rouge** du dossier. L'irrigation est indispensable en maraîchage diversifié ; or la ressource bretonne est, paradoxalement, **vulnérable**, et son usage est de plus en plus **encadré**. Quatre volets : la ressource souterraine, **la demande et son évolution**, la réglementation, et le pilotage de l'irrigation.
 
 ## La ressource souterraine bretonne : abondante en apparence, fragile en réalité
 
@@ -23,9 +23,23 @@ Au plus près du terrain, **Explore2** (INRAE/Météo-France) édite une fiche p
 
 Lecture clé : la **recharge annuelle reste quasi stable** (la hausse hivernale compense), mais l'**étiage estival baisse nettement**, avec une **forte dispersion inter-modèles** (jusqu'à −62/−69 %) qui traduit un vrai risque d'étiages sévères. Autrement dit, la nappe se reconstitue l'hiver, mais le **creux estival se durcit** — au moment du pic de besoin du maraîchage. À noter : **aucune tendance d'étiage significative n'est encore observée sur 1968-2024**, le signal est *projeté* [@oeb-secheresses].
 
-::: {.callout-warning title="Vigilance — la demande et son cadre évoluent aussi (pas seulement la ressource)"}
-Les chiffres ci-dessus décrivent la **ressource**. Mais la pression sur l'eau dépend tout autant de la **demande**, qui évolue indépendamment du climat. La prospective nationale de France Stratégie (2025) projette qu'à l'horizon 2050 l'**irrigation devient le premier poste de prélèvement** et que les prélèvements se **concentrent sur les mois chauds** — exactement quand rivières et nappes sont au plus bas — avec, dans la plupart des scénarios, une **hausse des consommations estivales** et un risque accru de **conflits d'usage** [@francestrategie-demande-eau2025]. Le **second volet** de ce travail (juin 2025) **confronte** demande et ressource par bassin : à 2050, scénario tendanciel, la **consommation estivale augmenterait de +161 %** et **88 % du territoire** serait en tension (83 % en tension *sévère* en août), les **écosystèmes** étant stressés sur **100 % des bassins en année sèche** [@francestrategie-eau-tension2025]. La maille (40 bassins versants) est trop grossière pour le cas du Guyoult, **ces études nationales ne traitent d'ailleurs pas spécifiquement la Bretagne** (et raisonnent en eaux de surface, non en nappe de socle), mais le **sens du mouvement vaut localement**. Côté **réglementation**, le contexte se resserre dans la même direction : objectif du **Plan eau 2023 de −10 % de prélèvements** tous usages d'ici 2030, généralisation de la **gestion quantitative par bassin** (méthode HMUC, volumes prélevables), et arrêtés sécheresse appelés à se déclencher plus souvent. **Conséquence pratique** : raisonner le forage non comme une ressource isolée, mais dans un cadre d'usages et de règles **plus contraint demain qu'aujourd'hui** — d'où la priorité donnée à l'efficience et au stockage (cf. @sec-adapt-eau).
+## La demande en eau : l'autre moteur de la tension
+
+La ressource (ci-dessus) n'est qu'une face du problème : la pression sur l'eau dépend tout autant de la **demande**, qui évolue **indépendamment du climat** — et le plus souvent dans le sens d'une aggravation estivale. La prospective de **France Stratégie** (2025), pendant « demande » d'Explore2, la chiffre à l'horizon 2050 (France métropolitaine, 40 bassins versants, trois scénarios d'usage) [@francestrategie-demande-eau2025] :
+
+| Scénario d'usage à 2050 (national) | Surfaces équipées en irrigation (2020→2050) | Consommation d'eau estivale |
+|---|---|---|
+| **Tendanciel** | **+50 %** | jusqu'à **× 2** dans le cas climatique le plus sec |
+| **Politiques publiques** (SNBC, Plan eau) | **+50 %** | en hausse, atténuée |
+| **Rupture** (sobriété) | **+12 %** | **maintenue** au niveau de 2020 |
+
+Le mouvement de fond est une **bascule de composition** : l'**irrigation devient le premier poste de prélèvement** (l'énergie recule), et comme elle *consomme* l'essentiel de ce qu'elle prélève, la pression se **concentre sur les mois chauds**, quand rivières et nappes sont au plus bas (en juillet, jusqu'à **2 200 Mm³** prélevés, dont ~90 % pour l'agriculture, dans le cas le plus défavorable). Le **second volet** (Note d'analyse n° 156, juin 2025), qui confronte cette demande aux débits Explore2, conclut pour 2050 (tendanciel) à une **consommation estivale +161 %**, **88 % du territoire en tension** (83 % en tension *sévère* en août) et des **écosystèmes stressés sur 100 % des bassins en année sèche** [@francestrategie-eau-tension2025]. À rebours du maïs, les **légumes frais croissent dans *tous* les scénarios** (souveraineté alimentaire, végétalisation des régimes) : débouché porteur, mais qui **tire lui aussi la demande en eau** (cf. @sec-filiere).
+
+::: {.callout-note title="Portée de ces chiffres"}
+Ce sont des projections **nationales** : la maille (40 bassins versants) est trop grossière pour le Guyoult, la **Bretagne n'y est pas un point chaud d'irrigation** (≠ Adour, Escaut, sud-Loire), et le raisonnement porte sur les **eaux de surface**, non sur la nappe de socle du forage. À lire comme un **sens du mouvement** — qui vaut localement — plutôt qu'un chiffre transposable. Détail méthodologique en @sec-lecture-francestrategie.
 :::
+
+Côté **réglementation**, le contexte se resserre dans le même sens : le **Plan eau 2023** vise **−10 % de prélèvements** tous usages d'ici 2030, la **gestion quantitative par bassin** se généralise (HMUC, volumes prélevables) et les **arrêtés sécheresse** se déclencheront plus souvent — c'est l'objet de la section suivante. **Conséquence pratique** : raisonner le forage non comme une ressource isolée, mais dans un cadre d'usages et de règles **plus contraint demain qu'aujourd'hui** — d'où la priorité donnée à l'efficience et au stockage (cf. @sec-adapt-eau).
 
 ## Le cadre réglementaire du prélèvement et du forage
 
@@ -83,8 +97,7 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 ::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
 - **La contrainte n'est pas la pluie annuelle, c'est l'eau au bon moment.** Les hivers plus humides ne sécurisent pas l'été : les nappes de socle se vidant en quelques semaines, c'est la **disponibilité estivale** qui sera limitante — et de plus en plus encadrée.
 - **Le forage hérite des limites de la nappe et de la réglementation.** Sa fiabilité à 30 ans dépend (1) de la **recharge** hivernale, qui reste **quasi stable** (Explore2 : +4 à +5 %/an au sous-secteur Couesnon), mais (2) d'un **étiage estival qui baisse** (localement **−11 % vers 2050, −22 % vers 2100** ; jusqu'à −49 % à l'échelle bretonne), et (3) d'un cadre de prélèvement encadré (arrêtés sécheresse). **Ne pas considérer le forage comme une ressource illimitée et hors-sol.**
-- **Stocker l'eau d'hiver** (la saison excédentaire) pour l'été (la saison déficitaire) devient la logique structurante — à instruire en phase adaptation, avec son propre cadre réglementaire (retenues).
-- **L'efficience est le premier levier sans regret** : pilotage tensiométrique + bilan hydrique + goutte-à-goutte là où le sol le permet réduisent la dépendance au forage **quel que soit le scénario**.
+- **La réponse se construit en aval, côté adaptation.** Puisque la contrainte est la disponibilité estivale, les leviers — **stocker l'eau d'hiver** pour l'été et l'**efficience** de l'irrigation (pilotage + goutte-à-goutte) — sont structurants mais relèvent de la phase adaptation : ils sont traités, avec leurs preuves et leurs limites, en @sec-adapt-eau (pas dans la gestion de la ressource elle-même).
 - **Le statut réglementaire est établi et favorable** : secteur **hors ZRE** (seuil applicable 10 000 m³/an), forage déclaré pour 1 500 m³/an — la contrainte dominante n'est donc pas le régime de prélèvement mais les **restrictions sécheresse** estivales.
 :::
 

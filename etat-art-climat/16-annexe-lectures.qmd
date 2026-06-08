@@ -1,6 +1,6 @@
 # Annexe C — Lectures approfondies des documents de référence {#sec-annexe-lectures}
 
-Cette annexe **développe** les documents les plus structurants de l'état de l'art, pour qui veut en approfondir la lecture sans les rouvrir intégralement. Chaque fiche suit la même trame : *portée et méthode*, *résultats clés chiffrés*, *ce qu'on en retient pour l'exploitation*, *précautions de lecture*, *pour aller plus loin*. Le fil rouge **eau** (projections et gouvernance) y est le plus fourni, suivi des principaux documents des autres axes — **climat**, **chaleur et travail**, **gel tardif**, **filière**. Pour toutes les autres sources, la **bibliographie annotée** (@sec-biblio-annotee) donne une fiche courte par référence.
+Cette annexe **développe les quatre documents les plus structurants** de l'état de l'art, tous relatifs à l'**eau** — l'enjeu n°1 du secteur : la prospective de la **demande** (France Stratégie), les projections de **ressource** (Explore2), la **gouvernance** quantitative (du SDAGE au SAGE) et l'**état des lieux** 2025 du bassin. Ce sont des sources lourdes que le corps du texte ne déplie pas intégralement ; chaque fiche suit la même trame : *portée et méthode*, *résultats clés chiffrés*, *ce qu'on en retient pour l'exploitation*, *précautions de lecture*, *pour aller plus loin*. Pour **tous les autres axes** (climat, chaleur, gel, diversité…), déjà synthétisés dans leurs chapitres respectifs, la **bibliographie annotée** (@sec-biblio-annotee) donne une fiche courte par référence.
 
 ::: {.callout-note}
 Ces fiches **résument des documents tiers** ; les chiffres restent ceux des sources citées. En cas de divergence avec le corps du texte, ce sont les chapitres @sec-eau et @sec-forage qui font foi (lecture déjà recoupée).
@@ -75,6 +75,8 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 - **Bassin du Couesnon** : l'**étude de gestion quantitative** (préalable à la HMUC, lancée fin 2023) fixe déjà un **débit d'objectif d'étiage de 0,38 m³/s à Romazy** (8 ans sur 10) et identifie des sous-bassins **en tension**, dont le **Chenelais** — l'un des deux sous-bassins de La Petite Claye [@acgq-couesnon].
 - **Bassins côtiers de Dol** : le SAGE **dont relève le forage** (sous-bassin du Guyoult, cf. @sec-forage) a engagé une **pré-étude HMUC** mobilisant Explore2 [@sage-dol-hmuc]. **Non encore publiée**, ce sera la **référence locale la plus directe** sur les volumes prélevables ; l'interlocuteur ressource est le syndicat de bassin (SBCDol).
 
+**Comment se répartit un volume prélevable — et ce que le statut hors ZRE implique.** Le volume prélevable porte sur l'eau prise *dans le milieu naturel*, **eaux de surface comme eaux souterraines** (8 ans sur 10 en étiage, art. R211-21-1 du code de l'environnement) [@guide-hmuc] : une nappe y entre surtout par son **influence sur le débit d'étiage** des cours d'eau — point que la pré-HMUC de Dol devra trancher pour la **nappe de socle FRGG123**, faiblement connectée au Guyoult (l'État des lieux 2025 la classe d'ailleurs en bon état quantitatif, non en risque, cf. @sec-lecture-edl2025). Ce volume global est ensuite **réparti par grandes catégories d'usage** (eau potable, irrigation, industrie) par le préfet coordonnateur de bassin — **pas, en règle générale, préleveur par préleveur**. La répartition *nominative* entre irrigants n'existe que là où un **organisme unique de gestion collective (OUGC)** porte une autorisation unique pluriannuelle assortie d'un plan annuel de répartition — dispositif **obligatoire en zone de répartition des eaux (ZRE) seulement**. Le secteur du forage étant **hors ZRE** (cf. @sec-eau), il n'y aura **ni OUGC ni quota individuel** : la contrainte concrète passera par le **régime déclaratif par seuil** (le forage, 1 500 m³/an, est très en deçà des 10 000 m³/an) et surtout par les **restrictions sécheresse**, dont le déclenchement dépendra des **débits d'objectif** que ces études fixeront.
+
 **Ce qu'on en retient pour l'exploitation.** Le statut **actuel** est favorable (hors ZRE, forage très en deçà des seuils, cf. @sec-eau), mais la **marge de manœuvre à 30 ans se jouera sur ces futurs documents**. Les deux HMUC locales (Couesnon, Dol) sont les **points de vigilance prioritaires** à suivre — ce sont elles qui traduiront Explore2 en règles de prélèvement opposables.
 
 **Précautions de lecture.** Les HMUC locales étant **non publiées**, il n'existe **pas encore de volume prélevable chiffré et daté** pour le secteur ; la trajectoire est qualitative (resserrement), pas quantifiée localement.
@@ -104,78 +106,3 @@ Les projections **« violet »** et **« jaune »** de ce rapport **sont des nar
 **Précautions de lecture.** L'état est un diagnostic **à l'échelle de la masse d'eau** (plusieurs km²), pas du forage ni de la parcelle ; le **bon état quantitatif** de la nappe **n'exonère pas** des restrictions sécheresse estivales. État daté de 2023, climat au pas du bassin.
 
 **Pour aller plus loin.** Le rapport complet (484 p.), les **tableurs** par masse d'eau et la **carte dynamique** de l'agence permettent de descendre au détail ; le **SDAGE 2028-2033** (en préparation) fixera ensuite les objectifs et, via les HMUC, les volumes prélevables (cf. @sec-lecture-sdage).
-
-## Climat de la Bretagne — ORACLE et Observatoire de l'environnement en Bretagne {#sec-lecture-climat}
-
-**Nature et portée.** Deux corpus complémentaires : **ORACLE Bretagne** (Observatoire régional sur l'agriculture et le changement climatique) pour le climat **observé**, et les indicateurs de l'**Observatoire de l'environnement en Bretagne (OEB)** issus de DRIAS/Météo-France pour le climat **projeté** [@oracle2021 ; @oeb-temperatures ; @oeb-precipitations]. Ils fournissent la **toile de fond physique** de tout le dossier (cf. @sec-climat). *Robustesse : officiel.*
-
-**Méthode.** ORACLE s'appuie sur les **séries longues de cinq stations** représentatives (Brest, Lorient, Pleurtuit, Rennes, Rostrenen) sur **1960-2020**. Les projections OEB sont exprimées dans le cadre **TRACC** (+2,7 °C ≈ 2050, +4 °C ≈ 2100), par rapport à la référence **1976-2005**.
-
-**Résultats clés.**
-
-- **Observé** : réchauffement de **+1,74 à +1,85 °C en 60 ans**, plus marqué au **printemps et en été** ; **jours > 25 °C quasi doublés** entre 1959-1989 et 1990-2020 (surtout à Rennes) ; **gradient est-ouest** marqué — l'est de l'Ille-et-Vilaine est **plus continental et plus sec** (pluie efficace ≈ **150 mm/an à Rennes** contre ≈ 600 mm à Quimper) [@oracle2021 ; @oeb-secheresses].
-- **Projeté 2050 (+2,7 °C)** : **≈ +1,8 °C** annuel ; **étés −11 %** de précipitations, **hivers plus humides** (+5 à +34 %) ; **sols secs** de 124 à ≈ 140 j/an.
-- **Projeté 2100 (+4 °C)** : **+2,9 °C** en moyenne (gradient +2,4 °C au Finistère à +3,2 °C vers le Morbihan) ; **journées chaudes ×2 à ×5** ; **jours de gel ÷3** (23 → 7 j/an) ; **évaporation +12 à +33 %** ; **été −26 % / hiver +14 %**.
-
-**Ce qu'on en retient pour l'exploitation.** Le signal dominant n'est **pas** « moins de pluie en général » mais une **redistribution saisonnière** : hivers plus arrosés, étés plus secs et plus chauds, évaporation en hausse → stress hydrique estival structurant. L'**est de l'Ille-et-Vilaine** est en première ligne malgré la « réputation humide » bretonne.
-
-**Précautions de lecture.** L'observé est une **mesure** ; le projeté est **conditionnel à un scénario** (ordre de grandeur, pas prédiction). Les modèles **ne représentent pas les orages** → l'intensification des fortes pluies estivales est probablement **sous-estimée**.
-
-**Pour aller plus loin.** **DRIAS** [@drias] pour des chiffres 2050 différenciés été/hiver au pas mensuel et les indices agro-climatiques (ETP, déficit hydrique) sur le secteur de Rennes/Fougères.
-
-## Chaleur sur les cultures et au travail — littérature thermique et cadre réglementaire 2025 {#sec-lecture-chaleur}
-
-**Nature et portée.** Deux ensembles : la **littérature scientifique** sur le stress thermique des cultures (espèce-modèle **tomate**), et le **cadre de prévention du travail à la chaleur** (INRS, Code du travail, décret n° 2025-482) [@aobpla2021 ; @inrs-chaleur-reglementation ; @legifrance-decret-chaleur2025]. Cf. @sec-chaleur. *Robustesse : scientifique (cultures) ; primaire/officiel (travail).*
-
-**Résultats clés — cultures.**
-
-- **Tomate** : la **nouaison baisse dès ~30 °C** ; au-delà de **~35 °C**, la **viabilité du pollen chute d'environ 50 %** et l'avortement des fruits augmente (nouaison parfois nulle contre 41-91 % en optimum) ; au-dessus de ~30 °C le **lycopène ne se forme plus** (défaut de coloration) [@aobpla2021 ; @aiello2021].
-- **Laitue** : **montée à graines (bolting)** déclenchée au-delà de **~24 °C jour / 16 °C nuit**, accélérée > 30 °C [@lettuce-bolting2022].
-- **Exposition bretonne projetée** : **jours > 30 °C** de ~8 à **> 30 j/an** (+4 °C), **nuits tropicales > 20/an** au sud, **vagues de chaleur ×2 à ×2,5 dès 2050** ; record régional **41,6 °C à Bléruais (35) en 2022** [@oeb-vague-chaleur].
-
-**Résultats clés — travail.**
-
-- Repères de risque **INRS : 30 °C** (travail sédentaire) / **28 °C** (travail physique) — le maraîchage relève du seuil bas ; **MSA (agriculture)** retient ces mêmes seuils et **≥ 3 L d'eau/jour/personne** [@inrs-chaleur-retenir ; @msa-chaleur].
-- **Pas de température maximale légale** : l'obligation repose sur l'**évaluation des risques** (art. L. 4121-1). **Depuis le 1ᵉʳ juillet 2025** (art. R. 4463-3), des **mesures obligatoires** se déclenchent **dès la vigilance jaune** Météo-France [@inrs-chaleur-reglementation ; @legifrance-decret-chaleur2025].
-- **Coup de chaleur** : température corporelle > **40,6 °C**, **létalité 15-25 %** ; **acclimatation** acquise en **8-12 j**, perdue en ~8 j [@inrs-accidents].
-
-**Ce qu'on en retient pour l'exploitation.** Le **calendrier** (décaler les créneaux sensibles hors fenêtres caniculaires) et la **conduite des abris** (ventilation, ombrage/blanchiment) sont les premiers leviers cultures. Côté humain, la chaleur est un **risque réglementaire** à inscrire au **document unique** (horaires, pauses, hydratation, vigilance Météo-France).
-
-**Précautions de lecture.** Les seuils hauts par espèce viennent surtout de la **littérature internationale en conditions contrôlées** (tomate-modèle) : à transposer au plein champ/abri breton. L'INRS souligne que la **température seule est insuffisante** (humidité, rayonnement, tenue) — un indice **WBGT** est plus robuste qu'un seuil sec ; ne pas inventer de volumes d'hydratation hors source.
-
-**Pour aller plus loin.** Fiches **CTIFL/ITAB** pour les variétés tolérantes et le décalage de calendrier ; brochures **INRS ED 6371 / ED 6532** pour l'organisation du travail.
-
-## Gel tardif en maraîchage — Mémo de la Chambre d'agriculture de la Haute-Garonne (2026) {#sec-lecture-gel}
-
-**Nature et portée.** Fiche technique **opérationnelle** de gestion du gel en maraîchage, service maraîchage de la **Chambre d'agriculture de la Haute-Garonne** (Occitanie Ouest), janvier 2026 [@ca31-gel2026]. C'est la source la plus directement **maraîchère** sur le gel (cf. @sec-phenologie, @sec-adapt-chaleur). *Robustesse : officiel (institut technique). Réserve forte : référentiel **Sud-Ouest** (gel radiatif).*
-
-**Résultats clés.**
-
-- **Typologie** : gel **radiatif** (nuits calmes, ciel clair — le plus fréquent en Midi-Pyrénées), gel **advectif** (masse d'air froid + vent, plus difficile à maîtriser), gel **blanc**/**noir** (givre ou non).
-- **Seuils de sensibilité par légume** (variables selon stade, état hydrique, durée) : **très sensibles 0 à −1 °C** (solanacées, courgette, concombre, haricot, courge, fenouil, céleri ; fleur de fraisier dès −1 °C) ; **tomate/pomme de terre jusqu'à −2 °C** ; **sensibles −3/−5 °C** (betterave, carotte, salade, chou-fleur) ; **tolérants** (mâche, épinard, blette, poireau, panais). *Table inspirée du Flash Maraîchage n° 17 (2023), Planète Légumes.*
-- **Facteurs** : aggravants (sol sec/nu, plantes stressées, jeunes plants, bas-fonds) ; atténuants (**sol humide = inertie thermique**, vent léger limitant l'inversion, vigueur des plants).
-- **Protections passives** (les plus adaptées au maraîchage) : **voiles P17-P30 (+1 à +3 °C)**, **double voile** (gels sévères), **tunnel/abri froid (+2 °C)**, paillage. *Limites* : confinement **favorable aux maladies** (sclérotinia, botrytis) → limiter la durée ; **sous −3 °C la bâche gèle** → découvrir au dégel ; **inversion thermique** possible en tunnel (nuit claire ventée) → garder un minimum d'aération.
-- **Aspersion antigel** : **« pratique à risque en maraîchage »** — sous abri, condensation et **nécroses au gouttage** (ex. laitue). Chauffage sous abri : coûteux, réservé aux cultures à forte valeur.
-
-**Ce qu'on en retient pour l'exploitation.** **Anticipation + observation** ; le **stade** est déterminant ; **placement parcellaire** (éviter les cuvettes, favoriser la circulation d'air) et **endurcissement des plants** ; vigilance particulière sur les **gelées tardives de printemps** et les jeunes plants en pépinière.
-
-**Précautions de lecture.** Référentiel **gel radiatif du Sud-Ouest** : la frange nord-bretonne connaît davantage de **gel advectif océanique**, et l'humidité plus forte rend le **confinement sous voile plus problématique** (condensation, maladies). Les gains thermiques (+1-3 °C) et la table de seuils (origine **Planète Légumes**, non bretonne) sont des **ordres de grandeur à recaler** au terrain.
-
-**Pour aller plus loin.** Croiser avec les **Flashs maraîchage** et le retour terrain bretons ; le placement et l'endurcissement sont développés au @sec-adapt-chaleur.
-
-## Diversité végétale et résilience — Expertise scientifique collective INRAE (2022) {#sec-lecture-esco}
-
-**Nature et portée.** **Expertise scientifique collective (ESCo)** de l'INRAE sur la **diversification végétale**, synthèse critique de la littérature mondiale [@inrae-esco2022]. Elle fonde l'argument **« diversité = assurance »** du volet filière (cf. @sec-filiere). *Robustesse : scientifique (revue collective d'experts).*
-
-**Résultats clés** (effets moyens **multi-contextes, à dominante grandes cultures**) :
-
-- **Régulation des bioagresseurs** : couverts d'interculture **+125 %**, haies **+84 %**, associations multi-espèces **+60 %**, agroforesterie **+40 %**.
-- **Biodiversité fonctionnelle** : agroforesterie **+61 %**, rotations **+37 %**, couverts **+21 %**.
-- **Rendements maintenus ou accrus** (**+2 à +47 %** selon dispositifs) : la diversification **n'est pas un sacrifice de productivité**.
-- Ces co-bénéfices (sols, eau, carbone, régulation) **sécurisent la production face aux aléas** climatiques [@inrae-esco2022 ; @inrae-diversification].
-
-**Ce qu'on en retient pour l'exploitation.** La **diversité des cultures** n'est pas qu'une valeur de vente directe : c'est une **stratégie de résilience documentée** que le climat futur rend **plus nécessaire**, pas moins. La **vente directe**, en créant son propre débouché, lève une partie des **verrouillages socio-économiques** (rentabilité court terme) qui freinent la diversification ailleurs.
-
-**Précautions de lecture.** Les chiffres sont des **effets moyens multi-contextes à dominante grandes cultures** : leur transfert au **maraîchage diversifié** est qualitativement solide mais **quantitativement à prendre avec prudence**.
-
-**Pour aller plus loin.** Le volet économique (viabilité, vente directe) est traité au @sec-filiere ; les leviers sol/bioagresseurs associés au @sec-adapt-bioagresseurs-sol.

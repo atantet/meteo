@@ -1,13 +1,9 @@
 # Adaptation — eau, irrigation et forage {#sec-adapt-eau}
 
-::: {.callout-note}
-Leviers d'adaptation pour l'axe prioritaire (impacts au @sec-eau et @sec-forage). Registre **non prescriptif** : chaque levier est présenté avec sa preuve d'efficacité, ses limites et ses conditions de pertinence — l'arbitrage revient au maraîcher selon son terrain.
-:::
-
 ## Efficience de l'irrigation
 
 - **Goutte-à-goutte vs aspersion** : la conversion apporte de l'ordre de **20-30 %** d'économie d'eau (valeurs d'experts), avec une fourchette mesurée à la parcelle de **17-43 %** en plein champ/tunnel [@inrae-irstea-efficience2016]. *Limites* : exige une eau **filtrée** (colmatage des goutteurs), peu adapté aux sols très sableux (lessivage), gain conditionné à la **maîtrise** du système ; goutteurs autorégulants requis sur pente > 4 % [@agrobio35-fiche37].
-- **Pilotage** (tensiométrie, sondes capacitives, bilan hydrique ETP, OAD) : l'amélioration du pilotage relève l'efficience de **10 à 40 %**, la conduite tensiométrique atteignant jusqu'à ~42 % d'économie dans certains essais [@inrae-irstea-efficience2016] ; la prospective nationale retient une économie de **~25 %** pour les outils de pilotage (capteurs, programmateurs, logiciels) [@francestrategie-demande-eau2025]. Seuils tensiométriques opérationnels et coefficients culturaux disponibles [@agrobio35-fiche37] ; outil dédié au maraîchage bio breton : IRRIBZH [@ctifl-irribzh]. *Limites* : mesure ponctuelle (placement et suivi hebdomadaire nécessaires).
+- **Pilotage** (tensiométrie, sondes capacitives, bilan hydrique ETP, OAD) : l'amélioration du pilotage relève l'efficience de **10 à 40 %**, la conduite tensiométrique atteignant jusqu'à ~42 % d'économie dans certains essais [@inrae-irstea-efficience2016] ; la prospective nationale retient une économie de **~25 %** pour les outils de pilotage (capteurs, programmateurs, logiciels) [@francestrategie-demande-eau2025]. Seuils tensiométriques opérationnels et coefficients culturaux disponibles [@agrobio35-fiche37] ; outil dédié au maraîchage bio breton : IRRIBZH [@ctifl-irribzh]. *Limites* : mesure ponctuelle (placement et suivi hebdomadaire nécessaires). **Vocabulaire** : un *programmateur seul*, à horaire fixe, **automatise l'apport mais ne le pilote pas** (aucune rétroaction sur la pluie ou l'ETP : il arrose autant un jour de pluie qu'un jour à 35 °C). Il ne devient un **outil de pilotage** — et n'ouvre l'économie ci-dessus — que **couplé** à une sonde, un capteur de pluie ou un bilan hydrique.
 
 ::: {.callout-warning title="Garde-fou — l'effet rebond"}
 Gagner en efficience ne garantit pas de **prélever moins**. La littérature documente un **effet rebond** : une irrigation plus efficace peut conduire à **irriguer de nouvelles surfaces** ou à cultiver des espèces plus exigeantes, si bien que le volume total prélevé **augmente** [@francestrategie-demande-eau2025]. L'efficience n'est un levier d'économie *réelle* que si le **volume prélevé est piloté comme objectif** (et non la seule dose à la plante) — point d'autant plus sensible que la ressource estivale se raréfie.
@@ -17,7 +13,7 @@ Gagner en efficience ne garantit pas de **prélever moins**. La littérature doc
 
 Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la saison déficitaire.
 
-- **Retenue de substitution** (ouvrage étanche, déconnecté du milieu en étiage, rempli hors étiage). Réglementation « plan d'eau » : **≥ 3 ha → autorisation**, **> 1 000 m² et < 3 ha → déclaration** ; **implantation interdite en zone humide ou en travers d'un cours d'eau** [@dreal-retenues2012]. Aide de l'Agence de l'eau possible **jusqu'à 70 %**, mais subordonnée à un **PTGE** (projet de territoire pour la gestion de l'eau) [@dreal-retenues2012]. *Limites* : très encadré en zone tendue ; proximité de zones humides en baie du Mont-Saint-Michel (cf. @sec-cotiers).
+- **Retenue de substitution** (ouvrage étanche, déconnecté du milieu en étiage, rempli hors étiage). Réglementation « plan d'eau » : **≥ 3 ha → autorisation**, **> 1 000 m² et < 3 ha → déclaration** ; **implantation interdite en zone humide ou en travers d'un cours d'eau** [@dreal-retenues2012]. Aide de l'Agence de l'eau possible **jusqu'à 70 %**, mais subordonnée à un **PTGE** (projet de territoire pour la gestion de l'eau) [@dreal-retenues2012]. *Limites* : très encadré en zone tendue ; proximité de zones humides en baie du Mont-Saint-Michel (cf. @sec-cotiers) ; et **aucun PTGE n'est identifié à ce jour sur le Couesnon ni les bassins côtiers de Dol** (gestion via les SAGE) — condition pourtant nécessaire à l'aide ci-dessus.
 - **Récupération des eaux de toiture** de tunnels/serres (règle 1 mm de pluie = 1 L/m²) [@agrobio35-fiche37]. *Limites* : volume borné par la surface et la pluviométrie ; ressource surtout hivernale/printanière → ne couvre le pic estival qu'avec un stockage suffisant (dimensionnement à calculer localement).
 
 ## Sols « éponge »
@@ -30,6 +26,7 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 ## Esquive et sobriété
 
 - **Choix d'espèces/variétés peu exigeantes**, **décalage de calendrier**, et **priorisation des cultures** en période de restriction. Rappel réglementaire : en *alerte* sécheresse, le maraîchage (« cultures spéciales ») ne peut irriguer **de 11 h à 18 h** [@pref35-secheresse] (cf. @sec-eau).
+- **Décaler l'apport la nuit ou à l'aube** (un simple **programmateur** suffit) : double bénéfice — **limiter l'évaporation** et **rester hors des créneaux interdits** en restriction (11 h-18 h en *alerte*, 9 h-20 h en *alerte renforcée*, cf. @sec-eau). Décisif pour l'**aspersion de plein champ**, seule privée de la dérogation goutte-à-goutte/pilotage ; pour elle, **préférer l'aube** à la pleine nuit (feuillage mouillé trop longtemps = maladies, cf. @sec-bioagresseurs).
 
 ## Priorisation à 30 ans
 
@@ -43,7 +40,7 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 ## À valider localement
 
 ::: {.callout-warning}
-- Statut **ZRE** et faisabilité d'une **retenue** (proximité zone humide baie MSM, PTGE existant ?) — cf. @sec-eau.
+- **Faisabilité d'une retenue** : le **verrou « zone humide » est levé pour le cœur maraîcher** — d'après l'inventaire du **SAGE Couesnon**, les parcelles **effectivement exploitées** (section ZC, « La Petite Claye ») sont **hors zone humide** (tableau parcellaire en @sec-forage) ; seule une parcelle de « Le Pré de la Fontaine », **non exploitée par l'EARL**, est classée. Restent à lever : l'**aide de l'Agence de l'eau (≤ 70 %)**, conditionnée à un **PTGE** non identifié à ce jour sur le territoire (cf. *Stockage de l'eau d'hiver*), et le **dimensionnement**. *(Statut ZRE : déjà tranché — hors ZRE, cf. @sec-eau.)*
 - **Réserve utile réelle** de la parcelle (texture, cailloux, MO) par analyse de sol.
 - **Dimensionnement** de la récupération de toiture (surface tunnels × pluviométrie locale).
 - Les % d'efficience viennent surtout de **grandes cultures/arboriculture** : transposition au maraîchage diversifié breton à confirmer.

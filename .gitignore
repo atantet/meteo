@@ -39,6 +39,8 @@ data/observations/*
 !data/observations/.gitkeep
 data/sensors/*
 !data/sensors/.gitkeep
+data/sig/*
+!data/sig/.gitkeep
 *.duckdb
 *.duckdb-wal
 
