@@ -35,7 +35,7 @@ Contexte : marais de **12 000 ha**, partie basse à **2,5-3 m NGF**, marée cent
 - **Gestion de l'excès d'eau** : drainage (fossés, drains, modelé de surface) — la plupart des cultures tempérées souffrant de l'anoxie ; le drainage en zone humide est **juridiquement encadré** [@inrae-mots-drainage].
 - **Planches / buttes surélevées** pour éviter l'humidité stagnante.
 - **Choix de parcelles** selon altitude et profondeur de nappe (zone basse vs arrière-pays).
-- **Salinité** : suivi de la conductivité de l'eau et du sol, et espèces tolérantes — *transposition à valider* (le drainage anti-salinité documenté vient de contextes méditerranéens irrigués, pas du polder breton).
+- **Salinité** : suivi de la conductivité de l'eau et du sol, et espèces tolérantes — *transposition à valider* (le drainage anti-salinité documenté vient de contextes méditerranéens irrigués, pas du polder breton). À ce jour, les qualitomètres ADES voisins ne montrent **aucun signal de salinité** (chlorures ~32 mg/L, conductivité < 260 µS/cm [@hubeau-qualite-nappes]) : le risque reste à **surveiller**, non avéré.
 - Articulation avec le **PAPI** baie du Mont-Saint-Michel et le zonage de submersion (cf. @sec-cotiers).
 
 ## Priorisation à 30 ans

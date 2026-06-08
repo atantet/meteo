@@ -54,6 +54,6 @@ Le maraîchage est un **travail physique soutenu**, exposé en plein champ et pl
 ## À approfondir
 
 ::: {.callout-warning title="Limites et compléments"}
-- Les seuils hauts par espèce viennent surtout de la **littérature internationale** (souvent sur tomate, en conditions contrôlées) : à confronter aux fiches **CTIFL/ITAB** et au retour terrain breton [@itab2020 ; @ctifl-adict]. Seuils hauts **choux et fraise** non sourcés ; **pic de température sous tunnel** non chiffré.
+- Les seuils hauts par espèce viennent surtout de la **littérature internationale** (souvent sur tomate, en conditions contrôlées). Le document garde les **espèces-modèles** (tomate, laitue) pour le mécanisme et quelques repères ; le **détail par culture** — sur la quarantaine de cultures de l'exploitation — relève des **référentiels CTIFL/ITAB et du retour terrain breton** [@itab2020 ; @ctifl-adict], pas d'une liste exhaustive ici. **Pic de température sous tunnel** : non chiffré (faute de mesure locale).
 - Côté travail : l'INRS ne chiffre pas, dans les pages lues, les **volumes d'hydratation / fréquences de pause** (ne pas inventer un « 3 L/jour ») — se référer aux brochures ED 6371 / ED 6532.
 :::

@@ -110,7 +110,7 @@ La référence régionale est la fiche technique **GAB/FRAB n°37** [@agrobio35-
 :::
 
 ::: {.callout-warning title="Ce qui reste ouvert"}
-- **Qualité de l'eau du forage** (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) : analyse à réaliser — base de la surveillance.
+- **Qualité de l'eau du forage** : analyse à réaliser, mais les qualitomètres ADES voisins (socle, ~5-6 km) suggèrent que le **nitrate** est le paramètre à surveiller en priorité, la **salinité** et le **fer/manganèse** paraissant *a priori* faibles [@hubeau-qualite-nappes] (détail en @sec-forage).
 - **HMUC Couesnon proprement dite** (DCR chiffré, **volumes prélevables**, projections datées 2030/2050) : étude lancée fin 2023, **non encore publiée** [@acgq-couesnon].
 - **Granularité par masse d'eau** : Explore2 raisonne par secteur hydrographique (J0 « Côtiers du Couesnon canalisé »), pas par masse d'eau — pas de chiffre plus fin pour le Guyoult (FRGR1597) ou la nappe FRGG123.
 :::
