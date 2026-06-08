@@ -25,6 +25,18 @@ Autres leviers (documentés, peu chiffrés dans les sources lues) :
 - **Haies / agroforesterie** : effet **brise-vent sur ~10× la hauteur** de la haie, modération microclimatique de l'ordre de **±5 °C**, meilleure infiltration (moins de ruissellement) ; stockage de l'ordre de **~5,9 t éq.CO₂/km/an** pour une haie pluristrate gérée dans le Grand Ouest [@afac-resphaies2023]. *Limites* : valeurs de synthèse ; dépend de l'orientation (vents O/SO), du type et de l'âge de la haie.
 - **Objectif 4p1000** : +0,4 %/an de carbone (0-30 cm) ; principe = « les bonnes pratiques aux bons endroits » plutôt qu'une pratique uniforme [@inrae-4p1000].
 
+## Le bio est-il une mesure d'adaptation au changement climatique ?
+
+::: {.callout-important title="Le bio : une adaptation indirecte, par les pratiques — pas par le label"}
+La question revient souvent ; la réponse honnête est **« en partie, et indirectement »**.
+
+**Ce qui adapte, oui.** L'agriculture biologique **recoupe largement** des pratiques qui sont, elles, de vraies réponses au climat futur : **matière organique et couverture du sol** → meilleure **réserve utile et infiltration** (utile face au stress hydrique estival *et* aux pluies d'hiver plus intenses, cf. @sec-adapt-eau et la section *Sol* ci-dessus) ; **biodiversité fonctionnelle** → régulation de bioagresseurs dont la pression monte (@sec-bioagresseurs) ; **moindre dépendance aux intrants de synthèse** (engrais azotés indexés sur le gaz) → moindre exposition aux **chocs de prix et géopolitiques** (@sec-filiere).
+
+**Ce qui n'adapte pas, ou contraint.** Le label bio est d'abord un **cahier des charges** (interdiction des intrants de synthèse), **pas une stratégie d'adaptation** en soi. Il **ferme** même certains leviers : pas de protection antigel ni de traitement de synthèse ; recours au **cuivre** contre le mildiou, dont la pression pourrait croître ; **désherbage mécanique** = plus de passages (carburant, structure du sol, fenêtres de travail réduites). Un bio « intensif » — sol nu, peu de diversité, intrants organiques importés — peut être **aussi vulnérable** qu'un système conventionnel mené en agroécologie.
+
+**À retenir.** Ce sont **les pratiques agroécologiques, pas le label**, qui font l'adaptation : le bio en est un **terrain favorable**, non une garantie. Distinguer le *cahier des charges* des *pratiques effectives*. *(Raisonnement de synthèse appuyé sur l'ESCo INRAE et les chapitres eau/sol/filière ; la littérature isole rarement « bio » de « agroécologie » comme facteur d'adaptation — incertitude à assumer.)* Le pendant **diversification** est traité en @sec-adapt-filiere.
+:::
+
 ## Priorisation à 30 ans
 
 ::: {.callout-tip title="Lecture pour l'exploitation"}

@@ -25,6 +25,8 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 - **Matière organique, paillage/mulch, couverts** augmentent la réserve utile et limitent l'évaporation [@geco-paillage ; @gabfrab2025]. La RFU vaut ~60 % de la réserve utile en sol sableux, ~40 % en argileux [@agrobio35-fiche37]. Un repère **chiffré et spécifiquement maraîcher** existe : le **paillage des sols réduit les besoins en irrigation de 22 à 44 %** en cultures maraîchères (projet ClimaLeg-Eau, cité par France Stratégie) [@francestrategie-demande-eau2025]. *Limites* : fourchette large, issue du **maraîchage francilien** (à confirmer en Bretagne) et conditionnée à la **disponibilité de paille/biomasse** ; à raisonner avec les apports (risque d'excès d'azote).
 - **Pratiques agroécologiques / bio** dans leur ensemble (meilleure infiltration, eau stockée dans le sol) : la même prospective retient un gain de **−10 % (2030) à −20 % (2050)** de besoins par unité de surface irriguée [@francestrategie-demande-eau2025] — ordre de grandeur national, convergent avec le levier sol (cf. @sec-adapt-bioagresseurs-sol).
 
+> Au-delà de l'eau : ces pratiques de sol relèvent du débat plus large — **le bio et la diversification sont-ils, en eux-mêmes, des mesures d'adaptation au changement climatique ?** — argumenté en @sec-adapt-bioagresseurs-sol (bio) et @sec-adapt-filiere (diversification).
+
 ## Esquive et sobriété
 
 - **Choix d'espèces/variétés peu exigeantes**, **décalage de calendrier**, et **priorisation des cultures** en période de restriction. Rappel réglementaire : en *alerte* sécheresse, le maraîchage (« cultures spéciales ») ne peut irriguer **de 11 h à 18 h** [@pref35-secheresse] (cf. @sec-eau).

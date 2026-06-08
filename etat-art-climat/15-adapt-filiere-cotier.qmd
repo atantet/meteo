@@ -6,6 +6,14 @@ Leviers pour la filière/socio-économie (@sec-filiere) et les risques côtiers 
 
 ## Résilience économique et gestion du risque
 
+::: {.callout-important title="La diversification est-elle une mesure d'adaptation au changement climatique ?"}
+**Oui — c'est l'une des plus robustes, sur le registre de l'assurance.** Diversifier **espèces, variétés, dates de production et débouchés** étale le risque **climatique** (toutes les cultures ne subissent pas le même aléa au même stade), **sanitaire** (la diversité végétale améliore la régulation des bioagresseurs — ESCo INRAE : couverts +125 %, associations +60 %, cf. @sec-adapt-bioagresseurs-sol) et **de marché**. C'est la logique **« diversité = assurance »** (@sec-filiere), que le climat futur rend **plus nécessaire**, pas moins.
+
+**Mais ce n'est ni gratuit ni infaillible.** La diversification a un **coût de complexité** (organisation, matériel, main-d'œuvre, mise en marché) ; l'ESCo souligne des effets **économiques mitigés** à l'échelle de l'exploitation (positifs, neutres ou négatifs) ; et elle subit des **verrouillages** (rentabilité court terme, débouchés) — que la **vente directe** lève en partie. Surtout, une diversification **mal pensée** — des cultures partageant la **même fenêtre de vulnérabilité** (canicule estivale, même pic de besoin en eau) — **ne réduit pas** l'exposition.
+
+**À retenir.** Pour un maraîchage **déjà diversifié en vente directe** (le cas ici), le socle d'adaptation est **largement en place** : l'enjeu n'est pas « diversifier plus » mais **diversifier utile** — étaler les fenêtres de risque — et **sécuriser les débouchés**. Le pendant **« le bio est-il une adaptation ? »** est traité en @sec-adapt-bioagresseurs-sol.
+:::
+
 - **Diversification des cultures et des débouchés** : renforce la résilience, mais ne « tient » économiquement que si des **débouchés stables** sont organisés en parallèle — bénéfice non automatique [@inrae-diversification]. La **vente directe / circuits courts** (segment le plus dynamique, cf. @sec-filiere) sécurise le prix.
 - **Assurance multirisque climatique (réforme 2023)** : subvention de prime portée à **70 %** ; au-delà du seuil de pertes, l'État prend **90 %** (assurés). **Indemnité de solidarité nationale (ISN)** pour les aléas exceptionnels, y compris non-assurés : seuil de déclenchement **50 % de pertes** pour les **légumes**, indemnisation des non-assurés **45 % (2023) → 35 % (2025)** [@minagri-assurance2023]. *Limite* : pour un non-assuré, ces 50 % de pertes constituent une franchise lourde.
 - **Déduction pour épargne de précaution (DEP)** : lissage du revenu face aux aléas, **plafond 150 000 €**, avec exonération partielle (**30 %**) des sommes employées à renforcer la résilience [@minagri-dep]. *Limite* : suppose une capacité d'épargne — moins accessible en phase d'installation (DJA).
