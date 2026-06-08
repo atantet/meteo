@@ -1,6 +1,6 @@
 # Bibliographie annotée {#sec-biblio-annotee}
 
-Une fiche par source : **nature**, **robustesse** (voir la convention dans le chapitre *Cadre et méthode*), et **ce qu'on en tire**. Les codes de robustesse sont : *Primaire* (réglementaire/scientifique lu directement), *Officiel* (agence/service public), *Expert* (chercheurs identifiés hors revue), *Presse* (mise en perspective).
+Une fiche par **source principale** : **nature**, **robustesse** (voir la convention dans le chapitre *Cadre et méthode*), et **ce qu'on en tire**. Les documents les plus structurants ont, en plus, une **fiche développée** en @sec-annexe-lectures. Les codes de robustesse sont : *Primaire* (réglementaire/scientifique lu directement), *Officiel* (agence/service public), *Expert* (chercheurs identifiés hors revue), *Presse* (mise en perspective).
 
 ## Cadre national & référentiel d'adaptation
 
@@ -17,6 +17,9 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 - **GIEC Normand (2021)** [@cantat2021]. *Expert.* Utile par proximité géographique (façade Manche). **À en tirer** : mise en perspective des aléas littoraux.
 - **Lamy, thèse sécheresses en Bretagne (2013)** [@lamy2013]. *Primaire (thèse).* **À en tirer** : approfondissement scientifique de la sécheresse bretonne, malgré son ancienneté.
 - **Livre Vert CLIMATOR (2010)** [@brisson2010]. *Officiel (ADEME).* Référence nationale fondatrice sur les impacts par espèce. **À en tirer** : cadre méthodologique ; à actualiser par les sources récentes.
+- **ORACLE Bretagne — fiche « irrigation des légumes » (2021)** [@oracle-legumes2021]. *Officiel.* **À en tirer** : indicateurs de stations 1960-2020 — **ETP estivale observée ≈ +60 mm**, réchauffement saisonnier (été ≈ +1,9 °C > automne).
+- **Météo-France — impact du changement climatique sur la ressource en eau (2025)** [@meteofrance-ressource-eau]. *Officiel.* **À en tirer** : **ETP +10 % (2050) / +17 % (2100)**, hausse homogène ; perte de bilan hydrique (chiffre national).
+- **OEB — Chiffres clés de l'évolution du climat en Bretagne, éd. 2025** [@oeb-chiffres-cles2025]. *Officiel.* **À en tirer** : brochure régionale consolidée (observé + projeté), pratique comme porte d'entrée.
 
 ## Eau, ressource & réglementation
 
@@ -29,7 +32,15 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 - **Fiche GAB/FRAB n°37 (2021)** [@agrobio35-fiche37] ; **Guide irrigation GAB/FRAB (2025)** [@gabfrab2025] ; **planning d'irrigation** [@agrobio35-planning] ; **Sud & Bio (2016)** [@calcet2016] ; **Confédération paysanne (2023)** [@confpaysanne2023]. *Officiel/technique.* **À en tirer** : pilotage opérationnel (bilan hydrique, RFU, tensiométrie, choix des systèmes) et gestion quantitative collective.
 - **CTIFL — IRRIBZH** [@ctifl-irribzh]. *Officiel (institut technique).* **À en tirer** : projet dédié au pilotage hydrique du maraîchage bio breton — ressource à exploiter.
 - **Vannier & Braud, ETP SAFRAN (2012)** [@vannier2012]. *Primaire.* **À en tirer** : méthode de calcul d'une ETP de référence (utile pour le bilan hydrique).
-- **France Stratégie — La demande en eau, prospective 2050 (2025)** [@francestrategie-demande-eau2025]. *Officiel.* **À en tirer** : le pendant « demande » d'Explore2 (qui traite la ressource). L'irrigation devient le poste de prélèvement dominant, concentré l'été → conflits d'usage. Leviers maraîchers chiffrés (paillage −22/−44 %, pilotage −25 %, agroécologie −10/−20 %) et garde-fou de l'effet rebond. Maille nationale (40 BV), trop grossière pour le cas local : à lire comme tendance, pas comme valeur de secteur.
+- **France Stratégie — La demande en eau, prospective 2050 (2025)** [@francestrategie-demande-eau2025]. *Officiel.* **À en tirer** : le pendant « demande » d'Explore2 (qui traite la ressource). L'irrigation devient le poste de prélèvement dominant, concentré l'été → conflits d'usage. Leviers maraîchers chiffrés (paillage −22/−44 %, pilotage −25 %, agroécologie −10/−20 %) et garde-fou de l'effet rebond. Maille nationale (40 BV), trop grossière pour le cas local : à lire comme tendance, pas comme valeur de secteur. *Fiche développée en @sec-lecture-francestrategie.*
+- **France Stratégie — NA 156, *L'eau en 2050* (2025)** [@francestrategie-eau-tension2025]. *Officiel.* **À en tirer** : second volet, qui confronte demande et ressource — +161 % de conso estivale, 88 % du territoire en tension (2050 tendanciel) ; national, **muet sur la Bretagne**.
+- **Agence de l'eau — État des lieux 2025 Loire-Bretagne** [@sdage-edl2025]. *Officiel.* **À en tirer** : **état officiel de nos masses d'eau** (FRGG123 forage bon/non-risque ; Guyoult moyen/en-risque) et diagnostic bassin. *Fiche développée en @sec-lecture-edl2025.*
+- **Agence de l'eau — démarche « Loire-Bretagne 2050 » / adaptation** [@sdage-lb-adaptation2050]. *Officiel.* **À en tirer** : stratégie d'adaptation appelée à devenir l'enjeu n°1 du **SDAGE 2028-2033** (sur Explore2).
+- **Étude de gestion quantitative du Couesnon (ACGQ, 2023)** [@acgq-couesnon]. *Officiel.* **À en tirer** : **DOE de 0,38 m³/s à Romazy**, sous-bassins en tension dont le Chenelais (préalable à la HMUC).
+- **Pré-étude HMUC — SAGE des bassins côtiers de Dol** [@sage-dol-hmuc]. *Officiel.* **À en tirer** : non encore publiée ; sera la **référence locale la plus directe** sur les volumes prélevables (territoire du forage).
+- **Inventaires des zones humides — SAGE Couesnon [@inventaire-zh-couesnon] et SAGE de Dol [@inventaire-zh-dol]**. *Officiel (CLE / DDTM 35, diffusion GéoBretagne).* **À en tirer** : classement ZH parcelle par parcelle ; croisés avec le cadastre, ils établissent que les parcelles exploitées sont **hors zone humide** (cf. @sec-forage).
+- **Hub'Eau / ADES — qualité des nappes** [@hubeau-qualite-nappes]. *Officiel.* **À en tirer** : analyses des qualitomètres voisins (nitrates, conductivité, chlorures, fer/manganèse) → **priors** pour la qualité du forage.
+- **Préfecture 35 — communiqué sécheresse 2025** [@pref35-secheresse2025]. *Officiel.* **À en tirer** : été 2025, bassins côtiers (dont relève le forage) classés en alerte — la récurrence des étés secs est déjà à l'œuvre.
 
 ## Phénologie & gel tardif
 
@@ -46,6 +57,7 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 
 - **OEB — sols bretons** [@oeb-sols]. *Officiel.* **À en tirer** : dominance limoneuse, battance, 18 % du territoire à aléa élevé, état MO/pH, rôle des couverts.
 - **GIS Sol / INRAE — érosion des sols** [@gissol-erosion]. *Officiel.* **À en tirer** : mécanismes et fenêtre critique hivernale ; manque de chiffres régionaux.
+- **Agrobio 35 — diagnostic de sol de La Petite Claye (2025)** [@diagsol-lapetiteclaye2025]. *Officiel (donnée locale, non publiée).* **À en tirer** : 3 profils (bitunnel, tunnel, plein champ) — texture, MO, CEC/saturation, pH, hydromorphie ; la **faible hydromorphie corrobore le hors-ZH** (cf. @sec-forage).
 
 ## Chaleur (cultures & travail)
 
@@ -60,6 +72,7 @@ Une fiche par source : **nature**, **robustesse** (voir la convention dans le ch
 ## Filière & socio-économie
 
 - **Agence Bio — chiffres 2024 (2025)** [@agencebio2025] et **étude vente directe (2023)** [@agencebio-vd2023] ; **baromètre CSA (2022)** [@csa2022]. *Officiel.* **À en tirer** : reprise 2024 portée par les circuits courts, légumes bio +9 %, profil vente directe.
+- **Agence Bio — 23ᵉ baromètre de consommation (2026)** [@agencebio-baro2026]. *Officiel.* **À en tirer** : confirmation de la reprise (59 % des Français consomment du bio ≥ 1×/mois, +5 pts).
 - **INRAE — ESCo diversité végétale (2022)** [@inrae-esco2022] et **diversification des cultures** [@inrae-diversification]. *Officiel (expertise collective).* **À en tirer** : la **diversité comme assurance** (co-bénéfices chiffrés régulation/biodiversité/rendement) ; verrouillages socio-économiques.
 - **Agreste — intrants 2022 (2023)** [@agreste2023-intrants] ; **FranceAgriMer — engrais** [@franceagrimer-engrais] ; **ADEME/Solagro — énergie (2018)** [@ademe-solagro2018]. *Officiel.* **À en tirer** : exposition aux chocs intrants/énergie (maraîchage > 20 tep/exploitation), leviers de sobriété et d'autonomie.
 - **Alternatives Économiques (2026)** [@alteco2026]. *Presse.* **À en tirer** : mise en perspective géopolitique uniquement ; ne pas utiliser comme source de données.
