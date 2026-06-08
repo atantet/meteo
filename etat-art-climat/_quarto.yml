@@ -34,6 +34,7 @@ book:
         - 09-biblio-annotee.qmd
         - 10-annexe-forage.qmd
         - 11-axes-emergents.qmd
+        - 16-annexe-lectures.qmd
     - references.qmd
   reader-mode: true
   downloads: [pdf]

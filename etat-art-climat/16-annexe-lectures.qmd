@@ -1,0 +1,80 @@
+# Annexe C — Lectures approfondies des documents de référence (eau) {#sec-annexe-lectures}
+
+Cette annexe **développe** trois documents structurants du fil rouge eau, pour qui veut en approfondir la lecture sans les rouvrir intégralement : *portée et méthode*, *résultats clés chiffrés*, *ce qu'on en retient pour l'exploitation*, *précautions de lecture*, *pour aller plus loin*. Elle est délibérément **centrée sur l'eau** (projections et gouvernance), là où la matière est la plus dense ; pour les autres sources, la **bibliographie annotée** (@sec-biblio-annotee) donne une fiche courte par référence.
+
+::: {.callout-note}
+Ces fiches **résument des documents tiers** ; les chiffres restent ceux des sources citées. En cas de divergence avec le corps du texte, ce sont les chapitres @sec-eau et @sec-forage qui font foi (lecture déjà recoupée).
+:::
+
+## France Stratégie — *La demande en eau. Prospective territorialisée à l'horizon 2050* (2025) {#sec-lecture-francestrategie}
+
+**Nature et portée.** Rapport de prospective de France Stratégie (organisme rattaché au Premier ministre), réalisé dans le cadre de la mesure 46 du **Plan eau** 2023 [@francestrategie-demande-eau2025]. C'est le **pendant « demande »** d'Explore2 (qui, lui, traite la *ressource*) : il n'estime pas l'eau disponible mais l'eau **prélevée et consommée** par les activités humaines. *Robustesse : officiel.*
+
+**Méthode.** Année de référence **2020**, horizons **2030** et **2050**, **France métropolitaine en 40 bassins versants**, **7 secteurs** (élevage, irrigation, énergie, industrie, tertiaire, résidentiel, canaux). Trois **scénarios d'usage** — *tendanciel*, *politiques publiques* (SNBC, Plan eau), *de rupture* (sobriété, d'après « coopérations territoriales » de l'Ademe) — croisés avec **deux projections climatiques** : **« violet »** (sécheresses sévères) et **« jaune »** (moins intenses). La demande d'irrigation est calculée par bilan hydrique : besoin dès que **ETP × Kc > apports (pluie + sol)**.
+
+::: {.callout-tip title="Le détail qui relie les deux références"}
+Les projections **« violet »** et **« jaune »** de ce rapport **sont des narratifs Explore2** (voir la fiche suivante). Les deux documents reposent donc sur le **même socle hydroclimatique** — l'un côté ressource, l'autre côté demande.
+:::
+
+**Résultats clés.**
+
+- **Bascule de composition** : à 2050, l'**irrigation devient le premier poste de prélèvement** (l'énergie recule), et comme elle *consomme* l'essentiel de ce qu'elle prélève (évapotranspiration), la pression se **concentre sur les mois chauds**, quand la ressource est au plus bas.
+- **Ampleur** : dans le cas le plus défavorable (violet × tendanciel), les **consommations doublent** ; en juillet, **2 200 Mm³**, dont **~90 % pour l'agriculture**. Seul le scénario *de rupture* maintient les consommations 2050 au niveau de 2020.
+- **Surfaces équipées en irrigation 2020→2050** : **+50 %** (tendanciel et politiques publiques), **+12 %** (rupture).
+- **Leviers d'économie chiffrés** : **paillage −22 à −44 %** en maraîchage (projet ClimaLeg-Eau), **pilotage −25 %**, **agroécologie −10 % (2030) à −20 % (2050)** par unité de surface — avec un garde-fou : l'**effet rebond** (une irrigation plus efficace peut accroître le volume total prélevé).
+- **Filière** : les **légumes frais croissent dans *tous* les scénarios** (souveraineté alimentaire, végétalisation), à rebours du maïs.
+
+**Ce qu'on en retient pour l'exploitation.** Le contexte de *demande* va dans le même sens que celui de la *ressource* : tension estivale accrue, encadrement renforcé. Les trois leviers maraîchers (paillage surtout) sont directement mobilisables (cf. @sec-adapt-eau). Le positionnement « légumes » est porté par la tendance, à condition de sécuriser l'eau.
+
+**Précautions de lecture.** Maille **nationale (40 bassins versants)**, trop grossière pour le cas du Guyoult ; la Bretagne n'y est **pas** un point chaud d'irrigation (≠ Adour, Escaut, sud-Loire). C'est une **prospective**, pas une prévision : des trajectoires contrastées dépendant de choix de société.
+
+**Pour aller plus loin.** La **Note d'analyse n° 148** (mêmes auteurs) en résume les enseignements ; une **étude à paraître** confronte demande et ressource par territoire (identification des zones de tension) — à surveiller. *Transcription structurée archivée localement (`sources/`).*
+
+## Explore2 — *Les futurs de l'eau* (INRAE / OiEau / Météo-France / BRGM, 2024) {#sec-lecture-explore2}
+
+**Nature et portée.** Programme national de **projections hydroclimatiques** sur le XXIᵉ siècle, successeur d'*Explore 2070*, piloté par l'INRAE et l'Office international de l'eau avec Météo-France et le BRGM [@explore2 ; @explore2-bretagne]. Il fournit l'**état de référence des projections de débits, d'étiages et de recharge des nappes** mobilisé par l'Agence de l'eau, les SAGE et France Stratégie. *Robustesse : scientifique (consortium public).*
+
+**Méthode.** Un **ensemble multi-modèles** (plusieurs modèles climatiques × plusieurs modèles hydrologiques, scénarios RCP) sur **~4 000 points de simulation**. Pour rendre lisible la dispersion entre modèles, Explore2 retient des **« narratifs » codés par couleur** (du plus humide au plus sec) plutôt qu'une moyenne unique. Les **fiches TRACC** expriment les résultats par **niveau de réchauffement** (+2,7 °C ≈ 2050, +4 °C ≈ 2100), par rapport à la référence **1976-2005** (et **1991-2020** pour la fiche bretonne).
+
+**Résultats clés.**
+
+- **Synthèse nationale** (enseignements) : **sécheresse des sols ≈ ×3 en surface** et **×4 à ×6 en fréquence**, **ETP ≈ +25 %**, et des **débits d'étiage qui baissent plus fortement que le débit moyen annuel** — l'étiage est le maillon le plus exposé [@explore2].
+- **Fiche « Côtiers de Bretagne », sous-secteur J0 « Côtiers du Couesnon canalisé »** — la maille la plus locale pour Pleine-Fougères [@explore2-bretagne] :
+
+| Indicateur (médiane inter-modèles) | +2,7 °C (≈ 2050) | +4 °C (≈ 2100) |
+|---|---|---|
+| Étiage estival (VCN10 été) | **−11 %** (−62 à +22) | **−22 %** (−69 à +21) |
+| Recharge annuelle des nappes | **+4 %** (−5 à +21) | **+5 %** (−16 à +34) |
+
+  Lecture : la **recharge annuelle reste quasi stable** (compensation hivernale), mais l'**étiage estival baisse nettement**, avec une **dispersion considérable** (jusqu'à −62/−69 %) — d'où un risque réel d'étiages sévères au pic de besoin du maraîchage.
+
+**Déclinaisons exploitables au-delà de la fiche.**
+
+- **OEB — « Mon territoire sous +4 °C »** (2025) : indicateurs **dérivés des débits Explore2**, déclinables à la **commune / au SAGE** (dont l'indicateur « +43 % d'événements secs de nappes » en Bretagne) — pour sortir un repère localisé citable.
+- **DRIAS-Eau** (Météo-France) : portail de **données téléchargeables** (débits, **humidité des sols**, ETP, recharge) géolocalisables au point — pour extraire soi-même un point proche du Couesnon.
+- **Recherche Data Gouv** (entrepôt INRAE) : jeux de données **avec DOI citables**, indicateurs alignés sur le cadre TRACC — pour un traitement reproductible.
+
+**Ce qu'on en retient pour l'exploitation.** Le message structurant est **« la nappe se reconstitue l'hiver, mais le creux estival se durcit »** : c'est la **disponibilité estivale** qui sera limitante, pas la pluie annuelle. Pour le forage, le volet **recharge des nappes** (implication BRGM) est le seul angle « nappe » projeté disponible sans modèle hydrogéologique local.
+
+**Précautions de lecture.** La granularité s'arrête au **secteur hydrographique** (J0), pas à la masse d'eau ni au forage. Explore2 est **généraliste « ressource en eau »** : aucun volet maraîchage — c'est à l'utilisateur de relier les variables (humidité des sols, ETP, étiage) à ses besoins. Et le signal est **projeté** : **aucune tendance d'étiage significative n'est encore observée sur 1968-2024**. Toujours lire la **médiane *et* la dispersion**.
+
+**Pour aller plus loin.** Le **guide de lecture** des fiches (climat / recharge / hydrologie de surface) est indispensable pour ne pas sur-interpréter les fourchettes ; DRIAS-Eau pour descendre au point local.
+
+## Gouvernance quantitative de l'eau : du SDAGE Loire-Bretagne au SAGE local {#sec-lecture-sdage}
+
+**Nature et portée.** Ensemble des documents qui **encadrent le partage de l'eau** et fixeront, demain, les volumes prélevables — du grand bassin au sous-bassin du forage. *Robustesse : officiel (Agence de l'eau, syndicats de bassin).*
+
+**Cadre en vigueur — SDAGE Loire-Bretagne 2022-2027.** Adopté le **3 mars 2022**, il **renforce la gestion quantitative** : débits de référence (**QMNA5**), identification des secteurs en tension, et déploiement de la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc].
+
+**Ce qui se prépare — adaptation et SDAGE 2028-2033.** L'Agence de l'eau construit sa **stratégie d'adaptation au changement climatique** via la **démarche prospective « Loire-Bretagne 2050 »**, destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. *Travail en cours : la page consultée ne porte pas encore de chiffre de débit consolidé — le quantitatif local reste, à ce jour, la fiche Explore2 J0.*
+
+**Déclinaison locale — deux études engagées, non publiées.**
+
+- **Bassin du Couesnon** : l'**étude de gestion quantitative** (préalable à la HMUC, lancée fin 2023) fixe déjà un **débit d'objectif d'étiage de 0,38 m³/s à Romazy** (8 ans sur 10) et identifie des sous-bassins **en tension**, dont le **Chenelais** — l'un des deux sous-bassins de La Petite Claye [@acgq-couesnon].
+- **Bassins côtiers de Dol** : le SAGE **dont relève le forage** (sous-bassin du Guyoult, cf. @sec-forage) a engagé une **pré-étude HMUC** mobilisant Explore2 [@sage-dol-hmuc]. **Non encore publiée**, ce sera la **référence locale la plus directe** sur les volumes prélevables ; l'interlocuteur ressource est le syndicat de bassin (SBCDol).
+
+**Ce qu'on en retient pour l'exploitation.** Le statut **actuel** est favorable (hors ZRE, forage très en deçà des seuils, cf. @sec-eau), mais la **marge de manœuvre à 30 ans se jouera sur ces futurs documents**. Les deux HMUC locales (Couesnon, Dol) sont les **points de vigilance prioritaires** à suivre — ce sont elles qui traduiront Explore2 en règles de prélèvement opposables.
+
+**Précautions de lecture.** Les HMUC locales étant **non publiées**, il n'existe **pas encore de volume prélevable chiffré et daté** pour le secteur ; la trajectoire est qualitative (resserrement), pas quantifiée localement.
+
+**Pour aller plus loin.** Suivre la publication de la **HMUC Couesnon** et de la **pré-HMUC Dol** ; pour le cadre bassin, la **démarche Loire-Bretagne 2050** et le **guide HMUC** détaillent la méthode de calcul des volumes prélevables.
