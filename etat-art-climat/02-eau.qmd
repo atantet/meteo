@@ -30,6 +30,15 @@ Les chiffres ci-dessus décrivent la **ressource**. Mais la pression sur l'eau d
 
 Le SDAGE Loire-Bretagne 2022-2027 (adopté le 3 mars 2022) **renforce la gestion quantitative** et l'intégration du climat : il fixe des débits de référence (QMNA5), identifie les secteurs en tension, et déploie la **méthode HMUC** (Hydrologie, Milieux, Usages, Climat) pour déterminer les **volumes prélevables** en étiage [@sdage-lb ; @guide-hmuc]. Localement, l'**étude de gestion quantitative du bassin du Couesnon** (préalable à la HMUC, lancée fin 2023) fixe un **débit d'objectif d'étiage de 0,38 m³/s à Romazy** (à respecter 8 ans sur 10) et identifie des sous-bassins **en tension** — dont le **Chenelais**, l'un des deux sous-bassins de La Petite Claye [@acgq-couesnon].
 
+::: {.callout-note title="Ce qui se prépare — un cadre qui se durcira (travail en cours)"}
+Le cadre réglementaire **n'est pas figé**, et son évolution va dans le sens d'une gestion plus stricte. Deux chantiers, encore inaboutis mais déjà engagés, le confirment :
+
+- **À l'échelle du bassin** : l'Agence de l'eau Loire-Bretagne bâtit sa **stratégie d'adaptation au changement climatique** (démarche prospective « Loire-Bretagne 2050 »), destinée à être intégrée comme **enjeu n°1 du prochain SDAGE (2028-2033)**, en s'appuyant explicitement sur les projections **Explore2** [@sdage-lb-adaptation2050]. La priorité affichée est la réduction des prélèvements et le partage de l'eau en étiage.
+- **À l'échelle locale** : le **SAGE des bassins côtiers de Dol** — celui dont relève le **forage** (sous-bassin du Guyoult, cf. @sec-forage) — a engagé une **pré-étude HMUC** qui mobilise Explore2 pour caractériser ressource, besoins et tensions d'étiage [@sage-dol-hmuc]. **Non encore publiée**, ce sera la **référence locale la plus directe** sur les volumes prélevables — à suivre de près (et le bon interlocuteur ressource pour le forage est le syndicat de bassin, SBCDol).
+
+Autrement dit : même si le statut actuel est favorable (hors ZRE, forage très en deçà des seuils), c'est sur **ces futurs documents** que se jouera la marge de manœuvre réelle à 30 ans.
+:::
+
 Pour un **forage d'irrigation**, trois rubriques de la nomenclature « loi sur l'eau » (IOTA, art. R214-1) se cumulent [@legifrance-r214] :
 
 | Rubrique | Objet | Seuil |
