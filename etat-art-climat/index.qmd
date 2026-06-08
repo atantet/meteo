@@ -14,6 +14,8 @@ Il est **autoporté** : il n'est pas structuré par l'architecture d'un quelconq
 Chaque axe suit la même trame : ce que disent les **observations**, ce que disent les **projections**, les **apprentissages à 30 ans**, et les **points à approfondir**. Les affirmations sont rattachées à leur source par une référence cliquable. La bibliographie complète est en fin de document, doublée d'une **bibliographie annotée** (une fiche par source : nature, robustesse, ce qu'on en tire).
 :::
 
+*Dernière révision : **juin 2026**. Ce document est **revu tous les 6 mois** (avril et octobre) pour suivre l'actualisation des sources et l'arrivée de nouvelles (HMUC locales, SDAGE 2028-2033…).*
+
 # Cadre et méthode
 
 ## Objet et périmètre
