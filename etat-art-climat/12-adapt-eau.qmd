@@ -13,7 +13,7 @@ Gagner en efficience ne garantit pas de **prélever moins**. La littérature doc
 
 Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la saison déficitaire.
 
-- **Retenue de substitution** (ouvrage étanche, déconnecté du milieu en étiage, rempli hors étiage). Réglementation « plan d'eau » : **≥ 3 ha → autorisation**, **> 1 000 m² et < 3 ha → déclaration** ; **implantation interdite en zone humide ou en travers d'un cours d'eau** [@dreal-retenues2012]. Aide de l'Agence de l'eau possible **jusqu'à 70 %**, mais subordonnée à un **PTGE** (projet de territoire pour la gestion de l'eau) [@dreal-retenues2012]. *Limites* : très encadré en zone tendue ; proximité de zones humides en baie du Mont-Saint-Michel (cf. @sec-cotiers).
+- **Retenue de substitution** (ouvrage étanche, déconnecté du milieu en étiage, rempli hors étiage). Réglementation « plan d'eau » : **≥ 3 ha → autorisation**, **> 1 000 m² et < 3 ha → déclaration** ; **implantation interdite en zone humide ou en travers d'un cours d'eau** [@dreal-retenues2012]. Aide de l'Agence de l'eau possible **jusqu'à 70 %**, mais subordonnée à un **PTGE** (projet de territoire pour la gestion de l'eau) [@dreal-retenues2012]. *Limites* : très encadré en zone tendue ; proximité de zones humides en baie du Mont-Saint-Michel (cf. @sec-cotiers) ; et **aucun PTGE n'est identifié à ce jour sur le Couesnon ni les bassins côtiers de Dol** (gestion via les SAGE) — condition pourtant nécessaire à l'aide ci-dessus.
 - **Récupération des eaux de toiture** de tunnels/serres (règle 1 mm de pluie = 1 L/m²) [@agrobio35-fiche37]. *Limites* : volume borné par la surface et la pluviométrie ; ressource surtout hivernale/printanière → ne couvre le pic estival qu'avec un stockage suffisant (dimensionnement à calculer localement).
 
 ## Sols « éponge »
@@ -40,7 +40,7 @@ Logique structurante (cf. @sec-eau) : capter la saison excédentaire pour la sai
 ## À valider localement
 
 ::: {.callout-warning}
-- Statut **ZRE** et faisabilité d'une **retenue** (proximité zone humide baie MSM, PTGE existant ?) — cf. @sec-eau.
+- **Faisabilité d'une retenue** : deux verrous restent **locaux** — (1) le **classement « zone humide »** des parcelles (en contexte Marais de Dol / baie du Mont-Saint-Michel, milieux très encadrés, c'est probablement le facteur **déterminant** ; cf. @sec-cotiers), à confirmer sur le **zonage du SAGE Dol** ; (2) l'**aide de l'Agence de l'eau (≤ 70 %)** suppose un **PTGE**, non identifié à ce jour sur le territoire (cf. *Stockage de l'eau d'hiver*). *(Le statut ZRE, lui, est tranché : secteur hors ZRE — cf. @sec-eau.)*
 - **Réserve utile réelle** de la parcelle (texture, cailloux, MO) par analyse de sol.
 - **Dimensionnement** de la récupération de toiture (surface tunnels × pluviométrie locale).
 - Les % d'efficience viennent surtout de **grandes cultures/arboriculture** : transposition au maraîchage diversifié breton à confirmer.
