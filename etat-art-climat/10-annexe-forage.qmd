@@ -1,7 +1,7 @@
 # Annexe A — Le forage de La Petite Claye (cas concret) {#sec-forage}
 
 ::: {.callout-note}
-Cette annexe **applique** le cadre générique du @sec-eau au forage existant de l'exploitation. Contrairement au reste du document (autoporté et générique), elle est **spécifique au cas d'Alexis** et s'appuie sur les pièces communiquées (déclarations BSS/DRIRE, plan cadastral) et la fiche BSS [@infoterre-bss-tpha].
+Cette annexe **applique** le cadre générique du @sec-eau au forage existant de l'exploitation. Contrairement au reste du document (autoporté et générique), elle est **spécifique à La Petite Claye des Champs** et s'appuie sur les pièces communiquées (déclarations BSS/DRIRE, plan cadastral) et la fiche BSS [@infoterre-bss-tpha].
 :::
 
 ## Identification

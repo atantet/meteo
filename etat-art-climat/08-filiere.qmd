@@ -11,7 +11,7 @@ Un état de l'art « impacts » serait incomplet sans le **contexte socio-écono
 - Débouché favorable au maraîchage : les **légumes bio progressent de +9 %** en 2024, principalement via circuits spécialisés et vente directe [@agencebio2025].
 - Tension offre/demande : les **surfaces bio reculent** (~−110 000 ha en deux ans), mais le **solde de producteurs reste positif** (+1 %) [@agencebio2025].
 
-Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segment d'Alexis :
+Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segment de La Petite Claye des Champs :
 
 - la VD représente **13 % du marché alimentaire bio en 2022** (vs 11 % en 2012), soit **~1,5 Md€**, un volume **multiplié par 2 en dix ans** ;
 - **plus d'une exploitation bio sur trois** pratique la vente directe ;
@@ -20,7 +20,7 @@ Le détail de la **vente directe** [@agencebio-vd2023] précise le poids du segm
 - **~44 % transforment** eux-mêmes une partie de leur production avant la vente.
 
 ::: {.callout-note title="Vigilance — un débouché porteur, mais une demande en eau qui monte"}
-La dynamique « légumes » ne tient pas qu'au marché bio : la prospective nationale de France Stratégie projette une **croissance des surfaces en légumes frais dans *tous* ses scénarios** d'ici 2050 (souveraineté alimentaire, végétalisation des régimes) [@francestrategie-demande-eau2025] — à rebours du maïs, en recul partout. Pour un maraîcher, c'est un **contexte de demande favorable**, mais qui a une contrepartie : à l'échelle nationale, cette montée des cultures légumières et fruitières **tire la demande en eau d'irrigation**, là où d'autres usages (énergie) reculent. Le positionnement d'Alexis est donc porté par la tendance, **à condition de sécuriser l'eau** (cf. @sec-eau, @sec-adapt-eau) — l'avantage de débouché et la contrainte de ressource progressent de pair.
+La dynamique « légumes » ne tient pas qu'au marché bio : la prospective nationale de France Stratégie projette une **croissance des surfaces en légumes frais dans *tous* ses scénarios** d'ici 2050 (souveraineté alimentaire, végétalisation des régimes) [@francestrategie-demande-eau2025] — à rebours du maïs, en recul partout. Pour un maraîcher, c'est un **contexte de demande favorable**, mais qui a une contrepartie : à l'échelle nationale, cette montée des cultures légumières et fruitières **tire la demande en eau d'irrigation**, là où d'autres usages (énergie) reculent. Le positionnement de La Petite Claye des Champs est donc porté par la tendance, **à condition de sécuriser l'eau** (cf. @sec-eau, @sec-adapt-eau) — l'avantage de débouché et la contrainte de ressource progressent de pair.
 :::
 
 ## Résilience par la diversité
@@ -56,7 +56,7 @@ L'**Expertise scientifique collective INRAE** (2022) sur la diversité végétal
 ## Apprentissages à 30 ans
 
 ::: {.callout-tip title="Ce qu'il faut retenir pour l'exploitation"}
-- Le **positionnement d'Alexis** (maraîchage diversifié bio en **vente directe**) est aligné sur le segment **le plus dynamique et le plus résilient** du marché (légumes +9 %, circuits courts +7 %) — un atout face à la volatilité de la GMS.
+- Le **positionnement de La Petite Claye des Champs** (maraîchage diversifié bio en **vente directe**) est aligné sur le segment **le plus dynamique et le plus résilient** du marché (légumes +9 %, circuits courts +7 %) — un atout face à la volatilité de la GMS.
 - La **diversité des cultures** n'est pas qu'une valeur : c'est une **stratégie de résilience documentée** (régulation biologique, sols, étalement du risque et de l'offre). Le climat futur la rend **plus nécessaire**, pas moins.
 - **Réduire la dépendance aux intrants** (autonomie en fertilité via légumineuses/couverts/compost, sobriété énergétique, ENR) protège à la fois la marge et l'exposition aux chocs géopolitiques — convergent avec les leviers sol (@sec-sol) et eau (@sec-eau).
 - L'**autonomie** (eau, fertilité, énergie) est le fil qui relie adaptation climatique et robustesse économique.

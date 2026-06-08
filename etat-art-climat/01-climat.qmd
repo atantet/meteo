@@ -4,9 +4,10 @@ Ce chapitre fixe la **toile de fond physique** dont dépendent tous les axes sui
 
 ## Ce que disent les observations
 
-- La Bretagne s'est **nettement réchauffée** : la température moyenne annuelle a augmenté de **+1,74 à +1,85 °C en 60 ans** (1960-2020), mesure établie sur cinq stations représentatives (Brest, Lorient, Pleurtuit, Rennes, Rostrenen). Le réchauffement est **plus marqué au printemps et en été** qu'en automne-hiver [@oracle2021].
+- La Bretagne s'est **nettement réchauffée** : la température moyenne annuelle a augmenté de **+1,74 à +1,85 °C en 60 ans** (1960-2020), mesure établie sur cinq stations représentatives (Brest, Lorient, Pleurtuit, Rennes, Rostrenen). Le réchauffement est **plus marqué au printemps et en été** qu'en automne-hiver — en moyenne sur les cinq stations, **≈ +1,9 °C au printemps et en été** contre **≈ +1,5 °C en automne** [@oracle2021 ; @oracle-legumes2021].
 - Les **journées chaudes** se multiplient : le nombre de jours où la température maximale dépasse 25 °C a **quasiment doublé** entre 1959-1989 et 1990-2020, en particulier à Rennes [@oracle2021].
 - Cette évolution **allonge la saison de végétation** et, plus à l'est de la région (Rennes, secteur de Pleine-Fougères), accentue les **déficits hydriques estivaux** [@oracle2021 ; @meteofrance2019].
+- L'**évapotranspiration estivale a, elle aussi, déjà augmenté** : **+2 à 5 %/décennie l'été**, soit **≈ +60 mm d'ETP estivale en Bretagne entre 1960 et 2020** — la face *déjà mesurée* du creusement du déficit hydrique d'été [@oracle-legumes2021]. *(Indicateur issu de stations météo, mesuré dans le cadre du suivi des légumes de transformation ; le signal climatique est régional et transposable au maraîchage diversifié.)*
 - Le gradient régional reste marqué : l'**est de l'Ille-et-Vilaine est plus continental et plus sec** que la pointe finistérienne (la pluie efficace annuelle est de l'ordre de 150 mm à Rennes contre ~600 mm à Quimper [@oeb-secheresses], cf. @sec-eau).
 
 ## Ce que disent les projections
@@ -18,6 +19,7 @@ Toutes les valeurs ci-dessous sont rapportées à la **période de référence 1
 - température moyenne annuelle bretonne : **≈ +1,8 °C** ;
 - **hivers plus humides** : précipitations de décembre à février en hausse (de **+5 % à +34 %** selon les modèles) ;
 - **étés plus secs** : précipitations estivales **≈ −11 %** ;
+- **évapotranspiration de référence (ETP) : ≈ +10 %** — hausse jugée *homogène sur tout le territoire* par Météo-France (principal moteur : la température), donc transposable à la Bretagne [@meteofrance-ressource-eau] ;
 - **pluies les plus fortes plus intenses** (**≈ +10 %**) ;
 - **jours de sols secs** (SWI < 0,5, cf. @sec-glossaire) : de **124 à ≈ 140 jours/an**.
 
@@ -45,6 +47,8 @@ L'Observatoire de l'environnement en Bretagne précise que les modèles climatiq
 ## À approfondir
 
 ::: {.callout-warning title="Limites et compléments"}
-- Disposer des **chiffres 2050 différenciés été/hiver** et des indices agro-climatiques (ETP, déficit hydrique potentiel) au pas de temps mensuel pour le secteur de Rennes/Fougères, via DRIAS [@drias] et les fiches ORACLE actualisées [@oeb-bulletin2025].
-- Croiser avec **Explore2 (INRAE/Météo-France)** pour des projections à l'échelle du bassin-versant local.
+- **Le bilan hydrique potentiel se dégrade mécaniquement.** À 2050, étés ≈ −11 % de pluie *et* ETP ≈ +10 % se cumulent. Météo-France chiffre la perte du bilan hydrique (précipitations − ETP) à **≈ 45 mm/an vers 2050** et **jusqu'à 116 mm/an vers 2100** [@meteofrance-ressource-eau] — *moyenne France, le sud bien plus touché* : chiffre de cadrage, non spécifique à la Bretagne (l'Atlantique en atténue probablement l'ampleur ici).
+- **Le détail mensuel local relève de l'outil, pas de la littérature.** Les indices agro-climatiques fins (ETP et déficit hydrique mois par mois pour le point SAFRAN de Rennes/Fougères) sont produits par l'application *climatologie* du projet à partir des données ; l'état de l'art en fixe le cadre (ci-dessus), pas le détail mensuel.
+- **Le croisement Explore2 à l'échelle du bassin-versant est fait côté ressource** (@sec-eau) : recharge hivernale quasi stable (+4 à +5 %), étiage estival −11 % vers 2050 / −22 % vers 2100 au sous-secteur Couesnon. Pour les variables strictement climatiques (T, précipitations), Explore2 ne descend pas sous le secteur hydrographique.
+- **Pas de fiche ORACLE Bretagne plus récente que 2021** à ce jour (l'édition 2021 comprend une fiche « irrigation des légumes » directement maraîchère) ; à re-vérifier aux révisions semestrielles. Rappel : les modèles régionaux ne représentent pas les orages, donc l'intensification estivale des fortes pluies est probablement sous-estimée (cf. *supra*).
 :::
