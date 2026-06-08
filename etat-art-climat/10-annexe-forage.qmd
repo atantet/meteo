@@ -13,25 +13,25 @@ Cette annexe **applique** le cadre générique du @sec-eau au forage existant de
 
 ## Parcellaire et zones humides
 
-L'EARL exploite **~7 ha** de maraîchage à Pleine-Fougères (section cadastrale **ZC**, lieu-dit « La Petite Claye » ; les parcelles de blé à Saint-Malo, hors périmètre maraîchage, ne sont pas reprises). Le croisement du parcellaire cadastral avec l'**inventaire des zones humides du SAGE Couesnon** [@inventaire-zh-couesnon] donne :
+L'EARL exploite **~7 ha** de maraîchage à Pleine-Fougères (section cadastrale **ZC**, lieu-dit « La Petite Claye » ; les parcelles de blé à Saint-Malo, hors périmètre maraîchage, ne sont pas reprises). Le parcellaire est **à cheval sur deux SAGE** : le **cœur maraîcher (tunnels, plein champ) relève du SAGE des bassins côtiers de Dol**, le reste du **SAGE Couesnon**. Le croisement du parcellaire cadastral avec les **inventaires de zones humides des deux SAGE** [@inventaire-zh-couesnon ; @inventaire-zh-dol] donne :
 
-| Parcelle | Lieu-dit | Surface (ha) | Exploitée par l'EARL | Usage | En zone humide |
+| Parcelle | Lieu-dit | Surface (ha) | SAGE | Exploitée par l'EARL | En zone humide |
 |---|---|---|---|---|---|
-| ZC6 | La Petite Claye | 0,62 | oui | bitunnel | non |
-| ZC14 | La Petite Claye | 1,48 | oui | plein champ | non |
-| ZC15 | La Petite Claye | 0,64 | oui | tunnel | non |
-| ZC17 | La Petite Claye | 1,63 | oui (échange de jouissance) | maraîchage | non |
-| ZC19 | La Petite Claye | 0,59 | oui | maraîchage | non |
-| ZC20 (partie nord) | La Petite Claye | 1,00 | oui (bail) | maraîchage | non |
-| ZC26 | La Petite Claye | 0,52 | oui | prairie permanente | non |
-| ZC132 · ZC196 · ZC198 | La Petite Claye | 0,61 | oui | serre, maison, abords | non |
-| ZD14 | Le Pré de la Fontaine | 0,38 | non (échangée) | — | **oui (100 %)** |
-| ZD18 | Le Pré de la Fontaine | 0,26 | non (échangée) | — | non |
-| ZD19 | Le Pré de la Fontaine | 1,51 | non (échangée) | — | non |
+| ZC6 | La Petite Claye | 0,62 | Dol | oui (bitunnel) | non |
+| ZC14 | La Petite Claye | 1,48 | Dol | oui (plein champ) | non |
+| ZC15 | La Petite Claye | 0,64 | Dol | oui (tunnel) | non |
+| ZC17 | La Petite Claye | 1,63 | Couesnon + Dol | oui (échange) | non |
+| ZC19 | La Petite Claye | 0,59 | Couesnon | oui | non |
+| ZC20 (partie nord) | La Petite Claye | 1,00 | Couesnon | oui (bail) | non |
+| ZC26 | La Petite Claye | 0,52 | Couesnon | oui (prairie) | non |
+| ZC132 · ZC196 · ZC198 | La Petite Claye | 0,61 | Dol | oui (bâti/abords) | non |
+| ZD14 | Le Pré de la Fontaine | 0,38 | Couesnon | non (échangée) | **oui (100 %)** |
+| ZD18 | Le Pré de la Fontaine | 0,26 | Couesnon | non (échangée) | non |
+| ZD19 | Le Pré de la Fontaine | 1,51 | Couesnon | non (échangée) | non |
 
-**Les parcelles effectivement exploitées (toute la section ZC) sont hors zone humide inventoriée.** La seule parcelle classée — **ZD14**, à « Le Pré de la Fontaine » — relève d'un **échange de jouissance** (cultivée par une autre exploitation), pas du parcellaire maraîcher. Conséquence directe : le critère **« zone humide » ne contraint pas l'implantation d'une éventuelle retenue** sur le cœur de l'exploitation (cf. @sec-adapt-eau).
+**Toutes les parcelles effectivement exploitées sont hors zone humide inventoriée — vérifié contre les *deux* inventaires (Couesnon et Dol), chaque parcelle étant croisée avec le SAGE dont elle relève.** La seule parcelle classée — **ZD14**, « Le Pré de la Fontaine » (SAGE Couesnon) — relève d'un **échange de jouissance** (cultivée par une autre exploitation), pas du parcellaire maraîcher. Conséquence directe : le critère **« zone humide » ne contraint pas l'implantation d'une éventuelle retenue** sur le cœur de l'exploitation (cf. @sec-adapt-eau).
 
-*Source : inventaire ZH du SAGE Couesnon (campagne 2008-2011, MAJ 2019, validé CLE) [@inventaire-zh-couesnon], croisé avec le parcellaire cadastral (données locales). Un inventaire n'est pas exhaustif : le critère réglementaire (sol hydromorphe **ou** flore hygrophile) pourrait classer ponctuellement davantage — à vérifier au cas par cas avant travaux.*
+*Source : inventaires ZH des SAGE Couesnon (2008-2011, MAJ 2019, validé CLE) [@inventaire-zh-couesnon] et des bassins côtiers de Dol [@inventaire-zh-dol], croisés avec le parcellaire cadastral (données locales). Un inventaire n'est pas exhaustif : le critère réglementaire (sol hydromorphe **ou** flore hygrophile) pourrait classer ponctuellement davantage — à vérifier au cas par cas avant travaux.*
 
 ## Caractérisation du sol (diagnostic 2025)
 
@@ -97,7 +97,7 @@ Aux valeurs **déclarées en 2002**, le forage est en situation réglementaire *
 :::
 
 ::: {.callout-warning title="À compléter (terrain / suivi)"}
-- **Qualité de l'eau** : analyse (nitrates, conductivité/salinité, fer/manganèse fréquents en socle) — base de la surveillance long terme et du risque de salinisation côtière.
+- **Qualité de l'eau** : l'analyse du forage reste à faire, mais les **qualitomètres ADES voisins** (Trans-la-Forêt ~5 km, Vieux-Viel ~6 km, même socle) donnent des *a priori* (2024) : **nitrates 5-34 mg/L** (< 50), **conductivité 188-254 µS/cm** et **chlorures ~32 mg/L** (eau douce — **pas de signal de salinité**), **fer et manganèse faibles** [@hubeau-qualite-nappes]. → priorité de surveillance au **nitrate** ; salinité et Fe/Mn paraissent *a priori* non problématiques (à confirmer sur le forage ; la salinisation côtière reste à suivre dans la durée).
 - **État de l'ouvrage** (2002 → aujourd'hui) : vieillissement du tubage/crépine, colmatage, débit spécifique et niveau piézométrique au repos actuels (fiche BSS [@infoterre-bss-tpha] ; suivi de tendance via le piézomètre de Bonnemain [@ades-bonnemain ; @atlas-piezo-bretagne]).
 - **Chiffres locaux d'étiage/recharge** datés (Explore2 J0 ; HMUC à paraître) — *l'état quantitatif DCE de FRGG123 est désormais connu (bon, non en risque), cf. encadré « Établi » ci-dessus* [@explore2].
 - **Peut-on relier le niveau de nappe (Bonnemain) au débit du forage ?** *(question ouverte)* Un piézomètre mesure un **niveau**, pas un débit ; le lien physique passe par le **débit spécifique** de l'ouvrage (Q/rabattement, issu d'un essai de pompage) : niveau bas en fin d'été → épaisseur saturée moindre → débit soutenable plus faible. **Sur l'historique, aucune corrélation mesurée n'est possible** faute de suivi du forage (seul l'essai de 2002 existe) — Bonnemain reste un **analogue de tendance**. Pour calibrer le lien niveau→débit : (1) **essai de pompage** (débit spécifique), (2) **sonde de niveau** dans le forage sur 1-2 saisons, à corréler avec Bonnemain [@ades-bonnemain]. La projection *future* resterait alors une **tendance** (via la recharge Explore2 [@explore2]), pas un débit chiffré sans modèle hydrogéologique local.
