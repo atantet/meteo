@@ -38,11 +38,11 @@ module abandonné délibérément 2026-05-29.
             ┌──────────────────┼──────────────────┐
             ▼                  ▼                  ▼
    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-   │ App 1 Veille    │ │ App 2 Opér.     │ │ App 3 Climato   │
-   │ 0–72 h          │ │ 3–15 j (≤ 7 j)  │ │ saison → DRIAS  │
+   │ App 1 Veille    │ │ Atelier irrig.  │ │ App 3 Climato   │
+   │ 0–48 h + semaine│ │ bilan hydrique  │ │ saison → DRIAS  │
    │ GH Actions cron │ │ Streamlit Cloud │ │ Quarto + Pages  │
-   │ email matinal   │ │ dashboard       │ │ rapports HTML   │
-   │                 │ │                 │ │ + PDF           │
+   │ email (matin :  │ │ (ex-App 2, voir │ │ rapports HTML   │
+   │ + tendance 10 j)│ │  ADR-0015)      │ │ + PDF           │
    └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
@@ -203,7 +203,14 @@ GitHub Actions, heure à confirmer (par défaut 6 h Paris).
 
 ---
 
-## 3. App 2 — Opérationnelle 3-15 j (Streamlit Cloud)
+## 3. App 2 — Opérationnelle 3-15 j
+
+> **Note (2026-06-09, [ADR-0015](decisions/0015-fusion-app2-dans-mail-veille.md))** :
+> l'App 2 n'est plus un dashboard Streamlit autonome. Sa partie statique (tendance
+> 10 j, guides, cartes) est désormais la section « La semaine » du **mail Veille du
+> matin** ; son bilan hydrique interactif est extrait dans l'**atelier irrigation**
+> (mini-Streamlit). Les décisions et indicateurs ci-dessous restent valables ; seul
+> le canal de diffusion a changé.
 
 ### Décisions éclairées
 

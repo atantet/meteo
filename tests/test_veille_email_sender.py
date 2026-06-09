@@ -443,7 +443,9 @@ def test_composer_html_section_seuils_vigilance_en_pied() -> None:
         "canicule_aeration": {"actif": False, "seuil_celsius": 25.0},
     }
     html = composer_html(_ind(), [], datetime(2026, 6, 1, 5, 30), seuils_config=seuils)
-    assert "Seuils de Vigilance exploitation" in html
+    # Titre élargi : les seuils valent pour la 48 h ET les guides de la semaine.
+    assert "Vigilance exploitation (48" in html
+    assert "guides (semaine)" in html
     # Pas de bloc "Définition des indicateurs" (retiré sur demande).
     assert "Définition des indicateurs" not in html
     # Gel unifié (purge + voilage) sur une plage de 6 h.

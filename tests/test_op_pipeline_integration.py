@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -99,38 +98,6 @@ def test_pipeline_complete_compatible_figures_indicateur() -> None:
         if cfg.colonne in quot.columns:
             # Pas de NaN ininterprétable dans la colonne.
             assert quot[cfg.colonne].notna().any(), f"Colonne {cfg.colonne} tout NaN"
-
-
-def test_streamlit_app_apptest_run_complete_sans_exception() -> None:
-    """Lance streamlit_app via AppTest (le testeur officiel Streamlit).
-
-    Reproduit exactement le pipeline d'exécution Cloud : import + main()
-    + rendu de tous les composants jusqu'au footer. Aurait attrapé les
-    TypeError du 2026-05-29 (substitution LWD puis rollback).
-
-    Ce test fait un vrai appel réseau à Open-Meteo. Marqué network pour
-    pouvoir l'exclure si CI a un souci de connectivité.
-    """
-    pytest.importorskip("streamlit.testing.v1")
-    from streamlit.testing.v1 import AppTest
-
-    app_path = REPO_ROOT / "apps" / "operationnelle" / "streamlit_app.py"
-    at = AppTest.from_file(str(app_path), default_timeout=60)
-    at.run()
-    assert not at.exception, f"Streamlit app a levé une exception : {list(at.exception)}"
-    # Tous les titres §1-§4 et leurs sous-titres sont rendus en
-    # `st.markdown(<h3|h4>…)` (style aligné Veille), donc on les cherche
-    # dans le markdown rendu plutôt que dans les `subheader`.
-    md_blocs = "\n".join(m.value for m in at.markdown)
-    # Section tendance §1.
-    assert "ARPEGE" in md_blocs and "ECMWF IFS" in md_blocs, (
-        "Section tendance ARPEGE vs ECMWF IFS introuvable dans le markdown"
-    )
-    # Section séries temporelles §4 + sous-section prévision horaire.
-    assert "Séries temporelles détaillées" in md_blocs, f"Section §4 absente : {md_blocs[:500]}"
-    # Le sous-titre courbes est désormais « Prévision horaire — 48 h
-    # passées (ERA5) + N j ARPEGE » (et plus « courbes par indicateur »).
-    assert "prévision horaire" in md_blocs.lower(), "Sous-section 'Prévision horaire' absente"
 
 
 def test_pipeline_complete_evaluer_decisions_sans_erreur() -> None:

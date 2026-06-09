@@ -46,6 +46,7 @@ from .config import (
 )
 from .email import composer_email
 from .indicateurs import calculer_indicateurs, moment_envoi
+from .semaine import executer_semaine
 from .sender import envoyer
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,9 @@ def executer_veille(
     source: MeteoFranceOfficiel | None = None,
     now_utc: pd.Timestamp | None = None,
     preview_path: str | Path | None = None,
+    inclure_semaine: bool = True,
+    semaine_source: Any = None,
+    fetch_cartes_semaine: bool = True,
 ) -> int:
     """Exécute le pipeline Veille de bout en bout.
 
@@ -75,6 +79,15 @@ def executer_veille(
         Si fourni, force l'envoi en mode preview : écrit le HTML
         composé dans ce chemin et n'envoie rien par SMTP. Utile pour
         prévisualiser le rendu sans bombarder son inbox.
+    inclure_semaine :
+        Si ``False``, n'ajoute jamais la section semaine (utile pour les
+        tests offline du seul pipeline 48 h, sans fetch réseau).
+    semaine_source :
+        Client ``OpenMeteoSingleRuns`` injectable pour la section semaine
+        (tests). ``None`` → un client réel est créé par ``executer_semaine``.
+    fetch_cartes_semaine :
+        Passé à ``executer_semaine`` ; ``False`` désactive le fetch réseau
+        des cartes ARPEGE-Europe (tests).
 
     Returns
     -------
@@ -125,6 +138,36 @@ def executer_veille(
     # silencieusement skippé (mail livré sans Vigilance).
     departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
     vigilance = recuperer_vigilance(departement=departement)
+
+    # Partie 2 « La semaine (7 j) » — uniquement le matin (la tendance bouge peu
+    # en une demi-journée et l'après-midi reste un mail 48 h court). Source =
+    # Single Runs ARPEGE+ECMWF, UTC. Dégradation gracieuse : si le fetch échoue,
+    # ``executer_semaine`` renvoie None et le mail 48 h part seul.
+    bloc_guides_tendance = ""
+    bloc_sources_semaine = ""
+    cartes_longue = None
+    bloc_semaine_texte = ""
+    if not apres_midi and inclure_semaine:
+        try:
+            from apps.operationnelle.config import load_config as load_config_op
+
+            config_op = load_config_op()
+            resultat_semaine = executer_semaine(
+                config_op,
+                now_utc,
+                source=semaine_source,
+                fetch_cartes=fetch_cartes_semaine,
+            )
+        except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
+            logger.warning("Section semaine ignorée (erreur) : %s", e)
+            resultat_semaine = None
+        if resultat_semaine is not None:
+            bloc_guides_tendance = resultat_semaine["guides_tendance_html"]
+            bloc_sources_semaine = resultat_semaine["sources_html"]
+            cartes_longue = resultat_semaine["cartes_geo"]
+            bloc_semaine_texte = resultat_semaine["texte"]
+            logger.info("Section semaine ajoutée au mail matinal.")
+
     email = composer_email(
         ind,
         alertes,
@@ -136,6 +179,10 @@ def executer_veille(
         prevision_horaire=prevision_df,
         updated_on=prevision.updated_on,
         position=prevision.position,
+        bloc_guides_tendance=bloc_guides_tendance,
+        bloc_sources_semaine=bloc_sources_semaine,
+        cartes_longue=cartes_longue,
+        bloc_semaine_texte=bloc_semaine_texte,
     )
 
     if preview_path is not None:

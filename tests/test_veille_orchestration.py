@@ -80,7 +80,9 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
 
     buf = io.StringIO()
     with patch("sys.stdout", buf):
-        code = executer_veille(config, secrets=None, source=mock_source, now_utc=now)
+        code = executer_veille(
+            config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
+        )
 
     assert code == 0
     output = buf.getvalue()
@@ -117,7 +119,9 @@ def test_executer_veille_alerte_gel_dans_email() -> None:
 
     buf = io.StringIO()
     with patch("sys.stdout", buf):
-        code = executer_veille(config, secrets=None, source=mock_source, now_utc=now)
+        code = executer_veille(
+            config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
+        )
 
     assert code == 0
     out = buf.getvalue()
@@ -138,7 +142,9 @@ def test_executer_veille_http_error_returns_2() -> None:
     config = _config_test()
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
 
-    code = executer_veille(config, secrets=None, source=mock_source, now_utc=now)
+    code = executer_veille(
+        config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
+    )
     assert code == 2
 
 
@@ -163,7 +169,9 @@ def test_executer_veille_envoi_reel_appelle_smtp() -> None:
     with patch("apps.veille.sender.smtplib.SMTP") as mock_smtp:
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
-        code = executer_veille(config, secrets=secrets, source=mock_source, now_utc=now)
+        code = executer_veille(
+            config, secrets=secrets, source=mock_source, now_utc=now, inclure_semaine=False
+        )
 
     assert code == 0
     mock_smtp.assert_called_once_with("smtp.example.com", 587)
@@ -219,7 +227,9 @@ def test_executer_veille_pipeline_complet_mf_offline() -> None:
 
     buf = io.StringIO()
     with patch("sys.stdout", buf):
-        code = executer_veille(config, secrets=None, source=source, now_utc=now)
+        code = executer_veille(
+            config, secrets=None, source=source, now_utc=now, inclure_semaine=False
+        )
 
     assert code == 0
     out = buf.getvalue()

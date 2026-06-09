@@ -32,6 +32,10 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from apps.operationnelle.cartes_geo import (
+    METEOCIEL_PAGE_AFFICHEE as ARPEGE_EUR_PAGE_AFFICHEE,
+)
+
 # Helpers FR partagés avec App 2 Opérationnelle, cf. apps/shared/dates_fr.py.
 from apps.shared.dates_fr import (
     JOURS_FR,
@@ -354,12 +358,21 @@ def _bloc_definitions(seuils: dict[str, Any] | None) -> str:
             "relèvent de la Vigilance d'État (Météo-France) affichée plus haut.",
         )
     )
+    seuils_lignes.append(
+        _def(
+            "Guides de la semaine",
+            "utilisent les seuils configurés de l'exploitation (gel, tunnels, "
+            "irrigation, maladie, travail du sol).",
+        )
+    )
 
     return (
         '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;'
         'font-size:11px;color:#888;line-height:1.5;">'
         '<div style="font-weight:600;color:#555;margin-bottom:4px;">'
-        "Seuils de Vigilance exploitation</div>" + "".join(seuils_lignes) + "</div>"
+        "Seuils — Vigilance exploitation (48 h) & guides (semaine)</div>"
+        + "".join(seuils_lignes)
+        + "</div>"
     )
 
 
@@ -372,6 +385,7 @@ def _format_dt_court_fr(dt: pd.Timestamp) -> str:
 def _bloc_cartes_synoptiques(
     grille: CartesGrille | None,
     tz_locale: str = "Europe/Paris",
+    cartes_longue: Any = None,
 ) -> str:
     """Bloc HTML 2 sections empilées — Met Office puis AROME, 1 colonne.
 
@@ -406,7 +420,11 @@ def _bloc_cartes_synoptiques(
     |   [carte 6]                                               |
     +-----------------------------------------------------------+
     """
-    if grille is None or grille.nb_disponibles == 0:
+    cartes_longue_dispo = [
+        c for c in (getattr(cartes_longue, "cartes", None) or []) if getattr(c, "data_uri", "")
+    ]
+    nb_synoptique = grille.nb_disponibles if grille is not None else 0
+    if nb_synoptique == 0 and not cartes_longue_dispo:
         return ""
 
     def cartes_section(
@@ -451,17 +469,25 @@ def _bloc_cartes_synoptiques(
         return "".join(lignes)
 
     section_metoffice = cartes_section(
-        grille.metoffice,
+        grille.metoffice if grille is not None else [],
         titre="Met Office UK — surface (Atlantique nord / Europe, fronts)",
         source_url=METOFFICE_PAGE_AFFICHEE,
         alt_prefix="Met Office surface",
     )
     section_arome = cartes_section(
-        grille.arome,
+        grille.arome if grille is not None else [],
         titre="Météociel AROME 1.3 km — France (précip + pression + nébulosité)",
         source_url=METEOCIEL_PAGE_AFFICHEE,
         alt_prefix="AROME résumé France",
         run_suffixe=" (veille)",
+    )
+    # Prolongement moyen terme : ARPEGE-Europe J+3 / J+4, dans la même série
+    # synoptique (cf. demande de regroupement de toutes les cartes).
+    section_arpege = cartes_section(
+        cartes_longue_dispo,
+        titre="Météociel ARPEGE-Europe ~10 km — moyen terme (J+3 / J+4)",
+        source_url=ARPEGE_EUR_PAGE_AFFICHEE,
+        alt_prefix="ARPEGE-Europe résumé",
     )
 
     return (
@@ -471,6 +497,7 @@ def _bloc_cartes_synoptiques(
         "Situation synoptique</h2>"
         f"{section_metoffice}"
         f"{section_arome}"
+        f"{section_arpege}"
         "</div>"
     )
 
@@ -829,8 +856,13 @@ def composer_texte(
     moment: str = "",
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
+    bloc_semaine_texte: str = "",
 ) -> str:
-    """Corps email texte simple — fallback universel et lisible mobile."""
+    """Corps email texte simple — fallback universel et lisible mobile.
+
+    ``bloc_semaine_texte`` (optionnel) — équivalent texte de la section
+    semaine, ajouté en fin de corps (mail matinal uniquement).
+    """
     lignes: list[str] = []
     lignes.append(_titre_mail(maintenant, moment, tz_locale))
     lignes.append("=" * 70)
@@ -877,6 +909,8 @@ def composer_texte(
             "0-24 h, pondéré vitesse",
         )
     )
+    if bloc_semaine_texte:
+        lignes.append(bloc_semaine_texte)
     return "\n".join(lignes)
 
 
@@ -893,8 +927,21 @@ def composer_html(
     tz_locale: str = "Europe/Paris",
     commune: str | None = None,
     updated_on: pd.Timestamp | None = None,
+    bloc_guides_tendance: str = "",
+    bloc_sources_semaine: str = "",
+    cartes_longue: Any = None,
+    lieu: str | None = None,
 ) -> str:
-    """Corps email HTML mobile-first (table inline, pas de framework)."""
+    """Corps email HTML mobile-first (table inline, pas de framework).
+
+    Ordre : titre (avec ``lieu`` général) · prévision MF (``commune`` = point de
+    grille MF, spécifique à la section) · Vigilances · grille 48 h · détail
+    horaire · **La semaine** (``bloc_guides_tendance``) · **Situation synoptique**
+    (Met Office + AROME + ARPEGE ``cartes_longue``, toutes les cartes regroupées)
+    · sources semaine · seuils exploitation (bas, valables 48 h + semaine).
+
+    Les blocs semaine sont vides l'après-midi → mail 48 h seul.
+    """
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
     # la grille Tendance et le graphique. On le dérive de ``maintenant``
     # (qui peut être naïf ; on suppose UTC).
@@ -909,7 +956,9 @@ def composer_html(
         now_utc=now_utc_ts,
         tz_locale=tz_locale,
     )
-    bloc_carte = _bloc_cartes_synoptiques(cartes_grille, tz_locale=tz_locale)
+    bloc_carte = _bloc_cartes_synoptiques(
+        cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
+    )
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
     bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
     bloc_definitions = _bloc_definitions(seuils_config)
@@ -926,14 +975,19 @@ def composer_html(
     # précisée par section (en-têtes), pas dans un footer.
     titre_h2 = _titre_mail(maintenant, moment, tz_locale)
 
-    # Fraîcheur de la prévi officielle MF, sous l'en-tête de sa section.
-    maj_html = ""
+    # Sous-titre de la section MF : point de grille MF (commune renvoyée, ex.
+    # « Sains ») — spécifique à CETTE section, pas au mail entier — + fraîcheur.
+    maj_parts: list[str] = []
+    if commune:
+        maj_parts.append(f"point le plus proche : {commune}")
     if updated_on is not None:
         maj_loc = updated_on.tz_convert(tz_locale)
-        maj_html = (
-            '<p style="margin:0 0 6px 0;font-size:11px;color:#888;">'
-            f"Mise à jour {maj_loc.strftime('%d/%m %Hh%M %Z')}</p>"
-        )
+        maj_parts.append(f"Mise à jour {maj_loc.strftime('%d/%m %Hh%M %Z')}")
+    maj_html = (
+        '<p style="margin:0 0 6px 0;font-size:11px;color:#888;">' + " · ".join(maj_parts) + "</p>"
+        if maj_parts
+        else ""
+    )
 
     section_mf = (
         '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
@@ -949,8 +1003,9 @@ def composer_html(
 </head><body style="margin:0;padding:0;background:#f4f4f4;
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:16px;background:white;">
-  <h2 style="margin:0 0 4px 0;font-size:20px;color:#2c3e50;">{titre_h2}</h2>
-  <p style="margin:0 0 12px 0;font-size:13px;color:#888;">{commune or "—"}</p>
+  <h2 style="margin:0 0 12px 0;font-size:20px;color:#2c3e50;">{titre_h2}{
+        f'<span style="font-weight:400;color:#888;font-size:15px;"> — {lieu}</span>' if lieu else ""
+    }</h2>
   {section_mf}
   {maj_html}
   {bloc_vigilance}
@@ -958,7 +1013,9 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_grille}
   <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">{note_horaire}</h3>
   {_bloc_chart(chart_48h_base64)}
+  {bloc_guides_tendance}
   {bloc_carte}
+  {bloc_sources_semaine}
   {bloc_definitions}
 </div>
 </body></html>"""
@@ -975,6 +1032,10 @@ def composer_email(
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
     position: dict[str, Any] | None = None,
+    bloc_guides_tendance: str = "",
+    bloc_sources_semaine: str = "",
+    cartes_longue: Any = None,
+    bloc_semaine_texte: str = "",
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -989,8 +1050,11 @@ def composer_email(
     # ADR-0014 : tout en heure locale ; source = prévision officielle MF (la
     # fraîcheur ``updated_on`` est portée par le titre, pas le footer).
     tz_locale = config.get("site", {}).get("tz", "Europe/Paris")
-    # Lieu = commune réellement renvoyée par MF (point le plus proche, ADR-0014).
+    # Commune = point de grille MF réellement renvoyé (« Sains »…), spécifique à
+    # la section MF. Lieu = localisation générale du site (config), portée par le
+    # titre principal car valable pour tout le mail (48 h + semaine).
     commune = (position or {}).get("name")
+    lieu = config.get("site", {}).get("lieu")
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
@@ -1008,6 +1072,7 @@ def composer_email(
         tz_locale=tz_locale,
         prevision_horaire=prevision_horaire,
         updated_on=updated_on,
+        bloc_semaine_texte=bloc_semaine_texte,
     )
     alertes_config = config.get("alertes", {})
     html = composer_html(
@@ -1023,5 +1088,9 @@ def composer_email(
         moment=moment,
         tz_locale=tz_locale,
         updated_on=updated_on,
+        bloc_guides_tendance=bloc_guides_tendance,
+        bloc_sources_semaine=bloc_sources_semaine,
+        cartes_longue=cartes_longue,
+        lieu=lieu,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
