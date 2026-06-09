@@ -16,6 +16,10 @@ site:
   # Fuseau horaire affiché dans le mail et utilisé pour les bornes
   # journalières (nuit = 18h → 8h heure locale).
   tz: Europe/Paris
+  # Localisation générale affichée dans le titre du mail (valable pour tout le
+  # mail : 48 h + semaine). Le point de grille Météo-France réellement servi
+  # (commune renvoyée par l'API) est affiché, lui, sous la section MF.
+  lieu: Pleine-Fougères
 
 # ----- Planification -----
 #

@@ -141,8 +141,9 @@ def recuperer_cartes(
     largeur_max_px: int = 700,
     timeout: float = 10.0,
     session: requests.Session | None = None,
+    echeances: tuple[int, ...] = ARPEGE_EUR_ECHEANCES,
 ) -> CartesGeoSerie:
-    """Récupère 4 cartes ARPEGE-Europe aux cibles J+1 / J+2 / J+3 / J+4.
+    """Récupère les cartes ARPEGE-Europe aux ``echeances`` demandées (h).
 
     Choix du run **déterministe** (ADR-0011 D4) :
 
@@ -151,8 +152,12 @@ def recuperer_cartes(
       run échoue systématiquement à l'heure dite, on corrige la constante
       de latence.
     - Si un fetch échoue (réseau, plage hors archive), la carte concernée
-      retourne ``data_uri=""`` ; le rendu §3 saute silencieusement les
-      cellules vides.
+      retourne ``data_uri=""`` ; le rendu saute silencieusement les
+      cartes vides.
+
+    ``echeances`` permet de restreindre la série (défaut : les 4 cibles
+    J+1→J+4). Le mail Veille n'en prend que les deux dernières (J+3 / J+4,
+    soit T+72 / T+96) en prolongement des cartes synoptiques 48 h.
     """
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
@@ -161,7 +166,7 @@ def recuperer_cartes(
 
     sess = session or requests.Session()
     cartes: list[CarteGeo] = []
-    for ech in ARPEGE_EUR_ECHEANCES:
+    for ech in echeances:
         url = _url_arpege_eur(run_choisi, ech)
         data_uri = _fetch_image(
             url,
