@@ -6,12 +6,14 @@ Outils d'aide à la décision météo-climatique pour l'exploitation maraîchèr
 > **Statut** — v0 en production. Voir `docs/decisions/` pour les décisions
 > structurantes et `docs/panorama.md` pour la vue d'ensemble.
 >
-> - Veille email — cron quotidien GitHub Actions (06:30 UTC). Bande
->   pictogrammes 48 h (AROME France HD), indicateurs 24 h, alertes seuil,
->   mildiou Smith, carte synoptique DWD.
-> - Opérationnelle — Streamlit Community Cloud. Pictogrammes ARPEGE vs
->   ECMWF IFS 7 j avec accord, courbes par indicateur avec normales OMM
->   1991-2020, bilan hydrique sol complet (plein champ + tunnel).
+> - Veille email — déclenché 2×/jour (matin / après-midi) via cron-job.org.
+>   Prévision officielle Météo-France 48 h (pictos, Vigilance, grille 6 h),
+>   cartes synoptiques. **Le mail du matin** ajoute une section « La semaine »
+>   (guides de décision + tendance ARPEGE/ECMWF jusqu'à 10 j + cartes
+>   ARPEGE-Europe J+3/J+4) — fusion de l'ex-App 2 (cf. ADR-0015).
+> - Atelier irrigation — mini-app Streamlit (seul rescapé interactif de
+>   l'ex-dashboard) : bilan hydrique sol complet (plein champ + tunnel),
+>   exploration culture / sol / tunnel.
 > - Climato — rapport Quarto publié sur <https://atantet.github.io/meteo/>.
 >   Régime thermique, pluviométrique, ETP, mildiou, calendrier annuel
 >   des conditions météo, etc. (cache parquet 30 ans ERA5 versionné).
@@ -28,8 +30,8 @@ Un **socle Python** partagé + trois apps utilisateur :
 | Brique | Horizon | Hébergement |
 |---|---|---|
 | `socle` (lib `meteo_socle`) | — | code Python importable |
-| App **veille & alertes** | 0-72 h | GitHub Actions + email matinal |
-| App **opérationnelle** | 3-15 j (prév. plafonnée à 14 j) | Streamlit Community Cloud |
+| App **veille & alertes** | 0-48 h + semaine 10 j (mail du matin) | GitHub Actions + email |
+| **Atelier irrigation** (bilan hydrique) | prévision courte | Streamlit Community Cloud |
 | App **climato & stratégie** | saison → projections | Quarto + GitHub Pages |
 
 ## Principes de conception
@@ -51,7 +53,7 @@ Sept principes transverses contraignent toutes les décisions du projet
 - Python 3.12 via **conda** (`environment-dev.yml`) pour dev + CI ;
   `requirements.txt` pour Streamlit Cloud (pip).
 - **DuckDB** pour l'entrepôt local, **Parquet** pour les archives
-- **Streamlit** (app opérationnelle), **Quarto** (app climato),
+- **Streamlit** (atelier irrigation), **Quarto** (app climato),
   **GitHub Actions** (veille & alertes)
 - **Ruff** (format + check), **pytest**, **mypy**, **pre-commit**
 
@@ -100,32 +102,39 @@ cron quotidien à 06:30 UTC. Pour l'activer en production, ajouter les
 Secrets `VEILLE_SMTP_*`, `VEILLE_EMAIL_*` dans
 *Settings → Secrets and variables → Actions*.
 
-### App 2 Opérationnelle (dashboard Streamlit)
+### La semaine (7-10 j) — dans le mail du matin
+
+Il n'y a plus de dashboard hebdomadaire séparé : la vue semaine (guides de
+décision, tendance ARPEGE/ECMWF, cartes ARPEGE-Europe J+3/J+4) est composée
+**à la suite du bloc 48 h dans le mail Veille du matin** (cf. ADR-0015). Pour
+prévisualiser, générer le mail matin :
 
 ```bash
-# Forme courte (cohérente avec les autres apps) :
-python -m apps.operationnelle             # http://localhost:8501
-python -m apps.operationnelle --port 8502
-python -m apps.operationnelle --headless  # pas d'ouverture browser auto
-
-# Forme directe équivalente :
-streamlit run apps/operationnelle/streamlit_app.py
+python -m apps.veille --preview /tmp/veille.html   # déduit matin/après-midi de l'heure
+xdg-open /tmp/veille.html
 ```
 
-Ouvre un navigateur sur <http://localhost:8501>. Pas de mode preview
-HTML statique : la preview de l'App 2 EST le live UI Streamlit.
+### Atelier irrigation (bilan hydrique, Streamlit)
+
+Seul rescapé interactif de l'ex-App 2 — le bilan hydrique exige de faire
+varier culture / sol / tunnel, ce qu'un mail statique ne permet pas.
+
+```bash
+python -m apps.atelier_irrigation             # http://localhost:8501
+python -m apps.atelier_irrigation --port 8502
+python -m apps.atelier_irrigation --headless  # pas d'ouverture browser auto
+
+# Forme directe équivalente :
+streamlit run apps/atelier_irrigation/streamlit_app.py
+```
 
 **Déploiement Streamlit Community Cloud** :
 
-1. Sur <https://share.streamlit.io>, *New app*.
+1. Sur <https://share.streamlit.io>, *New app* (ou repointer l'app existante).
 2. Connecter le repo GitHub `meteo` (public).
-3. *Main file path* : `apps/operationnelle/streamlit_app.py`.
-4. *Python version* : 3.12 (Streamlit Cloud lit `requirements.txt` pour
-   les dépendances pip — `environment.yml` est renommé en
-   `environment-dev.yml` pour éviter qu'il tente conda et échoue).
+3. *Main file path* : `apps/atelier_irrigation/streamlit_app.py`.
+4. *Python version* : 3.12 (Streamlit Cloud lit `requirements.txt`).
 5. Pas de Secret nécessaire — la config par défaut suffit.
-
-URL résultante typique : `https://meteo-op-<random>.streamlit.app`.
 
 ### Climatologie pré-calculée
 

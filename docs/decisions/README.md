@@ -21,7 +21,8 @@ dans l'archéologie git.
 | [0011](0011-single-runs-api-runs-explicites.md) | Prévision via Single Runs API (runs explicites, analyse vs prévision) | Proposé · amendé par [0014](0014-prevision-officielle-mf-veille.md) (périmètre → App 2) |
 | [0012](0012-licence-gpl.md) | Licence du dépôt : GPL-3.0-or-later | Accepté |
 | [0013](0013-temps-sensible-arome.md) | Temps sensible (pictogramme) dérivé des champs AROME (port MET Norway) | Accepté · part. déprécié par [0014](0014-prevision-officielle-mf-veille.md) (App 1) |
-| [0014](0014-prevision-officielle-mf-veille.md) | Veille sur prévision officielle MF (heure locale) ; Opérationnelle sur ARPEGE + ECMWF (UTC) | Accepté |
+| [0014](0014-prevision-officielle-mf-veille.md) | Veille sur prévision officielle MF (heure locale) ; Opérationnelle sur ARPEGE + ECMWF (UTC) | Accepté · amendé par [0015](0015-fusion-app2-dans-mail-veille.md) (canal App 2) |
+| [0015](0015-fusion-app2-dans-mail-veille.md) | Fusion App 2 dans le mail Veille (semaine du matin) + atelier irrigation | Accepté |
 
 ## Convention
 
