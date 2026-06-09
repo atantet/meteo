@@ -152,11 +152,13 @@ def executer_veille(
             from apps.operationnelle.config import load_config as load_config_op
 
             config_op = load_config_op()
+            atelier_url = config.get("email", {}).get("atelier_irrigation_url", "")
             resultat_semaine = executer_semaine(
                 config_op,
                 now_utc,
                 source=semaine_source,
                 fetch_cartes=fetch_cartes_semaine,
+                atelier_url=atelier_url,
             )
         except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
             logger.warning("Section semaine ignorée (erreur) : %s", e)
