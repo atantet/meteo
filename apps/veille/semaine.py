@@ -81,10 +81,6 @@ _VENT = "#009E73"
 _RAFALES = "#E69F00"
 _LABEL = "#34495e"
 
-# URL de l'atelier irrigation (mini-Streamlit). Renseignée une fois l'app
-# déployée ; vide → on n'affiche pas le lien (dégradé gracieux).
-ATELIER_IRRIGATION_URL = ""
-
 # Flèche pointant là où VA le vent (convention wind barbs, comme le mail 48 h).
 _FLECHE_DIRECTION_VENT = {
     "N": "↓",
@@ -391,15 +387,19 @@ def bloc_sources_semaine(
     )
 
 
-def _bloc_lien_atelier() -> str:
-    """Lien vers l'atelier irrigation (bilan hydrique interactif), si configuré."""
-    if not ATELIER_IRRIGATION_URL:
+def _bloc_lien_atelier(atelier_url: str) -> str:
+    """Lien vers l'atelier irrigation (bilan hydrique interactif), si configuré.
+
+    ``atelier_url`` vient de la config (``email.atelier_irrigation_url``) ; vide
+    → pas de lien (dégradé gracieux, tant que l'app n'est pas déployée).
+    """
+    if not atelier_url:
         return ""
     return (
         '<div style="margin:14px 0 0 0;padding:10px 12px;background:#f0f6f4;'
         'border-radius:4px;font-size:12px;color:#34495e;">'
         "💧 Pour explorer le bilan hydrique (culture, sol, tunnel) jour par jour : "
-        f'<a href="{ATELIER_IRRIGATION_URL}" style="color:#009E73;font-weight:600;">'
+        f'<a href="{atelier_url}" style="color:#009E73;font-weight:600;">'
         "atelier irrigation</a>.</div>"
     )
 
@@ -410,6 +410,7 @@ def composer_guides_tendance(
     guides: list[GuideDecision],
     horizon_long: int,
     jour_min: pd.Timestamp | None = None,
+    atelier_url: str = "",
 ) -> str:
     """Bloc « La semaine » : guides + tendance (les cartes sont regroupées avec le
     bloc synoptique 48 h, plus bas dans le mail ; cf. ``email.py``)."""
@@ -422,7 +423,7 @@ def composer_guides_tendance(
         "(la partie 48 h ci-dessus est en heure locale).</p>"
         + bloc_guides(guides)
         + bloc_tendance(agg_arpege, agg_ecmwf, horizon_long, jour_min=jour_min)
-        + _bloc_lien_atelier()
+        + _bloc_lien_atelier(atelier_url)
     )
 
 
@@ -453,6 +454,7 @@ def executer_semaine(
     exploitation: dict[str, Any] | None = None,
     cartes_geo: CartesGeoSerie | None = None,
     fetch_cartes: bool = True,
+    atelier_url: str = "",
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -550,7 +552,12 @@ def executer_semaine(
 
         return {
             "guides_tendance_html": composer_guides_tendance(
-                agg_arpege, agg_ecmwf, guides, horizon_long, jour_min=now_utc.normalize()
+                agg_arpege,
+                agg_ecmwf,
+                guides,
+                horizon_long,
+                jour_min=now_utc.normalize(),
+                atelier_url=atelier_url,
             ),
             "cartes_geo": cartes_geo,
             "sources_html": bloc_sources_semaine(

@@ -180,6 +180,10 @@ email:
   inclure_lien_fiches_indices: true
   # URL de base des fiches indices (rapport Climato Quarto sur Pages).
   url_fiches_indices: "https://atantet.github.io/meteo/"
+  # URL de l'atelier irrigation (bilan hydrique interactif, Streamlit Cloud).
+  # Affichée en bas de la section « La semaine » du mail du matin. Vide → pas
+  # de lien (ADR-0015).
+  atelier_irrigation_url: "https://meteobilanhydrique.streamlit.app/"
 
 # ----- Diffusion (secrets via .env / GH Actions, pas ici) -----
 #
