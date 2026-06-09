@@ -1,15 +1,10 @@
-"""Point d'entrée App 2 Opérationnelle — lance Streamlit localement.
+"""Point d'entrée atelier irrigation — lance Streamlit localement.
 
 Usage :
-    python -m apps.operationnelle           # http://localhost:8501
-    python -m apps.operationnelle --port 8502
+    python -m apps.atelier_irrigation           # http://localhost:8501
+    python -m apps.atelier_irrigation --port 8502
 
-Équivalent direct à :
-    streamlit run apps/operationnelle/streamlit_app.py
-
-Existe pour cohérence avec ``python -m apps.veille`` et
-``python -m apps.climato``. Pas de mode preview HTML statique : la
-preview de l'App 2 EST le live UI Streamlit, par construction.
+Équivalent à : ``streamlit run apps/atelier_irrigation/streamlit_app.py``.
 
 Exit code :
 - 0 : Streamlit lancé jusqu'à interruption manuelle (Ctrl-C).
@@ -27,21 +22,14 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-APP_PATH = Path("apps/operationnelle/streamlit_app.py")
+APP_PATH = Path("apps/atelier_irrigation/streamlit_app.py")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8501, help="Port HTTP (défaut 8501).")
     parser.add_argument(
-        "--port",
-        type=int,
-        default=8501,
-        help="Port HTTP (défaut 8501).",
-    )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Pas de browser auto-ouvert (utile en remote).",
+        "--headless", action="store_true", help="Pas de browser auto-ouvert (utile en remote)."
     )
     args = parser.parse_args()
 

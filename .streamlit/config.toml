@@ -1,4 +1,4 @@
-# Configuration partagée Streamlit (theme + server) — App 2 Opérationnelle.
+# Configuration partagée Streamlit (theme + server) — atelier irrigation.
 # Override personnel possible via .streamlit/config.local.toml (à mettre
 # en .gitignore si pertinent).
 
