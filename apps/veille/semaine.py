@@ -128,16 +128,23 @@ def _fmt_t(cellule: CelluleFenetre, fenetre: str) -> str:
 
 
 def _fmt_pluie(cellule: CelluleFenetre, _fenetre: str) -> str:
+    """Cumul mm + proba % sur la même ligne (comme la grille 48 h).
+
+    La proba est une grandeur d'ensemble ECMWF (≥ 1 mm/6 h) → présente sur la
+    ligne ECMWF seulement ; la ligne ARPEGE n'affiche que le cumul.
+    """
     if pd.isna(cellule.pluie_mm):
         return "—"
-    return f'<span style="color:{_PLUIE};">{cellule.pluie_mm:.1f}</span>' + _unite("mm")
-
-
-def _fmt_proba(cellule: CelluleFenetre, _fenetre: str) -> str:
+    mm_html = f'<span style="color:{_PLUIE};">{cellule.pluie_mm:.1f}</span>' + _unite("mm")
     if pd.isna(cellule.prob_pluie_pct):
-        return "—"
+        return mm_html
     proba = int(round(cellule.prob_pluie_pct))
-    return f'<span style="color:{_PROBA};">{proba:02d}</span>' + _unite("%")
+    return (
+        mm_html
+        + '<span style="color:#aaa;"> / </span>'
+        + f'<span style="color:{_PROBA};">{proba:02d}</span>'
+        + _unite("%")
+    )
 
 
 def _fmt_vent(cellule: CelluleFenetre, _fenetre: str) -> str:
@@ -170,8 +177,7 @@ def _fmt_etp(cellule: CelluleFenetre, _fenetre: str) -> str:
 # (libellé de ligne, formatteur). Ordre = ordre d'affichage dans chaque table.
 _LIGNES_TENDANCE = (
     ("T° moy/extr", _fmt_t),
-    ("Pluie", _fmt_pluie),
-    ("Proba ≥1 mm/6 h", _fmt_proba),
+    ("Pluie / proba", _fmt_pluie),
     ("Vent moy/raf", _fmt_vent),
     ("Direction", _fmt_direction),
     ("ETP", _fmt_etp),
