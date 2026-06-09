@@ -8,7 +8,8 @@ de l'ancien dashboard Streamlit (App 2 Opérationnelle), désormais dissous :
   cellule, agrégés en fenêtres Nuit/Jour de 12 h **UTC** (calées sur les cycles
   de run), rendus en tables empilées par jour (mobile-first, comme la grille
   48 h — pas de table large à scroll horizontal qui passe mal en e-mail). ARPEGE
-  s'arrête à J+4 (« — » au-delà), ECMWF va jusqu'à J+10.
+  s'arrête à J+4 ; au-delà, une seule ligne ECMWF (jusqu'à J+10), sans ligne
+  ARPEGE vide.
 - **Guides de décision de la semaine** : invitations à vérifier le terrain
   (``apps.operationnelle.decisions``). Seuils = config exploitation ; plus de
   sliders (le mail est statique).
@@ -183,38 +184,47 @@ def _cellule_modeles(
     fenetre: str,
     formatteur,
     sep: str,
+    ecmwf_seul: bool,
 ) -> str:
-    """Cellule à 2 lignes : ARPEGE (haut) puis ECMWF IFS (bas, grisé).
+    """Cellule de tendance.
 
-    ``sep`` (bordure pleine) marque un **changement de variable** ; la ligne
-    pointillée interne marque le **changement de modèle** — deux traits distincts
-    pour ne pas confondre les deux.
+    - Jour couvert par ARPEGE : 2 lignes — ARPEGE (haut) puis ECMWF IFS (bas,
+      grisé) ; la ligne pointillée interne marque le changement de modèle.
+    - Jour ECMWF seul (au-delà de l'horizon ARPEGE) : une seule ligne (ECMWF),
+      sans ligne ARPEGE vide.
+
+    ``sep`` (bordure pleine) marque un changement de variable.
     """
-    val_a = formatteur(cell_a, fenetre) if cell_a is not None else "—"
     val_e = formatteur(cell_e, fenetre) if cell_e is not None else "—"
-    return (
+    td_ouvrant = (
         '<td style="padding:3px 4px;text-align:center;font-size:13px;'
         "font-variant-numeric:tabular-nums;font-weight:700;"
         f'border-left:1px solid #eee;{sep}">'
-        f"<div>{val_a}</div>"
+    )
+    if ecmwf_seul:
+        return td_ouvrant + f"<div>{val_e}</div></td>"
+    val_a = formatteur(cell_a, fenetre) if cell_a is not None else "—"
+    return (
+        td_ouvrant + f"<div>{val_a}</div>"
         '<div style="opacity:0.6;border-top:1px dotted #e0e0e0;'
         f'margin-top:1px;padding-top:1px;">{val_e}</div>'
         "</td>"
     )
 
 
-def _label_cellule(libelle: str, sep: str, avec_modeles: bool) -> str:
-    """Cellule libellé de variable.
+def _label_cellule(libelle: str, sep: str, legende: str) -> str:
+    """Cellule libellé de variable, avec rappel du modèle à la 1ʳᵉ variable.
 
-    Sur la 1ʳᵉ variable du 1ᵉʳ jour, rappelle quel modèle est sur quelle ligne
-    (ARPEGE / ECMWF) aligné sur les 2 lignes de valeurs — évite une légende
-    séparée (compacité demandée).
+    ``legende`` : ``"bi"`` rappelle ARPEGE/ECMWF (2 lignes, jours à deux
+    modèles) ; ``"ecmwf"`` rappelle ECMWF seul (1 ligne, au passage à
+    l'horizon ECMWF) ; ``""`` ne met rien.
     """
     contenu = libelle
-    if avec_modeles:
+    if legende:
+        noms = "ARPEGE<br>ECMWF" if legende == "bi" else "ECMWF"
         contenu += (
             '<div style="font-weight:400;font-size:10px;color:#999;'
-            'line-height:1.5;margin-top:2px;">ARPEGE<br>ECMWF</div>'
+            f'line-height:1.5;margin-top:2px;">{noms}</div>'
         )
     return (
         '<td style="padding:4px 8px;color:#555;font-size:13px;vertical-align:top;'
@@ -227,12 +237,15 @@ def _table_jour(
     agg_arpege: dict[tuple[pd.Timestamp, str], CelluleFenetre],
     agg_ecmwf: dict[tuple[pd.Timestamp, str], CelluleFenetre],
     premier: bool,
+    ecmwf_seul: bool,
+    legende: str,
 ) -> str:
-    """Table compacte d'un jour : Nuit / Jour, lignes variables, 2 modèles empilés.
+    """Table compacte d'un jour : Nuit / Jour, lignes variables.
 
-    Sur le **premier** jour seulement, les en-têtes de fenêtre portent leur plage
-    horaire (UTC) et la 1ʳᵉ variable rappelle l'ordre des modèles — inutile de le
-    répéter ensuite.
+    ``ecmwf_seul`` → cellules à une seule ligne (ECMWF), sinon ARPEGE+ECMWF
+    empilés. ``legende`` (sur la 1ʳᵉ variable) rappelle le(s) modèle(s) au
+    premier jour à deux modèles puis au premier jour ECMWF seul. Sur le
+    **premier** jour, les en-têtes de fenêtre portent leur plage horaire (UTC).
     """
     nuit_lbl = "Nuit (18–6 h)" if premier else "Nuit"
     jour_lbl = "Jour (6–18 h)" if premier else "Jour"
@@ -250,7 +263,7 @@ def _table_jour(
     for idx, (libelle, formatteur) in enumerate(_LIGNES_TENDANCE):
         # Séparateur de variable (bordure pleine) sur toutes sauf la première.
         sep = "" if idx == 0 else "border-top:1px solid #dcdcdc;"
-        label = _label_cellule(libelle, sep, avec_modeles=(premier and idx == 0))
+        label = _label_cellule(libelle, sep, legende if idx == 0 else "")
         cellules = "".join(
             _cellule_modeles(
                 agg_arpege.get((jour, fenetre)),
@@ -258,6 +271,7 @@ def _table_jour(
                 fenetre,
                 formatteur,
                 sep,
+                ecmwf_seul,
             )
             for fenetre in (FENETRE_NUIT, FENETRE_JOUR)
         )
@@ -277,10 +291,12 @@ def bloc_tendance(
     horizon_jours: int,
     jour_min: pd.Timestamp | None = None,
 ) -> str:
-    """Bloc tendance — une table empilée par jour, 2 modèles par cellule.
+    """Bloc tendance — une table empilée par jour.
 
-    ARPEGE (haut) et ECMWF IFS (bas) côte à côte tant qu'ils se recouvrent ;
-    « — » au-delà de l'horizon d'un modèle (ARPEGE ≤ J+4, ECMWF jusqu'à J+10).
+    ARPEGE (haut) + ECMWF IFS (bas) tant qu'ARPEGE couvre le jour (≤ J+4) ;
+    au-delà, une seule ligne ECMWF (jusqu'à J+10), sans ligne ARPEGE vide. La
+    légende du modèle est rappelée au 1ᵉʳ jour à deux modèles puis au 1ᵉʳ jour
+    ECMWF seul.
 
     ``jour_min`` (minuit UTC d'aujourd'hui) écarte le bout de passé que traîne le
     run ECMWF du créneau (12Z J-1) : la tendance démarre aujourd'hui.
@@ -291,12 +307,33 @@ def bloc_tendance(
     jours = jours[:horizon_jours]
     if not jours:
         return ""
-    tables = "".join(
-        _table_jour(jour, agg_arpege, agg_ecmwf, premier=(i == 0)) for i, jour in enumerate(jours)
-    )
+    tables: list[str] = []
+    vu_ecmwf_seul = False
+    for i, jour in enumerate(jours):
+        a_arpege = any((jour, f) in agg_arpege for f in (FENETRE_NUIT, FENETRE_JOUR))
+        ecmwf_seul = not a_arpege
+        # Légende du modèle : une fois au 1ᵉʳ jour à deux modèles (ARPEGE/ECMWF),
+        # puis une fois au 1ᵉʳ jour ECMWF seul (la ligne ARPEGE ayant disparu).
+        if ecmwf_seul and not vu_ecmwf_seul:
+            legende = "ecmwf"
+            vu_ecmwf_seul = True
+        elif not ecmwf_seul and i == 0:
+            legende = "bi"
+        else:
+            legende = ""
+        tables.append(
+            _table_jour(
+                jour,
+                agg_arpege,
+                agg_ecmwf,
+                premier=(i == 0),
+                ecmwf_seul=ecmwf_seul,
+                legende=legende,
+            )
+        )
     return (
         '<h3 style="margin:14px 0 4px 0;font-size:15px;color:#34495e;">'
-        f"Tendance jusqu'à {horizon_jours} jours</h3>" + tables
+        f"Tendance jusqu'à {horizon_jours} jours</h3>" + "".join(tables)
     )
 
 
