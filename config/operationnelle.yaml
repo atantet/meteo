@@ -10,6 +10,8 @@ site:
   longitude: -1.611515
   altitude: 30
   tz: Europe/Paris
+  # Localisation générale affichée dans le titre de l'atelier irrigation.
+  lieu: Pleine-Fougères
 
 # ----- Source météo prévision -----
 #

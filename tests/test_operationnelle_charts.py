@@ -284,11 +284,11 @@ def test_figure_bilan_tunnel_smoke() -> None:
         ru_vers_rfu=0.6,
         seuil_irrigation_mm=10.0,
     )
-    fig = figure_bilan_tunnel(bilan, culture="Tomate", stade="X", seuil_irrigation_mm=10.0)
-    ax = fig.axes[0]
-    _, labels = ax.get_legend_handles_labels()
+    fig = figure_bilan_tunnel(bilan)
+    # Deux panneaux (réserves | flux) → on agrège les labels des deux.
+    labels = [lbl for a in fig.axes for lbl in a.get_legend_handles_labels()[1]]
     assert any("RU disponible" in lbl for lbl in labels)
-    assert any("Seuil irrigation" in lbl for lbl in labels)
+    assert any("Déficit" in lbl for lbl in labels)
 
 
 def test_bilan_tunnel_ru_initiale_zero_declenche_irrigation_immediate() -> None:
