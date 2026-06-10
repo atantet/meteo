@@ -71,6 +71,16 @@ spread/tendance). **Aucun pictogramme** dans l'App 2 (séries quantitatives + sp
 La **proba de pluie est conservée** (ensemble ECMWF IFS-ENS, calcul socle transparent,
 ADR-0011). **Le périmètre d'ADR-0011 est restreint à l'App 2.**
 
+> **Amendement (2026-06-10, fusion App 2 → mail Veille, cf. ADR-0015).** La tendance
+> 10 j du mail **adopte un pictogramme « ciel » par modèle**, revenant sur le « sans
+> picto » ci-dessus. Différence clé avec l'App 1 : le picto **n'est pas un verdict
+> d'autorité MF** mais est **dérivé quantitativement des champs du modèle** (ARPEGE /
+> ECMWF) par seuils explicites — nébulosité (octas OMM) + cumul pluie (seuils doctrine
+> exploitation 1/5/20 mm). Il reste donc dans l'esprit « exploration modèles » : pas de
+> doublon de méthode avec la Veille (codes WMO MF), seuils transparents et documentés en
+> légende. S'y ajoute un indicateur ETP (couleur + nombre de flèches, seuils calés sur
+> la distribution ERA5 30 ans).
+
 ### D3 — Deux apps distinctes : plus de série partagée
 
 Le porteur acte un **partage net** : App 1 = verdict d'autorité MF (heure locale) ;
