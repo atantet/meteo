@@ -22,7 +22,12 @@ from dataclasses import dataclass, field
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from matplotlib.patches import Patch
+from matplotlib.ticker import MaxNLocator
+
+from apps.shared.dates_fr import JOURS_FR
 
 # Sémantique : si valeur > normale, couleur "above" ; sinon "below".
 COULEUR_ABOVE_CHAUD = "#e74c3c"  # rouge — au-dessus de la normale en T°
@@ -333,12 +338,17 @@ def bilan_culture_carry_over(
     seuil_irrigation_mm: float,
     k_etp_ratio: float = 1.0,
     inclure_pluie: bool = True,
+    apport_max_mm: float = float("inf"),
 ) -> pd.DataFrame:
     """Bilan hydrique culture-spécifique jour par jour avec carry-over RU.
 
-    Modèle FAO 56 itéré avec mise à jour de ``fraction_ru_remplie`` pour
-    le jour suivant. Si l'irrigation est déclenchée (besoin > seuil),
-    la RU est rechargée à capacité au champ avant le jour suivant.
+    Modèle FAO 56 itéré avec carry-over de la RU. On laisse le sol se vider ;
+    l'irrigation est déclenchée quand l'**épuisement** (``RU_max − RU``) atteint
+    la **RFU** (= ``ru_vers_rfu × RU_max``, RAW), et la **dose** ramène le sol à
+    la capacité au champ, **plafonnée à ``apport_max_mm``** (lame d'eau journalière
+    max du système ; recharge partielle si l'épuisement la dépasse).
+    ``seuil_irrigation_mm`` n'est plus le déclencheur mais un garde-fou « dose
+    minimale ».
 
     Deux cas d'usage symétriques :
 
@@ -362,22 +372,21 @@ def bilan_culture_carry_over(
     Returns
     -------
     pd.DataFrame
-        Colonnes : ``etp_culture_mm``, ``etm_mm``, ``pluie_mm``,
-        ``ru_remplie_avant_mm``, ``ru_remplie_apres_mm``,
-        ``rfu_disponible_mm``, ``besoin_irrigation_mm``,
-        ``irrigation_declenchee``, ``ru_max_mm``.
+        Colonnes : ``etp_culture_mm``, ``etm_mm``, ``pluie_mm``, ``deficit_mm``
+        (ETM non couverte par la pluie), ``apport_mm`` (dose d'irrigation
+        réellement appliquée), ``ru_remplie_avant_mm`` (carry-in),
+        ``ru_disponible_mm`` (RU après météo, avant irrigation),
+        ``ru_remplie_apres_mm`` (carry-out), ``irrigation_declenchee``,
+        ``ru_max_mm``, ``rfu_mm``.
     """
-    from meteo_socle.indices.bilan_hydrique import (
-        KC,
-        calcul_reserve_facilement_utilisable,
-        calcul_reserve_utile,
-    )
+    from meteo_socle.indices.bilan_hydrique import KC, calcul_reserve_utile
 
     _, _, ru_max, ru_remplie = calcul_reserve_utile(
         texture, fraction_cailloux, culture, fraction_ru_remplie_initial
     )
 
     kc = float(KC[culture][stade])
+    rfu = ru_vers_rfu * ru_max  # RFU = RAW (FAO 56) — réserve facilement utilisable
 
     n = len(quotidien)
     etp_culture = (k_etp_ratio * quotidien["etp_mm"]).to_numpy()
@@ -387,45 +396,51 @@ def bilan_culture_carry_over(
     else:
         pluie = [0.0] * n
 
-    ru_avant = []
-    ru_apres = []
-    rfu_dispo = []
-    besoin = []
-    irrigue = []
-    pluie_log = []
+    ru_avant: list[float] = []
+    ru_dispo: list[float] = []
+    ru_apres: list[float] = []
+    deficit: list[float] = []
+    apport: list[float] = []
+    irrigue: list[bool] = []
+    pluie_log: list[float] = []
     for i in range(n):
+        # RU avant le jour (carry-in ; à J0 = RU initiale, état avant le 1er jour).
         ru_avant.append(ru_remplie)
-        rfu = calcul_reserve_facilement_utilisable(ru_remplie, ru_vers_rfu)
-        rfu_dispo.append(rfu)
-        rfu_cible = calcul_reserve_facilement_utilisable(ru_max, ru_vers_rfu)
-        # Évolution sur la journée : +pluie efficace − ETM. Pluie excédentaire
-        # au-delà de la capacité de champ → drainage (perdue).
-        bilan_net = float(pluie[i]) - etm[i]
-        ru_post_jour = max(0.0, min(ru_max, ru_remplie + bilan_net))
-        pluie_log.append(float(pluie[i]))
-        # Besoin pour ramener la RFU à sa cible.
-        rfu_post = calcul_reserve_facilement_utilisable(ru_post_jour, ru_vers_rfu)
-        b = max(0.0, rfu_cible - rfu_post)
-        besoin.append(b)
-        if b > seuil_irrigation_mm:
-            ru_remplie = ru_max
+        pluie_i = float(pluie[i])
+        pluie_log.append(pluie_i)
+        # Déficit du jour = part de l'ETM non couverte par la pluie (≥ 0).
+        deficit.append(max(0.0, etm[i] - pluie_i))
+        # RU disponible après la météo du jour (avant irrigation) ; au-delà de la
+        # capacité au champ → drainage (perdu).
+        ru_post = max(0.0, min(ru_max, ru_remplie + (pluie_i - etm[i])))
+        ru_dispo.append(ru_post)
+        epuisement = ru_max - ru_post
+        # FAO 56 : si la RU disponible passe sous le seuil RFU, on recharge le
+        # jour même, sans dépasser l'apport maximal du système (``apport_max_mm``,
+        # lame d'eau journalière). seuil_irrigation_mm = garde-fou « dose minimale ».
+        if epuisement >= rfu and epuisement > seuil_irrigation_mm:
+            ru_remplie = ru_post + min(epuisement, apport_max_mm)
             irrigue.append(True)
         else:
-            ru_remplie = ru_post_jour
+            ru_remplie = ru_post
             irrigue.append(False)
         ru_apres.append(ru_remplie)
+        # Apport d'irrigation réellement appliqué = recharge (0 si pas d'irrigation).
+        apport.append(ru_remplie - ru_post)
 
     return pd.DataFrame(
         {
             "etp_culture_mm": etp_culture,
             "etm_mm": etm,
             "pluie_mm": pluie_log,
+            "deficit_mm": deficit,
+            "apport_mm": apport,
             "ru_remplie_avant_mm": ru_avant,
+            "ru_disponible_mm": ru_dispo,
             "ru_remplie_apres_mm": ru_apres,
-            "rfu_disponible_mm": rfu_dispo,
-            "besoin_irrigation_mm": besoin,
             "irrigation_declenchee": irrigue,
             "ru_max_mm": [ru_max] * n,
+            "rfu_mm": [rfu] * n,
         },
         index=quotidien.index,
     )
@@ -442,6 +457,7 @@ def bilan_tunnel_carry_over(
     fraction_ru_remplie_initial: float,
     ru_vers_rfu: float,
     seuil_irrigation_mm: float,
+    apport_max_mm: float = float("inf"),
 ) -> pd.DataFrame:
     """Wrapper rétro-compatible — bilan sol complet sous tunnel.
 
@@ -461,142 +477,142 @@ def bilan_tunnel_carry_over(
         seuil_irrigation_mm=seuil_irrigation_mm,
         k_etp_ratio=k_tunnel,
         inclure_pluie=False,
+        apport_max_mm=apport_max_mm,
     )
     return bilan.rename(columns={"etp_culture_mm": "etp_tunnel_mm", "etm_mm": "etm_tunnel_mm"})
 
 
+# Police du plot, calée plus petite que le texte de l'app (≈ 14-16 px Streamlit).
+_FONT_PLOT = 8
+
+
+def _labels_jours_fr(index: pd.DatetimeIndex) -> list[str]:
+    """Étiquettes ``mar 9/06`` (jour abrégé 3 lettres + j/mm sans zéro de tête)."""
+    return [f"{JOURS_FR[d.weekday()][:3]} {d.day}/{d.month:02d}" for d in index]
+
+
+def _bold_ticks(ax: plt.Axes, en_gras: list[bool]) -> None:
+    """Met en gras les étiquettes x des jours où ``en_gras`` est vrai."""
+    for tick, gras in zip(ax.get_xticklabels(), en_gras, strict=False):
+        if gras:
+            tick.set_fontweight("bold")
+
+
 def figure_bilan_sol_complet(
     bilan: pd.DataFrame,
-    culture: str,
-    stade: str,
-    seuil_irrigation_mm: float,
     *,
-    titre_contexte: str = "Bilan sol",
-    afficher_pluie: bool = True,
-    figsize: tuple[float, float] = (8.0, 4.0),
+    apport_max_mm: float = 25.0,
+    figsize: tuple[float, float] = (9.5, 4.2),
 ) -> plt.Figure:
-    """Trace l'évolution de la RU + déclenchements irrigation (sol complet).
+    """Bilan hydrique FAO 56 en **deux panneaux côte à côte**.
 
-    Sert pour les bilans plein air ET tunnel — partagé entre les deux
-    contextes :
+    - **Flux (gauche)** : par jour, **ETM culture** vs **Précipitation + Déficit**
+      empilés — le déficit est la part de l'ETM non couverte par la pluie (en
+      situation de déficit les deux barres ont la même hauteur). Le déficit
+      *cumule* dans le sol ; il ne traduit pas directement la dose d'irrigation.
+    - **Réserves (droite)** : RU disponible (ligne) entre la capacité au champ et
+      le **seuil RFU** ; les **apports d'irrigation** (dose réellement appliquée à
+      la recharge) sont en barres sur un axe secondaire, **entre deux jours**. Un
+      point « lendemain » montre la RU résultante après l'apport du dernier jour.
 
-    - Plein air : ``afficher_pluie=True``, ``titre_contexte="Bilan plein air"``
-    - Tunnel : ``afficher_pluie=False``, ``titre_contexte="Bilan tunnel"``
-
-    Deux axes y synchronisés :
-    - gauche (mm) : RU disponible (ligne), capacité RU (bande horiz.),
-      seuil d'irrigation, pluie cumulée si plein air
-    - droite (mm) : besoin d'irrigation par jour (barres)
-    - markers verts : jours où l'irrigation est déclenchée
+    Pas de titre ; étiquettes de jours en français, **gras** le jour d'irrigation.
     """
-    fig, ax1 = plt.subplots(figsize=figsize)
-    ax2 = ax1.twinx()
+    fig, (axf, axr) = plt.subplots(1, 2, figsize=figsize)
+    n = len(bilan)
+    x = np.arange(n)
+    irrigation = list(bilan["irrigation_declenchee"])
+    ru_max = float(bilan["ru_max_mm"].iloc[0])
+    rfu = float(bilan["rfu_mm"].iloc[0])
 
-    x = bilan.index
-    ax1.fill_between(
-        x,
-        0,
-        bilan["ru_max_mm"],
-        color="#bdc3c7",
-        alpha=0.12,
-        label="Capacité RU totale",
+    # --- Panneau flux (GAUCHE) : ETM vs (Précipitation + Déficit) empilés ---
+    etm_col = "etm_mm" if "etm_mm" in bilan.columns else "etm_tunnel_mm"
+    etm = bilan[etm_col].to_numpy()
+    pluie = bilan["pluie_mm"].to_numpy()
+    deficit = bilan["deficit_mm"].to_numpy()
+    w = 0.38
+    axf.bar(x - w / 2, etm, w, color="#D55E00", label="ETM culture")
+    axf.bar(x + w / 2, pluie, w, color="#56B4E9", label="Précipitation")
+    axf.bar(x + w / 2, deficit, w, bottom=pluie, color="#009E73", label="Déficit")
+    axf.set_ylabel("Flux (mm/jour)", fontsize=_FONT_PLOT)
+    axf.set_ylim(bottom=0)
+    axf.grid(axis="y", alpha=0.2)
+    axf.set_xticks(x)
+    axf.set_xticklabels(_labels_jours_fr(bilan.index), fontsize=_FONT_PLOT - 1)
+    axf.tick_params(axis="y", labelsize=_FONT_PLOT - 1)
+    _bold_ticks(axf, irrigation)
+    axf.legend(
+        fontsize=_FONT_PLOT,
+        frameon=False,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.16),
+        ncol=3,
     )
-    ax1.plot(
-        x,
-        bilan["ru_remplie_avant_mm"],
-        color="#2980b9",
-        linewidth=2.0,
-        marker="o",
-        label="RU disponible (début jour)",
-    )
-    ax1.plot(
-        x,
-        bilan["rfu_disponible_mm"],
-        color="#16a085",
-        linewidth=1.2,
-        linestyle="--",
-        label="RFU disponible",
-    )
-    ax1.axhline(
-        seuil_irrigation_mm,
-        color="#c0392b",
-        linestyle=":",
-        linewidth=1.2,
-        label=f"Seuil irrigation ({seuil_irrigation_mm:.0f} mm)",
-    )
-    # Besoin journalier sur axe droit (barres).
-    ax2.bar(
-        x,
-        bilan["besoin_irrigation_mm"],
-        color="#e67e22",
-        alpha=0.5,
-        width=0.55,
-        label="Besoin irrigation (mm)",
-    )
-    # Plein air : ajout pluie en barres bleues côté droit pour
-    # visualiser l'entrée d'eau qui compense l'ETM.
-    if afficher_pluie and "pluie_mm" in bilan.columns:
-        ax2.bar(
-            x,
-            bilan["pluie_mm"],
-            color="#2980b9",
-            alpha=0.5,
-            width=0.4,
-            bottom=0,
-            label="Pluie (mm)",
-        )
-    # Markers déclenchements.
-    declenche = bilan[bilan["irrigation_declenchee"]]
-    if not declenche.empty:
-        ax2.scatter(
-            declenche.index,
-            declenche["besoin_irrigation_mm"],
-            color="#27ae60",
-            s=60,
-            zorder=5,
-            label="Irrigation déclenchée",
-        )
 
-    ax1.set_ylabel("RU / RFU (mm)")
-    ax2.set_ylabel("Besoin irrigation · pluie (mm/jour)")
-    ax1.set_title(
-        f"{titre_contexte} — {culture} ({stade})",
-        fontsize=11,
-        loc="left",
-        color="#34495e",
+    # --- Panneau réserves (DROITE) : RU + seuils, apports sur axe secondaire ---
+    # 5ᵉ point « lendemain » : RU au départ du jour suivant = carry-out du dernier
+    # jour (montre l'effet de l'apport du dernier jour, sans météo J+5).
+    ru_dispo = bilan["ru_disponible_mm"].to_numpy()
+    carry_out_last = float(bilan["ru_remplie_apres_mm"].iloc[-1])
+    x_ru = np.arange(n + 1)
+    y_ru = np.append(ru_dispo, carry_out_last)
+    index_plus = [*list(bilan.index), bilan.index[-1] + pd.Timedelta(days=1)]
+
+    axr.axhline(ru_max, color="#95a5a6", linewidth=1.0, label="Capacité au champ")
+    axr.axhline(ru_max - rfu, color="#c0392b", linestyle="--", linewidth=1.2, label="Seuil RFU")
+    axr.plot(x_ru, y_ru, color="#0072B2", linewidth=2.0, marker="o", label="RU disponible")
+    axr.set_ylabel("Réserve du sol (mm)", fontsize=_FONT_PLOT)
+    axr.set_ylim(0, ru_max * 1.12)
+    axr.grid(axis="y", alpha=0.2)
+    axr.set_xticks(x_ru)
+    axr.set_xticklabels(_labels_jours_fr(index_plus), fontsize=_FONT_PLOT - 1)
+    axr.tick_params(axis="y", labelsize=_FONT_PLOT - 1)
+    _bold_ticks(axr, [*irrigation, False])
+
+    # Apports d'irrigation entre deux jours (x = i + 0,5), axe secondaire borné
+    # par l'apport maximal du système.
+    axa = axr.twinx()
+    apport = bilan["apport_mm"].to_numpy()
+    mask = apport > 0
+    axa.bar((x + 0.5)[mask], apport[mask], 0.22, color="#009E73")
+    axa.set_ylabel("Apport (mm)", fontsize=_FONT_PLOT)
+    # ymax légèrement au-dessus de l'apport max → on voit qu'aucune barre ne le
+    # dépasse ; yticks entiers.
+    axa.set_ylim(0, apport_max_mm + max(1.0, apport_max_mm * 0.08))
+    axa.yaxis.set_major_locator(MaxNLocator(integer=True))
+    axa.tick_params(axis="y", labelsize=_FONT_PLOT - 1)
+
+    # La courbe RU (axr) doit passer AU-DESSUS des barres d'apport (axa).
+    axr.set_zorder(axa.get_zorder() + 1)
+    axr.patch.set_visible(False)
+
+    # Proxy de légende pour l'apport : couleur constante même les jours sans
+    # apport (sinon le swatch dépend du BarContainer, vide → incohérent).
+    h1, l1 = axr.get_legend_handles_labels()
+    apport_proxy = Patch(facecolor="#009E73", label="Apport irrigation")
+    axr.legend(
+        [*h1, apport_proxy],
+        [*l1, "Apport irrigation"],
+        fontsize=_FONT_PLOT,
+        frameon=False,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.16),
+        ncol=2,
     )
-    ax1.grid(axis="y", alpha=0.25)
 
-    # Combine légendes des deux axes.
-    h1, l1 = ax1.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    ax1.legend(h1 + h2, l1 + l2, loc="best", fontsize=8, frameon=False)
-
-    fig.autofmt_xdate(rotation=30, ha="right")
-    fig.tight_layout()
+    # Légendes sous les plots : on réserve de la marge basse sans rétrécir les
+    # cadres (figure plus haute), plutôt que tight_layout (qui mangerait l'espace).
+    fig.subplots_adjust(left=0.08, right=0.92, top=0.96, bottom=0.32, wspace=0.32)
     return fig
 
 
 def figure_bilan_tunnel(
     bilan: pd.DataFrame,
-    culture: str,
-    stade: str,
-    seuil_irrigation_mm: float,
-    figsize: tuple[float, float] = (8.0, 4.0),
+    *,
+    apport_max_mm: float = 25.0,
+    figsize: tuple[float, float] = (9.5, 4.2),
 ) -> plt.Figure:
-    """Wrapper rétro-compatible — bilan tunnel sans pluie.
-
-    Délègue à ``figure_bilan_sol_complet``.
-    """
-    return figure_bilan_sol_complet(
-        bilan,
-        culture,
-        stade,
-        seuil_irrigation_mm,
-        titre_contexte="Bilan tunnel",
-        afficher_pluie=False,
-        figsize=figsize,
-    )
+    """Sous abri : même figure (la pluie est nulle sous couverture)."""
+    return figure_bilan_sol_complet(bilan, apport_max_mm=apport_max_mm, figsize=figsize)
 
 
 def figure_bilan_culture(
