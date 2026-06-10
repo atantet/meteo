@@ -1,19 +1,19 @@
 """Atelier irrigation — bilan hydrique sol complet (plein champ + tunnel).
 
 Mini-dashboard Streamlit extrait de l'ancienne App 2 Opérationnelle (dissoute
-dans le mail Veille, cf. ADR-0015). Le mail porte désormais guides + tendance +
-cartes en statique ; cet atelier garde la seule pièce qui exige de
-l'interactivité : le **bilan hydrique**, où l'utilisateur fait varier culture,
-stade, texture de sol et configuration tunnel pour voir l'évolution de la réserve
-utile et les déclenchements d'irrigation.
+dans le mail Veille, cf. ADR-0015). Le mail porte la vue semaine en statique ;
+cet atelier garde la seule pièce qui exige de l'interactivité : le bilan
+hydrique, où l'utilisateur fait varier culture, stade, texture de sol et
+configuration tunnel pour voir les flux quotidiens (ETM, pluie, besoin
+d'irrigation) et les jours de déclenchement.
 
 USAGE
 -----
     streamlit run apps/atelier_irrigation/streamlit_app.py
     # ou : python -m apps.atelier_irrigation
 
-Source : ARPEGE Single Runs (run déterministe du créneau, ADR-0011), horizon
-court. ETP par le socle FAO ; bilan par ``meteo_socle.indices.bilan_hydrique``.
+Source : ARPEGE Single Runs, run 00Z du jour → bilan sur 4 j depuis J+0 00Z.
+ETP par le socle FAO ; bilan par ``meteo_socle.indices.bilan_hydrique``.
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ from apps.operationnelle.indicateurs import (  # noqa: E402
     calculer_indicateurs_quotidiens,
     jours_complets_seulement,
 )
+from apps.shared.dates_fr import format_date_fr  # noqa: E402
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
@@ -51,30 +52,20 @@ from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
     ARPEGE,
     VARS_MONO_MODELE,
     OpenMeteoSingleRuns,
-    creneau_run,
-    runs_du_creneau,
 )
 
 KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
 
 
-def _slot_now(now_utc: pd.Timestamp) -> pd.Timestamp:
-    """Horodatage canonique du créneau courant (clé de cache stable)."""
-    creneau, jour = creneau_run(now_utc)
-    return jour + pd.Timedelta(hours=6 if creneau == "matin" else 18)
-
-
 @st.cache_data(ttl=3600)
 def _fetch_arpege(
-    latitude: float, longitude: float, horizon_jours: int, slot_now: pd.Timestamp
+    latitude: float, longitude: float, horizon_jours: int, run_utc: pd.Timestamp
 ) -> pd.DataFrame:
-    """Run ARPEGE déterministe du créneau (ADR-0011), horizon court, forward-only."""
+    """Run ARPEGE 00Z du jour (forward-only) → série horaire depuis J+0 00Z."""
     src = OpenMeteoSingleRuns()
-    creneau, jour = creneau_run(slot_now)
-    run = runs_du_creneau(creneau, jour)[ARPEGE]
-    df = src.obtenir_run(ARPEGE, run, latitude, longitude, horizon_jours, VARS_MONO_MODELE)
+    df = src.obtenir_run(ARPEGE, run_utc, latitude, longitude, horizon_jours, VARS_MONO_MODELE)
     if df is None or df.empty:
-        raise RuntimeError(f"Run ARPEGE {run} muet.")
+        raise RuntimeError(f"Run ARPEGE {run_utc} muet.")
     return df
 
 
@@ -87,30 +78,34 @@ def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
 def main() -> None:
     config = load_config()
     site = config["site"]
+    lieu = site.get("lieu", "")
     horizon_court = int(config["source_meteo"]["horizon_court_jours"])
 
-    st.set_page_config(page_title="Atelier irrigation", page_icon="💧", layout="wide")
+    now_utc = pd.Timestamp.now(tz="UTC")
+    run_00z = now_utc.normalize()  # 00Z du jour → bilan depuis J+0 00Z
+    now_local = now_utc.tz_convert(site.get("tz", "Europe/Paris")).to_pydatetime()
+
+    st.set_page_config(page_title="Bilan hydrique", page_icon="💧", layout="wide")
+    titre = "Bilan hydrique du " + format_date_fr(now_local, capitalize_jour=False)
+    # Localisation formatée comme dans le mail : séparateur « — », gris, plus
+    # petit, poids normal (cf. apps/veille/email.py composer_html).
+    lieu_html = (
+        f'<span style="font-weight:400;color:#888;font-size:16px;"> — {lieu}</span>' if lieu else ""
+    )
     st.markdown(
-        '<h2 style="margin:0 0 4px 0;font-size:24px;color:#2c3e50;">'
-        "Atelier irrigation — bilan hydrique</h2>",
+        f'<h2 style="margin:0 0 10px 0;font-size:24px;color:#2c3e50;">{titre}{lieu_html}</h2>',
         unsafe_allow_html=True,
     )
-    st.caption(
-        "Évolution de la réserve utile et déclenchements d'irrigation sur la "
-        f"prévision {horizon_court} j (ARPEGE). Faites varier culture, sol et "
-        "tunnel pour comparer les scénarios. Complément interactif du mail Veille."
-    )
 
-    now_utc = pd.Timestamp.now(tz="UTC")
-    slot_now = _slot_now(now_utc)
     with st.spinner("Récupération de la prévision ARPEGE…"):
         try:
-            prevision = _fetch_arpege(site["latitude"], site["longitude"], horizon_court, slot_now)
+            prevision = _fetch_arpege(site["latitude"], site["longitude"], horizon_court, run_00z)
         except Exception as e:  # noqa: BLE001
             st.error(f"Prévision indisponible : {e}")
             st.stop()
 
-    quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc)
+    # Indicateurs quotidiens depuis J+0 00Z (run 00Z) → 4 jours complets.
+    quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=run_00z)
     quotidien = jours_complets_seulement(quotidien, prevision)
     if quotidien.empty:
         st.warning("Aucun jour complet dans la prévision courante.")
@@ -127,13 +122,15 @@ def main() -> None:
         stades = list(coefficients[culture].keys())
         stade = st.selectbox("Stade phénologique", stades, index=0)
 
+    # Stade en minuscule pour l'affichage entre parenthèses (le menu garde sa casse).
+    stade_aff = stade[:1].lower() + stade[1:]
     kc = float(coefficients[culture][stade])
     st.caption(
-        f"Kc culture = **{kc:.2f}** · Référentiel ARDEPI plein champ. "
-        "Sous tunnel, on garde le même Kc et on agit sur l'ET₀ via k_tunnel."
+        f"Kc culture = **{kc:.2f}** · référentiel ARDEPI plein champ. "
+        "Sous abri, on garde le même Kc et on agit sur l'ET₀ via le coefficient abri."
     )
 
-    with st.expander("Paramètres sol (partagés plein champ + tunnel)", expanded=False):
+    with st.expander("Paramètres", expanded=False):
         textures = sorted(RU_PAR_CM_DE_TF.keys())
         default_texture = (
             "Terres limono-argileuses" if "Terres limono-argileuses" in textures else textures[0]
@@ -142,55 +139,71 @@ def main() -> None:
             "Texture sol",
             textures,
             index=textures.index(default_texture),
-            help="Détermine la rétention par cm de terre fine.",
+            help="Détermine la rétention en eau par cm de terre fine.",
         )
-        fraction_cailloux = (
-            st.slider(
-                "Fraction de cailloux (%)",
-                min_value=0,
-                max_value=50,
-                value=5,
-                help="Réduit la profondeur effective de terre fine.",
-            )
-            / 100.0
+        st.caption(
+            f"Rétention = **{RU_PAR_CM_DE_TF[texture]:.2f} mm/cm** de terre fine · "
+            "fixe la capacité de réserve utile (× profondeur d'enracinement de la culture)."
         )
-        fraction_ru_remplie_initial = (
+        cailloux_pct = st.slider(
+            "Fraction de cailloux (%)",
+            min_value=0,
+            max_value=50,
+            value=5,
+            help="Réduit la profondeur effective de terre fine.",
+        )
+        st.caption(
+            f"Cailloux = **{cailloux_pct} %** · réduisent d'autant la profondeur de "
+            "terre fine, donc la capacité de réserve utile."
+        )
+        fraction_cailloux = cailloux_pct / 100.0
+        rfu_pct = st.slider(
+            "Fraction RFU/RU (%)",
+            min_value=40,
+            max_value=80,
+            value=60,
+            help="Fraction de la RU mobilisable sans stress. Typiquement 50-70 % selon la culture.",
+        )
+        st.caption(
+            f"RFU/RU = **{rfu_pct} %** · part de la réserve mobilisable sans stress ; "
+            "fixe le seuil de déclenchement (on irrigue quand l'épuisement l'atteint)."
+        )
+        ru_vers_rfu = rfu_pct / 100.0
+        ru_init_pct = st.slider(
+            "RU initiale (% de la capacité au champ)",
+            min_value=0,
+            max_value=100,
+            value=100,
+            help="État de remplissage du sol au jour J+0. 100 % = sol à "
+            "capacité au champ (situation de référence : l'irrigation vise "
+            "à la maintenir).",
+        )
+        st.caption(
+            f"RU initiale = **{ru_init_pct} %** · état de remplissage du sol au "
+            "départ (J+0) ; 100 % = sol à capacité au champ."
+        )
+        fraction_ru_remplie_initial = ru_init_pct / 100.0
+        apport_max_mm = float(
             st.slider(
-                "RU initiale (% de la capacité au champ)",
-                min_value=0,
+                "Apport maximal (mm/jour)",
+                min_value=5,
                 max_value=100,
-                value=70,
-                help="État de remplissage du sol au jour J. 100 % = sol "
-                "complètement humide après pluie ou irrigation récente.",
+                value=25,
+                step=5,
+                help="Lame d'eau journalière maximale que le système peut apporter "
+                "(≈ 1 L/h pendant 24 h pour 25 mm/j). Borne la dose d'irrigation et "
+                "l'échelle de l'axe des apports.",
             )
-            / 100.0
         )
-        ru_vers_rfu = (
-            st.slider(
-                "Fraction RFU/RU (%)",
-                min_value=40,
-                max_value=80,
-                value=60,
-                help="Fraction de la RU mobilisable sans stress. "
-                "Typiquement 50-70 % selon la culture.",
-            )
-            / 100.0
-        )
-        seuil_irrigation_mm = st.slider(
-            "Seuil de déclenchement irrigation (mm)",
-            min_value=2.0,
-            max_value=30.0,
-            value=10.0,
-            step=1.0,
-            help="Si le déficit en RFU dépasse ce seuil, irrigation "
-            "déclenchée (recharge à capacité au champ).",
-        )
+
+    # Doctrine FAO : le déclenchement est piloté par la RFU (slider RFU/RU
+    # ci-dessus), pas par un seuil en mm → pas de garde-fou « dose minimale ».
+    seuil_irrigation_mm = 0.0
 
     if culture not in PROFONDEUR_ENRACINEMENT_TYPIQUE:
         st.info(
             f"La culture « {culture} » n'a pas de profondeur d'enracinement "
-            "référencée pour le bilan sol complet. Sélectionner une culture "
-            "présente dans `PROFONDEUR_ENRACINEMENT_TYPIQUE`."
+            "référencée pour le bilan sol complet. Sélectionner une autre culture."
         )
         return
 
@@ -202,35 +215,32 @@ def main() -> None:
         fraction_ru_remplie_initial=fraction_ru_remplie_initial,
         ru_vers_rfu=ru_vers_rfu,
         seuil_irrigation_mm=seuil_irrigation_mm,
+        apport_max_mm=apport_max_mm,
     )
-    tab_pa, tab_tu = st.tabs(["Plein champ", "Sous tunnel"])
+    n_j = len(quotidien)
+    tab_pa, tab_tu = st.tabs(["Plein champ", "Sous abri"])
 
     with tab_pa:
         try:
             bilan_pa = bilan_culture_carry_over(
                 quotidien, k_etp_ratio=1.0, inclure_pluie=True, **params_sol
             )
-            fig_pa = figure_bilan_sol_complet(
-                bilan_pa,
-                culture,
-                stade,
-                seuil_irrigation_mm,
-                titre_contexte="Bilan plein champ",
-                afficher_pluie=True,
-                figsize=(5.5, 3.0),
+            ru_max = float(bilan_pa["ru_max_mm"].iloc[0])
+            rfu = float(bilan_pa["rfu_mm"].iloc[0])
+            st.markdown(
+                f"**Plein champ — {culture} ({stade_aff})** · "
+                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
+                "(irrigation quand l'épuisement atteint la RFU)."
             )
-            col_p, _ = st.columns([2, 1])
-            with col_p:
-                st.pyplot(fig_pa, use_container_width=True)
+            fig_pa = figure_bilan_sol_complet(bilan_pa, apport_max_mm=apport_max_mm)
+            st.pyplot(fig_pa, use_container_width=True)
             pluie_tot = float(bilan_pa["pluie_mm"].sum())
             etm_tot = float(bilan_pa["etm_mm"].sum())
             nb_irrig = int(bilan_pa["irrigation_declenchee"].sum())
-            besoin_tot = float(bilan_pa["besoin_irrigation_mm"].sum())
+            deficit_tot = float(bilan_pa["deficit_mm"].sum())
             st.markdown(
-                f"**Synthèse {horizon_court} j plein champ** : "
-                f"pluie cumulée {pluie_tot:.1f} mm · "
-                f"ETM {etm_tot:.1f} mm · "
-                f"besoin irrigation total {besoin_tot:.1f} mm · "
+                f"**Synthèse {n_j} j** : précipitations cumulées {pluie_tot:.1f} mm · "
+                f"ETM {etm_tot:.1f} mm · Déficit total {deficit_tot:.1f} mm · "
                 f"{nb_irrig} déclenchement(s) prévu(s)."
             )
         except KeyError as e:
@@ -238,27 +248,30 @@ def main() -> None:
 
     with tab_tu:
         st.caption(
-            "Coefficient k_tunnel : facteur de réduction de l'ET₀ pour passer du "
-            "climat extérieur au micro-climat tunnel."
+            "Coefficient abri = facteur de réduction de l'ET₀ pour passer du climat "
+            "extérieur au micro-climat de l'abri (coefficient fixe ET₀ abri/extérieur, "
+            "Castilla 2013 ch. 4 ; Möller et al. 2009 — défaut 0,70, recalibration "
+            "terrain à venir). Plus l'abri est ventilé, plus l'ET₀ se rapproche de "
+            "l'extérieur."
         )
         preset_k = st.radio(
-            "Configuration tunnel (preset)",
+            "Ventilation de l'abri",
             options=(
-                "Ouvert (portes jour + nuit)",
-                "Froid standard (défaut)",
-                "Fermé peu ventilé",
+                "Grand ouvert (portes + aérations)",
+                "Aération modérée",
+                "Fermé (peu d'échange)",
             ),
             index=1,
             horizontal=True,
-            help="Sélectionne k_tunnel approximatif ; ajustable par le slider.",
+            help="Détermine un coefficient abri approximatif ; ajustable par le slider.",
         )
         k_preset = {
-            "Ouvert (portes jour + nuit)": 0.90,
-            "Froid standard (défaut)": 0.70,
-            "Fermé peu ventilé": 0.55,
+            "Grand ouvert (portes + aérations)": 0.90,
+            "Aération modérée": 0.70,
+            "Fermé (peu d'échange)": 0.55,
         }[preset_k]
         k_tunnel = st.slider(
-            "k_tunnel — coef. ETP tunnel/extérieur",
+            "Coefficient abri (ET₀ sous abri / extérieur)",
             min_value=0.40,
             max_value=1.00,
             value=k_preset,
@@ -266,39 +279,40 @@ def main() -> None:
         )
         try:
             bilan_tu = bilan_tunnel_carry_over(quotidien, k_tunnel=k_tunnel, **params_sol)
-            fig_tu = figure_bilan_tunnel(
-                bilan_tu, culture, stade, seuil_irrigation_mm, figsize=(5.5, 3.0)
+            ru_max = float(bilan_tu["ru_max_mm"].iloc[0])
+            rfu = float(bilan_tu["rfu_mm"].iloc[0])
+            st.markdown(
+                f"**Sous abri — {culture} ({stade_aff})** · coefficient abri **{k_tunnel:.2f}** · "
+                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
+                "(irrigation quand l'épuisement atteint la RFU)."
             )
-            col_t, _ = st.columns([2, 1])
-            with col_t:
-                st.pyplot(fig_tu, use_container_width=True)
+            fig_tu = figure_bilan_tunnel(bilan_tu, apport_max_mm=apport_max_mm)
+            st.pyplot(fig_tu, use_container_width=True)
             etm_tot = float(bilan_tu["etm_tunnel_mm"].sum())
             nb_irrig = int(bilan_tu["irrigation_declenchee"].sum())
-            besoin_tot = float(bilan_tu["besoin_irrigation_mm"].sum())
+            deficit_tot = float(bilan_tu["deficit_mm"].sum())
             st.markdown(
-                f"**Synthèse {horizon_court} j sous tunnel (k_tunnel = {k_tunnel:.2f})** : "
-                f"ETM cumulée {etm_tot:.1f} mm · "
-                f"besoin irrigation total {besoin_tot:.1f} mm · "
+                f"**Synthèse {n_j} j** : ETM cumulée {etm_tot:.1f} mm · "
+                f"Déficit total {deficit_tot:.1f} mm · "
                 f"{nb_irrig} déclenchement(s) prévu(s)."
             )
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
-    with st.expander("Vérifier les sources"):
-        creneau, jour = creneau_run(slot_now)
-        run = runs_du_creneau(creneau, jour)[ARPEGE]
+    code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
+    with st.expander("Sources"):
         st.markdown(
             f"""
-- **Modèle** : ARPEGE Météo-France ~10 km (Open-Meteo *Single Runs*, run
-  déterministe {run.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC).
-- **ETP** : socle FAO Penman-Monteith (``meteo_socle.indices.etp_fao``), pas le
-  champ du fournisseur.
-- **Bilan** : ``meteo_socle.indices.bilan_hydrique`` (FAO 56, carry-over RU jour
-  par jour, irrigation virtuelle à capacité au champ si déficit RFU > seuil).
-- **Kc** : référentiel ARDEPI Provence
-  (``coefficients_culturaux_ardepi.json``).
-- **Site** : {site["latitude"]:.4f}°N, {site["longitude"]:.4f}°W, altitude
-  {site["altitude"]} m.
+- **Modèle** : ARPEGE Météo-France ~10 km (Open-Meteo *Single Runs*, run 00Z
+  du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC).
+- **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
+- **Bilan** : réserve utile (TAW) / RFU (RAW), irrigation quand l'épuisement
+  atteint la RFU avec recharge à la capacité au champ — cadre FAO 56, ch. 8
+  ([code]({code_base}/bilan_hydrique.py)).
+- **Kc** : référentiel ARDEPI
+  ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
+- **Coefficient abri** : coefficient fixe ET₀ sous abri/extérieur — Castilla
+  (2013, ch. 4) ; Möller et al. (2009). Défaut 0,70.
 - **Cache** : 1 h sur la prévision. Rafraîchir = recharger la page.
             """
         )
