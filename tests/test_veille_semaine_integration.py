@@ -40,6 +40,7 @@ class _StubSingleRuns:
                 "vitesse_vent_10m": np.full(n, 4.0),  # m/s
                 "rafales_vent_10m": np.full(n, 8.0),  # m/s
                 "direction_vent_deg": np.full(n, 230.0),
+                "cloud_cover": np.full(n, 0.5),  # fraction 0-1 (nébulosité)
                 "rayonnement_global": np.maximum(
                     0, 500 * np.sin(np.linspace(0, 2 * np.pi * horizon_jours, n))
                 ),

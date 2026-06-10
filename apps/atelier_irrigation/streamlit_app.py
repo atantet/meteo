@@ -18,7 +18,6 @@ ETP par le socle FAO ; bilan par ``meteo_socle.indices.bilan_hydrique``.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -32,6 +31,7 @@ for p in (_REPO_ROOT, _SRC):
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from apps.atelier_irrigation import calcul  # noqa: E402
 from apps.operationnelle.charts import (  # noqa: E402
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
@@ -39,40 +39,24 @@ from apps.operationnelle.charts import (  # noqa: E402
     figure_bilan_tunnel,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
-from apps.operationnelle.indicateurs import (  # noqa: E402
-    calculer_indicateurs_quotidiens,
-    jours_complets_seulement,
-)
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
 from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
     PROFONDEUR_ENRACINEMENT_TYPIQUE,
     RU_PAR_CM_DE_TF,
 )
-from meteo_socle.sources.openmeteo_runs import (  # noqa: E402
-    ARPEGE,
-    VARS_MONO_MODELE,
-    OpenMeteoSingleRuns,
-)
-
-KC_JSON_PATH = _SRC / "meteo_socle" / "indices" / "coefficients_culturaux_ardepi.json"
 
 
 @st.cache_data(ttl=3600)
 def _fetch_arpege(
     latitude: float, longitude: float, horizon_jours: int, run_utc: pd.Timestamp
 ) -> pd.DataFrame:
-    """Run ARPEGE 00Z du jour (forward-only) → série horaire depuis J+0 00Z."""
-    src = OpenMeteoSingleRuns()
-    df = src.obtenir_run(ARPEGE, run_utc, latitude, longitude, horizon_jours, VARS_MONO_MODELE)
-    if df is None or df.empty:
-        raise RuntimeError(f"Run ARPEGE {run_utc} muet.")
-    return df
+    """Run ARPEGE 00Z du jour (cache Streamlit). Délègue au calcul partagé."""
+    return calcul.fetch_arpege_run(latitude, longitude, horizon_jours, run_utc)
 
 
 @st.cache_data
 def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
-    with open(KC_JSON_PATH) as f:
-        return json.load(f)
+    return calcul.charger_coefficients()
 
 
 def main() -> None:
@@ -82,7 +66,7 @@ def main() -> None:
     horizon_court = int(config["source_meteo"]["horizon_court_jours"])
 
     now_utc = pd.Timestamp.now(tz="UTC")
-    run_00z = now_utc.normalize()  # 00Z du jour → bilan depuis J+0 00Z
+    run_00z = calcul.run_00z(now_utc)  # 00Z du jour → bilan depuis J+0 00Z
     now_local = now_utc.tz_convert(site.get("tz", "Europe/Paris")).to_pydatetime()
 
     st.set_page_config(page_title="Bilan hydrique", page_icon="💧", layout="wide")
@@ -105,15 +89,15 @@ def main() -> None:
             st.stop()
 
     # Indicateurs quotidiens depuis J+0 00Z (run 00Z) → 4 jours complets.
-    quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=run_00z)
-    quotidien = jours_complets_seulement(quotidien, prevision)
+    quotidien = calcul.quotidien_du_jour(config, prevision, now_utc)
     if quotidien.empty:
         st.warning("Aucun jour complet dans la prévision courante.")
         st.stop()
 
     coefficients = _charger_coefficients_kc()
     cultures = sorted(coefficients.keys())
-    default_culture = "Tomate" if "Tomate" in cultures else cultures[0]
+    defauts = calcul.PARAMS_DEFAUT
+    default_culture = defauts["culture"] if defauts["culture"] in cultures else cultures[0]
 
     col_c, col_s = st.columns(2)
     with col_c:
@@ -132,9 +116,7 @@ def main() -> None:
 
     with st.expander("Paramètres", expanded=False):
         textures = sorted(RU_PAR_CM_DE_TF.keys())
-        default_texture = (
-            "Terres limono-argileuses" if "Terres limono-argileuses" in textures else textures[0]
-        )
+        default_texture = defauts["texture"] if defauts["texture"] in textures else textures[0]
         texture = st.selectbox(
             "Texture sol",
             textures,
@@ -149,7 +131,7 @@ def main() -> None:
             "Fraction de cailloux (%)",
             min_value=0,
             max_value=50,
-            value=5,
+            value=int(defauts["fraction_cailloux"] * 100),
             help="Réduit la profondeur effective de terre fine.",
         )
         st.caption(
@@ -161,7 +143,7 @@ def main() -> None:
             "Fraction RFU/RU (%)",
             min_value=40,
             max_value=80,
-            value=60,
+            value=int(defauts["ru_vers_rfu"] * 100),
             help="Fraction de la RU mobilisable sans stress. Typiquement 50-70 % selon la culture.",
         )
         st.caption(
@@ -173,7 +155,7 @@ def main() -> None:
             "RU initiale (% de la capacité au champ)",
             min_value=0,
             max_value=100,
-            value=100,
+            value=int(defauts["fraction_ru_remplie_initial"] * 100),
             help="État de remplissage du sol au jour J+0. 100 % = sol à "
             "capacité au champ (situation de référence : l'irrigation vise "
             "à la maintenir).",
@@ -188,7 +170,7 @@ def main() -> None:
                 "Apport maximal (mm/jour)",
                 min_value=5,
                 max_value=100,
-                value=25,
+                value=int(defauts["apport_max_mm"]),
                 step=5,
                 help="Lame d'eau journalière maximale que le système peut apporter "
                 "(≈ 1 L/h pendant 24 h pour 25 mm/j). Borne la dose d'irrigation et "
