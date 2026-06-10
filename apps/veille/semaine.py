@@ -174,10 +174,18 @@ def _fmt_etp(cellule: CelluleFenetre, _fenetre: str) -> str:
     return f'<span style="color:{_LABEL};">{cellule.etp_mm:.1f}</span>' + _unite("mm")
 
 
+def _fmt_nebulosite(cellule: CelluleFenetre, _fenetre: str) -> str:
+    if pd.isna(cellule.nebulosite_pct):
+        return "—"
+    return f'<span style="color:#7f8c8d;">{cellule.nebulosite_pct:.0f}</span>' + _unite("%")
+
+
 # (libellé de ligne, formatteur). Ordre = ordre d'affichage dans chaque table.
+# Pas de pictogramme dans la tendance → la nébulosité donne l'état du ciel.
 _LIGNES_TENDANCE = (
     ("T° moy/extr", _fmt_t),
     ("Pluie / proba", _fmt_pluie),
+    ("Nébulosité", _fmt_nebulosite),
     ("Vent moy/raf", _fmt_vent),
     ("Direction", _fmt_direction),
     ("ETP", _fmt_etp),
@@ -574,8 +582,12 @@ def executer_semaine(
         agg_arpege = agreger_par_fenetre(df_arpege, "UTC", horizon_long, etp_arpege)
         agg_ecmwf = agreger_par_fenetre(df_ecmwf, "UTC", horizon_long, etp_ecmwf)
 
-        # Guides : indicateurs quotidiens ARPEGE (jours complets uniquement).
-        quotidien = calculer_indicateurs_quotidiens(df_arpege, config_op, now_utc=now_utc)
+        # Guides : indicateurs quotidiens ARPEGE depuis J+0 00Z (run 00Z), pour
+        # 4 jours complets — cohérent avec l'atelier irrigation streamlit (et non
+        # filtré à l'heure d'envoi, qui amputerait le 1er jour → 3 j).
+        quotidien = calculer_indicateurs_quotidiens(
+            df_arpege, config_op, now_utc=now_utc.normalize()
+        )
         quotidien = jours_complets_seulement(quotidien, df_arpege)
         tz_site = site.get("tz", "Europe/Paris")
         today_local = now_utc.tz_convert(tz_site).normalize().tz_localize(None)

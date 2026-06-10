@@ -82,6 +82,7 @@ class CelluleFenetre:
     direction_cardinal: str
     direction_deg: float
     etp_mm: float  # cumul ETP socle FAO sur la fenêtre, NaN si non fourni
+    nebulosite_pct: float  # nébulosité moyenne sur la fenêtre (%, NaN si absente)
 
 
 def _direction_cardinal(deg: float) -> str:
@@ -185,6 +186,12 @@ def _agreger_cellule(
         else float("nan")
     )
 
+    # Nébulosité : socle en fraction 0-1 → moyenne sur la fenêtre, affichée en %.
+    neb = group.get("cloud_cover")
+    nebulosite_pct = (
+        float(neb.mean() * 100.0) if neb is not None and not neb.dropna().empty else float("nan")
+    )
+
     return CelluleFenetre(
         t_mean=t_mean,
         t_extreme=t_extreme,
@@ -195,6 +202,7 @@ def _agreger_cellule(
         direction_cardinal=_direction_cardinal(direction_deg),
         direction_deg=direction_deg,
         etp_mm=etp_mm,
+        nebulosite_pct=nebulosite_pct,
     )
 
 
