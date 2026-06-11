@@ -73,7 +73,6 @@ from meteo_socle.sources.openmeteo_runs import (
     ECMWF_HRES,
     VARS_MONO_MODELE,
     OpenMeteoSingleRuns,
-    creneau_run,
     runs_du_creneau,
 )
 
@@ -594,17 +593,26 @@ def composer_guides_tendance(
     jour_min: pd.Timestamp | None = None,
     atelier_url: str = "",
     note_anomalie: str = "",
+    rappel: bool = False,
 ) -> str:
     """Bloc « La semaine » : guides (avec lien atelier sous le déficit hydrique) +
     tendance. ``note_anomalie`` (HTML) est inséré après l'intro, avant les guides
-    (ex. repli ARPEGE→ECMWF). Les cartes sont regroupées avec le bloc 48 h."""
+    (ex. repli ARPEGE→ECMWF). ``rappel`` (mail d'après-midi) ajoute « pour rappel »
+    à l'intro (semaine identique au matin). Les cartes sont regroupées avec le 48 h."""
+    rappel_txt = (
+        " <strong>Pour rappel</strong> : tendance du matin (mise à jour 1×/jour, run 00Z)."
+        if rappel
+        else ""
+    )
     return (
         '<h2 style="margin:24px 0 8px 0;font-size:17px;color:#2c3e50;'
         'border-bottom:2px solid #2c3e50;padding-bottom:4px;">'
         "La semaine</h2>"
         '<p style="margin:0 0 8px 0;font-size:12px;color:#888;">'
         "Tendance et anticipation à moyen terme — horaires en <strong>UTC</strong> "
-        "(la partie 48 h ci-dessus est en heure locale).</p>"
+        "(la partie 48 h ci-dessus est en heure locale)."
+        + rappel_txt
+        + "</p>"
         + note_anomalie
         + bloc_guides(guides, atelier_url=atelier_url)
         + bloc_tendance(agg_arpege, agg_ecmwf, horizon_long, jour_min=jour_min)
@@ -651,6 +659,7 @@ def executer_semaine(
     cartes_geo: CartesGeoSerie | None = None,
     fetch_cartes: bool = True,
     atelier_url: str = "",
+    rappel: bool = False,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -683,6 +692,10 @@ def executer_semaine(
         récupérée en ligne ; sinon omise.
     fetch_cartes :
         Mettre ``False`` pour ne pas tenter le fetch réseau des cartes.
+    rappel :
+        ``True`` pour le mail d'après-midi : la semaine est identique à celle du
+        matin (même run 00Z) → on l'étiquette « pour rappel » (pas une nouvelle
+        actualisation ; la tendance est mise à jour une fois par jour).
     """
     anomalies: list[Anomalie] = []
     try:
@@ -698,8 +711,12 @@ def executer_semaine(
         lat = site["latitude"]
         lon = site["longitude"]
 
-        creneau, jour = creneau_run(now_utc)
-        runs = runs_du_creneau(creneau, jour)
+        # La tendance longue est un produit **une fois par jour** (run 00Z J) :
+        # on force le créneau "matin" dans les deux envois. L'après-midi rappelle
+        # ainsi la tendance du matin à l'identique (run déterministe → mêmes
+        # données), et reste alignée sur l'atelier irrigation (00Z, une maj/jour).
+        jour = now_utc.normalize()
+        runs = runs_du_creneau("matin", jour)
         run_arpege = runs[ARPEGE]
         run_ecmwf = runs[ECMWF_HRES]
 
@@ -803,6 +820,7 @@ def executer_semaine(
                 jour_min=now_utc.normalize(),
                 atelier_url=atelier_url,
                 note_anomalie=note,
+                rappel=rappel,
             ),
             "cartes_geo": cartes_geo,
             "sources_html": bloc_sources_semaine(
