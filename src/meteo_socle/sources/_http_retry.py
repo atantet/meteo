@@ -33,7 +33,7 @@ def get_avec_retry(
     url: str,
     *,
     params: dict[str, str],
-    timeout: float = 30,
+    timeout: float | tuple[float, float] = 30,
 ) -> requests.Response:
     """GET avec retry/backoff exponentiel sur 429 et 5xx.
 
@@ -46,7 +46,8 @@ def get_avec_retry(
     params :
         Paramètres query string.
     timeout :
-        Timeout par requête, en secondes.
+        Timeout par requête : un float (connect=read) ou un tuple
+        ``(connect, read)`` en secondes (passé tel quel à ``requests``).
 
     Returns
     -------
