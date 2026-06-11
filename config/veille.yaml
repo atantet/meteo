@@ -156,12 +156,11 @@ alertes:
 # pluie, orages, neige-verglas, canicule, grand froid). Couverture J et
 # J+1 (~48 h). Granularité : département.
 #
-# Authentification : variable d'env METEOFRANCE_TOKEN (clé base64
-# "Application ID" du portail https://portail-api.meteofrance.fr —
-# partagée avec les autres APIs MF, une seule application = une seule
-# clé). Souscription à l'API "Données Publiques Vigilance" requise au
-# préalable. Si absente, le bloc Vigilance est silencieusement skippé
-# du mail (dégradé gracieux).
+# Authentification : aucune clé requise — la Vigilance vient du même
+# webservice public que la prévision officielle (ADR-0014), pas de l'API
+# portail. (L'identifiant Données Publiques METEOFRANCE_DP_BASIC sert, lui,
+# aux modèles ARPEGE/AROME directs — pas à la Vigilance.) Si le webservice
+# est injoignable, le bloc Vigilance est silencieusement skippé (dégradé).
 vigilance_mf:
   # Code département à 2 chiffres. 35 = Ille-et-Vilaine.
   departement: "35"

@@ -236,8 +236,8 @@ def executer_veille(
         apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
         cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
         # Vigilance MF (officielle d'État) — référence pour orages, vent, pluie,
-        # canicule, neige-verglas, grand froid sur 0-48 h. Sans clé API
-        # METEOFRANCE_TOKEN, retourne None et le bloc est silencieusement skippé.
+        # canicule, neige-verglas, grand froid sur 0-48 h. Via le webservice
+        # public (pas de clé) ; si injoignable, retourne None et le bloc est skippé.
         departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
         vigilance = recuperer_vigilance(departement=departement)
 

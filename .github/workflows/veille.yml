@@ -58,9 +58,10 @@ jobs:
           VEILLE_SMTP_PASSWORD: ${{ secrets.VEILLE_SMTP_PASSWORD }}
           VEILLE_EMAIL_FROM: ${{ secrets.VEILLE_EMAIL_FROM }}
           VEILLE_EMAIL_TO: ${{ secrets.VEILLE_EMAIL_TO }}
-          # Application ID Météo-France (portail-api.meteofrance.fr).
-          # Active le bloc Vigilance dans le mail. Absent = bloc skippé.
-          METEOFRANCE_TOKEN: ${{ secrets.METEOFRANCE_TOKEN }}
+          # Identifiant OAuth Basic des Données Publiques MF (portail-api),
+          # pour les modèles directs ARPEGE/AROME. (La Vigilance, elle, passe
+          # par le webservice public — pas besoin de cette clé.)
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
         # Le webservice MF est injoignable par intermittence depuis les runners
         # (timeout connexion datacenter↔MF). On retente MF (laisse passer une
         # coupure courte → vraie prévi MF), puis en dernier recours on replie le
