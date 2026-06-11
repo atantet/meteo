@@ -229,8 +229,8 @@ def test_regroupement_cartes_synoptiques() -> None:
     assert -1 < i_mo < i_ar < i_arp, f"Ordre cartes : mo={i_mo} arome={i_ar} arpege={i_arp}"
 
 
-def test_executer_veille_apres_midi_sans_semaine(tmp_path: Path) -> None:
-    """L'après-midi, la section semaine n'est PAS ajoutée (48 h seul)."""
+def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
+    """L'après-midi : 48 h actualisé + semaine du matin rappelée (« Pour rappel »)."""
     from apps.veille.__main__ import executer_veille
     from apps.veille.config import load_config
 
@@ -253,8 +253,10 @@ def test_executer_veille_apres_midi_sans_semaine(tmp_path: Path) -> None:
     assert code == 0
     html = out.read_text(encoding="utf-8")
     assert "Prévision Météo-France officielle" in html
-    assert "La semaine" not in html
-    assert "Tendance jusqu'à 10 jours" not in html
+    # La semaine est désormais présente l'après-midi, étiquetée « pour rappel ».
+    assert "La semaine" in html
+    assert "Tendance jusqu'à 10 jours" in html
+    assert "Pour rappel" in html
 
 
 def test_executer_veille_mail_echec_si_mf_muette(tmp_path: Path) -> None:

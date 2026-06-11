@@ -27,10 +27,15 @@ Constat sur le contenu de l'ex-App 2 :
 
 ## Décision
 
-1. **Un seul canal quotidien : le mail.** Le mail du **matin** = Partie 1 (48 h, App 1
-   inchangée) **+** Partie 2 « La semaine ». Le mail de l'**après-midi** reste 48 h seul
-   (la tendance bouge peu en une demi-journée ; on n'alourdit pas l'après-midi).
-   Aiguillage par `moment_envoi(...) == "matin"`.
+1. **Un seul canal quotidien : le mail.** Les **deux** envois (matin et après-midi)
+   portent Partie 1 (48 h, App 1 inchangée) **+** Partie 2 « La semaine ».
+   ⟶ *Amendement 2026-06-11* : initialement la semaine n'allait qu'au matin
+   (l'après-midi restait 48 h seul). Désormais l'**après-midi est une actualisation
+   complète** du mail du matin : la 48 h MF est rafraîchie (elle bouge), et la
+   **semaine est rappelée à l'identique** — même run **00Z** (`rappel=True`), donc
+   alignée sur l'atelier (une maj/jour) et étiquetée « Pour rappel ». La tendance
+   longue reste un produit quotidien (un seul run 00Z J), pas réactualisé en demi-
+   journée. Aiguillage du libellé par `moment_envoi(...) == "après-midi"`.
 2. **La semaine en UTC, la 48 h en heure locale**, chacune étiquetée. Les fenêtres
    Nuit/Jour (18-06 / 06-18) restent calées sur les cycles de run (UTC) — les forcer en
    local les décalerait (cf. mémoire `runs_deterministes_utc`).

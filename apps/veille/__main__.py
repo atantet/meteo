@@ -241,14 +241,15 @@ def executer_veille(
         departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
         vigilance = recuperer_vigilance(departement=departement)
 
-        # Partie 2 « La semaine » — matin seulement. Cascade ARPEGE→ECMWF + repli
-        # gracieux dans ``executer_semaine`` (bandeau si les deux modèles muets) ;
-        # les anomalies remontent au rapport de bug en fin de mail.
+        # Partie 2 « La semaine » — dans les DEUX créneaux. Le matin l'actualise ;
+        # l'après-midi la rappelle à l'identique (``rappel=True`` → même run 00Z,
+        # cohérent avec l'atelier qui fait une maj/jour). Cascade ARPEGE→ECMWF +
+        # repli gracieux dans ``executer_semaine`` ; anomalies → rapport de bug.
         bloc_guides_tendance = ""
         bloc_sources_semaine = ""
         cartes_longue = None
         bloc_semaine_texte = ""
-        if not apres_midi and inclure_semaine:
+        if inclure_semaine:
             try:
                 from apps.operationnelle.config import load_config as load_config_op
 
@@ -260,6 +261,7 @@ def executer_veille(
                     source=semaine_source,
                     fetch_cartes=fetch_cartes_semaine,
                     atelier_url=atelier_url,
+                    rappel=apres_midi,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)
