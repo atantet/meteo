@@ -52,6 +52,27 @@ class _StubSingleRuns:
         return None  # proba omise (dégradation gracieuse testée par ailleurs)
 
 
+class _StubArpegeMuet(_StubSingleRuns):
+    """ARPEGE indisponible (run non publié → None), ECMWF normal."""
+
+    def obtenir_run(self, modele, run_utc, latitude, longitude, horizon_jours, variables):
+        from meteo_socle.sources.openmeteo_runs import ARPEGE
+
+        if modele == ARPEGE:
+            return None
+        return super().obtenir_run(modele, run_utc, latitude, longitude, horizon_jours, variables)
+
+
+class _StubTousMuets:
+    """Aucun modèle disponible (double coupure Open-Meteo)."""
+
+    def obtenir_run(self, *args, **kwargs):
+        return None
+
+    def obtenir_proba_ensemble(self, *args, **kwargs):
+        return None
+
+
 def _config_op() -> dict:
     import yaml
 
@@ -87,6 +108,34 @@ def test_executer_semaine_tendance_demarre_aujourdhui() -> None:
     # 14/06 (J-1) ne doit pas apparaître comme en-tête de jour ; 15/06 oui.
     assert "15/06" in html
     assert "Sam. 14/06" not in html
+
+
+def test_executer_semaine_fallback_arpege_vers_ecmwf() -> None:
+    """ARPEGE muet → guides + tendance basés sur ECMWF, anomalie + note inline."""
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(_config_op(), now, source=_StubArpegeMuet(), fetch_cartes=False)
+    assert res is not None
+    anomalies = res["anomalies"]
+    assert any("ARPEGE indisponible" in a.resume for a in anomalies)
+    assert any("repli sur ECMWF" in a.resume for a in anomalies)
+    html = res["guides_tendance_html"]
+    # Note inline (renvoi au rapport de bug) + guides/tendance toujours produits.
+    assert "rapport de bug" in html.lower()
+    assert "Guides de décision de la semaine" in html
+    assert "Tendance jusqu'à" in html
+
+
+def test_executer_semaine_bandeau_si_double_coupure() -> None:
+    """ARPEGE et ECMWF muets → bandeau d'indisponibilité + 2 anomalies."""
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(_config_op(), now, source=_StubTousMuets(), fetch_cartes=False)
+    assert res is not None
+    assert "indisponible" in res["guides_tendance_html"].lower()
+    assert len(res["anomalies"]) == 2  # ARPEGE + ECMWF
 
 
 def _prevision_mf_synthetique():
@@ -206,3 +255,56 @@ def test_executer_veille_apres_midi_sans_semaine(tmp_path: Path) -> None:
     assert "Prévision Météo-France officielle" in html
     assert "La semaine" not in html
     assert "Tendance jusqu'à 10 jours" not in html
+
+
+def test_executer_veille_mail_echec_si_mf_muette(tmp_path: Path) -> None:
+    """Prévi MF muette → mail d'échec (HTML) avec étape + type + message exception."""
+    from apps.veille.__main__ import executer_veille
+    from apps.veille.config import load_config
+    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+
+    config = load_config()
+    config["diffusion"]["envoi_reel"] = False
+    mock_mf = MagicMock()
+    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError(
+        "Prévision MF inaccessible : connect timeout"
+    )
+    out = tmp_path / "echec.html"
+    code = executer_veille(
+        config,
+        secrets=None,
+        source=mock_mf,
+        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+        preview_path=out,
+    )
+    assert code == 2
+    html = out.read_text(encoding="utf-8")
+    assert "échec" in html.lower()
+    assert "PrevisionIndisponibleError" in html  # type d'exception (debug)
+    assert "connect timeout" in html  # message (debug)
+
+
+def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> None:
+    """Mail matin complet : ARPEGE muet → repli ECMWF + rapport de bug en bas."""
+    from apps.veille.__main__ import executer_veille
+    from apps.veille.config import load_config
+
+    config = load_config()
+    config["diffusion"]["envoi_reel"] = False
+    mock_mf = MagicMock()
+    mock_mf.obtenir_prevision.return_value = _prevision_mf_synthetique()
+    out = tmp_path / "matin_arpege_muet.html"
+    code = executer_veille(
+        config,
+        secrets=None,
+        source=mock_mf,
+        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+        preview_path=out,
+        semaine_source=_StubArpegeMuet(),
+        fetch_cartes_semaine=False,
+    )
+    assert code == 0
+    html = out.read_text(encoding="utf-8")
+    assert "La semaine" in html  # section présente (repli ECMWF)
+    assert "Rapport de bug" in html  # rapport en fin de mail
+    assert "ARPEGE indisponible" in html

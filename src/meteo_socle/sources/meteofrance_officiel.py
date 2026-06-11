@@ -180,14 +180,17 @@ class MeteoFranceOfficiel:
     session :
         Session HTTP réutilisable (injecter un mock dans les tests).
     timeout :
-        Timeout par requête (s).
+        Timeout (connect, read) en s. Connect court (10 s) : le webservice MF
+        établit la connexion en ~0,1 s ou jamais (il pend) → inutile d'attendre
+        30 s pour conclure à une coupure ; read plus long (30 s) pour tolérer une
+        réponse lente. Échec total ~1 min (4 tentatives) au lieu de ~9 min.
     token :
         Token webservice MF. Par défaut : env ``METEOFRANCE_WS_TOKEN`` sinon la
         valeur publique connue (secrets-agnostique).
     """
 
     session: requests.Session = field(default_factory=requests.Session)
-    timeout: float = 30.0
+    timeout: tuple[float, float] = (10.0, 30.0)
     token: str = field(default_factory=lambda: os.environ.get(ENV_TOKEN, DEFAULT_TOKEN))
 
     def obtenir_prevision(self, latitude: float, longitude: float) -> PrevisionMF:
