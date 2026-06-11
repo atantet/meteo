@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from html import escape
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -52,6 +53,7 @@ from meteo_socle.sources.meteofrance_vigilance import (
 )
 
 from .alertes import Alerte, resume_alertes
+from .anomalies import Anomalie, bloc_rapport_bug
 from .cartes_synoptiques import (
     METEOCIEL_PAGE_AFFICHEE,
     METOFFICE_PAGE_AFFICHEE,
@@ -931,6 +933,7 @@ def composer_html(
     bloc_sources_semaine: str = "",
     cartes_longue: Any = None,
     lieu: str | None = None,
+    anomalies: list[Anomalie] | None = None,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -1017,6 +1020,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_carte}
   {bloc_sources_semaine}
   {bloc_definitions}
+  {bloc_rapport_bug(anomalies or [], now_utc_ts)}
 </div>
 </body></html>"""
 
@@ -1036,6 +1040,7 @@ def composer_email(
     bloc_sources_semaine: str = "",
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
+    anomalies: list[Anomalie] | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1092,5 +1097,70 @@ def composer_email(
         bloc_sources_semaine=bloc_sources_semaine,
         cartes_longue=cartes_longue,
         lieu=lieu,
+        anomalies=anomalies,
+    )
+    return EmailComposed(sujet=sujet, texte=texte, html=html)
+
+
+def composer_email_echec(
+    config: dict[str, Any],
+    maintenant: datetime,
+    etape: str,
+    exc: BaseException,
+    traceback_str: str = "",
+) -> EmailComposed:
+    """Mail d'échec dur : le mail météo n'a pas pu être composé.
+
+    On envoie quand même un mail (en plus de l'alerte GitHub Actions) avec le
+    **maximum d'infos de debug** — étape, type/message d'exception, contexte
+    (instant, site) et trace — pour accélérer le diagnostic.
+    """
+    site = config.get("site", {})
+    now = pd.Timestamp(maintenant)
+    now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
+    tz_locale = site.get("tz", "Europe/Paris")
+    now_loc = now.tz_convert(tz_locale)
+
+    contexte = [
+        ("Étape", etape),
+        ("Erreur", f"{type(exc).__name__}: {exc}"),
+        ("Quand", f"{now:%Y-%m-%d %H:%M} UTC ({now_loc:%d/%m %Hh%M %Z})"),
+        ("Site", f"lat={site.get('latitude')} lon={site.get('longitude')} {site.get('lieu', '')}"),
+    ]
+    sujet = f"⚠ Veille météo — ÉCHEC ({etape})"
+    texte = (
+        "VEILLE MÉTÉO — ÉCHEC D'ENVOI\n"
+        + "=" * 70
+        + "\n"
+        + "\n".join(f"{k} : {v}" for k, v in contexte)
+        + ("\n\nTrace :\n" + traceback_str if traceback_str else "")
+        + "\n\n(Le mail météo normal n'a pas pu être composé. "
+        "Ce message contient les infos de debug.)"
+    )
+    ctx_html = "".join(
+        f'<li style="margin:3px 0;"><strong>{escape(k)}</strong> : {escape(v)}</li>'
+        for k, v in contexte
+    )
+    trace_html = (
+        '<pre style="margin:10px 0 0 0;padding:8px;background:#f6f6f6;border-radius:4px;'
+        'font-size:11px;color:#444;white-space:pre-wrap;word-break:break-word;overflow-x:auto;">'
+        + escape(traceback_str)
+        + "</pre>"
+        if traceback_str
+        else ""
+    )
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0"></head>'
+        '<body style="margin:0;padding:0;background:#f4f4f4;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\">"
+        '<div style="max-width:600px;margin:0 auto;padding:16px;background:white;">'
+        '<h2 style="margin:0 0 12px 0;font-size:20px;color:#a00000;">'
+        "⚠ Veille météo — échec d'envoi</h2>"
+        '<p style="font-size:13px;color:#555;">Le mail météo normal n\'a pas pu être '
+        "composé. Détails pour debug :</p>"
+        f'<ul style="font-size:13px;color:#444;line-height:1.5;">{ctx_html}</ul>'
+        f"{trace_html}"
+        "</div></body></html>"
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)

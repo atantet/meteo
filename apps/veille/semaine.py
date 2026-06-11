@@ -66,6 +66,7 @@ from apps.operationnelle.tendances import (
 )
 from apps.shared.dates_fr import JOURS_FR
 from apps.shared.pictograms import icone_base64, libelle
+from apps.veille.anomalies import Anomalie, note_inline
 from meteo_socle.sources.openmeteo_runs import (
     ARPEGE,
     ECMWF,
@@ -592,9 +593,11 @@ def composer_guides_tendance(
     horizon_long: int,
     jour_min: pd.Timestamp | None = None,
     atelier_url: str = "",
+    note_anomalie: str = "",
 ) -> str:
     """Bloc « La semaine » : guides (avec lien atelier sous le déficit hydrique) +
-    tendance (les cartes sont regroupées avec le bloc synoptique 48 h, plus bas)."""
+    tendance. ``note_anomalie`` (HTML) est inséré après l'intro, avant les guides
+    (ex. repli ARPEGE→ECMWF). Les cartes sont regroupées avec le bloc 48 h."""
     return (
         '<h2 style="margin:24px 0 8px 0;font-size:17px;color:#2c3e50;'
         'border-bottom:2px solid #2c3e50;padding-bottom:4px;">'
@@ -602,6 +605,7 @@ def composer_guides_tendance(
         '<p style="margin:0 0 8px 0;font-size:12px;color:#888;">'
         "Tendance et anticipation à moyen terme — horaires en <strong>UTC</strong> "
         "(la partie 48 h ci-dessus est en heure locale).</p>"
+        + note_anomalie
         + bloc_guides(guides, atelier_url=atelier_url)
         + bloc_tendance(agg_arpege, agg_ecmwf, horizon_long, jour_min=jour_min)
     )
@@ -620,6 +624,18 @@ def composer_section_semaine_texte(guides: list[GuideDecision]) -> str:
                 marque = "→" if g.active else " "
                 lignes.append(f"   {marque} {g.titre}")
     return "\n".join(lignes)
+
+
+def _bandeau_semaine_indisponible() -> str:
+    """Section semaine réduite à un bandeau quand aucun modèle n'est disponible."""
+    return (
+        '<h2 style="margin:24px 0 8px 0;font-size:17px;color:#2c3e50;'
+        'border-bottom:2px solid #2c3e50;padding-bottom:4px;">La semaine</h2>'
+        '<div style="margin:6px 0;padding:10px 12px;background:#fff8e1;'
+        "border-left:3px solid #E69F00;border-radius:0 3px 3px 0;font-size:13px;"
+        "color:#8a6d3b;\">Section semaine indisponible aujourd'hui : les runs modèles "
+        "(ARPEGE et ECMWF) ne sont pas publiés. Voir le rapport de bug en fin de mail.</div>"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -668,6 +684,7 @@ def executer_semaine(
     fetch_cartes :
         Mettre ``False`` pour ne pas tenter le fetch réseau des cartes.
     """
+    anomalies: list[Anomalie] = []
     try:
         if source is None:
             source = OpenMeteoSingleRuns()
@@ -690,39 +707,81 @@ def executer_semaine(
             ARPEGE, run_arpege, lat, lon, horizon_court, VARS_MONO_MODELE
         )
         df_ecmwf = source.obtenir_run(ECMWF, run_ecmwf, lat, lon, horizon_long, VARS_MONO_MODELE)
-        if df_arpege is None or df_arpege.empty:
-            logger.warning("Semaine : run ARPEGE %s muet — section omise", run_arpege)
-            return None
-        if df_ecmwf is None or df_ecmwf.empty:
-            logger.warning("Semaine : run ECMWF %s muet — section omise", run_ecmwf)
-            return None
+        arpege_ok = df_arpege is not None and not df_arpege.empty
+        ecmwf_ok = df_ecmwf is not None and not df_ecmwf.empty
 
-        # Proba d'ensemble ECMWF IFS-ENS (dégradation gracieuse si muette).
-        try:
-            proba = source.obtenir_proba_ensemble(lat, lon, horizon_long, past_days=0)
-            if proba is not None:
-                df_ecmwf = df_ecmwf.copy()
-                df_ecmwf["probabilite_pluie_pct"] = proba.reindex(df_ecmwf.index)
-        except requests.RequestException as e:
-            logger.warning("Semaine : proba d'ensemble indisponible (omise) : %s", e)
+        if not arpege_ok:
+            logger.warning("Semaine : run ARPEGE %s muet.", run_arpege)
+            anomalies.append(
+                Anomalie(
+                    "La semaine",
+                    "ARPEGE indisponible, repli sur ECMWF" if ecmwf_ok else "ARPEGE indisponible",
+                    f"Run ARPEGE {run_arpege:%Y-%m-%dT%H:%M}Z muet/indisponible sur "
+                    "Open-Meteo single-runs (meteofrance_arpege_europe, non publié au "
+                    "moment du fetch).",
+                )
+            )
+        if not ecmwf_ok:
+            logger.warning("Semaine : run ECMWF %s muet.", run_ecmwf)
+            anomalies.append(
+                Anomalie(
+                    "La semaine",
+                    "ECMWF indisponible, tendance limitée à ARPEGE"
+                    if arpege_ok
+                    else "ECMWF indisponible",
+                    f"Run ECMWF {run_ecmwf:%Y-%m-%dT%H:%M}Z muet/indisponible sur Open-Meteo "
+                    "single-runs (modèle ecmwf_ifs025, non publié au moment du fetch).",
+                )
+            )
 
-        etp_arpege = etp_horaire_socle(df_arpege, site)
-        etp_ecmwf = etp_horaire_socle(df_ecmwf, site)
-        agg_arpege = agreger_par_fenetre(df_arpege, "UTC", horizon_long, etp_arpege)
-        agg_ecmwf = agreger_par_fenetre(df_ecmwf, "UTC", horizon_long, etp_ecmwf)
+        # Les deux modèles muets → bandeau d'indisponibilité (le détail va au
+        # rapport de bug). Le mail 48 h part quand même.
+        if not arpege_ok and not ecmwf_ok:
+            return {
+                "guides_tendance_html": _bandeau_semaine_indisponible(),
+                "cartes_geo": None,
+                "sources_html": "",
+                "texte": "GUIDES DE DÉCISION : section indisponible (runs modèles non publiés).",
+                "anomalies": anomalies,
+            }
 
-        # Guides : indicateurs quotidiens ARPEGE depuis J+0 00Z (run 00Z), pour
-        # 4 jours complets — cohérent avec l'atelier irrigation streamlit (et non
-        # filtré à l'heure d'envoi, qui amputerait le 1er jour → 3 j).
+        # Proba d'ensemble ECMWF IFS-ENS (si ECMWF dispo ; dégradation gracieuse).
+        if ecmwf_ok:
+            try:
+                proba = source.obtenir_proba_ensemble(lat, lon, horizon_long, past_days=0)
+                if proba is not None:
+                    df_ecmwf = df_ecmwf.copy()
+                    df_ecmwf["probabilite_pluie_pct"] = proba.reindex(df_ecmwf.index)
+            except requests.RequestException as e:
+                logger.warning("Semaine : proba d'ensemble indisponible (omise) : %s", e)
+
+        # Agrégations tendance — dict vide pour un modèle absent (bloc_tendance
+        # gère nativement un modèle manquant : cellules de l'autre modèle seul).
+        agg_arpege: dict[tuple[pd.Timestamp, str], CelluleFenetre] = {}
+        agg_ecmwf: dict[tuple[pd.Timestamp, str], CelluleFenetre] = {}
+        if arpege_ok:
+            agg_arpege = agreger_par_fenetre(
+                df_arpege, "UTC", horizon_long, etp_horaire_socle(df_arpege, site)
+            )
+        if ecmwf_ok:
+            agg_ecmwf = agreger_par_fenetre(
+                df_ecmwf, "UTC", horizon_long, etp_horaire_socle(df_ecmwf, site)
+            )
+
+        # Guides : indicateurs quotidiens depuis J+0 00Z, sur horizon_court jours
+        # (cohérent atelier streamlit). ARPEGE par défaut ; repli ECMWF si ARPEGE
+        # muet — mêmes variables (T, pluie, rayonnement) → mêmes indicateurs.
+        df_guides = df_arpege if arpege_ok else df_ecmwf
         quotidien = calculer_indicateurs_quotidiens(
-            df_arpege, config_op, now_utc=now_utc.normalize()
+            df_guides, config_op, now_utc=now_utc.normalize()
         )
-        quotidien = jours_complets_seulement(quotidien, df_arpege)
+        quotidien = jours_complets_seulement(quotidien, df_guides).head(horizon_court)
         tz_site = site.get("tz", "Europe/Paris")
         today_local = now_utc.tz_convert(tz_site).normalize().tz_localize(None)
         guides = evaluer_decisions(quotidien, exploitation, today_local)
 
-        if cartes_geo is None and fetch_cartes:
+        # Cartes ARPEGE-Europe : seulement si ARPEGE dispo (sinon hors sujet).
+        if cartes_geo is None and fetch_cartes and arpege_ok:
             try:
                 # Prolongement des cartes synoptiques 48 h : seulement J+3 / J+4
                 # (T+72 / T+96, horizon natif d'ARPEGE-Europe), à 00Z. Résolution
@@ -734,6 +793,7 @@ def executer_semaine(
                 logger.warning("Semaine : cartes ARPEGE-Europe indisponibles (omises) : %s", e)
                 cartes_geo = None
 
+        note = note_inline(" ; ".join(a.resume for a in anomalies)) if anomalies else ""
         return {
             "guides_tendance_html": composer_guides_tendance(
                 agg_arpege,
@@ -742,13 +802,27 @@ def executer_semaine(
                 horizon_long,
                 jour_min=now_utc.normalize(),
                 atelier_url=atelier_url,
+                note_anomalie=note,
             ),
             "cartes_geo": cartes_geo,
             "sources_html": bloc_sources_semaine(
                 horizon_court, horizon_long, run_arpege, run_ecmwf
             ),
             "texte": composer_section_semaine_texte(guides),
+            "anomalies": anomalies,
         }
     except Exception as e:  # noqa: BLE001 — la semaine ne doit jamais casser la 48 h
-        logger.error("Semaine : composition échouée (section omise) : %s", e)
-        return None
+        logger.error("Semaine : composition échouée : %s", e)
+        return {
+            "guides_tendance_html": _bandeau_semaine_indisponible(),
+            "cartes_geo": None,
+            "sources_html": "",
+            "texte": "GUIDES DE DÉCISION : section indisponible (erreur de composition).",
+            "anomalies": [
+                Anomalie(
+                    "La semaine",
+                    "Section semaine indisponible (erreur interne)",
+                    f"{type(e).__name__}: {e}",
+                )
+            ],
+        }
