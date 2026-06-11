@@ -22,7 +22,8 @@ permissions:
 jobs:
   veille:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Marge pour les re-runs MF (2 × ~1 min + 120 s) avant repli ARPEGE.
+    timeout-minutes: 15
     defaults:
       run:
         # Active l'env conda dans tous les `run:` du job.
@@ -60,4 +61,24 @@ jobs:
           # Application ID Météo-France (portail-api.meteofrance.fr).
           # Active le bloc Vigilance dans le mail. Absent = bloc skippé.
           METEOFRANCE_TOKEN: ${{ secrets.METEOFRANCE_TOKEN }}
-        run: python -m apps.veille
+        # Le webservice MF est injoignable par intermittence depuis les runners
+        # (timeout connexion datacenter↔MF). On retente MF (laisse passer une
+        # coupure courte → vraie prévi MF), puis en dernier recours on replie le
+        # 48 h sur ARPEGE Single Runs (--fallback-mf) pour qu'un mail parte quand
+        # même. Quand MF répond, la 1ʳᵉ tentative réussit → zéro surcoût.
+        run: |
+          set +e
+          for tentative in 1 2; do
+            echo "::group::Veille — tentative $tentative (prévi MF)"
+            python -m apps.veille
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -eq 0 ]; then exit 0; fi
+            echo "Tentative $tentative échouée (code $code)."
+            if [ "$tentative" -lt 2 ]; then echo "Nouvel essai dans 120 s…"; sleep 120; fi
+          done
+          echo "::group::Veille — repli ARPEGE (MF toujours injoignable)"
+          python -m apps.veille --fallback-mf
+          code=$?
+          echo "::endgroup::"
+          exit $code

@@ -53,7 +53,7 @@ from meteo_socle.sources.meteofrance_vigilance import (
 )
 
 from .alertes import Alerte, resume_alertes
-from .anomalies import Anomalie, bloc_rapport_bug
+from .anomalies import Anomalie, bloc_rapport_bug, note_inline
 from .cartes_synoptiques import (
     METEOCIEL_PAGE_AFFICHEE,
     METOFFICE_PAGE_AFFICHEE,
@@ -934,6 +934,7 @@ def composer_html(
     cartes_longue: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
+    repli_mf: bool = False,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -992,11 +993,21 @@ def composer_html(
         else ""
     )
 
-    section_mf = (
-        '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
-        'border-bottom:2px solid #eee;padding-bottom:4px;">'
-        "Prévision Météo-France officielle</h2>"
-    )
+    # Mode dégradé : le 48 h vient d'ARPEGE-Europe (MF injoignable). On relabelle
+    # la section + note inline renvoyant au rapport de bug (ne pas faire croire à
+    # une prévi MF officielle).
+    if repli_mf:
+        section_mf = note_inline("Prévision Météo-France indisponible, repli sur ARPEGE-Europe") + (
+            '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
+            'border-bottom:2px solid #eee;padding-bottom:4px;">'
+            "Prévision ARPEGE-Europe (repli — Météo-France indisponible)</h2>"
+        )
+    else:
+        section_mf = (
+            '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
+            'border-bottom:2px solid #eee;padding-bottom:4px;">'
+            "Prévision Météo-France officielle</h2>"
+        )
 
     return f"""<!DOCTYPE html>
 <html><head>
@@ -1041,6 +1052,7 @@ def composer_email(
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
+    repli_mf: bool = False,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1098,6 +1110,7 @@ def composer_email(
         cartes_longue=cartes_longue,
         lieu=lieu,
         anomalies=anomalies,
+        repli_mf=repli_mf,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 

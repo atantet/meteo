@@ -62,6 +62,16 @@ Open-Meteo.** **L'App 1 conserve ses cartes synoptiques et ses séries temporell
 heure locale** (cf. D4). Étiquette affichée : « Prévision officielle Météo-France,
 mise à jour {updated_on} » (jamais « ADR-XXXX » dans le texte affiché).
 
+> **Amendement (2026-06-11, robustesse).** Le webservice MF s'avère injoignable par
+> intermittence depuis les runners GitHub (timeout de connexion datacenter↔MF).
+> Pour ne pas perdre le mail : (1) le workflow **retente** la prévi MF (laisse passer
+> une coupure courte → vraie prévi MF) ; (2) en **dernier recours seulement**
+> (`--fallback-mf`), le 48 h est **replié sur ARPEGE Single Runs** (Open-Meteo, lui
+> joignable). Mode dégradé **clairement étiqueté** (« Prévision ARPEGE-Europe (repli
+> — Météo-France indisponible) » + note + rapport de bug) : picto WMO ARPEGE (pas
+> WWMF), **sans proba calibrée MF**. La prévi MF reste la source primaire et
+> nominale ; le repli n'est qu'un filet de sécurité quand MF est inatteignable.
+
 ### D2 — App 2 (Opérationnelle) : Single Runs UTC, ARPEGE + ECMWF, sans picto
 
 L'App 2 reste sur **Single Runs Open-Meteo, en UTC** (ADR-0011). **Deux modèles

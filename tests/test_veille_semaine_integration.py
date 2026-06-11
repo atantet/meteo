@@ -308,3 +308,59 @@ def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> Non
     assert "La semaine" in html  # section présente (repli ECMWF)
     assert "Rapport de bug" in html  # rapport en fin de mail
     assert "ARPEGE indisponible" in html
+
+
+def test_executer_veille_repli_mf_vers_arpege(tmp_path: Path) -> None:
+    """MF injoignable + fallback_mf → 48 h reconstruit depuis ARPEGE, étiqueté."""
+    from apps.veille.__main__ import executer_veille
+    from apps.veille.config import load_config
+    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+
+    config = load_config()
+    config["diffusion"]["envoi_reel"] = False
+    mock_mf = MagicMock()
+    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("MF connect timeout")
+    out = tmp_path / "repli_mf.html"
+    code = executer_veille(
+        config,
+        secrets=None,
+        source=mock_mf,
+        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+        preview_path=out,
+        semaine_source=_StubSingleRuns(),  # ARPEGE dispo (repli OK)
+        fetch_cartes_semaine=False,
+        fallback_mf=True,
+    )
+    assert code == 0  # mail envoyé malgré MF muette
+    html = out.read_text(encoding="utf-8")
+    assert "repli" in html.lower()
+    assert "Prévision ARPEGE-Europe (repli" in html  # section relabellée
+    assert "Prévision Météo-France indisponible" in html  # note + rapport de bug
+    assert "Rapport de bug" in html
+
+
+def test_executer_veille_repli_mf_echoue_si_arpege_muet(tmp_path: Path) -> None:
+    """MF injoignable + fallback_mf mais ARPEGE muet aussi → échec + mail d'échec."""
+    from apps.veille.__main__ import executer_veille
+    from apps.veille.config import load_config
+    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+
+    config = load_config()
+    config["diffusion"]["envoi_reel"] = False
+    mock_mf = MagicMock()
+    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("MF connect timeout")
+    out = tmp_path / "repli_echec.html"
+    code = executer_veille(
+        config,
+        secrets=None,
+        source=mock_mf,
+        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+        preview_path=out,
+        semaine_source=_StubTousMuets(),  # ARPEGE muet aussi
+        fetch_cartes_semaine=False,
+        fallback_mf=True,
+    )
+    assert code == 2
+    html = out.read_text(encoding="utf-8")
+    assert "échec" in html.lower()
+    assert "repli ARPEGE muet aussi" in html

@@ -86,6 +86,43 @@ def _envoyer_echec(
         logger.error("Mail d'échec impossible à envoyer (%s) : %s", etape, e2)
 
 
+def _prevision_repli_arpege(config: dict[str, Any], now_utc: pd.Timestamp, source: Any = None):
+    """Repli 48 h sur ARPEGE Single Runs (Open-Meteo) quand le webservice MF pend.
+
+    ARPEGE-Europe via Open-Meteo reste joignable depuis le runner même quand le
+    webservice MF time out (blocage réseau MF↔datacenter). Le run ARPEGE renvoie
+    les **mêmes colonnes socle** que la prévi MF (il manque seulement la proba
+    calibrée → NaN) → pipeline 48 h inchangé. Mode dégradé : picto WMO ARPEGE (pas
+    WWMF), pas de proba calibrée. Renvoie ``None`` si ARPEGE est aussi muet.
+    """
+    from meteo_socle.sources.meteofrance_officiel import PrevisionMF
+    from meteo_socle.sources.openmeteo_runs import (
+        ARPEGE,
+        VARS_MONO_MODELE,
+        OpenMeteoSingleRuns,
+        creneau_run,
+        runs_du_creneau,
+    )
+
+    site = config["site"]
+    creneau, jour = creneau_run(now_utc)
+    run = runs_du_creneau(creneau, jour)[ARPEGE]
+    src = source or OpenMeteoSingleRuns()
+    df = src.obtenir_run(ARPEGE, run, site["latitude"], site["longitude"], 4, VARS_MONO_MODELE)
+    if df is None or df.empty:
+        return None
+    df = df.copy()
+    if "weather_code" in df.columns:
+        df["weather_code"] = df["weather_code"].astype("Int64")
+    if "probabilite_pluie_pct" not in df.columns:
+        df["probabilite_pluie_pct"] = pd.Series(index=df.index, dtype="float64")
+    return PrevisionMF(
+        df=df,
+        updated_on=run,
+        position={"name": "ARPEGE-Europe (repli)", "timezone": site.get("tz", "Europe/Paris")},
+    )
+
+
 def executer_veille(
     config: dict[str, Any],
     secrets: dict[str, Any] | None,
@@ -95,6 +132,7 @@ def executer_veille(
     inclure_semaine: bool = True,
     semaine_source: Any = None,
     fetch_cartes_semaine: bool = True,
+    fallback_mf: bool = False,
 ) -> int:
     """Exécute le pipeline Veille de bout en bout.
 
@@ -122,11 +160,16 @@ def executer_veille(
     fetch_cartes_semaine :
         Passé à ``executer_semaine`` ; ``False`` désactive le fetch réseau
         des cartes ARPEGE-Europe (tests).
+    fallback_mf :
+        Si ``True`` et que la prévi MF est injoignable, replie le 48 h sur ARPEGE
+        Single Runs (mode dégradé étiqueté) au lieu d'échouer. Le workflow réserve
+        ce mode à la **dernière** tentative (après re-runs MF), pour privilégier la
+        vraie prévi MF quand elle se rétablit.
 
     Returns
     -------
     int
-        Code de retour (0 succès, 2 HTTP source, 3 SMTP / écriture).
+        Code de retour (0 succès, 2 source, 3 SMTP / écriture, 4 composition).
     """
     if source is None:
         # Prévision officielle Météo-France roulante (ADR-0014) : un seul JSON
@@ -143,23 +186,43 @@ def executer_veille(
         site["latitude"],
         site["longitude"],
     )
+    repli_mf = False
     try:
         prevision = source.obtenir_prevision(
             latitude=site["latitude"],
             longitude=site["longitude"],
         )
-    except requests.HTTPError as e:
-        logger.error("Erreur HTTP source météo : %s", e)
-        _envoyer_echec(config, secrets, now_utc, preview_path, "fetch prévision MF (HTTP)", e)
-        return 2
-    except PrevisionIndisponibleError as e:
-        logger.error("Prévision indisponible (prévi MF muette) : %s", e)
-        _envoyer_echec(config, secrets, now_utc, preview_path, "fetch prévision MF (muette)", e)
-        return 2
+    except (requests.HTTPError, PrevisionIndisponibleError) as e:
+        logger.error("Prévision MF indisponible : %s", e)
+        # Repli ARPEGE seulement à la dernière tentative (fallback_mf=True) ; sinon
+        # on échoue (le workflow re-tente MF avant de basculer).
+        prevision = (
+            _prevision_repli_arpege(config, now_utc, source=semaine_source) if fallback_mf else None
+        )
+        if prevision is None:
+            etape = (
+                "fetch prévision MF (repli ARPEGE muet aussi)"
+                if fallback_mf
+                else "fetch prévision MF (muette)"
+            )
+            _envoyer_echec(config, secrets, now_utc, preview_path, etape, e)
+            return 2
+        repli_mf = True
+        logger.warning("Repli 48 h sur ARPEGE Single Runs (webservice MF injoignable).")
 
     # Composition défensive : toute erreur inattendue → mail d'échec avec trace
     # (en plus de l'alerte GitHub) puis sortie code 4. La 48 h reste prioritaire.
     anomalies: list[Anomalie] = []
+    if repli_mf:
+        anomalies.append(
+            Anomalie(
+                "Prévision 48 h",
+                "Prévision Météo-France indisponible, repli sur ARPEGE-Europe",
+                "Webservice MF injoignable (timeout connexion depuis le runner) → 48 h "
+                "reconstruit depuis ARPEGE Single Runs (Open-Meteo). Picto WMO ARPEGE, "
+                "sans proba calibrée MF.",
+            )
+        )
     try:
         prevision_df = prevision.df
         ind = calculer_indicateurs(prevision_df, now_utc, config)
@@ -232,6 +295,7 @@ def executer_veille(
             cartes_longue=cartes_longue,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
+            repli_mf=repli_mf,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)
@@ -274,6 +338,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "navigateur pour prévisualiser."
         ),
     )
+    parser.add_argument(
+        "--fallback-mf",
+        action="store_true",
+        help=(
+            "Si la prévi MF est injoignable, replie le 48 h sur ARPEGE Single Runs "
+            "(mode dégradé étiqueté) au lieu d'échouer. Réservé à la dernière "
+            "tentative du workflow (après re-runs MF)."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -297,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("Secret SMTP manquant : %s", e)
             return 1
 
-    return executer_veille(config, secrets, preview_path=args.preview)
+    return executer_veille(config, secrets, preview_path=args.preview, fallback_mf=args.fallback_mf)
 
 
 if __name__ == "__main__":
