@@ -29,6 +29,7 @@ import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -258,17 +259,31 @@ class MeteoFranceArpege:
         latitude: float,
         longitude: float,
         horizon_jours: int,
+        cache_dir: str | Path | None = None,
     ) -> pd.DataFrame:
         """Série horaire au point pour le run, jusqu'à ``horizon_jours``.
 
         Renvoie un DataFrame indexé UTC, colonnes socle (cf. module). Les accumulées
         (pluie, rayonnement) sont calées sur la fenêtre entre échéances ; la 1ʳᵉ
         échéance (+0 h) n'en a pas → 0. La direction du vent est dérivée d'U/V 10 m.
+
+        ``cache_dir`` : si fourni, le run (déterministe) est mis en cache parquet par
+        run+point → l'envoi de l'après-midi réutilise le fetch du matin (00Z) au lieu
+        de refaire ~500 requêtes. En CI, persister ce dossier entre les deux jobs
+        (actions/cache) ; en local, il persiste naturellement.
         """
         if not self.basic:
             raise ArpegeIndisponibleError(f"Identifiant {ENV_BASIC} absent.")
-        token = _bearer(self.session, self.basic)
         run_utc = run_utc.tz_convert("UTC") if run_utc.tzinfo else run_utc.tz_localize("UTC")
+        chemin_cache: Path | None = None
+        if cache_dir is not None:
+            chemin_cache = Path(cache_dir) / (
+                f"arpege_{run_utc:%Y%m%dT%HZ}_{latitude:.3f}_{longitude:.3f}.parquet"
+            )
+            if chemin_cache.exists():
+                logger.info("ARPEGE direct : run servi depuis le cache (%s).", chemin_cache.name)
+                return pd.read_parquet(chemin_cache)
+        token = _bearer(self.session, self.basic)
         echeances = [
             t
             for t in _echeances(self.session, token, run_utc)
@@ -284,6 +299,10 @@ class MeteoFranceArpege:
         taches: list[tuple[str, pd.Timestamp, str, int | None, str, float]] = []
         for col, (prefixe, hauteur, conv) in _VARS_INSTANT.items():
             for t in echeances:
+                # Les rafales ne sont pas dans l'analyse (+0 h) → 404 attendu ; on saute
+                # (la 1ʳᵉ échéance reste NaN, sans intérêt : la semaine part de +1 h).
+                if col == "rafales_vent_10m" and t == echeances[0]:
+                    continue
                 taches.append((col, t, f"{prefixe}___{run_str}", hauteur, conv, 3600.0))
         for col, (prefixe, conv) in _VARS_ACCUM.items():
             for t in echeances:
@@ -315,4 +334,9 @@ class MeteoFranceArpege:
         df["vitesse_vent_10m"], df["direction_vent_deg"] = vent_vitesse_direction(
             df["_u10"], df["_v10"]
         )
-        return df.drop(columns=["_u10", "_v10"])
+        df = df.drop(columns=["_u10", "_v10"])
+        if chemin_cache is not None:
+            chemin_cache.parent.mkdir(parents=True, exist_ok=True)
+            df.to_parquet(chemin_cache)
+            logger.info("ARPEGE direct : run mis en cache (%s).", chemin_cache.name)
+        return df
