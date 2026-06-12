@@ -203,41 +203,49 @@ def _fmt_vent_combine(cellule: CelluleFenetre, _fenetre: str) -> str:
     )
 
 
-# Flèche(s) ETP (PNG généré, sûr en e-mail) ; cache par (couleur, nombre).
-_FLECHE_ETP_CACHE: dict[tuple[str, int], str] = {}
+# Flèche ETP : UNE flèche par couleur (PNG, sûr en e-mail), répétée n fois côté
+# HTML → toutes les flèches ont exactement la même taille (le rendu n-flèches en un
+# seul PNG faisait varier les proportions selon n). Cache par couleur.
+_FLECHE_ETP_CACHE: dict[str, str] = {}
 
 
-def _fleche_etp_png(color: str, n: int) -> str:
-    """``n`` flèches d'évaporation côte à côte, colorées — PNG base64 (cache).
+def _fleche_etp_png(color: str) -> str:
+    """Une flèche d'évaporation colorée — PNG base64 (cache par couleur).
 
-    Chaque flèche : queue ondulée (revient au centre en haut) → tige droite →
-    pointe bien visible, centrée et rectiligne.
+    Queue ondulée (revient au centre en haut) → tige droite → pointe visible,
+    centrée et rectiligne. Géométrie fixe (indépendante du nombre de flèches).
     """
-    key = (color, n)
-    if key in _FLECHE_ETP_CACHE:
-        return _FLECHE_ETP_CACHE[key]
-    fig = Figure(figsize=(0.30 * n + 0.08, 0.6))
+    if color in _FLECHE_ETP_CACHE:
+        return _FLECHE_ETP_CACHE[color]
+    fig = Figure(figsize=(0.34, 0.6))
     ax = fig.add_subplot()
-    for i in range(n):
-        cx = float(i)
-        y_w = np.linspace(0.0, 0.52, 50)
-        x_w = cx + 0.13 * np.sin(y_w / 0.52 * 2 * np.pi)
-        ax.plot(x_w, y_w, color=color, linewidth=2.4, solid_capstyle="round")
-        ax.plot([cx, cx], [0.52, 0.80], color=color, linewidth=2.4, solid_capstyle="round")
-        ax.annotate(
-            "",
-            xy=(cx, 1.04),
-            xytext=(cx, 0.80),
-            arrowprops={"arrowstyle": "-|>", "color": color, "lw": 2.4, "mutation_scale": 13},
-        )
-    ax.set_xlim(-0.4, (n - 1) + 0.4)
+    y_w = np.linspace(0.0, 0.52, 50)
+    x_w = 0.13 * np.sin(y_w / 0.52 * 2 * np.pi)
+    ax.plot(x_w, y_w, color=color, linewidth=2.4, solid_capstyle="round")
+    ax.plot([0, 0], [0.52, 0.80], color=color, linewidth=2.4, solid_capstyle="round")
+    ax.annotate(
+        "",
+        xy=(0, 1.04),
+        xytext=(0, 0.80),
+        arrowprops={"arrowstyle": "-|>", "color": color, "lw": 2.4, "mutation_scale": 13},
+    )
+    ax.set_xlim(-0.4, 0.4)
     ax.set_ylim(-0.05, 1.12)
     ax.axis("off")
     buf = io.BytesIO()
     fig.savefig(buf, format="png", transparent=True, bbox_inches="tight", pad_inches=0.02)
     uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    _FLECHE_ETP_CACHE[key] = uri
+    _FLECHE_ETP_CACHE[color] = uri
     return uri
+
+
+def _fleche_etp_img(color: str, n: int, hauteur_px: int = 20) -> str:
+    """``n`` flèches identiques (même PNG répété) à la hauteur donnée."""
+    img = (
+        f'<img src="{_fleche_etp_png(color)}" alt="ETP" '
+        f'style="height:{hauteur_px}px;vertical-align:bottom;">'
+    )
+    return img * n
 
 
 def _etp_arrow_html(etp: float) -> str:
@@ -254,11 +262,7 @@ def _etp_arrow_html(etp: float) -> str:
         color, n = "#E67E00", 2  # orange
     else:
         color, n = "#D11500", 3  # rouge
-    uri = _fleche_etp_png(color, n)
-    return (
-        f'<img src="{uri}" alt="ETP {etp:.1f} mm" title="ETP {etp:.1f} mm" '
-        'style="height:20px;vertical-align:bottom;">'
-    )
+    return _fleche_etp_img(color, n)
 
 
 # (libellé de ligne, formatteur). Le picto « Ciel » (dérivé d'ARPEGE) absorbe
@@ -388,7 +392,8 @@ def _legende_tendance() -> str:
         )
 
     def fl(color: str, n: int) -> str:
-        return f'<img src="{_fleche_etp_png(color, n)}" style="height:15px;vertical-align:middle;">'
+        img = f'<img src="{_fleche_etp_png(color)}" style="height:15px;vertical-align:middle;">'
+        return img * n
 
     return (
         '<div style="margin:0 0 6px 0;font-size:11px;color:#888;line-height:1.9;">'
