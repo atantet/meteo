@@ -35,5 +35,9 @@ dependencies:
   - pre-commit
   # Pip pour deps PyPI-only (à compléter au besoin)
   - pip
-  # Note: cfgrib / eccodes seront ajoutés en v1 si bascule AROME directe (cf. ADR-0002).
+  # GRIB : lecture du point depuis ARPEGE direct MF Données Publiques (WCS),
+  # cf. src/meteo_socle/sources/meteofrance_arpege.py. python-eccodes = bindings
+  # Python, eccodes = bibliothèque C + définitions.
+  - eccodes
+  - python-eccodes
   # Note: climetlab pour SAFRAN à ajouter quand on attaque l'app climato (cf. ADR-0002).
