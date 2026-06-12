@@ -6,7 +6,7 @@ froid, avalanches, vagues-submersion).
 
 **Source unifiée (ADR-0014)** : la Vigilance vient désormais du **même backend**
 que la prévision officielle (``webservice.meteofrance.com``), et non plus de
-l'API DPVigilance du portail (OAuth + ``METEOFRANCE_TOKEN``). C'est **la même
+l'API DPVigilance du portail (OAuth + ``METEOFRANCE_DP_BASIC``). C'est **la même
 Vigilance officielle d'État** (celle de l'appli/site MF), servie par le canal de
 la prévi roulante → un seul backend, un seul token (public, partagé avec
 ``meteofrance_officiel``).
