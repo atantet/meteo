@@ -33,6 +33,7 @@ from apps.operationnelle.tendances import (  # noqa: E402
     _direction_moyenne_ponderee,
     _masque_fenetre,
     agreger_par_fenetre,
+    proba_max_par_fenetre,
 )
 
 
@@ -146,6 +147,60 @@ def test_masque_fenetre_nuit_contigue() -> None:
     assert (matin.normalize() == j1).all()
     # Nuit complète : 5 h de soirée (19-23) + 7 h de matinée (0-6) = 12 h.
     assert len(idx_nuit) == 12
+
+
+def test_proba_max_par_fenetre_max_des_bins_de_la_fenetre() -> None:
+    """Proba MF par bin → max sur la fenêtre 12 h (UTC), bins alignés minuit."""
+    from apps.operationnelle.tendances import FENETRE_JOUR, FENETRE_NUIT
+
+    # Bins 6 h : 15/06 00→10, 06→50, 12→80, 18→30 ; 16/06 00→25.
+    bins = pd.Series(
+        [10.0, 50.0, 80.0, 30.0, 25.0],
+        index=pd.DatetimeIndex(
+            [
+                "2026-06-15 00:00",
+                "2026-06-15 06:00",
+                "2026-06-15 12:00",
+                "2026-06-15 18:00",
+                "2026-06-16 00:00",
+            ],
+            tz="UTC",
+        ),
+    )
+    out = proba_max_par_fenetre(bins, tz_locale="UTC")
+    j15 = pd.Timestamp("2026-06-15", tz="UTC")
+    j16 = pd.Timestamp("2026-06-16", tz="UTC")
+    # Jour [06,18) du 15 = max(50, 80) = 80.
+    assert out[(j15, FENETRE_JOUR)] == 80.0
+    # Nuit du 15 = matinée [0,6) du 15 → bin 00 = 10.
+    assert out[(j15, FENETRE_NUIT)] == 10.0
+    # Nuit du 16 = soirée [18,24) du 15 (bin 18→30) + matinée [0,6) du 16
+    # (bin 00→25) → max = 30 (vérifie l'assignation soirée → nuit du lendemain).
+    assert out[(j16, FENETRE_NUIT)] == 30.0
+
+
+def test_proba_max_par_fenetre_vide_si_bins_absents() -> None:
+    assert proba_max_par_fenetre(None) == {}
+    assert proba_max_par_fenetre(pd.Series(dtype="float64")) == {}
+
+
+def test_agreger_par_fenetre_proba_injectee_pas_du_df() -> None:
+    """La proba vient du dict ``proba_par_fenetre``, jamais d'une colonne du df."""
+    from apps.operationnelle.tendances import FENETRE_JOUR
+
+    horaire = _horaire_synthetique(jours=2)
+    # Même avec une colonne proba dans le df, elle est ignorée (champ non modèle).
+    horaire = horaire.copy()
+    horaire["probabilite_pluie_pct"] = 99.0
+    jour0 = pd.DatetimeIndex(horaire.index).tz_convert("UTC").normalize()[0]
+    proba = {(jour0, FENETRE_JOUR): 42.0}
+    cellules = agreger_par_fenetre(horaire, tz_locale="UTC", proba_par_fenetre=proba)
+    assert cellules[(jour0, FENETRE_JOUR)].prob_pluie_pct == 42.0
+    # Une fenêtre sans entrée proba → NaN (pas 99 du df).
+    import math
+
+    autres = [c for (k, c) in cellules.items() if k != (jour0, FENETRE_JOUR)]
+    assert any(math.isnan(c.prob_pluie_pct) for c in autres)
 
 
 def test_agreger_par_fenetre_cellules_j0_complete() -> None:

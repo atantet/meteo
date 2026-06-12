@@ -145,9 +145,31 @@ def test_parser_unites_socle() -> None:
     assert df["probabilite_pluie_pct"].iloc[0] == pytest.approx(40.0)
     assert df["probabilite_pluie_pct"].iloc[1] == pytest.approx(40.0)
 
+    # Bins de proba (signal autonome semaine) : 1 entrée, indexée au début de bin.
+    assert len(prev.proba_bins) == 1
+    assert prev.proba_bins.iloc[0] == pytest.approx(40.0)
+    assert str(prev.proba_bins.index.tz) == "UTC"
+
     # Provenance.
     assert str(prev.updated_on.tz) == "UTC"
     assert prev.position["name"] == "Sains"
+
+
+def test_serie_proba_bins_une_valeur_par_fenetre_3h_prioritaire() -> None:
+    """`_serie_proba_bins` : un point par bin (début UTC), 3 h prioritaire sur 6 h."""
+    from meteo_socle.sources.meteofrance_officiel import _serie_proba_bins
+
+    h0 = 1_780_700_400
+    entries = [
+        {"dt": h0, "rain": {"3h": 30}},  # bin 3 h
+        {"dt": h0 + 6 * 3600, "rain": {"6h": 70}},  # bin 6 h
+        {"dt": h0 + 12 * 3600, "rain": {}},  # ni 3h ni 6h → ignoré
+    ]
+    s = _serie_proba_bins(entries)
+    assert list(s.to_numpy()) == [30.0, 70.0]  # l'entrée vide est écartée
+    assert (s.index == pd.to_datetime([h0, h0 + 6 * 3600], unit="s", utc=True)).all()
+    # Vide → série vide nommée (pas d'exception).
+    assert _serie_proba_bins([]).empty
 
 
 def test_parser_payload_vide_leve() -> None:

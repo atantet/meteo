@@ -264,6 +264,9 @@ def executer_veille(
                     atelier_url=atelier_url,
                     rappel=apres_midi,
                     source_arpege_mf=source_arpege_mf,
+                    # Proba pluie de la semaine = proba officielle MF calibrée,
+                    # déjà récupérée ici (signal autonome ~J+10). Vide en repli ARPEGE.
+                    proba_mf=prevision.proba_bins,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)

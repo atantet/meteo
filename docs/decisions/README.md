@@ -24,6 +24,7 @@ dans l'archéologie git.
 | [0014](0014-prevision-officielle-mf-veille.md) | Veille sur prévision officielle MF (heure locale) ; Opérationnelle sur ARPEGE + ECMWF (UTC) | Accepté · amendé par [0015](0015-fusion-app2-dans-mail-veille.md) (canal App 2) |
 | [0015](0015-fusion-app2-dans-mail-veille.md) | Fusion App 2 dans le mail Veille (semaine du matin) + atelier irrigation | Accepté |
 | [0016](0016-arpege-direct-mf-donnees-publiques.md) | ARPEGE en direct depuis MF Données Publiques (semaine) ; ECMWF reste Open-Meteo | Accepté · amende [0011](0011-single-runs-api-runs-explicites.md) (source ARPEGE) |
+| [0017](0017-proba-semaine-mf-calibree.md) | Proba pluie de la semaine = proba officielle MF calibrée (signal autonome) ; remplace la maison IFS-ENS | Accepté · amende [0014](0014-prevision-officielle-mf-veille.md) / [0015](0015-fusion-app2-dans-mail-veille.md) (canal proba) |
 
 ## Convention
 

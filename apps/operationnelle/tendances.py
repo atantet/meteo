@@ -7,7 +7,9 @@ de tendance :
 - ``t_mean`` et ``t_extreme`` (T_max pour la fenêtre « jour », T_min pour
   la fenêtre « nuit »)
 - ``pluie_mm`` (cumul de la fenêtre)
-- ``prob_pluie_pct`` (max de la fenêtre)
+- ``prob_pluie_pct`` (proba pluie de la fenêtre — **signal indépendant des
+  modèles** injecté par l'appelant via ``proba_par_fenetre``, cf.
+  ``proba_max_par_fenetre`` ; le df modèle ne la porte pas)
 - ``vent_moy_kmh`` (moyenne sur la fenêtre, conversion m/s → km/h)
 - ``rafales_max_kmh`` (max de la fenêtre)
 - ``direction_cardinal`` (vecteur moyen pondéré vitesse, en secteur 8)
@@ -143,6 +145,7 @@ def _agreger_cellule(
     group: pd.DataFrame,
     fenetre: str,
     etp_fenetre: pd.Series | None = None,
+    prob_pluie_pct: float = float("nan"),
 ) -> CelluleFenetre:
     """Agrège un sous-DataFrame horaire (déjà filtré sur une fenêtre).
 
@@ -150,6 +153,10 @@ def _agreger_cellule(
     (+ 273.15 à l'ingestion), mais l'utilisateur lit des °C.
     ``etp_fenetre`` est une série ETP horaire (mm/h) déjà filtrée sur
     la même fenêtre ; sa somme donne l'ETP cumulée de la fenêtre.
+    ``prob_pluie_pct`` est la proba pluie de la fenêtre — un **signal
+    indépendant des modèles** (proba officielle MF), fourni par
+    l'appelant, et **non** agrégé depuis une colonne du df (le df ne porte
+    que des champs modèle).
     """
     t_k = group.get("temperature_2m")
     t_c = (t_k - KELVIN_VERS_CELSIUS) if t_k is not None else None
@@ -162,8 +169,6 @@ def _agreger_cellule(
     pluie_mm = (
         float(group["precipitation"].sum()) if "precipitation" in group.columns else float("nan")
     )
-    prob = group.get("probabilite_pluie_pct")
-    prob_max = float(prob.max()) if prob is not None and not prob.dropna().empty else float("nan")
 
     vent_ms = group.get("vitesse_vent_10m")
     vent_moy_kmh = (
@@ -196,7 +201,7 @@ def _agreger_cellule(
         t_mean=t_mean,
         t_extreme=t_extreme,
         pluie_mm=pluie_mm,
-        prob_pluie_pct=prob_max,
+        prob_pluie_pct=prob_pluie_pct,
         vent_moy_kmh=vent_moy_kmh,
         rafales_max_kmh=rafales_max_kmh,
         direction_cardinal=_direction_cardinal(direction_deg),
@@ -211,6 +216,7 @@ def agreger_par_fenetre(
     tz_locale: str = "Europe/Paris",
     horizon_jours: int | None = None,
     etp_horaire: pd.Series | None = None,
+    proba_par_fenetre: dict[tuple[pd.Timestamp, str], float] | None = None,
 ) -> dict[tuple[pd.Timestamp, str], CelluleFenetre]:
     """Agrège la prévision horaire en cellules (date locale, fenêtre).
 
@@ -227,6 +233,12 @@ def agreger_par_fenetre(
         Série ETP horaire (mm/h) socle FAO calculée en amont, indexée
         tz-aware UTC. Si fournie, chaque cellule porte la somme ETP de
         sa fenêtre ; sinon `etp_mm` reste à NaN.
+    proba_par_fenetre :
+        Proba pluie (%) par clé ``(jour_local_minuit, fenetre)`` — un
+        **signal indépendant des modèles** (proba officielle MF, cf.
+        ``proba_max_par_fenetre``). Chaque cellule prend la valeur de sa
+        clé ; absente → NaN. Le df ``horaire`` ne porte **pas** la proba
+        (uniquement des champs modèle).
 
     Returns
     -------
@@ -272,6 +284,49 @@ def agreger_par_fenetre(
             if etp_loc is not None:
                 masque_etp = _masque_fenetre(etp_loc.index, jour, fenetre)
                 etp_fenetre = etp_loc.loc[masque_etp]
-            cellules[(jour, fenetre)] = _agreger_cellule(df.loc[masque], fenetre, etp_fenetre)
+            prob = (
+                proba_par_fenetre.get((jour, fenetre), float("nan"))
+                if proba_par_fenetre is not None
+                else float("nan")
+            )
+            cellules[(jour, fenetre)] = _agreger_cellule(df.loc[masque], fenetre, etp_fenetre, prob)
 
     return cellules
+
+
+def proba_max_par_fenetre(
+    proba_bins: pd.Series | None,
+    tz_locale: str = "Europe/Paris",
+    horizon_jours: int | None = None,
+) -> dict[tuple[pd.Timestamp, str], float]:
+    """Proba pluie **max** par fenêtre (jour/nuit), depuis des bins MF.
+
+    ``proba_bins`` : série indexée tz-aware UTC sur le **début de chaque bin**
+    de la proba officielle MF (3 h près de l'échéance, puis 6 h ; bins alignés
+    minuit UTC), valeur = proba pluie (%). C'est un **signal indépendant des
+    modèles** : on l'agrège ici par la **même** logique de fenêtre que
+    ``agreger_par_fenetre`` (``_masque_fenetre``), puis l'appelant l'injecte
+    dans les cellules via ``proba_par_fenetre``.
+
+    Les bins (≤ 6 h, alignés minuit) tombent **entièrement** dans une fenêtre
+    de 12 h (Jour [06, 18) / Nuit [18, 06) en UTC) → la proba de la fenêtre est
+    le ``max`` des bins qu'elle contient (cf. ECMWF FUG ; aucune granularité
+    horaire n'est nécessaire, le ``max`` est invariant par densification).
+
+    Renvoie ``{(jour_local_minuit, fenetre): proba_pct}``. Bins vides → ``{}``.
+    """
+    if proba_bins is None or proba_bins.dropna().empty:
+        return {}
+    s = pd.to_numeric(proba_bins, errors="coerce").dropna()
+    s.index = pd.DatetimeIndex(s.index).tz_convert(tz_locale)
+    jours = pd.DatetimeIndex(s.index).normalize().unique().sort_values()
+    if horizon_jours is not None:
+        jours = jours[:horizon_jours]
+    out: dict[tuple[pd.Timestamp, str], float] = {}
+    for jour in jours:
+        for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
+            masque = _masque_fenetre(s.index, jour, fenetre)
+            vals = s.loc[masque]
+            if not vals.empty:
+                out[(jour, fenetre)] = float(vals.max())
+    return out

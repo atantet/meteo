@@ -16,7 +16,9 @@ de l'ancien dashboard Streamlit (App 2 Opérationnelle), désormais dissous :
 - **Cartes ARPEGE-Europe** J+3/J+4 : récupérées ici mais **rendues avec le bloc
   synoptique 48 h** (Met Office + AROME + ARPEGE en une seule série), cf.
   ``apps.veille.email``.
-- **Sources** : modèles, runs servis, proba d'ensemble, ETP socle (pied de mail).
+- **Proba pluie** : proba officielle MF calibrée (signal autonome, ni ARPEGE ni
+  ECMWF), affichée en tête de cellule ; déjà récupérée par App 1.
+- **Sources** : modèles, runs servis, proba MF, ETP socle (pied de mail).
 
 Conventions (cf. mémoire ``feedback_libelle_utc`` / ``runs_deterministes_utc``) :
 la partie 48 h reste en **heure locale** ; la partie semaine reste en **UTC**
@@ -63,6 +65,7 @@ from apps.operationnelle.tendances import (
     FENETRE_NUIT,
     CelluleFenetre,
     agreger_par_fenetre,
+    proba_max_par_fenetre,
 )
 from apps.shared.dates_fr import JOURS_FR
 from apps.shared.pictograms import icone_base64, libelle
@@ -160,8 +163,9 @@ def _fmt_ciel(cellule: CelluleFenetre, fenetre: str) -> str:
     """Cellule ciel : **proba | picto ciel | flèche ETP** (picto ciel centré).
 
     Le picto ciel (icône yr dérivée d'ARPEGE : octas + pluie) est au centre ; la
-    proba (ECMWF) est à gauche, la flèche ETP à droite — slots latéraux de largeur
-    égale pour que le ciel reste aligné entre les lignes ARPEGE et ECMWF.
+    proba (MF officielle, signal autonome) est à gauche, la flèche ETP à droite —
+    slots latéraux de largeur égale pour que le ciel reste aligné entre les
+    lignes ARPEGE et ECMWF.
     """
     code = _code_wmo(cellule.nebulosite_pct, cellule.pluie_mm)
     if code is None:
@@ -262,7 +266,7 @@ def _etp_arrow_html(etp: float) -> str:
 
 
 # (libellé de ligne, formatteur). Le picto « Ciel » (dérivé d'ARPEGE) absorbe
-# nébulosité + pluie, avec la proba (ECMWF) à gauche et la flèche ETP à droite.
+# nébulosité + pluie, avec la proba (MF officielle) à gauche et la flèche ETP à droite.
 _LIGNES_TENDANCE = (
     ("Ciel", _fmt_ciel),
     ("T° moy/extr", _fmt_t),
@@ -395,7 +399,8 @@ def _legende_tendance() -> str:
         "<strong>Picto ciel</strong> — ciel : "
         f"{ic(0)} clair · {ic(2)} nuageux · {ic(3)} couvert ; pluie : "
         f"{ic(61)} 1-5 · {ic(63)} 5-20 · {ic(65)} &gt; 20 mm/12 h.<br>"
-        "À gauche du picto : <strong>proba</strong> pluie (%, ECMWF). "
+        "À gauche du picto : <strong>proba</strong> pluie (%, MF officielle — "
+        "indépendante des modèles ci-dessus, en tête de cellule). "
         "À droite, <strong>ETP</strong> : "
         '<span style="color:#bbb;">~</span> &lt; 1 mm · '
         f"{fl('#E6B800', 1)} 1-2 · {fl('#E67E00', 2)} 2-3 · {fl('#D11500', 3)} &gt; 3 mm.</div>"
@@ -555,8 +560,8 @@ def bloc_sources_semaine(
         f"(0-{horizon_court} j), guides + tendance · run {_run(run_arpege)}.",
         f"<strong>ECMWF IFS</strong> ~9 km — tendance longue (0-{horizon_long} j) "
         f"· run {_run(run_ecmwf)}.",
-        "<strong>Proba pluie</strong> : % de membres ECMWF IFS-ENS au cumul ≥ 1 mm/6 h "
-        "(dernier run d'ensemble).",
+        "<strong>Proba pluie</strong> : prévision officielle Météo-France calibrée "
+        "(fenêtres 3 h/6 h), indépendante des deux modèles ci-dessus.",
         "<strong>ETP</strong> : socle FAO Penman-Monteith (pas le champ du fournisseur).",
         "Single Runs Open-Meteo, runs explicites, raisonnement tout-UTC.",
     ]
@@ -661,6 +666,7 @@ def executer_semaine(
     atelier_url: str = "",
     rappel: bool = False,
     source_arpege_mf: Any = None,
+    proba_mf: pd.Series | None = None,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -697,6 +703,11 @@ def executer_semaine(
         ``True`` pour le mail d'après-midi : la semaine est identique à celle du
         matin (même run 00Z) → on l'étiquette « pour rappel » (pas une nouvelle
         actualisation ; la tendance est mise à jour une fois par jour).
+    proba_mf :
+        Proba pluie (%) **officielle MF calibrée** par bin (début UTC → %),
+        ``PrevisionMF.proba_bins`` récupérée par App 1. Signal autonome (ni
+        ARPEGE ni ECMWF), agrégé par fenêtre 12 h et affiché en tête de cellule.
+        ``None`` (ou vide, ex. repli ARPEGE) → pas de proba (dégradation gracieuse).
     """
     anomalies: list[Anomalie] = []
     try:
@@ -781,15 +792,14 @@ def executer_semaine(
                 "anomalies": anomalies,
             }
 
-        # Proba d'ensemble ECMWF IFS-ENS (si ECMWF dispo ; dégradation gracieuse).
-        if ecmwf_ok:
-            try:
-                proba = source.obtenir_proba_ensemble(lat, lon, horizon_long, past_days=0)
-                if proba is not None:
-                    df_ecmwf = df_ecmwf.copy()
-                    df_ecmwf["probabilite_pluie_pct"] = proba.reindex(df_ecmwf.index)
-            except requests.RequestException as e:
-                logger.warning("Semaine : proba d'ensemble indisponible (omise) : %s", e)
+        # Proba pluie : **proba officielle MF calibrée** (signal autonome, ni
+        # ARPEGE ni ECMWF — cf. probability_forecast, ~J+10), déjà récupérée par
+        # App 1 et passée via ``proba_mf`` (bins UTC → %). Agrégée par fenêtre
+        # 12 h (max), puis injectée sur la **ligne du haut** de chaque cellule :
+        # ARPEGE quand il couvre le jour (J0-J4), sinon ECMWF (J5-J10). Ainsi la
+        # proba s'affiche une seule fois par cellule et se lit comme la proba de
+        # la période, pas celle d'un modèle. Absente (repli) → pas de proba.
+        proba_fenetre = proba_max_par_fenetre(proba_mf, "UTC", horizon_long)
 
         # Agrégations tendance — dict vide pour un modèle absent (bloc_tendance
         # gère nativement un modèle manquant : cellules de l'autre modèle seul).
@@ -797,11 +807,14 @@ def executer_semaine(
         agg_ecmwf: dict[tuple[pd.Timestamp, str], CelluleFenetre] = {}
         if arpege_ok:
             agg_arpege = agreger_par_fenetre(
-                df_arpege, "UTC", horizon_long, etp_horaire_socle(df_arpege, site)
+                df_arpege, "UTC", horizon_long, etp_horaire_socle(df_arpege, site), proba_fenetre
             )
         if ecmwf_ok:
+            # ECMWF ne porte la proba que sur les fenêtres non couvertes par
+            # ARPEGE (au-delà de J+4) → une seule proba par cellule, en tête.
+            proba_ecmwf = {k: v for k, v in proba_fenetre.items() if k not in agg_arpege}
             agg_ecmwf = agreger_par_fenetre(
-                df_ecmwf, "UTC", horizon_long, etp_horaire_socle(df_ecmwf, site)
+                df_ecmwf, "UTC", horizon_long, etp_horaire_socle(df_ecmwf, site), proba_ecmwf
             )
 
         # Guides : indicateurs quotidiens depuis J+0 00Z, sur horizon_court jours
