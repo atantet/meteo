@@ -95,11 +95,24 @@ class _StubArpegeMfDirect:
         )
 
 
+class _StubArpegeMfMuet:
+    """Stub MeteoFranceArpege indisponible → cascade ECMWF (flag MF direct ON)."""
+
+    def obtenir_run(self, *args, **kwargs):
+        from meteo_socle.sources.meteofrance_arpege import ArpegeIndisponibleError
+
+        raise ArpegeIndisponibleError("stub muet")
+
+
 def _config_op() -> dict:
     import yaml
 
     with open(REPO_ROOT / "config" / "operationnelle.yaml") as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    # Tests de la voie Open-Meteo (source injectée) : on neutralise le flag MF direct
+    # (activé dans la config prod). Le test dédié MF le repasse à True + injecte un stub.
+    cfg["source_meteo"]["arpege_mf_direct"] = False
+    return cfg
 
 
 def test_executer_semaine_produit_les_blocs_attendus() -> None:
@@ -227,6 +240,7 @@ def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
         preview_path=out,
         semaine_source=_StubSingleRuns(),
         fetch_cartes_semaine=False,
+        source_arpege_mf=_StubArpegeMfDirect(),  # flag MF direct ON en config prod
     )
     assert code == 0
     html = out.read_text(encoding="utf-8")
@@ -292,6 +306,7 @@ def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
         preview_path=out,
         semaine_source=_StubSingleRuns(),
         fetch_cartes_semaine=False,
+        source_arpege_mf=_StubArpegeMfDirect(),
     )
     assert code == 0
     html = out.read_text(encoding="utf-8")
@@ -345,7 +360,8 @@ def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> Non
         source=mock_mf,
         now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
         preview_path=out,
-        semaine_source=_StubArpegeMuet(),
+        semaine_source=_StubSingleRuns(),  # ECMWF dispo
+        source_arpege_mf=_StubArpegeMfMuet(),  # ARPEGE direct muet → cascade ECMWF
         fetch_cartes_semaine=False,
     )
     assert code == 0

@@ -22,8 +22,9 @@ permissions:
 jobs:
   veille:
     runs-on: ubuntu-latest
-    # Marge pour les re-runs MF (2 × ~1 min + 120 s) avant repli ARPEGE.
-    timeout-minutes: 15
+    # Marge pour les re-runs MF (2 × ~1 min + 120 s) + le fetch ARPEGE direct du
+    # matin (~10 min, ~500 requêtes WCS cadencées ; l'après-midi sert du cache).
+    timeout-minutes: 30
     # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless
     # à l'import de pyplot (charts.py) dans le pipeline du mail.
     env:
@@ -51,6 +52,18 @@ jobs:
         run: |
           python --version
           python -c "import pandas, requests, yaml, dotenv; print('deps OK')"
+
+      # Cache du run ARPEGE direct partagé entre les 2 envois du jour (matin/après-midi)
+      # : le matin fetch+écrit, l'après-midi sert du cache (clé = jour UTC) → pas de
+      # second ~500 requêtes WCS. Sans effet si arpege_mf_direct=false.
+      - name: Jour UTC (clé de cache)
+        id: jour
+        run: echo "val=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - name: Cache ARPEGE direct
+        uses: actions/cache@v4
+        with:
+          path: .cache/arpege
+          key: arpege-${{ steps.jour.outputs.val }}
 
       - name: Exécuter la veille
         env:

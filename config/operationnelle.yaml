@@ -35,8 +35,9 @@ source_meteo:
   # `true` = MF Données Publiques en direct (WCS, contourne les trous d'ingestion
   # Open-Meteo) : ~500 requêtes cadencées ~10 min + cache de run ; nécessite le
   # secret METEOFRANCE_DP_BASIC et persister le cache entre les 2 jobs (actions/cache).
-  # ECMWF (tendance longue) reste sur Open-Meteo. À activer après validation.
-  arpege_mf_direct: false
+  # ECMWF (tendance longue) reste sur Open-Meteo. Activé 2026-06-12 après validation
+  # semaine complète (déficit 4 j MF −21,2 vs OM −21,4 mm ; guides actifs identiques).
+  arpege_mf_direct: true
   arpege_cache_dir: .cache/arpege
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
