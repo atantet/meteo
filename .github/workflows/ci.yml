@@ -21,6 +21,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Backend matplotlib non-interactif : l'env contient PySide6, dont le backend
+    # qtagg bloque à l'import de pyplot en runner headless (→ hang jusqu'au timeout).
+    env:
+      MPLBACKEND: Agg
     defaults:
       run:
         shell: bash -el {0}

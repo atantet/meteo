@@ -39,6 +39,9 @@ jobs:
   render-and-publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless.
+    env:
+      MPLBACKEND: Agg
     defaults:
       run:
         shell: bash -el {0}
