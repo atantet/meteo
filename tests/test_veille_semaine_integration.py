@@ -73,6 +73,28 @@ class _StubTousMuets:
         return None
 
 
+class _StubArpegeMfDirect:
+    """Stub MeteoFranceArpege : df horaire en unités socle (rayonnement_global J/m²/h)."""
+
+    def obtenir_run(self, run_utc, latitude, longitude, horizon_jours, cache_dir=None):
+        idx = pd.date_range(run_utc, periods=horizon_jours * 24 + 1, freq="h", tz="UTC")
+        n = len(idx)
+        cycle = np.sin(np.linspace(0, 2 * np.pi * horizon_jours, n))
+        return pd.DataFrame(
+            {
+                "temperature_2m": 15.0 + 4.0 * cycle + 273.15,  # K
+                "humidite_relative": np.full(n, 0.7),  # fraction
+                "precipitation": np.full(n, 0.1),  # mm
+                "rafales_vent_10m": np.full(n, 8.0),  # m/s
+                "cloud_cover": np.full(n, 0.5),  # fraction
+                "rayonnement_global": np.maximum(0.0, 2.0e6 * cycle),  # J/m²/h
+                "vitesse_vent_10m": np.full(n, 4.0),  # m/s
+                "direction_vent_deg": np.full(n, 230.0),
+            },
+            index=idx,
+        )
+
+
 def _config_op() -> dict:
     import yaml
 
@@ -125,6 +147,27 @@ def test_executer_semaine_fallback_arpege_vers_ecmwf() -> None:
     assert "rapport de bug" in html.lower()
     assert "Guides de décision de la semaine" in html
     assert "Tendance jusqu'à" in html
+
+
+def test_executer_semaine_arpege_mf_direct() -> None:
+    """Flag arpege_mf_direct → ARPEGE via la source MF ; semaine composée, sans anomalie."""
+    from apps.veille.semaine import executer_semaine
+
+    cfg = _config_op()
+    cfg["source_meteo"]["arpege_mf_direct"] = True
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(
+        cfg,
+        now,
+        source=_StubSingleRuns(),  # ECMWF (tendance longue)
+        fetch_cartes=False,
+        source_arpege_mf=_StubArpegeMfDirect(),  # ARPEGE direct MF
+    )
+    assert res is not None
+    html = res["guides_tendance_html"]
+    assert "La semaine" in html
+    assert "Guides de décision de la semaine" in html
+    assert not any("ARPEGE indisponible" in a.resume for a in res["anomalies"])
 
 
 def test_executer_semaine_bandeau_si_double_coupure() -> None:

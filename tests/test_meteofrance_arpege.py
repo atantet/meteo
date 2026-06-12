@@ -17,6 +17,7 @@ from meteo_socle.sources.meteofrance_arpege import (
     _convertir,
     _coverage_run,
     _LimiteurDebit,
+    _reechantillonner_horaire,
     _suffixe_accum,
     vent_vitesse_direction,
 )
@@ -46,8 +47,9 @@ def test_vent_vectorise() -> None:
 
 def test_convertir_unites() -> None:
     assert _convertir(88.0, "pct_frac") == pytest.approx(0.88)  # % → fraction
-    assert _convertir(3600.0, "Wm2", fenetre_s=3600.0) == pytest.approx(1.0)  # J/m²/1h → W/m²
-    assert _convertir(10800.0, "Wm2", fenetre_s=10800.0) == pytest.approx(1.0)  # J/m²/3h
+    # J/m² accumulés sur la fenêtre → J/m²/h (socle) : même flux quel que soit le pas.
+    assert _convertir(3600.0, "J_par_h", fenetre_s=3600.0) == pytest.approx(3600.0)  # 1 h
+    assert _convertir(10800.0, "J_par_h", fenetre_s=10800.0) == pytest.approx(3600.0)  # 3 h → E/3
     assert _convertir(288.15, "K") == pytest.approx(288.15)  # passthrough
 
 
@@ -68,6 +70,28 @@ def test_limiteur_debit_laisse_passer_la_capacite() -> None:
     assert len(lim._instants) == 3
 
 
+def test_reechantillonnage_horaire_repartit_les_accumulees() -> None:
+    """Pas mixte (horaire puis 3-horaire) → horaire ; cumul pluie conservé, flux répété."""
+    run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
+    h = lambda n: run + pd.Timedelta(hours=n)  # noqa: E731
+    df = pd.DataFrame(
+        {
+            "temperature_2m": [288.0, 288.0, 288.0, 291.0],
+            "precipitation": [0.0, 0.5, 0.5, 3.0],  # +5 h = cumul de la fenêtre 3 h
+            "rayonnement_global": [0.0, 100.0, 200.0, 300.0],  # déjà J/m²/h (par heure)
+        },
+        index=pd.DatetimeIndex([h(0), h(1), h(2), h(5)], name="time"),
+    )
+    out = _reechantillonner_horaire(df, run)
+    assert list(out.index) == [h(n) for n in range(6)]  # 0..5 h, horaire
+    assert out["precipitation"].sum() == pytest.approx(4.0)  # cumul conservé
+    # Fenêtre 3 h (heures 3,4,5) : pluie répartie /3, rayonnement (J/m²/h) répété.
+    assert out["precipitation"].loc[[h(3), h(4), h(5)]].tolist() == pytest.approx([1.0, 1.0, 1.0])
+    assert out["rayonnement_global"].loc[[h(3), h(4), h(5)]].tolist() == pytest.approx(
+        [300.0, 300.0, 300.0]
+    )
+
+
 def test_cache_hit_evite_le_reseau(tmp_path: Path) -> None:
     """Run en cache → obtenir_run le renvoie sans réseau (pas d'OAuth déclenché)."""
     run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
@@ -76,7 +100,7 @@ def test_cache_hit_evite_le_reseau(tmp_path: Path) -> None:
         {"temperature_2m": [288.0, 289.0]},
         index=pd.DatetimeIndex([run, run + pd.Timedelta(hours=1)], name="time"),
     )
-    chemin = tmp_path / f"arpege_{run:%Y%m%dT%HZ}_{lat:.3f}_{lon:.3f}.parquet"
+    chemin = tmp_path / f"arpege_{run:%Y%m%dT%HZ}_{lat:.3f}_{lon:.3f}_h4.parquet"
     attendu.to_parquet(chemin)
     # basic bidon : si le réseau était touché (OAuth), ça lèverait → le cache l'évite.
     src = MeteoFranceArpege(basic="bidon")

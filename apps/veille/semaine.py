@@ -660,6 +660,7 @@ def executer_semaine(
     fetch_cartes: bool = True,
     atelier_url: str = "",
     rappel: bool = False,
+    source_arpege_mf: Any = None,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -720,9 +721,27 @@ def executer_semaine(
         run_arpege = runs[ARPEGE]
         run_ecmwf = runs[ECMWF_HRES]
 
-        df_arpege = source.obtenir_run(
-            ARPEGE, run_arpege, lat, lon, horizon_court, VARS_MONO_MODELE
-        )
+        # ARPEGE : Open-Meteo (défaut) ou MF Données Publiques en direct (flag).
+        # En MF direct, l'indisponibilité retombe sur la cascade (df_arpege=None →
+        # repli ECMWF), comme un run muet. ECMWF reste sur Open-Meteo.
+        if sm.get("arpege_mf_direct", False):
+            from meteo_socle.sources.meteofrance_arpege import (
+                ArpegeIndisponibleError,
+                MeteoFranceArpege,
+            )
+
+            src_mf = source_arpege_mf or MeteoFranceArpege()
+            try:
+                df_arpege = src_mf.obtenir_run(
+                    run_arpege, lat, lon, horizon_court, cache_dir=sm.get("arpege_cache_dir")
+                )
+            except ArpegeIndisponibleError as e:
+                logger.warning("Semaine : ARPEGE direct MF indisponible (%s) → cascade.", e)
+                df_arpege = None
+        else:
+            df_arpege = source.obtenir_run(
+                ARPEGE, run_arpege, lat, lon, horizon_court, VARS_MONO_MODELE
+            )
         df_ecmwf = source.obtenir_run(ECMWF, run_ecmwf, lat, lon, horizon_long, VARS_MONO_MODELE)
         arpege_ok = df_arpege is not None and not df_arpege.empty
         ecmwf_ok = df_ecmwf is not None and not df_ecmwf.empty
