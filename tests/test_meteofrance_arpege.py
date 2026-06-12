@@ -7,10 +7,13 @@ conventions d'unités et la direction du vent, sources classiques de bugs.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from meteo_socle.sources.meteofrance_arpege import (
+    MeteoFranceArpege,
     _convertir,
     _coverage_run,
     _LimiteurDebit,
@@ -63,3 +66,19 @@ def test_limiteur_debit_laisse_passer_la_capacite() -> None:
     for _ in range(3):
         lim.acquerir()  # ne doit pas bloquer sous la capacité
     assert len(lim._instants) == 3
+
+
+def test_cache_hit_evite_le_reseau(tmp_path: Path) -> None:
+    """Run en cache → obtenir_run le renvoie sans réseau (pas d'OAuth déclenché)."""
+    run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
+    lat, lon = 48.544, -1.612
+    attendu = pd.DataFrame(
+        {"temperature_2m": [288.0, 289.0]},
+        index=pd.DatetimeIndex([run, run + pd.Timedelta(hours=1)], name="time"),
+    )
+    chemin = tmp_path / f"arpege_{run:%Y%m%dT%HZ}_{lat:.3f}_{lon:.3f}.parquet"
+    attendu.to_parquet(chemin)
+    # basic bidon : si le réseau était touché (OAuth), ça lèverait → le cache l'évite.
+    src = MeteoFranceArpege(basic="bidon")
+    out = src.obtenir_run(run, lat, lon, horizon_jours=4, cache_dir=tmp_path)
+    pd.testing.assert_frame_equal(out, attendu)
