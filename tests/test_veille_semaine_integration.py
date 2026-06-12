@@ -48,9 +48,6 @@ class _StubSingleRuns:
             index=idx,
         )
 
-    def obtenir_proba_ensemble(self, latitude, longitude, horizon_jours, past_days=0):
-        return None  # proba omise (dégradation gracieuse testée par ailleurs)
-
 
 class _StubArpegeMuet(_StubSingleRuns):
     """ARPEGE indisponible (run non publié → None), ECMWF normal."""
@@ -67,9 +64,6 @@ class _StubTousMuets:
     """Aucun modèle disponible (double coupure Open-Meteo)."""
 
     def obtenir_run(self, *args, **kwargs):
-        return None
-
-    def obtenir_proba_ensemble(self, *args, **kwargs):
         return None
 
 
@@ -131,6 +125,45 @@ def test_executer_semaine_produit_les_blocs_attendus() -> None:
     assert res["cartes_geo"] is None
     assert "Sources" in res["sources_html"]
     assert "GUIDES DE DÉCISION" in res["texte"]
+
+
+def test_executer_semaine_proba_mf_autonome() -> None:
+    """La proba MF (signal autonome) est agrégée par fenêtre et affichée."""
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    # Bins 6 h UTC sur 10 j, valeur distinctive 70 %.
+    bins = pd.Series(
+        70.0,
+        index=pd.date_range("2026-06-15 00:00", periods=10 * 4, freq="6h", tz="UTC"),
+    )
+    res = executer_semaine(
+        _config_op(), now, source=_StubSingleRuns(), fetch_cartes=False, proba_mf=bins
+    )
+    assert res is not None
+    assert "70%" in res["guides_tendance_html"]
+    # Légende relabellée (plus « ECMWF » pour la proba).
+    assert "MF officielle" in res["guides_tendance_html"]
+
+
+def test_executer_semaine_sans_proba_mf_cellules_vides() -> None:
+    """proba_mf absente (repli) → cellules sans proba (dégradation gracieuse).
+
+    La légende contient « % » (« proba pluie (%…) ») : on cible donc la
+    **cellule proba** (slot ``font-size:10px`` à gauche du picto), qui doit
+    être vide — pas un « NN% ».
+    """
+    import re
+
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(
+        _config_op(), now, source=_StubSingleRuns(), fetch_cartes=False, proba_mf=None
+    )
+    assert res is not None
+    cellule_proba_remplie = re.compile(r"font-size:10px;[^>]*>\s*\d+%\s*</td>")
+    assert not cellule_proba_remplie.search(res["guides_tendance_html"])
 
 
 def test_executer_semaine_tendance_demarre_aujourdhui() -> None:
@@ -213,10 +246,15 @@ def _prevision_mf_synthetique():
         },
         index=idx,
     )
+    # Proba MF par bin (6 h UTC) sur 10 j, valeur distinctive 60 % → doit
+    # remonter dans la section semaine (signal autonome, en tête de cellule).
+    bins_idx = pd.date_range("2026-06-15 00:00", periods=10 * 4, freq="6h", tz="UTC")
+    proba_bins = pd.Series(60.0, index=bins_idx, name="probabilite_pluie_pct")
     return PrevisionMF(
         df=df,
         updated_on=pd.Timestamp("2026-06-15 05:30", tz="UTC"),
         position={"name": "Sains", "timezone": "Europe/Paris"},
+        proba_bins=proba_bins,
     )
 
 
@@ -259,6 +297,9 @@ def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
     # Localisation : lieu général dans le titre, point de grille MF en sous-section.
     assert "Pleine-Fougères" in html
     assert "point le plus proche : Sains" in html
+    # Proba MF autonome (60 % dans la prévi synthétique) remontée dans la semaine.
+    assert "60%" in html[i_sem:i_seuils]
+    assert "MF officielle" in html  # légende proba relabellée
 
 
 def test_regroupement_cartes_synoptiques() -> None:

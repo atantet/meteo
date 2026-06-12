@@ -142,17 +142,21 @@ class PrevisionMF:
     df: pd.DataFrame  # index UTC tz-aware, colonnes socle
     updated_on: pd.Timestamp  # UTC tz-aware : fraîcheur officielle
     position: dict[str, Any]  # name, lat, lon, alti, timezone…
+    # Proba pluie (%) calibrée MF par bin (début UTC → %), couvre ~J+10. Signal
+    # autonome (ni ARPEGE ni ECMWF) consommé par la semaine. Vide en repli ARPEGE.
+    proba_bins: pd.Series = field(
+        default_factory=lambda: pd.Series(dtype="float64", name="probabilite_pluie_pct")
+    )
 
 
-def _serie_proba(prob_entries: list[dict], index: pd.Index) -> pd.Series:
-    """Proba de pluie (%) MF diffusée sur la grille horaire ``index``.
+def _proba_bins_mf(prob_entries: list[dict]) -> list[tuple[pd.Timestamp, int, float]]:
+    """``(début_utc, pas_h, valeur%)`` pour chaque fenêtre ``probability_forecast``.
 
-    Chaque entrée ``probability_forecast`` porte ``dt`` (début de fenêtre) et
-    ``rain`` = {``"3h"``, ``"6h"``} en %. On remplit chaque heure de la fenêtre
-    ([dt ; dt+pas[) avec la valeur ; pas = 3 h si la clé 3 h est présente, sinon
-    6 h. L'affichage agrège ensuite par ``max`` sur sa période (ADR-0014).
+    Chaque entrée porte ``dt`` (début de fenêtre) et ``rain`` = {``"3h"``,
+    ``"6h"``} en %. Pas = 3 h si la clé 3 h est présente, sinon 6 h. Les bins
+    sont alignés minuit UTC (3 h près de l'échéance, puis 6 h jusqu'à ~J+10).
     """
-    par_heure: dict[pd.Timestamp, float] = {}
+    bins: list[tuple[pd.Timestamp, int, float]] = []
     for e in prob_entries:
         rain = e.get("rain") or {}
         val = rain.get("3h")
@@ -162,13 +166,43 @@ def _serie_proba(prob_entries: list[dict], index: pd.Index) -> pd.Series:
             pas = 6
         if val is None:
             continue
-        debut = pd.Timestamp(e["dt"], unit="s", tz="UTC")
+        bins.append((pd.Timestamp(e["dt"], unit="s", tz="UTC"), pas, float(val)))
+    return bins
+
+
+def _serie_proba(prob_entries: list[dict], index: pd.Index) -> pd.Series:
+    """Proba de pluie (%) MF diffusée sur la grille horaire ``index`` (App 1).
+
+    Remplit chaque heure de la fenêtre ([dt ; dt+pas[) avec la valeur, puis
+    reindexe sur ``index``. L'affichage agrège par ``max`` sur sa période
+    (ADR-0014). Pour la **semaine** (proba par fenêtre 12 h, signal autonome),
+    voir ``_serie_proba_bins`` + ``proba_max_par_fenetre``.
+    """
+    par_heure: dict[pd.Timestamp, float] = {}
+    for debut, pas, val in _proba_bins_mf(prob_entries):
         for k in range(pas):
-            par_heure[debut + pd.Timedelta(hours=k)] = float(val)
+            par_heure[debut + pd.Timedelta(hours=k)] = val
     if not par_heure:
         return pd.Series(index=index, dtype="float64", name="probabilite_pluie_pct")
     s = pd.Series(par_heure, name="probabilite_pluie_pct").sort_index()
     return s.reindex(index)
+
+
+def _serie_proba_bins(prob_entries: list[dict]) -> pd.Series:
+    """Proba pluie (%) MF par **bin**, indexée sur le début de bin (UTC).
+
+    Une valeur par fenêtre ``probability_forecast`` (pas de densification
+    horaire : inutile, le ``max`` par fenêtre 12 h est invariant — cf.
+    ``proba_max_par_fenetre``). Couvre tout l'horizon officiel (~J+10).
+    """
+    bins = _proba_bins_mf(prob_entries)
+    if not bins:
+        return pd.Series(dtype="float64", name="probabilite_pluie_pct")
+    s = pd.Series(
+        {debut: val for debut, _pas, val in bins}, name="probabilite_pluie_pct"
+    ).sort_index()
+    s.index = pd.DatetimeIndex(s.index)
+    return s
 
 
 @dataclass
@@ -270,10 +304,15 @@ class MeteoFranceOfficiel:
         df = pd.DataFrame(lignes).set_index("time").sort_index()
         df["weather_code"] = df["weather_code"].astype("Int64")
 
-        proba = _serie_proba(payload.get("probability_forecast") or [], df.index)
-        df["probabilite_pluie_pct"] = proba
+        prob_entries = payload.get("probability_forecast") or []
+        df["probabilite_pluie_pct"] = _serie_proba(prob_entries, df.index)
 
         upd = payload.get("updated_on")
         updated_on = pd.Timestamp(upd, unit="s", tz="UTC") if upd else pd.Timestamp.now(tz="UTC")
         position = payload.get("position") or {}
-        return PrevisionMF(df=df, updated_on=updated_on, position=position)
+        return PrevisionMF(
+            df=df,
+            updated_on=updated_on,
+            position=position,
+            proba_bins=_serie_proba_bins(prob_entries),
+        )
