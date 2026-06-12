@@ -66,6 +66,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+# Borne chaque test : un hang (backend matplotlib en CI, etc.) échoue vite
+# avec un traceback au point de blocage, au lieu d'expirer tout le job CI
+# (cancel à 15 min, aucun log utile). Méthode signal (SIGALRM) sur Linux.
+timeout = 120
 markers = [
   "golden: characterization tests fixant le comportement migré (cf. ADR-0003)",
 ]
