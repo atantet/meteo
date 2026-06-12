@@ -133,6 +133,7 @@ def executer_veille(
     semaine_source: Any = None,
     fetch_cartes_semaine: bool = True,
     fallback_mf: bool = False,
+    source_arpege_mf: Any = None,
 ) -> int:
     """Exécute le pipeline Veille de bout en bout.
 
@@ -262,6 +263,7 @@ def executer_veille(
                     fetch_cartes=fetch_cartes_semaine,
                     atelier_url=atelier_url,
                     rappel=apres_midi,
+                    source_arpege_mf=source_arpege_mf,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)
