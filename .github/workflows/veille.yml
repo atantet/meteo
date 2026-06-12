@@ -24,6 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     # Marge pour les re-runs MF (2 × ~1 min + 120 s) avant repli ARPEGE.
     timeout-minutes: 15
+    # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless
+    # à l'import de pyplot (charts.py) dans le pipeline du mail.
+    env:
+      MPLBACKEND: Agg
     defaults:
       run:
         # Active l'env conda dans tous les `run:` du job.
