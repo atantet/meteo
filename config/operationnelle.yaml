@@ -31,6 +31,13 @@ source_meteo:
   # (Open-Meteo `ecmwf_ifs025`, ~15 j dispo ; on plafonne à 10).
   horizon_long_jours: 10
   modele_long: ecmwf_ifs025
+  # Source ARPEGE (court terme). `false` = Open-Meteo Single Runs (défaut).
+  # `true` = MF Données Publiques en direct (WCS, contourne les trous d'ingestion
+  # Open-Meteo) : ~500 requêtes cadencées ~10 min + cache de run ; nécessite le
+  # secret METEOFRANCE_DP_BASIC et persister le cache entre les 2 jobs (actions/cache).
+  # ECMWF (tendance longue) reste sur Open-Meteo. À activer après validation.
+  arpege_mf_direct: false
+  arpege_cache_dir: .cache/arpege
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
 #

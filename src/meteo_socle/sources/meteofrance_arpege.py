@@ -13,9 +13,9 @@ qu'une tranche 2D par requête → **une requête par (variable, échéance)** ;
 parallélise.
 
 Sortie : DataFrame en **unités socle** (T en K, HR/nébulosité en fraction 0-1, pluie
-en mm, vent en m/s, rayonnement en W/m², direction en deg), mêmes colonnes que
-``OpenMeteoSingleRuns`` (cf. ``VARS_MONO_MODELE``), pour brancher la section semaine
-sans changer le pipeline.
+en mm, vent en m/s, ``rayonnement_global`` en J/m²/h, direction en deg), mêmes
+conventions que ``OpenMeteoSingleRuns`` (cf. ``appliquer_conventions_socle``), pour
+brancher la section semaine sans changer le pipeline.
 
 Dépendance : ``eccodes`` (binaire C + bindings) — ajouté à ``environment-dev.yml``.
 """
@@ -127,9 +127,13 @@ _VARS_INSTANT: dict[str, tuple[str, int | None, str]] = {
     "_v10": ("V_COMPONENT_OF_WIND__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
 }
 #: Variables accumulées (suffixe _PT{n}H selon le pas) : (préfixe, conversion).
+#: Le rayonnement sort en ``rayonnement_global`` (convention socle, J/m²/h).
 _VARS_ACCUM: dict[str, tuple[str, str]] = {
     "precipitation": ("TOTAL_PRECIPITATION__GROUND_OR_WATER_SURFACE", "mm"),
-    "shortwave_radiation": ("DOWNWARD_SHORT_WAVE_RADIATION_FLUX__GROUND_OR_WATER_SURFACE", "Wm2"),
+    "rayonnement_global": (
+        "DOWNWARD_SHORT_WAVE_RADIATION_FLUX__GROUND_OR_WATER_SURFACE",
+        "J_par_h",
+    ),
 }
 
 
@@ -148,8 +152,8 @@ def _convertir(valeur: float, mode: str, fenetre_s: float = 3600.0) -> float:
     """Convertit la valeur GRIB MF vers la convention socle."""
     if mode == "pct_frac":  # % → fraction 0-1 (HR, nébulosité)
         return valeur / 100.0
-    if mode == "Wm2":  # J/m² accumulés sur la fenêtre → flux moyen W/m²
-        return valeur / fenetre_s
+    if mode == "J_par_h":  # J/m² accumulés sur la fenêtre → J/m²/h (socle)
+        return valeur / (fenetre_s / 3600.0)
     return valeur  # K, m/s, mm : déjà en unités socle
 
 
@@ -246,6 +250,38 @@ def _suffixe_accum(fenetre_s: float) -> str:
     return f"_PT{int(round(fenetre_s / 3600.0))}H"
 
 
+# Colonnes accumulées (réparties sur leur fenêtre lors du rééchantillonnage).
+_COLS_ACCUM_FINALES = ("precipitation", "rayonnement_global")
+
+
+def _reechantillonner_horaire(df: pd.DataFrame, run_utc: pd.Timestamp) -> pd.DataFrame:
+    """Ramène un df d'échéances mixtes (horaire ≤ 48 h puis 3-horaire) au pas horaire.
+
+    ``etp_horaire_socle`` suppose des pas **horaires** : au-delà de 48 h (3-horaire),
+    l'ETP par ligne serait sous-comptée. On interpole les variables instantanées et
+    on répartit les accumulées sur les heures de leur fenêtre : pluie = total/n par
+    heure (conserve le cumul), rayonnement = flux moyen (W/m²) répété sur chaque heure.
+    No-op si le df est déjà horaire.
+    """
+    idx_h = pd.date_range(run_utc, df.index.max(), freq="h")
+    if len(idx_h) == len(df.index):
+        return df
+    out = pd.DataFrame(index=pd.DatetimeIndex(idx_h, name="time"))
+    for c in [c for c in df.columns if c not in _COLS_ACCUM_FINALES]:
+        out[c] = df[c].reindex(out.index).interpolate(method="time")
+    for c in _COLS_ACCUM_FINALES:
+        serie = pd.Series(0.0, index=out.index)
+        prev = run_utc
+        for t in df.index[1:]:
+            heures = out.index[(out.index > prev) & (out.index <= t)]
+            if len(heures):
+                val = float(df.at[t, c])  # type: ignore[arg-type]  # colonne float au runtime
+                serie.loc[heures] = (val / len(heures)) if c == "precipitation" else val
+            prev = t
+        out[c] = serie
+    return out
+
+
 class MeteoFranceArpege:
     """Source ARPEGE directe MF (WCS Données Publiques), au point, en unités socle."""
 
@@ -278,7 +314,7 @@ class MeteoFranceArpege:
         chemin_cache: Path | None = None
         if cache_dir is not None:
             chemin_cache = Path(cache_dir) / (
-                f"arpege_{run_utc:%Y%m%dT%HZ}_{latitude:.3f}_{longitude:.3f}.parquet"
+                f"arpege_{run_utc:%Y%m%dT%HZ}_{latitude:.3f}_{longitude:.3f}_h{horizon_jours}.parquet"
             )
             if chemin_cache.exists():
                 logger.info("ARPEGE direct : run servi depuis le cache (%s).", chemin_cache.name)
@@ -330,6 +366,8 @@ class MeteoFranceArpege:
         # Accumulées : +0 h = 0 (pas de fenêtre).
         for col in _VARS_ACCUM:
             df.loc[echeances[0], col] = 0.0
+        # Pas horaire uniforme (ARPEGE est 3-horaire au-delà de 48 h) → ETP correcte.
+        df = _reechantillonner_horaire(df, run_utc)
         # Vent : vitesse + direction depuis U/V, puis on retire les colonnes brutes.
         df["vitesse_vent_10m"], df["direction_vent_deg"] = vent_vitesse_direction(
             df["_u10"], df["_v10"]
