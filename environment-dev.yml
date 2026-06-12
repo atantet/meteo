@@ -30,6 +30,10 @@ dependencies:
   - matplotlib
   # Outils de dev
   - pytest
+  # Borne chaque test (cf. pyproject [tool.pytest.ini_options] timeout) :
+  # un hang (ex. backend matplotlib en CI) échoue vite avec un traceback
+  # au point de blocage, au lieu de faire expirer tout le job sans log.
+  - pytest-timeout
   - ruff
   - mypy
   - pre-commit
