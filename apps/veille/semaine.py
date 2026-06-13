@@ -280,10 +280,18 @@ def _etp_arrow_html(etp: float) -> str:
         color, n = "#E67E00", 2  # orange
     else:
         color, n = "#D11500", 3  # rouge
+    # Attributs HTML `width` ET `height` (pas seulement le style) — comme la légende
+    # (cf. _legende_tendance.fl, #42). Sans `width`, le client mail qui ignore le
+    # `style` inline contraint l'image à la largeur de la cellule (`<td>` 38 px) en
+    # gardant le ratio → la hauteur varie selon le nombre de flèches (1 jaune paraît
+    # plus grand, 3 rouges plus petit). On épingle 20 px de haut + largeur
+    # proportionnelle (dimensions natives du PNG) → taille de flèche identique ∀ n.
     uri = _fleche_etp_png(color, n)
+    larg_px, haut_px = _png_dimensions(uri)
+    w20 = max(1, round(20 * larg_px / haut_px))
     return (
         f'<img src="{uri}" alt="ETP {etp:.1f} mm" title="ETP {etp:.1f} mm" '
-        'style="height:20px;vertical-align:bottom;">'
+        f'width="{w20}" height="20" style="vertical-align:bottom;">'
     )
 
 

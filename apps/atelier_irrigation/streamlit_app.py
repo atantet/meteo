@@ -38,7 +38,6 @@ from apps.operationnelle.charts import (  # noqa: E402
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
     figure_bilan_sol_complet,
-    figure_bilan_tunnel,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
@@ -67,6 +66,62 @@ def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
     return calcul.charger_coefficients()
 
 
+# Couleurs des séries du panneau flux (cf. figure_bilan_sol_complet → cohérence
+# graphe/synthèse, palette Wong).
+_COULEUR_ETM = "#D55E00"  # vermillon
+_COULEUR_PLUIE = "#56B4E9"  # bleu
+_COULEUR_DEFICIT = "#009E73"  # vert
+_COULEUR_APPORT = "#009E73"  # vert — « Apport irrigation » du panneau réserves
+
+
+def _titre_section(label: str) -> str:
+    """Petit titre centré, souligné (bordure basse) — coiffe un groupe de valeurs."""
+    return (
+        "<div style='text-align:center;font-size:16px;font-weight:600;color:#34495e;"
+        f"border-bottom:1px solid #cfd6dc;padding-bottom:4px;margin:0 0 10px 0;'>{label}</div>"
+    )
+
+
+def _grande_valeur(col, label: str, valeur: str, couleur_label: str) -> None:
+    """Label **coloré** (= couleur du graphe, gros) + valeur en **gros et sombre**.
+
+    La couleur est sur le label (pastille de légende) ; la valeur reste sombre
+    pour rester lisible (un gros chiffre en bleu clair passerait mal sur blanc).
+    """
+    col.markdown(
+        f"<div style='text-align:center;font-size:15px;font-weight:700;"
+        f"color:{couleur_label};line-height:1.25;'>{label}</div>"
+        f"<div style='text-align:center;font-size:30px;font-weight:700;"
+        f"color:#2c3e50;line-height:1.1;'>{valeur}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
+    """Synthèse sous la figure (disposition identique plein champ / sous abri).
+
+    Sous le panneau **flux** (gauche) : les cumuls sur ``n_j`` j en gros, **labels
+    colorés** comme le graphe (ETM vermillon, précipitations bleu, déficit vert).
+    Sous le panneau **réserves + irrigations** (droite) : les déclenchements prévus.
+    """
+    etm_tot = float(bilan[etm_col].sum())
+    pluie_tot = float(bilan["pluie_mm"].sum())
+    deficit_tot = float(bilan["deficit_mm"].sum())
+    # Doses d'irrigation réellement appliquées (jours d'apport) → « X mm + Y mm ».
+    apports = [float(a) for a in bilan["apport_mm"] if float(a) > 0]
+    doses = " + ".join(f"{a:.0f} mm" for a in apports) if apports else "-"
+    col_flux, col_res = st.columns(2)
+    with col_flux:
+        st.markdown(_titre_section(f"Cumuls sur {n_j} j"), unsafe_allow_html=True)
+        m_etm, m_pluie, m_def = st.columns(3)
+        _grande_valeur(m_etm, "ETM culture", f"{etm_tot:.1f} mm", _COULEUR_ETM)
+        _grande_valeur(m_pluie, "Précipitations", f"{pluie_tot:.1f} mm", _COULEUR_PLUIE)
+        _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
+    with col_res:
+        st.markdown(_titre_section(f"Irrigation sur {n_j} j"), unsafe_allow_html=True)
+        _grande_valeur(st, "Déclenchements prévus", doses, _COULEUR_APPORT)
+
+
 def main() -> None:
     config = load_config()
     site = config["site"]
@@ -78,6 +133,16 @@ def main() -> None:
     now_local = now_utc.tz_convert(site.get("tz", "Europe/Paris")).to_pydatetime()
 
     st.set_page_config(page_title="Bilan hydrique", page_icon="💧", layout="wide")
+    # Libellés des selectbox (Culture, Stade…) et des onglets (Plein champ / Sous
+    # abri) à la taille des titres de section (« Cumuls sur N j » = 16 px), pour
+    # une hiérarchie typographique cohérente. Sélecteurs Streamlit 1.57.
+    st.markdown(
+        "<style>"
+        '[data-testid="stSelectbox"] label p{font-size:16px !important;}'
+        'button[data-baseweb="tab"] p{font-size:16px !important;}'
+        "</style>",
+        unsafe_allow_html=True,
+    )
     titre = "Bilan hydrique du " + format_date_fr(now_local, capitalize_jour=False)
     # Localisation formatée comme dans le mail : séparateur « — », gris, plus
     # petit, poids normal (cf. apps/veille/email.py composer_html).
@@ -98,10 +163,6 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             st.error(f"Prévision indisponible : {e}")
             st.stop()
-    # Provenance affichée honnêtement : MF (run du mail, indépendant d'Open-Meteo)
-    # ou repli Open-Meteo, + âge du run 00Z.
-    age_h = (now_utc - run_00z).total_seconds() / 3600.0
-    st.caption(f"Prévision : {source_meteo} · run {run_00z:%d/%m %HZ} (il y a {age_h:.0f} h).")
 
     # Indicateurs quotidiens depuis J+0 00Z (run 00Z) → 4 jours complets.
     quotidien = calcul.quotidien_du_jour(config, prevision, now_utc)
@@ -167,7 +228,7 @@ def main() -> None:
         )
         ru_vers_rfu = rfu_pct / 100.0
         ru_init_pct = st.slider(
-            "RU initiale (% de la capacité au champ)",
+            "RU initiale (% de la réserve utile)",
             min_value=0,
             max_value=100,
             value=int(defauts["fraction_ru_remplie_initial"] * 100),
@@ -225,21 +286,16 @@ def main() -> None:
             ru_max = float(bilan_pa["ru_max_mm"].iloc[0])
             rfu = float(bilan_pa["rfu_mm"].iloc[0])
             st.markdown(
-                f"**Plein champ — {culture} ({stade_aff})** · "
-                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
-                "(irrigation quand l'épuisement atteint la RFU)."
+                "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
+                f"<strong>Plein champ — {culture} ({stade_aff})</strong> · "
+                f"réserve utile <strong>{ru_max:.0f} mm</strong> · "
+                f"RFU <strong>{rfu:.0f} mm</strong> "
+                "(irrigation quand l'épuisement atteint la RFU).</div>",
+                unsafe_allow_html=True,
             )
             fig_pa = figure_bilan_sol_complet(bilan_pa, apport_max_mm=apport_max_mm)
             st.pyplot(fig_pa, use_container_width=True)
-            pluie_tot = float(bilan_pa["pluie_mm"].sum())
-            etm_tot = float(bilan_pa["etm_mm"].sum())
-            nb_irrig = int(bilan_pa["irrigation_declenchee"].sum())
-            deficit_tot = float(bilan_pa["deficit_mm"].sum())
-            st.markdown(
-                f"**Synthèse {n_j} j** : précipitations cumulées {pluie_tot:.1f} mm · "
-                f"ETM {etm_tot:.1f} mm · Déficit total {deficit_tot:.1f} mm · "
-                f"{nb_irrig} déclenchement(s) prévu(s)."
-            )
+            _synthese_bilan(bilan_pa, n_j, "etm_mm")
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan plein champ ({e}).")
 
@@ -247,7 +303,7 @@ def main() -> None:
         st.caption(
             "Coefficient abri = facteur de réduction de l'ET₀ pour passer du climat "
             "extérieur au micro-climat de l'abri (coefficient fixe ET₀ abri/extérieur, "
-            "Castilla 2013 ch. 4 ; Möller et al. 2009 — défaut 0,70, recalibration "
+            "Castilla 2013 ch. 4 ; Möller et al. 2004 — défaut 0,70, recalibration "
             "terrain à venir). Plus l'abri est ventilé, plus l'ET₀ se rapproche de "
             "l'extérieur."
         )
@@ -279,38 +335,51 @@ def main() -> None:
             ru_max = float(bilan_tu["ru_max_mm"].iloc[0])
             rfu = float(bilan_tu["rfu_mm"].iloc[0])
             st.markdown(
-                f"**Sous abri — {culture} ({stade_aff})** · coefficient abri **{k_tunnel:.2f}** · "
-                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
-                "(irrigation quand l'épuisement atteint la RFU)."
+                "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
+                f"<strong>Sous abri — {culture} ({stade_aff})</strong> · "
+                f"coefficient abri <strong>{k_tunnel:.2f}</strong> · "
+                f"réserve utile <strong>{ru_max:.0f} mm</strong> · "
+                f"RFU <strong>{rfu:.0f} mm</strong> "
+                "(irrigation quand l'épuisement atteint la RFU).</div>",
+                unsafe_allow_html=True,
             )
-            fig_tu = figure_bilan_tunnel(bilan_tu, apport_max_mm=apport_max_mm)
+            # Même disposition que le plein champ (figure complète flux + réserves).
+            fig_tu = figure_bilan_sol_complet(bilan_tu, apport_max_mm=apport_max_mm)
             st.pyplot(fig_tu, use_container_width=True)
-            etm_tot = float(bilan_tu["etm_tunnel_mm"].sum())
-            nb_irrig = int(bilan_tu["irrigation_declenchee"].sum())
-            deficit_tot = float(bilan_tu["deficit_mm"].sum())
-            st.markdown(
-                f"**Synthèse {n_j} j** : ETM cumulée {etm_tot:.1f} mm · "
-                f"Déficit total {deficit_tot:.1f} mm · "
-                f"{nb_irrig} déclenchement(s) prévu(s)."
-            )
+            _synthese_bilan(bilan_tu, n_j, "etm_tunnel_mm")
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
+    # Respiration avant le pied « Sources » (les onglets/synthèse collent sinon).
+    st.markdown("<div style='margin-top:32px;'></div>", unsafe_allow_html=True)
     code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
+    # Lien d'accès : la page GitHub de la release où le run MF est publié chaque
+    # matin par le mail (ADR-0020) ; sinon la config qui définit la source/repli.
+    lien_acces = (
+        "https://github.com/atantet/meteo/releases/tag/arpege-atelier"
+        if "Météo-France" in source_meteo
+        else "https://github.com/atantet/meteo/blob/main/config/operationnelle.yaml"
+    )
+    age_h = (now_utc - run_00z).total_seconds() / 3600.0  # fraîcheur du run 00Z
     with st.expander("Sources"):
         st.markdown(
             f"""
-- **Modèle** : ARPEGE Météo-France ~10 km · accès : *{source_meteo}* · run 00Z
-  du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC.
-- **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
-- **Bilan** : réserve utile (TAW) / RFU (RAW), irrigation quand l'épuisement
-  atteint la RFU avec recharge à la capacité au champ — cadre FAO 56, ch. 8
-  ([code]({code_base}/bilan_hydrique.py)).
-- **Kc** : référentiel ARDEPI
+- **Modèle** : ARPEGE Météo-France ~10 km, run 00Z du jour ({run_00z:%d/%m/%Y},
+  il y a {age_h:.0f} h) — accès : [{source_meteo}]({lien_acces}).
+- **ET₀** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
+- **Vocabulaire (FAO-56)** : *réserve utile* (RU) = eau du sol mobilisable, entre
+  la **capacité au champ** (sol ressuyé, réserve pleine) et le point de flétrissement ;
+  *RFU* = fraction facilement utilisable sans stress. On irrigue quand l'épuisement
+  atteint la RFU (réserve descendue à RU − RFU) et on recharge jusqu'à la capacité au champ.
+- **Apport** : quand l'épuisement atteint la RFU, de quoi recharger jusqu'à la
+  capacité au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
+- **Coefficient cultural** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
-- **Coefficient abri** : coefficient fixe ET₀ sous abri/extérieur — Castilla
-  (2013, ch. 4) ; Möller et al. (2009). Défaut 0,70.
-- **Cache** : 1 h sur la prévision. Rafraîchir = recharger la page.
+- **Coefficient sous abri** : Castilla, N. (2013). *Greenhouse Technology and
+  Management* (2ᵉ éd.), chap. 4. Wallingford : CABI (ISBN 978-1-78064-103-4).
+  · Möller, M., Tanny, J., Li, Y. & Cohen, S. (2004). « Measuring and predicting
+  evapotranspiration in an insect-proof screenhouse ». *Agricultural and Forest
+  Meteorology*, 127(1-2), 35-51.
             """
         )
 
