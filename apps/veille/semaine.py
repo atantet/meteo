@@ -397,6 +397,12 @@ def _table_jour(
     )
 
 
+def _png_dimensions(data_uri: str) -> tuple[int, int]:
+    """``(largeur, hauteur)`` px d'un PNG encodé en data URI (en-tête IHDR, sans PIL)."""
+    raw = base64.b64decode(data_uri.split(",", 1)[1])
+    return int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")
+
+
 def _legende_tendance() -> str:
     """Légende de la tendance avec les **vrais pictos** (ciel, pluie, flèches ETP)."""
 
@@ -407,13 +413,14 @@ def _legende_tendance() -> str:
         )
 
     def fl(color: str, n: int) -> str:
-        # Attribut HTML `height` (pas seulement le style) : respecté même quand le
-        # client mail ignore le `style` inline en contexte <div> (sinon l'image
-        # s'affiche en taille native → trop grande). 20 px = taille de la grille.
-        return (
-            f'<img src="{_fleche_etp_png(color, n)}" height="20" '
-            'style="height:20px;vertical-align:middle;">'
-        )
+        # `width` ET `height` en attributs (comme les pictos ciel `ic`) : avec
+        # `height` seul, Firefox recalcule la largeur au redimensionnement et la
+        # flèche saute vers sa taille native. On épingle les deux dimensions à
+        # partir des dimensions natives du PNG → taille stable (= grille, 20 px).
+        uri = _fleche_etp_png(color, n)
+        w, h = _png_dimensions(uri)
+        larg = max(1, round(20 * w / h))
+        return f'<img src="{uri}" width="{larg}" height="20" style="vertical-align:middle;">'
 
     return (
         '<div style="margin:0 0 6px 0;font-size:11px;color:#888;line-height:1.9;">'
