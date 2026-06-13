@@ -153,10 +153,6 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             st.error(f"Prévision indisponible : {e}")
             st.stop()
-    # Provenance affichée honnêtement : MF (run du mail, indépendant d'Open-Meteo)
-    # ou repli Open-Meteo, + âge du run 00Z.
-    age_h = (now_utc - run_00z).total_seconds() / 3600.0
-    st.caption(f"Prévision : {source_meteo} · run {run_00z:%d/%m %HZ} (il y a {age_h:.0f} h).")
 
     # Indicateurs quotidiens depuis J+0 00Z (run 00Z) → 4 jours complets.
     quotidien = calcul.quotidien_du_jour(config, prevision, now_utc)
@@ -354,11 +350,12 @@ def main() -> None:
         if "Météo-France" in source_meteo
         else "https://github.com/atantet/meteo/blob/main/config/operationnelle.yaml"
     )
+    age_h = (now_utc - run_00z).total_seconds() / 3600.0  # fraîcheur du run 00Z
     with st.expander("Sources"):
         st.markdown(
             f"""
-- **Modèle** : ARPEGE Météo-France ~10 km, run 00Z du jour ({run_00z:%d/%m/%Y})
-  — accès : [{source_meteo}]({lien_acces}).
+- **Modèle** : ARPEGE Météo-France ~10 km, run 00Z du jour ({run_00z:%d/%m/%Y},
+  il y a {age_h:.0f} h) — accès : [{source_meteo}]({lien_acces}).
 - **ET₀** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
 - **Vocabulaire (FAO-56)** : *réserve utile* (RU) = eau du sol mobilisable, entre
   la **capacité au champ** (sol ressuyé, réserve pleine) et le point de flétrissement ;

@@ -238,13 +238,14 @@ def _fleche_etp_png(color: str, n: int) -> str:
     # ``n`` et, l'``<img>`` étant calé en hauteur (20 px), une flèche n'avait pas la
     # même taille à 1, 2 ou 3.
     unite = 0.5  # pouces par unité de données (identique x/y)
-    largeur_x = (n - 1) + 0.8  # = étendue de xlim ci-dessous
+    pas = 0.6  # espacement entre centres de flèches (< 1 → resserré ; taille inchangée)
+    largeur_x = (n - 1) * pas + 0.8  # = étendue de xlim ci-dessous
     hauteur_y = 1.17  # = étendue de ylim ci-dessous
     fig = Figure(figsize=(unite * largeur_x, unite * hauteur_y))
     ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
     ax.set_aspect("equal")
     for i in range(n):
-        cx = float(i)
+        cx = i * pas
         y_w = np.linspace(0.0, 0.52, 50)
         x_w = cx + 0.13 * np.sin(y_w / 0.52 * 2 * np.pi)
         ax.plot(x_w, y_w, color=color, linewidth=2.4, solid_capstyle="round")
@@ -255,7 +256,7 @@ def _fleche_etp_png(color: str, n: int) -> str:
             xytext=(cx, 0.80),
             arrowprops={"arrowstyle": "-|>", "color": color, "lw": 2.4, "mutation_scale": 13},
         )
-    ax.set_xlim(-0.4, (n - 1) + 0.4)
+    ax.set_xlim(-0.4, (n - 1) * pas + 0.4)
     ax.set_ylim(-0.05, 1.12)
     ax.axis("off")
     buf = io.BytesIO()
