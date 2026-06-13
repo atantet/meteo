@@ -109,7 +109,7 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     deficit_tot = float(bilan["deficit_mm"].sum())
     # Doses d'irrigation réellement appliquées (jours d'apport) → « X mm + Y mm ».
     apports = [float(a) for a in bilan["apport_mm"] if float(a) > 0]
-    doses = " + ".join(f"{a:.0f} mm" for a in apports) if apports else "aucun"
+    doses = " + ".join(f"{a:.0f} mm" for a in apports) if apports else "-"
     col_flux, col_res = st.columns(2)
     with col_flux:
         st.markdown(_titre_section(f"Cumuls sur {n_j} j"), unsafe_allow_html=True)
@@ -340,11 +340,19 @@ def main() -> None:
     # Respiration avant le pied « Sources » (les onglets/synthèse collent sinon).
     st.markdown("<div style='margin-top:32px;'></div>", unsafe_allow_html=True)
     code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
+    # Lien d'accès : la donnée cachée elle-même (asset de release publié par le
+    # mail, ADR-0020) en MF direct ; sinon la config qui définit la source/repli.
+    url_cache = config["source_meteo"].get("arpege_partage_url") or ""
+    lien_acces = (
+        url_cache
+        if (url_cache and "Météo-France" in source_meteo)
+        else "https://github.com/atantet/meteo/blob/main/config/operationnelle.yaml"
+    )
     with st.expander("Sources"):
         st.markdown(
             f"""
-- **Modèle** : ARPEGE Météo-France ~10 km · accès : *{source_meteo}* · run 00Z
-  du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC.
+- **Modèle** : ARPEGE Météo-France ~10 km, run 00Z du jour ({run_00z:%d/%m/%Y})
+  — accès : [{source_meteo}]({lien_acces}).
 - **ET₀** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
 - **Apport** : quand la RFU est dépassée, de quoi recharger jusqu'à la capacité
   au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
