@@ -334,15 +334,17 @@ def test_composer_html_avec_cartes_grille_contient_les_2_sections() -> None:
     assert "Run lun. 01/06 02 h" in html
     assert "Run dim. 31/05 20 h" in html
     assert "(veille)" in html
-    # Les 4 échéances UTC (00Z J / 12Z J / 00Z J+1 / 12Z J+1) en heure locale Paris été (UTC+2).
-    # Chaque échéance apparaît dans les 2 sections → au moins 2 occurrences chacune.
+    # Les 4 échéances UTC (00Z J / 12Z J / 00Z J+1 / 12Z J+1) en heure locale Paris été
+    # (UTC+2), affichées sans préfixe « Échéance : ». Chacune apparaît dans les 2 sections.
     for cible in (
-        "Échéance : lun. 01/06 02 h",  # 00 UTC J
-        "Échéance : lun. 01/06 14 h",  # 12 UTC J
-        "Échéance : mar. 02/06 02 h",  # 00 UTC J+1
-        "Échéance : mar. 02/06 14 h",  # 12 UTC J+1
+        "lun. 01/06 02 h",  # 00 UTC J
+        "lun. 01/06 14 h",  # 12 UTC J
+        "mar. 02/06 02 h",  # 00 UTC J+1
+        "mar. 02/06 14 h",  # 12 UTC J+1
     ):
         assert html.count(cible) >= 2, f"Échéance absente ou non répétée : {cible!r}"
+    # Le préfixe « Échéance : » a été retiré (la date en gras suffit).
+    assert "Échéance :" not in html
 
 
 def test_composer_html_sans_cartes_grille_nempeche_pas_le_rendu() -> None:
