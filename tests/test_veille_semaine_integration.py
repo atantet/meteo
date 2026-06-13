@@ -405,6 +405,7 @@ def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
         semaine_source=_StubSingleRuns(),
         fetch_cartes_semaine=False,
         source_arpege_mf=_StubArpegeMfDirect(),  # flag MF direct ON en config prod
+        source_ecmwf_opendata=_StubEcmwfOpendata(),  # flag ECMWF opendata ON en config prod
     )
     assert code == 0
     html = out.read_text(encoding="utf-8")
@@ -474,6 +475,7 @@ def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
         semaine_source=_StubSingleRuns(),
         fetch_cartes_semaine=False,
         source_arpege_mf=_StubArpegeMfDirect(),
+        source_ecmwf_opendata=_StubEcmwfOpendata(),
     )
     assert code == 0
     html = out.read_text(encoding="utf-8")
@@ -527,8 +529,9 @@ def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> Non
         source=mock_mf,
         now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
         preview_path=out,
-        semaine_source=_StubSingleRuns(),  # ECMWF dispo
+        semaine_source=_StubSingleRuns(),
         source_arpege_mf=_StubArpegeMfMuet(),  # ARPEGE direct muet → cascade ECMWF
+        source_ecmwf_opendata=_StubEcmwfOpendata(),  # ECMWF dispo (le repli de la semaine)
         fetch_cartes_semaine=False,
     )
     assert code == 0
@@ -556,6 +559,7 @@ def test_executer_veille_repli_mf_vers_arpege(tmp_path: Path) -> None:
         now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
         preview_path=out,
         semaine_source=_StubSingleRuns(),  # ARPEGE dispo (repli OK)
+        source_ecmwf_opendata=_StubEcmwfOpendata(),  # semaine offline (flag ECMWF ON)
         fetch_cartes_semaine=False,
         fallback_mf=True,
     )

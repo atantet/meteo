@@ -39,12 +39,12 @@ source_meteo:
   # OM −21,4 mm ; guides actifs identiques).
   arpege_mf_direct: true
   arpege_cache_dir: .cache/arpege
-  # Source ECMWF (tendance longue). `false` = Open-Meteo Single Runs (défaut).
+  # Source ECMWF (tendance longue). `false` = Open-Meteo Single Runs.
   # `true` = ECMWF Open Data en direct (data.ecmwf.int, libre/sans clé ; un seul
   # GRIB multi-échéances, pas de quota) : contourne les trous d'ingestion Open-Meteo
-  # (rafales ECMWF en pointillé) + cache de run. OFF par défaut (staging prudent) ;
-  # validé : ETP Δ ~3 % vs Open-Meteo, rafales couvertes 100 % vs 94 %.
-  ecmwf_opendata_direct: false
+  # (rafales ECMWF en pointillé) + cache de run. Activé 2026-06-13 après validation
+  # substitution (ETP Δ ~3 % vs Open-Meteo, rafales couvertes 100 % vs 94 %).
+  ecmwf_opendata_direct: true
   ecmwf_cache_dir: .cache/ecmwf
   # Run ARPEGE MF-direct publié par le mail (asset de release GitHub, écrasé chaque
   # matin), relu par l'atelier irrigation pour NE PAS dépendre d'Open-Meteo (ADR-0020).
