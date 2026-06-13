@@ -73,6 +73,55 @@ def fetch_arpege_run(
     return df
 
 
+def charger_run_partage(url: str, run_utc: pd.Timestamp) -> pd.DataFrame | None:
+    """Run ARPEGE **MF-direct** publié par le mail (asset de release), s'il est frais.
+
+    Le workflow Veille du matin récupère ARPEGE chez MF Données Publiques (fiable,
+    **indépendant d'Open-Meteo**) et publie le parquet (unités socle) en asset. On
+    le relit ici : un jour normal, l'atelier ne dépend donc PAS d'Open-Meteo
+    (motivation : ne pas être limité par ses trous d'ingestion).
+
+    Renvoie le DataFrame si l'asset est lisible ET correspond au run attendu
+    (1ᵉʳ pas = ``run_utc``, 00Z du jour) ; sinon ``None`` (→ repli Open-Meteo) :
+    asset absent, réseau, parquet illisible, ou run périmé (matin échoué / pas
+    encore publié — on ne sert pas une vieille prévision en douce).
+    """
+    try:
+        df = pd.read_parquet(url)
+    except Exception:  # noqa: BLE001 — toute erreur de lecture → repli gracieux
+        return None
+    if df is None or df.empty:
+        return None
+    debut = pd.Timestamp(pd.DatetimeIndex(df.index).min())
+    if debut.tzinfo is None:
+        debut = debut.tz_localize("UTC")
+    if debut.tz_convert("UTC") != run_utc.tz_convert("UTC"):
+        return None
+    return df
+
+
+def obtenir_prevision(
+    latitude: float,
+    longitude: float,
+    horizon_jours: int,
+    run_utc: pd.Timestamp,
+    *,
+    url_partage: str | None = None,
+    source: OpenMeteoSingleRuns | None = None,
+) -> tuple[pd.DataFrame, str]:
+    """Prévision de l'atelier : run MF **partagé avec le mail** en priorité, repli OM.
+
+    Renvoie ``(df, source)`` ; ``source`` = libellé d'affichage honnête de la
+    provenance (« Météo-France direct (run du mail) » ou « Open-Meteo (repli) »).
+    """
+    if url_partage:
+        df = charger_run_partage(url_partage, run_utc)
+        if df is not None:
+            return df, "Météo-France direct (run du mail)"
+    df = fetch_arpege_run(latitude, longitude, horizon_jours, run_utc, source=source)
+    return df, "Open-Meteo (repli)"
+
+
 def quotidien_du_jour(config: dict, prevision: pd.DataFrame, now_utc: pd.Timestamp) -> pd.DataFrame:
     """Indicateurs quotidiens depuis J+0 00Z, jours complets uniquement (4 j)."""
     quotidien = calculer_indicateurs_quotidiens(prevision, config, now_utc=now_utc.normalize())

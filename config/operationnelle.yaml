@@ -46,6 +46,11 @@ source_meteo:
   # validé : ETP Δ ~3 % vs Open-Meteo, rafales couvertes 100 % vs 94 %.
   ecmwf_opendata_direct: false
   ecmwf_cache_dir: .cache/ecmwf
+  # Run ARPEGE MF-direct publié par le mail (asset de release GitHub, écrasé chaque
+  # matin), relu par l'atelier irrigation pour NE PAS dépendre d'Open-Meteo (ADR-0020).
+  # L'atelier l'utilise en priorité (s'il correspond au run 00Z du jour), sinon repli
+  # Open-Meteo. Vide → atelier sur Open-Meteo uniquement.
+  arpege_partage_url: https://github.com/atantet/meteo/releases/download/arpege-atelier/arpege_atelier.parquet
 
 # ----- Seuils alertes (alignés sur veille.yaml par cohérence) -----
 #

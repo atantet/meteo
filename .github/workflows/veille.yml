@@ -17,7 +17,9 @@ on:
 # Permissions minimales : juste lire le code (pas de push, pas d'issue
 # write). Limite la surface d'attaque si un secret SMTP fuit.
 permissions:
-  contents: read
+  # write : publier le run ARPEGE MF en asset de release pour l'atelier (cf. étape
+  # « Publier le run ARPEGE pour l'atelier » + ADR-0020).
+  contents: write
 
 jobs:
   veille:
@@ -106,3 +108,21 @@ jobs:
           code=$?
           echo "::endgroup::"
           exit $code
+
+      # Publie le run ARPEGE MF (parquet du cache) en asset de release pour que
+      # l'atelier irrigation (Streamlit) le relise → indépendant d'Open-Meteo
+      # (ADR-0020). `always()` : publie dès qu'un parquet existe, même si l'étape
+      # mail a dû replier. Best-effort : n'échoue jamais le job (un parquet absent
+      # = ARPEGE direct KO → rien à publier, l'atelier retombera sur Open-Meteo).
+      - name: Publier le run ARPEGE pour l'atelier
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          f=$(ls -t .cache/arpege/*.parquet 2>/dev/null | head -1)
+          if [ -z "$f" ]; then echo "Pas de parquet ARPEGE MF → rien à publier."; exit 0; fi
+          cp "$f" arpege_atelier.parquet
+          gh release view arpege-atelier >/dev/null 2>&1 || gh release create arpege-atelier \
+            --title "ARPEGE atelier (run du jour)" \
+            --notes "Asset technique : dernier run ARPEGE MF-direct, relu par l'atelier irrigation (écrasé chaque matin). Cf. ADR-0020."
+          gh release upload arpege-atelier arpege_atelier.parquet --clobber

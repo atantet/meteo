@@ -27,6 +27,7 @@ dans l'archéologie git.
 | [0017](0017-proba-semaine-mf-calibree.md) | Proba pluie de la semaine = proba officielle MF calibrée (signal autonome) ; remplace la maison IFS-ENS | Accepté · amende [0014](0014-prevision-officielle-mf-veille.md) / [0015](0015-fusion-app2-dans-mail-veille.md) (canal proba) |
 | [0018](0018-ecmwf-direct-opendata.md) | ECMWF IFS HRES en direct depuis ECMWF Open Data (semaine) ; flag OFF par défaut | Accepté · prolonge [0016](0016-arpege-direct-mf-donnees-publiques.md), amende [0011](0011-single-runs-api-runs-explicites.md) |
 | [0019](0019-guides-action-anti-risque.md) | Guides = action anti-risque (pas de permissif) ; retrait « nuits chaudes → portes ouvertes » ; saisons travail du sol validées climato ERA5 (octobre → fenêtre sèche) | Accepté |
+| [0020](0020-atelier-cache-mf-partage.md) | Atelier irrigation : run ARPEGE MF partagé avec le mail (asset de release) en priorité, repli Open-Meteo ; résilience aux trous Open-Meteo | Accepté · s'appuie sur [0016](0016-arpege-direct-mf-donnees-publiques.md) / [0015](0015-fusion-app2-dans-mail-veille.md) |
 
 ## Convention
 

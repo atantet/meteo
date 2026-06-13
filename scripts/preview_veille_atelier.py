@@ -64,9 +64,16 @@ def main() -> None:
     config_op = load_config_op()
     site = config_op["site"]
     horizon = int(config_op["source_meteo"]["horizon_court_jours"])
-    prevision = calcul.fetch_arpege_run(
-        site["latitude"], site["longitude"], horizon, calcul.run_00z(now_utc)
+    # Même logique que l'atelier Streamlit : run MF partagé (mail) prioritaire,
+    # repli Open-Meteo → preview fidèle à ce que voit l'utilisateur.
+    prevision, source_meteo = calcul.obtenir_prevision(
+        site["latitude"],
+        site["longitude"],
+        horizon,
+        calcul.run_00z(now_utc),
+        url_partage=config_op["source_meteo"].get("arpege_partage_url") or None,
     )
+    print(f"Atelier — prévision : {source_meteo}")
     quotidien = calcul.quotidien_du_jour(config_op, prevision, now_utc)
     coefficients = calcul.charger_coefficients()
     params = dict(calcul.PARAMS_DEFAUT)

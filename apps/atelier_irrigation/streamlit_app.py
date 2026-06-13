@@ -47,11 +47,17 @@ from meteo_socle.indices.bilan_hydrique import (  # noqa: E402
 
 
 @st.cache_data(ttl=3600)
-def _fetch_arpege(
-    latitude: float, longitude: float, horizon_jours: int, run_utc: pd.Timestamp
-) -> pd.DataFrame:
-    """Run ARPEGE 00Z du jour (cache Streamlit). Délègue au calcul partagé."""
-    return calcul.fetch_arpege_run(latitude, longitude, horizon_jours, run_utc)
+def _obtenir_prevision(
+    latitude: float,
+    longitude: float,
+    horizon_jours: int,
+    run_utc: pd.Timestamp,
+    url_partage: str | None,
+) -> tuple[pd.DataFrame, str]:
+    """Prévision (cache Streamlit) : run MF partagé (mail) prioritaire, repli OM."""
+    return calcul.obtenir_prevision(
+        latitude, longitude, horizon_jours, run_utc, url_partage=url_partage
+    )
 
 
 @st.cache_data
@@ -81,12 +87,19 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    url_partage = config["source_meteo"].get("arpege_partage_url") or None
     with st.spinner("Récupération de la prévision ARPEGE…"):
         try:
-            prevision = _fetch_arpege(site["latitude"], site["longitude"], horizon_court, run_00z)
+            prevision, source_meteo = _obtenir_prevision(
+                site["latitude"], site["longitude"], horizon_court, run_00z, url_partage
+            )
         except Exception as e:  # noqa: BLE001
             st.error(f"Prévision indisponible : {e}")
             st.stop()
+    # Provenance affichée honnêtement : MF (run du mail, indépendant d'Open-Meteo)
+    # ou repli Open-Meteo, + âge du run 00Z.
+    age_h = (now_utc - run_00z).total_seconds() / 3600.0
+    st.caption(f"Prévision : {source_meteo} · run {run_00z:%d/%m %HZ} (il y a {age_h:.0f} h).")
 
     # Indicateurs quotidiens depuis J+0 00Z (run 00Z) → 4 jours complets.
     quotidien = calcul.quotidien_du_jour(config, prevision, now_utc)
