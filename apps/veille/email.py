@@ -464,7 +464,9 @@ def _bloc_cartes_synoptiques(
                 continue
             lignes.append(
                 '<div style="text-align:center;margin:6px 0 10px 0;">'
-                '<div style="font-size:11px;color:#888;margin-bottom:2px;">'
+                # Échéance bien visible (la cible de la carte) : plus grande, grasse,
+                # sombre — à ne pas confondre avec le sous-titre « Run … » discret.
+                '<div style="font-size:13px;color:#2c3e50;font-weight:700;margin-bottom:2px;">'
                 f"{cible_label}"
                 "</div>"
                 f'<img src="{c.data_uri}" alt="{alt_prefix} — {cible_label}" '
