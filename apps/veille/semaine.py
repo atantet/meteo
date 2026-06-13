@@ -407,7 +407,13 @@ def _legende_tendance() -> str:
         )
 
     def fl(color: str, n: int) -> str:
-        return f'<img src="{_fleche_etp_png(color, n)}" style="height:15px;vertical-align:middle;">'
+        # Attribut HTML `height` (pas seulement le style) : respecté même quand le
+        # client mail ignore le `style` inline en contexte <div> (sinon l'image
+        # s'affiche en taille native → trop grande). 20 px = taille de la grille.
+        return (
+            f'<img src="{_fleche_etp_png(color, n)}" height="20" '
+            'style="height:20px;vertical-align:middle;">'
+        )
 
     return (
         '<div style="margin:0 0 6px 0;font-size:11px;color:#888;line-height:1.9;">'
