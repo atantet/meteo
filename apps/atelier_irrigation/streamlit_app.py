@@ -346,9 +346,8 @@ def main() -> None:
 - **Modèle** : ARPEGE Météo-France ~10 km · accès : *{source_meteo}* · run 00Z
   du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC.
 - **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
-- **Bilan** : réserve utile (TAW) / RFU (RAW), irrigation quand l'épuisement
-  atteint la RFU avec recharge à la capacité au champ — cadre FAO 56, ch. 8
-  ([code]({code_base}/bilan_hydrique.py)).
+- **Apport** : quand la RFU est dépassée, de quoi recharger jusqu'à la capacité
+  au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
 - **Kc** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
 - **Coefficient abri** : coefficient fixe ET₀ sous abri/extérieur — Castilla
