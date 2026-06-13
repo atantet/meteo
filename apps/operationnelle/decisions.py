@@ -220,23 +220,6 @@ _PARAMS_RACINES = [
     ),
 ]
 
-_PARAMS_AERATION = [
-    ParamAjustable(
-        "Seuil T° min nuit (°C)",
-        "seuils_tunnel.aeration_nuit_t_min_celsius",
-        5.0,
-        20.0,
-        0.5,
-    ),
-    ParamAjustable(
-        "Nuits minimum",
-        "seuils_tunnel.aeration_nuit_nuits_min",
-        1.0,
-        7.0,
-        1.0,
-    ),
-]
-
 _PARAMS_FERMETURE = [
     ParamAjustable(
         "Seuil T° min nuit (°C)",
@@ -447,49 +430,6 @@ def regle_recolte_racines_avant_gel(
 
 
 # ---------- Guides aération tunnels ----------
-
-
-def regle_aeration_nuit_tunnels(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,
-) -> GuideDecision | None:
-    if not _saison_active(exploitation, "tunnels_en_culture", today.month):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    n_jours = len(quotidien)
-    s = exploitation.get("seuils_tunnel", {})
-    seuil_t = float(s.get("aeration_nuit_t_min_celsius", 12.0))
-    nuits_min = int(s.get("aeration_nuit_nuits_min", 2))
-
-    masque = quotidien["t_min_celsius"] >= seuil_t
-    nb = int(masque.sum())
-    if nb >= nuits_min:
-        accord = "s" if nb > 1 else ""
-        titre = (
-            f"Nuits chaudes sur {n_jours} j — {nb} nuit{accord} avec T° min ≥ "
-            f"{seuil_t:.0f} °C (laisser les portes ouvertes la nuit)"
-        )
-        active = True
-    else:
-        t_min_max = float(quotidien["t_min_celsius"].max())
-        titre = (
-            f"Pas de nuits chaudes — T° min max {t_min_max:.1f} °C "
-            f"(seuil {seuil_t:.0f} °C, {nb}/{nuits_min} nuits)"
-        )
-        active = False
-
-    return GuideDecision(
-        titre=titre,
-        niveau=NIVEAU_INFO,
-        picto="🌬️",
-        detail_df=quotidien[["t_min_celsius"]],
-        theme=THEME_TUNNEL,
-        active=active,
-        surlignage={"t_min_celsius": ("≥", seuil_t)},
-        parametres_ajustables=_PARAMS_AERATION,
-    )
 
 
 def regle_fermeture_nuit_tunnels(
@@ -738,7 +678,7 @@ def regle_fenetre_pluvieuse_travail_sol_ete(
         titre = (
             f"Fenêtre pluvieuse du {_fmt_date_courte(debut)} au {_fmt_date_courte(fin)} — "
             f"{longueur} jours de pluie attendue "
-            "(anticiper le travail du sol)"
+            "(travailler le sol avant : il sera détrempé, intervention bloquée)"
         )
         active = True
     else:
@@ -783,7 +723,6 @@ def evaluer_decisions(
         lambda q, t: regle_purge_irrigation_gel(q, exploitation, t),
         lambda q, t: regle_voiles_p17(q, exploitation, t),
         lambda q, t: regle_recolte_racines_avant_gel(q, exploitation, t),
-        lambda q, t: regle_aeration_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_fermeture_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_deficit_hydrique(q, exploitation, t),
         lambda q, t: regle_stress_thermique(q, exploitation, t),

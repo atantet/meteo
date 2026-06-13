@@ -28,7 +28,6 @@ from apps.operationnelle.decisions import (  # noqa: E402
     get_chemin,
     grouper_par_theme,
     plus_longue_suite_consecutive,
-    regle_aeration_nuit_tunnels,
     regle_deficit_hydrique,
     regle_fenetre_pluvieuse_travail_sol_ete,
     regle_fenetre_seche_travail_sol_hiver,
@@ -45,8 +44,8 @@ EXPLOITATION_DEFAUT: dict = {
     "saisons": {
         "tunnels_en_culture": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         "legumes_racine_au_champ": [10, 11, 12, 1, 2, 3],
-        "travail_sol_recherche_fenetre_seche": [11, 12, 1, 2, 3],
-        "travail_sol_recherche_fenetre_pluvieuse": [4, 5, 6, 7, 8, 9, 10],
+        "travail_sol_recherche_fenetre_seche": [10, 11, 12, 1, 2, 3],
+        "travail_sol_recherche_fenetre_pluvieuse": [4, 5, 6, 7, 8, 9],
     },
     "equipement": {"voiles_p17_disponibles": True},
     "seuils_gel": {
@@ -57,8 +56,6 @@ EXPLOITATION_DEFAUT: dict = {
         "recolte_racines_degres_jours_min": 4.0,
     },
     "seuils_tunnel": {
-        "aeration_nuit_t_min_celsius": 12.0,
-        "aeration_nuit_nuits_min": 2,
         "fermeture_nuit_t_min_celsius": 3.0,
         "fermeture_nuit_nuits_min": 1,
     },
@@ -230,22 +227,6 @@ def test_racines_filtree_hors_saison() -> None:
     )
 
 
-# ---------- regle_aeration_nuit_tunnels ----------
-
-
-def test_aeration_active_si_2_nuits_chaudes() -> None:
-    quot = _quotidien(t_min=[14.0, 13.0, 10.0, 8.0])
-    guide = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
-    assert guide is not None and guide.active is True
-    assert guide.niveau == NIVEAU_INFO
-
-
-def test_aeration_inactive_si_pas_assez_de_nuits_chaudes() -> None:
-    quot = _quotidien(t_min=[14.0, 10.0, 8.0])
-    guide = regle_aeration_nuit_tunnels(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15"))
-    assert guide is not None and guide.active is False
-
-
 # ---------- regle_fermeture_nuit_tunnels ----------
 
 
@@ -320,13 +301,14 @@ def test_fenetre_pluvieuse_active_si_2_jours_pluvieux() -> None:
     assert guide is not None and guide.active is True
 
 
-def test_fenetre_pluvieuse_titre_sans_avant_quand_active() -> None:
+def test_fenetre_pluvieuse_titre_dit_de_travailler_avant() -> None:
+    """Active → action anti-risque explicite : travailler le sol AVANT la pluie."""
     quot = _quotidien(pluie=[8.0, 10.0, 12.0])
     guide = regle_fenetre_pluvieuse_travail_sol_ete(
         quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-07-15")
     )
     assert guide is not None and guide.active is True
-    assert "avant" not in guide.titre
+    assert "avant" in guide.titre
 
 
 # ---------- regle_deficit_hydrique ----------
@@ -378,7 +360,8 @@ def test_demo_ete_a_les_guides_actifs_attendus() -> None:
 
     guides = evaluer_decisions(quotidien_ete(), EXPLOITATION_DEFAUT, today_ete())
     pictos_actifs = {g.picto for g in guides if g.active}
-    attendus = {"🌬️", "💧", "🌡️", "🌧️"}
+    # 🌬️ (aération « nuits chaudes ») retiré : guide permissif supprimé.
+    attendus = {"💧", "🌡️", "🌧️"}
     assert attendus.issubset(pictos_actifs), (
         f"Guides été actifs manquants : {attendus - pictos_actifs}"
     )
