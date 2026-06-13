@@ -232,8 +232,17 @@ def _fleche_etp_png(color: str, n: int) -> str:
     key = (color, n)
     if key in _FLECHE_ETP_CACHE:
         return _FLECHE_ETP_CACHE[key]
-    fig = Figure(figsize=(0.30 * n + 0.08, 0.6))
-    ax = fig.add_subplot()
+    # Taille PAR flèche constante quel que soit ``n`` : figure à l'aspect des données
+    # (largeur ∝ étendue x) + axes occupant tout le cadre + ``set_aspect("equal")`` →
+    # 1 unité = mêmes pouces en x et en y. Sinon les pouces-par-flèche variaient avec
+    # ``n`` et, l'``<img>`` étant calé en hauteur (20 px), une flèche n'avait pas la
+    # même taille à 1, 2 ou 3.
+    unite = 0.5  # pouces par unité de données (identique x/y)
+    largeur_x = (n - 1) + 0.8  # = étendue de xlim ci-dessous
+    hauteur_y = 1.17  # = étendue de ylim ci-dessous
+    fig = Figure(figsize=(unite * largeur_x, unite * hauteur_y))
+    ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
+    ax.set_aspect("equal")
     for i in range(n):
         cx = float(i)
         y_w = np.linspace(0.0, 0.52, 50)
