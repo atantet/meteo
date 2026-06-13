@@ -350,8 +350,7 @@ def main() -> None:
   au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
 - **Kc** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
-- **Coefficient abri** : coefficient fixe ET₀ sous abri/extérieur — Castilla
-  (2013, ch. 4) ; Möller et al. (2009). Défaut 0,70.
+- **Coefficient sous abri** : Castilla (2013, ch. 4) ; Möller et al. (2009).
 - **Cache** : 1 h sur la prévision. Rafraîchir = recharger la page.
             """
         )
