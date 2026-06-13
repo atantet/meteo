@@ -25,6 +25,9 @@ jobs:
     # qtagg bloque à l'import de pyplot en runner headless (→ hang jusqu'au timeout).
     env:
       MPLBACKEND: Agg
+      # Sur un éventuel hang (SIGABRT du wrapper `timeout` ci-dessous), Python
+      # dumpe les stacks de TOUS les threads → on voit enfin OÙ ça bloque.
+      PYTHONFAULTHANDLER: "1"
     defaults:
       run:
         shell: bash -el {0}
@@ -43,7 +46,16 @@ jobs:
           use-mamba: true
 
       - name: Run pytest
-        run: pytest tests/ -v --tb=short
+        # Le hang CI intermittent (import matplotlib/Qt, phase de collecte…) se
+        # traduisait par un cancel MUET au timeout du job (15 min). On le rend
+        # diagnostiquable et rapide :
+        # - `--timeout=120 --timeout-method=thread` : borne CHAQUE test à 120 s ;
+        #   la méthode thread intercepte aussi les blocages C (la méthode signal,
+        #   limitée au thread principal, les rate) et dumpe la stack.
+        # - wrapper `timeout --signal=ABRT 600` : filet pour la phase de COLLECTE
+        #   (que pytest-timeout ne couvre pas) → SIGABRT + PYTHONFAULTHANDLER
+        #   dumpent toutes les stacks avant le cancel du job.
+        run: timeout --signal=ABRT 600 pytest tests/ -v --tb=short --timeout=120 --timeout-method=thread
 
       - name: Ruff format check
         run: ruff format --check .
