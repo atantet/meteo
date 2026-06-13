@@ -203,8 +203,8 @@ def test_agreger_par_fenetre_proba_injectee_pas_du_df() -> None:
     assert any(math.isnan(c.prob_pluie_pct) for c in autres)
 
 
-def test_agreger_par_fenetre_cellules_j0_complete() -> None:
-    """J0 doit avoir les 2 fenêtres jour + nuit avec les valeurs attendues."""
+def test_agreger_par_fenetre_cellules_valeurs() -> None:
+    """Un jour complet a jour + nuit aux valeurs attendues ; nuit incomplète écartée."""
     horaire = _horaire_synthetique(jours=2)
     cellules = agreger_par_fenetre(horaire, tz_locale="Europe/Paris")
     jours = sorted({j for (j, _) in cellules})
@@ -212,7 +212,12 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     j0 = jours[0]
 
     cell_jour = cellules[(j0, FENETRE_JOUR)]
-    cell_nuit = cellules[(j0, FENETRE_NUIT)]
+    # La nuit de J0 est INCOMPLÈTE (soirée de la veille hors prévision) → écartée
+    # par le garde-fou « jamais de fausse valeur » (cumul/extrême non fiable).
+    assert (j0, FENETRE_NUIT) not in cellules
+    # Première nuit complète (soirée + matinée) pour la comparaison jour/nuit.
+    nuits = sorted(j for (j, f) in cellules if f == FENETRE_NUIT)
+    cell_nuit = cellules[(nuits[0], FENETRE_NUIT)]
 
     # T_extreme jour = t_max ; nuit = t_min.
     assert cell_jour.t_extreme > cell_nuit.t_extreme
@@ -229,16 +234,14 @@ def test_agreger_par_fenetre_cellules_j0_complete() -> None:
     # Vent : moyenne 5 m/s → 18 km/h, rafales 10 m/s en aprem → 36 km/h.
     assert cell_jour.vent_moy_kmh == pytest.approx(5.0 * MS_VERS_KMH, abs=1e-6)
     assert cell_jour.rafales_max_kmh == pytest.approx(10.0 * MS_VERS_KMH, abs=1e-6)
-    # Nuit : pas de rafale (toutes à 5 m/s) → 18 km/h.
+    # Nuit complète : la rafale de 10 m/s (13-17 h) tombe en « jour » → nuit à 18 km/h.
     assert cell_nuit.rafales_max_kmh == pytest.approx(5.0 * MS_VERS_KMH, abs=1e-6)
 
-    # Direction jour = O (270°), nuit = S (180°).
+    # Direction jour = O (270°) ; la nuit garde une direction définie (non vide).
     assert cell_jour.direction_cardinal == "O"
-    assert cell_nuit.direction_cardinal == "S"
+    assert cell_nuit.direction_cardinal != ""
 
-    # Pluie : 1 mm/h aux heures 6, 7, 8. Avec FENETRE_JOUR_DEBUT=6, ces
-    # 3 heures sont toutes en « jour » → 3 mm jour, 0 mm nuit.
-    assert cell_nuit.pluie_mm == pytest.approx(0.0, abs=1e-6)
+    # Pluie : 1 mm/h aux heures 6, 7, 8 du J0 → 3 mm en jour J0.
     assert cell_jour.pluie_mm == pytest.approx(3.0, abs=1e-6)
     # Plus de pictogramme dans l'App 2 (ADR-0014 D2).
     assert not hasattr(cell_jour, "code_picto")
@@ -283,10 +286,41 @@ def test_agreger_par_fenetre_etp_cumul() -> None:
     j0, j1 = jours[0], jours[1]
     # Fenêtre jour J0 = 12 heures × 0.1 mm/h = 1.2 mm
     assert cellules[(j0, FENETRE_JOUR)].etp_mm == pytest.approx(1.2, abs=1e-6)
-    # Nuit J0 = matinée seule (6 h, pas de soirée J-1) = 0.6 mm
-    assert cellules[(j0, FENETRE_NUIT)].etp_mm == pytest.approx(0.6, abs=1e-6)
-    # Nuit J1 = soirée J0 (6 h) + matinée J1 (6 h) = 12 h = 1.2 mm
+    # Nuit J0 INCOMPLÈTE (matinée seule, soirée de la veille hors prévision) →
+    # ÉCARTÉE : on ne montre pas un cumul sous-estimé (« jamais de fausse valeur »).
+    assert (j0, FENETRE_NUIT) not in cellules
+    # Nuit J1 COMPLÈTE = soirée J0 (6 h) + matinée J1 (6 h) = 12 h = 1.2 mm
     assert cellules[(j1, FENETRE_NUIT)].etp_mm == pytest.approx(1.2, abs=1e-6)
+
+
+def test_agreger_par_fenetre_run_tronque_ecarte_jour_incomplet() -> None:
+    """Run partiellement publié (tronqué le matin) → la journée incomplète n'est
+    PAS rendue : jamais de faux max (cas réel du 16/06 où l'après-midi manquait)."""
+    # Données du 01/06 00:00 au 02/06 09:00 UTC : le 02/06 s'arrête à 09 h →
+    # l'après-midi (le pic de T°) manque pour la fenêtre jour du 02/06.
+    idx = pd.date_range("2026-06-01 00:00", "2026-06-02 09:00", freq="h", tz="UTC")
+    n = len(idx)
+    # T° qui culminerait l'après-midi : si la fenêtre tronquée était rendue, son
+    # « max » serait celui du matin (faux). On veut qu'elle soit écartée.
+    heure = idx.hour
+    t = 288.15 + 8.0 * np.sin((heure - 9) * np.pi / 12)
+    horaire = pd.DataFrame(
+        {
+            "temperature_2m": t,
+            "precipitation": [0.0] * n,
+            "vitesse_vent_10m": [3.0] * n,
+            "rafales_vent_10m": [5.0] * n,
+            "direction_vent_deg": [200.0] * n,
+            "weather_code": [1] * n,
+        },
+        index=idx,
+    )
+    cellules = agreger_par_fenetre(horaire, tz_locale="UTC")
+    j02 = pd.Timestamp("2026-06-02", tz="UTC")
+    # Le jour 02/06 est tronqué (données jusqu'à 09 h) → AUCUNE cellule jour.
+    assert (j02, FENETRE_JOUR) not in cellules
+    # Le jour 01/06 (complet) est bien présent.
+    assert (pd.Timestamp("2026-06-01", tz="UTC"), FENETRE_JOUR) in cellules
 
 
 def test_agreger_par_fenetre_sans_etp_donne_nan() -> None:
