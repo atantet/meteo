@@ -66,12 +66,34 @@ def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
     return calcul.charger_coefficients()
 
 
+# Couleurs des séries du panneau flux (cf. figure_bilan_sol_complet → cohérence
+# graphe/synthèse, palette Wong).
+_COULEUR_ETM = "#D55E00"  # vermillon
+_COULEUR_PLUIE = "#56B4E9"  # bleu
+_COULEUR_DEFICIT = "#009E73"  # vert
+
+
+def _grande_valeur(col, label: str, valeur: str, couleur_label: str) -> None:
+    """Label **coloré** (= couleur du graphe, gros) + valeur en **gros et sombre**.
+
+    La couleur est sur le label (pastille de légende) ; la valeur reste sombre
+    pour rester lisible (un gros chiffre en bleu clair passerait mal sur blanc).
+    """
+    col.markdown(
+        f"<div style='font-size:15px;font-weight:700;color:{couleur_label};"
+        f"line-height:1.25;'>{label}</div>"
+        f"<div style='font-size:30px;font-weight:700;color:#2c3e50;"
+        f"line-height:1.1;'>{valeur}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     """Synthèse sous la figure (disposition identique plein champ / sous abri).
 
-    Sous le panneau **flux** (gauche) : les cumuls en gros (`st.metric`) — ETM
-    culture, précipitations, déficit. Sous le panneau **réserves + irrigations**
-    (droite) : le nombre de déclenchements prévus.
+    Sous le panneau **flux** (gauche) : les cumuls sur ``n_j`` j en gros, **labels
+    colorés** comme le graphe (ETM vermillon, précipitations bleu, déficit vert).
+    Sous le panneau **réserves + irrigations** (droite) : les déclenchements prévus.
     """
     etm_tot = float(bilan[etm_col].sum())
     pluie_tot = float(bilan["pluie_mm"].sum())
@@ -79,12 +101,20 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     nb_irrig = int(bilan["irrigation_declenchee"].sum())
     col_flux, col_res = st.columns(2)
     with col_flux:
+        st.markdown(
+            f"<div style='font-size:12px;color:#888;'>Cumuls sur {n_j} j</div>",
+            unsafe_allow_html=True,
+        )
         m_etm, m_pluie, m_def = st.columns(3)
-        m_etm.metric("ETM culture", f"{etm_tot:.1f} mm")
-        m_pluie.metric("Précipitations", f"{pluie_tot:.1f} mm")
-        m_def.metric("Déficit", f"{deficit_tot:.1f} mm")
+        _grande_valeur(m_etm, "ETM culture", f"{etm_tot:.1f} mm", _COULEUR_ETM)
+        _grande_valeur(m_pluie, "Précipitations", f"{pluie_tot:.1f} mm", _COULEUR_PLUIE)
+        _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
     with col_res:
-        st.metric(f"Déclenchements prévus ({n_j} j)", f"{nb_irrig}")
+        st.markdown(
+            f"<div style='font-size:12px;color:#888;'>Irrigation sur {n_j} j</div>",
+            unsafe_allow_html=True,
+        )
+        _grande_valeur(st, "Déclenchements prévus", f"{nb_irrig}", "#2c3e50")
 
 
 def main() -> None:
