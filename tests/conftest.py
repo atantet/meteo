@@ -1,12 +1,17 @@
 """Configuration pytest commune.
 
-Insère `src/` dans le PYTHONPATH pour que `import meteo_socle...`
-fonctionne sans `pip install -e .` (utile en dev local et CI léger).
+Insère `src/` (et la racine du dépôt, pour `import apps...`) dans le PYTHONPATH
+pour que les imports fonctionnent sans `pip install -e .` (dev local + CI léger).
 
 Force aussi le backend matplotlib **Agg** : l'env contient PySide6, donc le
 backend par défaut est ``qtagg`` qui, en CI **headless** (sans affichage), bloque
 à l'import de ``pyplot`` (via ``charts.py``) → pytest pend jusqu'au timeout du job.
 Défini ici (avant tout import de matplotlib) pour que la sélection le respecte.
+
+Enfin, un fixture **autouse** neutralise les fetch réseau 48 h de la Veille
+(cartes synoptiques + Vigilance MF) : c'était la cause du **hang CI récurrent**
+(le webservice MF est bloqué/intermittent depuis les runners), révélée par le
+dump faulthandler après fiabilisation de ``ci.yml``.
 """
 
 from __future__ import annotations
@@ -15,8 +20,29 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 os.environ.setdefault("MPLBACKEND", "Agg")
 
-SRC = Path(__file__).resolve().parents[1] / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+for _p in (REPO_ROOT / "src", REPO_ROOT):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+
+@pytest.fixture(autouse=True)
+def _veille_sans_reseau_48h(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub les fetch réseau 48 h de la Veille pour TOUS les tests (zéro réseau).
+
+    ``executer_veille`` appelle ``recuperer_cartes`` (Météociel / Met Office) et
+    ``recuperer_vigilance`` (webservice MF, intermittent/bloqué depuis les
+    runners). Ces appels étaient la cause du **hang CI récurrent** (cf. ci.yml).
+    On les neutralise (→ ``None``, dégradation gracieuse déjà gérée par le
+    composeur). Les tests qui exercent vraiment ces fetchs appellent les
+    fonctions directement, avec une session mockée (``test_veille_cartes_*``,
+    ``test_meteofrance_vigilance``) — non affectés par ce stub.
+    """
+    import apps.veille.__main__ as veille_main
+
+    monkeypatch.setattr(veille_main, "recuperer_vigilance", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(veille_main, "recuperer_cartes", lambda *a, **k: None, raising=False)
