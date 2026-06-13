@@ -38,7 +38,6 @@ from apps.operationnelle.charts import (  # noqa: E402
     bilan_culture_carry_over,
     bilan_tunnel_carry_over,
     figure_bilan_sol_complet,
-    figure_bilan_tunnel,
 )
 from apps.operationnelle.config import load_config  # noqa: E402
 from apps.shared.dates_fr import format_date_fr  # noqa: E402
@@ -65,6 +64,27 @@ def _obtenir_prevision(
 @st.cache_data
 def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
     return calcul.charger_coefficients()
+
+
+def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
+    """Synthèse sous la figure (disposition identique plein champ / sous abri).
+
+    Sous le panneau **flux** (gauche) : les cumuls en gros (`st.metric`) — ETM
+    culture, précipitations, déficit. Sous le panneau **réserves + irrigations**
+    (droite) : le nombre de déclenchements prévus.
+    """
+    etm_tot = float(bilan[etm_col].sum())
+    pluie_tot = float(bilan["pluie_mm"].sum())
+    deficit_tot = float(bilan["deficit_mm"].sum())
+    nb_irrig = int(bilan["irrigation_declenchee"].sum())
+    col_flux, col_res = st.columns(2)
+    with col_flux:
+        m_etm, m_pluie, m_def = st.columns(3)
+        m_etm.metric("ETM culture", f"{etm_tot:.1f} mm")
+        m_pluie.metric("Précipitations", f"{pluie_tot:.1f} mm")
+        m_def.metric("Déficit", f"{deficit_tot:.1f} mm")
+    with col_res:
+        st.metric(f"Déclenchements prévus ({n_j} j)", f"{nb_irrig}")
 
 
 def main() -> None:
@@ -231,15 +251,7 @@ def main() -> None:
             )
             fig_pa = figure_bilan_sol_complet(bilan_pa, apport_max_mm=apport_max_mm)
             st.pyplot(fig_pa, use_container_width=True)
-            pluie_tot = float(bilan_pa["pluie_mm"].sum())
-            etm_tot = float(bilan_pa["etm_mm"].sum())
-            nb_irrig = int(bilan_pa["irrigation_declenchee"].sum())
-            deficit_tot = float(bilan_pa["deficit_mm"].sum())
-            st.markdown(
-                f"**Synthèse {n_j} j** : précipitations cumulées {pluie_tot:.1f} mm · "
-                f"ETM {etm_tot:.1f} mm · Déficit total {deficit_tot:.1f} mm · "
-                f"{nb_irrig} déclenchement(s) prévu(s)."
-            )
+            _synthese_bilan(bilan_pa, n_j, "etm_mm")
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan plein champ ({e}).")
 
@@ -283,16 +295,10 @@ def main() -> None:
                 f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
                 "(irrigation quand l'épuisement atteint la RFU)."
             )
-            fig_tu = figure_bilan_tunnel(bilan_tu, apport_max_mm=apport_max_mm)
+            # Même disposition que le plein champ (figure complète flux + réserves).
+            fig_tu = figure_bilan_sol_complet(bilan_tu, apport_max_mm=apport_max_mm)
             st.pyplot(fig_tu, use_container_width=True)
-            etm_tot = float(bilan_tu["etm_tunnel_mm"].sum())
-            nb_irrig = int(bilan_tu["irrigation_declenchee"].sum())
-            deficit_tot = float(bilan_tu["deficit_mm"].sum())
-            st.markdown(
-                f"**Synthèse {n_j} j** : ETM cumulée {etm_tot:.1f} mm · "
-                f"Déficit total {deficit_tot:.1f} mm · "
-                f"{nb_irrig} déclenchement(s) prévu(s)."
-            )
+            _synthese_bilan(bilan_tu, n_j, "etm_tunnel_mm")
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
