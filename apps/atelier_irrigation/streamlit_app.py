@@ -77,7 +77,7 @@ _COULEUR_APPORT = "#009E73"  # vert — « Apport irrigation » du panneau rése
 def _titre_section(label: str) -> str:
     """Petit titre centré, souligné (bordure basse) — coiffe un groupe de valeurs."""
     return (
-        "<div style='text-align:center;font-size:13px;font-weight:600;color:#34495e;"
+        "<div style='text-align:center;font-size:16px;font-weight:600;color:#34495e;"
         f"border-bottom:1px solid #cfd6dc;padding-bottom:4px;margin:0 0 10px 0;'>{label}</div>"
     )
 
@@ -280,7 +280,7 @@ def main() -> None:
             ru_max = float(bilan_pa["ru_max_mm"].iloc[0])
             rfu = float(bilan_pa["rfu_mm"].iloc[0])
             st.markdown(
-                "<div style='font-size:13px;color:#2c3e50;line-height:1.4;'>"
+                "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
                 f"<strong>Plein champ — {culture} ({stade_aff})</strong> · "
                 f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
                 f"RFU <strong>{rfu:.0f} mm</strong> "
@@ -329,7 +329,7 @@ def main() -> None:
             ru_max = float(bilan_tu["ru_max_mm"].iloc[0])
             rfu = float(bilan_tu["rfu_mm"].iloc[0])
             st.markdown(
-                "<div style='font-size:13px;color:#2c3e50;line-height:1.4;'>"
+                "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
                 f"<strong>Sous abri — {culture} ({stade_aff})</strong> · "
                 f"coefficient abri <strong>{k_tunnel:.2f}</strong> · "
                 f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
