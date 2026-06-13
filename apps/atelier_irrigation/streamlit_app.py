@@ -80,10 +80,10 @@ def _grande_valeur(col, label: str, valeur: str, couleur_label: str) -> None:
     pour rester lisible (un gros chiffre en bleu clair passerait mal sur blanc).
     """
     col.markdown(
-        f"<div style='font-size:15px;font-weight:700;color:{couleur_label};"
-        f"line-height:1.25;'>{label}</div>"
-        f"<div style='font-size:30px;font-weight:700;color:#2c3e50;"
-        f"line-height:1.1;'>{valeur}</div>",
+        f"<div style='text-align:center;font-size:15px;font-weight:700;"
+        f"color:{couleur_label};line-height:1.25;'>{label}</div>"
+        f"<div style='text-align:center;font-size:30px;font-weight:700;"
+        f"color:#2c3e50;line-height:1.1;'>{valeur}</div>",
         unsafe_allow_html=True,
     )
 
@@ -102,7 +102,7 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     col_flux, col_res = st.columns(2)
     with col_flux:
         st.markdown(
-            f"<div style='font-size:12px;color:#888;'>Cumuls sur {n_j} j</div>",
+            f"<div style='text-align:center;font-size:12px;color:#888;'>Cumuls sur {n_j} j</div>",
             unsafe_allow_html=True,
         )
         m_etm, m_pluie, m_def = st.columns(3)
@@ -111,7 +111,8 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
         _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
     with col_res:
         st.markdown(
-            f"<div style='font-size:12px;color:#888;'>Irrigation sur {n_j} j</div>",
+            f"<div style='text-align:center;font-size:12px;color:#888;'>"
+            f"Irrigation sur {n_j} j</div>",
             unsafe_allow_html=True,
         )
         _grande_valeur(st, "Déclenchements prévus", f"{nb_irrig}", "#2c3e50")
@@ -332,6 +333,8 @@ def main() -> None:
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
+    # Respiration avant le pied « Sources » (les onglets/synthèse collent sinon).
+    st.markdown("<div style='margin-top:32px;'></div>", unsafe_allow_html=True)
     code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
     with st.expander("Sources"):
         st.markdown(
