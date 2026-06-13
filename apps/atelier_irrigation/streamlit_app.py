@@ -345,7 +345,7 @@ def main() -> None:
             f"""
 - **Modèle** : ARPEGE Météo-France ~10 km · accès : *{source_meteo}* · run 00Z
   du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC.
-- **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
+- **ET₀** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
 - **Apport** : quand la RFU est dépassée, de quoi recharger jusqu'à la capacité
   au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
 - **Coefficient cultural** : référentiel ARDEPI
