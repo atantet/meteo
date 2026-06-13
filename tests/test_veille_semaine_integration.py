@@ -303,6 +303,8 @@ def test_executer_semaine_arpege_mf_direct() -> None:
     assert "La semaine" in html
     assert "Guides de décision de la semaine" in html
     assert not any("ARPEGE indisponible" in a.resume for a in res["anomalies"])
+    # Provenance correcte dans le pied (pas de fausse étiquette « Open-Meteo »).
+    assert "MF Données Publiques" in res["sources_html"]
 
 
 def test_executer_semaine_ecmwf_opendata_direct() -> None:
@@ -322,6 +324,8 @@ def test_executer_semaine_ecmwf_opendata_direct() -> None:
     assert res is not None
     assert "La semaine" in res["guides_tendance_html"]
     assert not any("ECMWF indisponible" in a.resume for a in res["anomalies"])
+    # Provenance correcte : ECMWF Open Data, pas « Open-Meteo Single Runs ».
+    assert "ECMWF Open Data" in res["sources_html"]
 
 
 def test_executer_semaine_ecmwf_opendata_muet_cascade() -> None:

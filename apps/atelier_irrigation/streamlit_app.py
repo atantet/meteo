@@ -12,8 +12,10 @@ USAGE
     streamlit run apps/atelier_irrigation/streamlit_app.py
     # ou : python -m apps.atelier_irrigation
 
-Source : ARPEGE Single Runs, run 00Z du jour → bilan sur 4 j depuis J+0 00Z.
-ETP par le socle FAO ; bilan par ``meteo_socle.indices.bilan_hydrique``.
+Source : ARPEGE run 00Z du jour → bilan sur 4 j depuis J+0 00Z. En priorité le
+run MF-direct partagé par le mail (asset de release, ADR-0020), repli Open-Meteo
+sinon — provenance affichée. ETP par le socle FAO ; bilan par
+``meteo_socle.indices.bilan_hydrique``.
 """
 
 from __future__ import annotations
@@ -298,8 +300,8 @@ def main() -> None:
     with st.expander("Sources"):
         st.markdown(
             f"""
-- **Modèle** : ARPEGE Météo-France ~10 km (Open-Meteo *Single Runs*, run 00Z
-  du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC).
+- **Modèle** : ARPEGE Météo-France ~10 km · accès : *{source_meteo}* · run 00Z
+  du jour {run_00z.strftime("%d/%m %HZ")}, horizon {horizon_court} j, UTC.
 - **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
 - **Bilan** : réserve utile (TAW) / RFU (RAW), irrigation quand l'épuisement
   atteint la RFU avec recharge à la capacité au champ — cadre FAO 56, ch. 8
