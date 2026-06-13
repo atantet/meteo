@@ -681,6 +681,7 @@ def executer_semaine(
     atelier_url: str = "",
     rappel: bool = False,
     source_arpege_mf: Any = None,
+    source_ecmwf_opendata: Any = None,
     proba_mf: pd.Series | None = None,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
@@ -768,7 +769,28 @@ def executer_semaine(
             df_arpege = source.obtenir_run(
                 ARPEGE, run_arpege, lat, lon, horizon_court, VARS_MONO_MODELE
             )
-        df_ecmwf = source.obtenir_run(ECMWF, run_ecmwf, lat, lon, horizon_long, VARS_MONO_MODELE)
+        # ECMWF : Open-Meteo (défaut) ou ECMWF Open Data en direct (flag), même
+        # logique que l'ARPEGE direct (indisponible → cascade df_ecmwf=None → la
+        # tendance se limite à ARPEGE, ou bandeau si les deux manquent). Corrige
+        # les trous d'ingestion Open-Meteo (rafales ECMWF en pointillé).
+        if sm.get("ecmwf_opendata_direct", False):
+            from meteo_socle.sources.ecmwf_opendata import (
+                EcmwfIndisponibleError,
+                EcmwfOpendata,
+            )
+
+            src_ec = source_ecmwf_opendata or EcmwfOpendata()
+            try:
+                df_ecmwf = src_ec.obtenir_run(
+                    run_ecmwf, lat, lon, horizon_long, cache_dir=sm.get("ecmwf_cache_dir")
+                )
+            except EcmwfIndisponibleError as e:
+                logger.warning("Semaine : ECMWF Open Data indisponible (%s) → cascade.", e)
+                df_ecmwf = None
+        else:
+            df_ecmwf = source.obtenir_run(
+                ECMWF, run_ecmwf, lat, lon, horizon_long, VARS_MONO_MODELE
+            )
         arpege_ok = df_arpege is not None and not df_arpege.empty
         ecmwf_ok = df_ecmwf is not None and not df_ecmwf.empty
 

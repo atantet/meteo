@@ -110,14 +110,46 @@ class _StubArpegeMfMuet:
         raise ArpegeIndisponibleError("stub muet")
 
 
+class _StubEcmwfOpendata:
+    """Stub EcmwfOpendata : df horaire en unités socle (rafales pleines)."""
+
+    def obtenir_run(self, run_utc, latitude, longitude, horizon_jours, cache_dir=None):
+        idx = pd.date_range(run_utc, periods=horizon_jours * 24 + 1, freq="h", tz="UTC")
+        n = len(idx)
+        cycle = np.sin(np.linspace(0, 2 * np.pi * horizon_jours, n))
+        return pd.DataFrame(
+            {
+                "temperature_2m": 16.0 + 4.0 * cycle + 273.15,  # K
+                "humidite_relative": np.full(n, 0.72),  # fraction
+                "precipitation": np.full(n, 0.0),  # mm
+                "rafales_vent_10m": np.full(n, 9.0),  # m/s (pleines, le gain opendata)
+                "cloud_cover": np.full(n, 0.4),  # fraction
+                "rayonnement_global": np.maximum(0.0, 2.2e6 * cycle),  # J/m²/h
+                "vitesse_vent_10m": np.full(n, 4.5),  # m/s
+                "direction_vent_deg": np.full(n, 250.0),
+            },
+            index=idx,
+        )
+
+
+class _StubEcmwfMuet:
+    """Stub EcmwfOpendata indisponible → cascade (flag opendata ON)."""
+
+    def obtenir_run(self, *args, **kwargs):
+        from meteo_socle.sources.ecmwf_opendata import EcmwfIndisponibleError
+
+        raise EcmwfIndisponibleError("stub muet")
+
+
 def _config_op() -> dict:
     import yaml
 
     with open(REPO_ROOT / "config" / "operationnelle.yaml") as f:
         cfg = yaml.safe_load(f)
-    # Tests de la voie Open-Meteo (source injectée) : on neutralise le flag MF direct
-    # (activé dans la config prod). Le test dédié MF le repasse à True + injecte un stub.
+    # Tests de la voie Open-Meteo (source injectée) : on neutralise les flags directs
+    # (activés/à activer en config prod). Les tests dédiés les repassent à True + stub.
     cfg["source_meteo"]["arpege_mf_direct"] = False
+    cfg["source_meteo"]["ecmwf_opendata_direct"] = False
     return cfg
 
 
@@ -271,6 +303,43 @@ def test_executer_semaine_arpege_mf_direct() -> None:
     assert "La semaine" in html
     assert "Guides de décision de la semaine" in html
     assert not any("ARPEGE indisponible" in a.resume for a in res["anomalies"])
+
+
+def test_executer_semaine_ecmwf_opendata_direct() -> None:
+    """Flag ecmwf_opendata_direct → ECMWF via Open Data ; semaine composée, sans anomalie."""
+    from apps.veille.semaine import executer_semaine
+
+    cfg = _config_op()
+    cfg["source_meteo"]["ecmwf_opendata_direct"] = True
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(
+        cfg,
+        now,
+        source=_StubSingleRuns(),  # ARPEGE (court terme) via Open-Meteo
+        fetch_cartes=False,
+        source_ecmwf_opendata=_StubEcmwfOpendata(),  # ECMWF direct Open Data
+    )
+    assert res is not None
+    assert "La semaine" in res["guides_tendance_html"]
+    assert not any("ECMWF indisponible" in a.resume for a in res["anomalies"])
+
+
+def test_executer_semaine_ecmwf_opendata_muet_cascade() -> None:
+    """ECMWF Open Data muet (flag ON) → cascade : tendance limitée à ARPEGE, anomalie."""
+    from apps.veille.semaine import executer_semaine
+
+    cfg = _config_op()
+    cfg["source_meteo"]["ecmwf_opendata_direct"] = True
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(
+        cfg,
+        now,
+        source=_StubSingleRuns(),  # ARPEGE dispo
+        fetch_cartes=False,
+        source_ecmwf_opendata=_StubEcmwfMuet(),
+    )
+    assert res is not None
+    assert any("ECMWF indisponible" in a.resume for a in res["anomalies"])
 
 
 def test_executer_semaine_bandeau_si_double_coupure() -> None:

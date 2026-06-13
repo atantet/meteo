@@ -134,6 +134,7 @@ def executer_veille(
     fetch_cartes_semaine: bool = True,
     fallback_mf: bool = False,
     source_arpege_mf: Any = None,
+    source_ecmwf_opendata: Any = None,
 ) -> int:
     """Exécute le pipeline Veille de bout en bout.
 
@@ -264,6 +265,7 @@ def executer_veille(
                     atelier_url=atelier_url,
                     rappel=apres_midi,
                     source_arpege_mf=source_arpege_mf,
+                    source_ecmwf_opendata=source_ecmwf_opendata,
                     # Proba pluie de la semaine = proba officielle MF calibrée,
                     # déjà récupérée ici (signal autonome ~J+10). Vide en repli ARPEGE.
                     proba_mf=prevision.proba_bins,
