@@ -517,7 +517,7 @@ def figure_bilan_sol_complet(
 
     Pas de titre ; étiquettes de jours en français, **gras** le jour d'irrigation.
     """
-    fig, (axf, axr) = plt.subplots(1, 2, figsize=figsize)
+    fig, (axf, axr) = plt.subplots(1, 2, figsize=figsize, dpi=300)
     n = len(bilan)
     x = np.arange(n)
     irrigation = list(bilan["irrigation_declenchee"])
@@ -627,7 +627,7 @@ def figure_bilan_culture(
     Bilan négatif (cumul pluie < cumul ETc) shadé rouge = besoin
     d'apport théorique ; positif bleu = excédent.
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    fig, ax = plt.subplots(figsize=figsize, dpi=300)
     x = quotidien.index
     pluie_cum = quotidien["pluie_24h_mm"].cumsum()
     etc_cum = (kc * quotidien["etp_mm"]).cumsum()

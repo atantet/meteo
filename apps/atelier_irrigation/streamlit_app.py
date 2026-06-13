@@ -77,7 +77,7 @@ _COULEUR_APPORT = "#009E73"  # vert — « Apport irrigation » du panneau rése
 def _titre_section(label: str) -> str:
     """Petit titre centré, souligné (bordure basse) — coiffe un groupe de valeurs."""
     return (
-        "<div style='text-align:center;font-size:14px;font-weight:600;color:#34495e;"
+        "<div style='text-align:center;font-size:13px;font-weight:600;color:#34495e;"
         f"border-bottom:1px solid #cfd6dc;padding-bottom:4px;margin:0 0 10px 0;'>{label}</div>"
     )
 
@@ -280,9 +280,12 @@ def main() -> None:
             ru_max = float(bilan_pa["ru_max_mm"].iloc[0])
             rfu = float(bilan_pa["rfu_mm"].iloc[0])
             st.markdown(
-                f"**Plein champ — {culture} ({stade_aff})** · "
-                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
-                "(irrigation quand l'épuisement atteint la RFU)."
+                "<div style='font-size:13px;color:#2c3e50;line-height:1.4;'>"
+                f"<strong>Plein champ — {culture} ({stade_aff})</strong> · "
+                f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
+                f"RFU <strong>{rfu:.0f} mm</strong> "
+                "(irrigation quand l'épuisement atteint la RFU).</div>",
+                unsafe_allow_html=True,
             )
             fig_pa = figure_bilan_sol_complet(bilan_pa, apport_max_mm=apport_max_mm)
             st.pyplot(fig_pa, use_container_width=True)
@@ -294,7 +297,7 @@ def main() -> None:
         st.caption(
             "Coefficient abri = facteur de réduction de l'ET₀ pour passer du climat "
             "extérieur au micro-climat de l'abri (coefficient fixe ET₀ abri/extérieur, "
-            "Castilla 2013 ch. 4 ; Möller et al. 2009 — défaut 0,70, recalibration "
+            "Castilla 2013 ch. 4 ; Möller et al. 2004 — défaut 0,70, recalibration "
             "terrain à venir). Plus l'abri est ventilé, plus l'ET₀ se rapproche de "
             "l'extérieur."
         )
@@ -326,9 +329,13 @@ def main() -> None:
             ru_max = float(bilan_tu["ru_max_mm"].iloc[0])
             rfu = float(bilan_tu["rfu_mm"].iloc[0])
             st.markdown(
-                f"**Sous abri — {culture} ({stade_aff})** · coefficient abri **{k_tunnel:.2f}** · "
-                f"capacité au champ **{ru_max:.0f} mm** · RFU **{rfu:.0f} mm** "
-                "(irrigation quand l'épuisement atteint la RFU)."
+                "<div style='font-size:13px;color:#2c3e50;line-height:1.4;'>"
+                f"<strong>Sous abri — {culture} ({stade_aff})</strong> · "
+                f"coefficient abri <strong>{k_tunnel:.2f}</strong> · "
+                f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
+                f"RFU <strong>{rfu:.0f} mm</strong> "
+                "(irrigation quand l'épuisement atteint la RFU).</div>",
+                unsafe_allow_html=True,
             )
             # Même disposition que le plein champ (figure complète flux + réserves).
             fig_tu = figure_bilan_sol_complet(bilan_tu, apport_max_mm=apport_max_mm)
@@ -340,12 +347,11 @@ def main() -> None:
     # Respiration avant le pied « Sources » (les onglets/synthèse collent sinon).
     st.markdown("<div style='margin-top:32px;'></div>", unsafe_allow_html=True)
     code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
-    # Lien d'accès : la donnée cachée elle-même (asset de release publié par le
-    # mail, ADR-0020) en MF direct ; sinon la config qui définit la source/repli.
-    url_cache = config["source_meteo"].get("arpege_partage_url") or ""
+    # Lien d'accès : la page GitHub de la release où le run MF est publié chaque
+    # matin par le mail (ADR-0020) ; sinon la config qui définit la source/repli.
     lien_acces = (
-        url_cache
-        if (url_cache and "Météo-France" in source_meteo)
+        "https://github.com/atantet/meteo/releases/tag/arpege-atelier"
+        if "Météo-France" in source_meteo
         else "https://github.com/atantet/meteo/blob/main/config/operationnelle.yaml"
     )
     with st.expander("Sources"):
@@ -358,8 +364,11 @@ def main() -> None:
   au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
 - **Coefficient cultural** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
-- **Coefficient sous abri** : Castilla (2013, ch. 4) ; Möller et al. (2009).
-- **Cache** : 1 h sur la prévision. Rafraîchir = recharger la page.
+- **Coefficient sous abri** : Castilla, N. (2013). *Greenhouse Technology and
+  Management* (2ᵉ éd.), chap. 4. Wallingford : CABI (ISBN 978-1-78064-103-4).
+  · Möller, M., Tanny, J., Li, Y. & Cohen, S. (2004). « Measuring and predicting
+  evapotranspiration in an insect-proof screenhouse ». *Agricultural and Forest
+  Meteorology*, 127(1-2), 35-51.
             """
         )
 
