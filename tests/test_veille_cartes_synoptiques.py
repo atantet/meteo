@@ -169,6 +169,22 @@ def test_recuperer_cartes_robuste_aux_fetch_echoues() -> None:
     assert len(grille.arome) == 4
     assert grille.nb_disponibles == 0
     assert all(not c.data_uri for c in grille.metoffice + grille.arome)
+    # Chaque carte manquante porte un MOTIF lisible (jamais une absence muette).
+    assert all(c.motif_indispo == "erreur réseau" for c in grille.metoffice + grille.arome)
+
+
+def test_recuperer_cartes_motif_404_non_publiee() -> None:
+    """Un 404 → motif « non encore publiée » (run/échéance pas encore servie)."""
+    fake_resp = MagicMock()
+    fake_resp.status_code = 404
+    fake_resp.raise_for_status.side_effect = requests.HTTPError(response=fake_resp)
+    fake_session = MagicMock()
+    fake_session.get.return_value = fake_resp
+
+    now = pd.Timestamp("2026-06-01 05:30", tz="UTC")
+    grille = recuperer_cartes(now_utc=now, session=fake_session)
+    cartes = grille.metoffice + grille.arome
+    assert cartes and all(c.motif_indispo == "non encore publiée" for c in cartes)
 
 
 def test_echeances_metoffice_et_arome_synchrones() -> None:

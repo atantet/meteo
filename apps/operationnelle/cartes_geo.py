@@ -30,6 +30,8 @@ import pandas as pd
 import requests
 from PIL import Image
 
+from apps.shared.cartes_indispo import _motif_indispo
+
 logger = logging.getLogger(__name__)
 
 # Échéances cibles : J+1 / J+2 / J+3 / J+4 = T+24, T+48, T+72, T+96 h
@@ -67,6 +69,7 @@ class CarteGeo:
     cible_utc: pd.Timestamp
     echeance_h: int
     data_uri: str  # data:image/jpeg;base64,...  (vide si fetch échoué)
+    motif_indispo: str = ""  # raison si data_uri vide (404/réseau…), pour le rendu
 
 
 @dataclass
@@ -102,8 +105,13 @@ def _fetch_image(
     largeur_max_px: int,
     timeout: float,
     session: requests.Session,
-) -> str:
-    """Télécharge, redimensionne, encode JPEG base64. Retourne ``""`` si échec."""
+) -> tuple[str, str]:
+    """Télécharge, redimensionne, encode JPEG base64.
+
+    Retourne ``(data_uri, motif)`` : ``motif`` vide si OK ; sinon ``data_uri``
+    vide et ``motif`` = raison lisible de l'indisponibilité (pour l'afficher
+    explicitement, jamais de carte qui disparaît en silence).
+    """
     try:
         resp = session.get(
             url,
@@ -116,8 +124,9 @@ def _fetch_image(
         resp.raise_for_status()
         img = Image.open(io.BytesIO(resp.content))
     except (requests.RequestException, OSError) as e:
-        logger.warning("Carte ARPEGE-Europe indisponible (%s) : %s", url, e)
-        return ""
+        motif = _motif_indispo(e)
+        logger.warning("Carte ARPEGE-Europe indisponible (%s) : %s — %s", url, e, motif)
+        return "", motif
 
     if img.mode in ("RGBA", "LA"):
         background = Image.new("RGB", img.size, (255, 255, 255))
@@ -133,7 +142,7 @@ def _fetch_image(
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=78, optimize=True)
     buf.seek(0)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii")
+    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii"), ""
 
 
 def recuperer_cartes(
@@ -152,8 +161,9 @@ def recuperer_cartes(
       run échoue systématiquement à l'heure dite, on corrige la constante
       de latence.
     - Si un fetch échoue (réseau, plage hors archive), la carte concernée
-      retourne ``data_uri=""`` ; le rendu saute silencieusement les
-      cartes vides.
+      retourne ``data_uri=""`` + un ``motif_indispo`` lisible ; le rendu
+      affiche alors une ligne explicite « carte indisponible (motif) »
+      (jamais une absence muette).
 
     ``echeances`` permet de restreindre la série (défaut : les 4 cibles
     J+1→J+4). Le mail Veille n'en prend que les deux dernières (J+3 / J+4,
@@ -168,7 +178,7 @@ def recuperer_cartes(
     cartes: list[CarteGeo] = []
     for ech in echeances:
         url = _url_arpege_eur(run_choisi, ech)
-        data_uri = _fetch_image(
+        data_uri, motif = _fetch_image(
             url,
             largeur_max_px=largeur_max_px,
             timeout=timeout,
@@ -181,6 +191,7 @@ def recuperer_cartes(
                 cible_utc=cible,
                 echeance_h=ech,
                 data_uri=data_uri,
+                motif_indispo=motif,
             )
         )
 

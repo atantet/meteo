@@ -189,13 +189,25 @@ def _fmt_ciel(cellule: CelluleFenetre, fenetre: str) -> str:
 
 
 def _fmt_vent_combine(cellule: CelluleFenetre, _fenetre: str) -> str:
-    """Vent moyen / rafales (km/h) + flèche de direction, sur une ligne."""
-    if pd.isna(cellule.vent_moy_kmh) or pd.isna(cellule.rafales_max_kmh):
+    """Vent moyen / rafales (km/h) + flèche de direction, sur une ligne.
+
+    Ne **jamais cacher une donnée disponible** : on affiche le vent moyen + la
+    direction dès que la moyenne existe ; si la **rafale** manque (trou
+    d'ingestion fournisseur — fréquent côté ECMWF en moyenne portée), on la
+    remplace par « – » plutôt que de masquer toute la cellule. « — » complet
+    seulement si le vent moyen lui-même manque.
+    """
+    if pd.isna(cellule.vent_moy_kmh):
         return "—"
+    raf = (
+        '<span style="color:#bbb;">–</span>'
+        if pd.isna(cellule.rafales_max_kmh)
+        else f'<span style="color:{_RAFALES};">{cellule.rafales_max_kmh:.0f}</span>'
+    )
     vent = (
         f'<span style="color:{_VENT};">{cellule.vent_moy_kmh:.0f}</span>'
         '<span style="color:#aaa;">/</span>'
-        f'<span style="color:{_RAFALES};">{cellule.rafales_max_kmh:.0f}</span>'
+        f"{raf}"
         f"{_unite('km/h')}"
     )
     if not cellule.direction_cardinal:
@@ -346,14 +358,17 @@ def _table_jour(
     """
     nuit_lbl = "Nuit (18–6 h)" if premier else "Nuit"
     jour_lbl = "Jour (6–18 h)" if premier else "Jour"
+    # En-tête de jour marqué (fond plus sombre + filet épais sombre dessous +
+    # nom du jour en gras) pour séparer franchement les jours de la tendance.
+    bord_jour = "border-bottom:2px solid #aeb6bd;"
     en_tete = (
-        '<tr style="background:#fafafa;">'
-        '<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
-        f"{_date_fr_courte(jour)}</th>"
+        '<tr style="background:#e9edf0;">'
+        '<th style="padding:6px 8px;text-align:left;color:#2c3e50;font-size:13px;'
+        f'font-weight:700;{bord_jour}">{_date_fr_courte(jour)}</th>'
         '<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;'
-        f'font-weight:400;">{nuit_lbl}</th>'
+        f'font-weight:400;{bord_jour}">{nuit_lbl}</th>'
         '<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;'
-        f'font-weight:400;">{jour_lbl}</th>'
+        f'font-weight:400;{bord_jour}">{jour_lbl}</th>'
         "</tr>"
     )
     lignes = [en_tete]
@@ -375,7 +390,7 @@ def _table_jour(
         lignes.append("<tr>" + label + cellules + "</tr>")
     return (
         '<table style="width:100%;border-collapse:collapse;table-layout:fixed;'
-        'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
+        'margin:14px 0;border:1px solid #d0d5da;border-radius:4px;">'
         + _GRILLE_COLGROUP
         + "".join(lignes)
         + "</table>"
@@ -780,6 +795,36 @@ def executer_semaine(
                     "single-runs (modèle ecmwf_ifs025, non publié au moment du fetch).",
                 )
             )
+
+        # Couverture PARTIELLE (run publié partiellement / trou d'ingestion) : la
+        # donnée existe mais s'arrête avant l'horizon attendu. Le garde-fou de
+        # `agreger_par_fenetre` écarte alors les fenêtres tronquées (jamais de
+        # faux extrême) — mais cette absence serait MUETTE (le jour basculerait en
+        # « autre modèle seul », indistinct). Anormal ≠ 1re nuit incomplète : on
+        # le rend VISIBLE (anomalie → rapport de bug + note inline).
+        for nom, df_m, run_m, horizon_m in (
+            ("ARPEGE", df_arpege if arpege_ok else None, run_arpege, horizon_court),
+            ("ECMWF", df_ecmwf if ecmwf_ok else None, run_ecmwf, horizon_long),
+        ):
+            if df_m is None:
+                continue
+            attendu = run_m + pd.Timedelta(days=horizon_m)
+            fin = df_m.index.max()
+            if fin < attendu - pd.Timedelta(hours=12):
+                manque_j = (attendu - fin).total_seconds() / 86400
+                logger.warning(
+                    "Semaine : %s écourté (jusqu'à %s, attendu ~%d j).", nom, fin, horizon_m
+                )
+                anomalies.append(
+                    Anomalie(
+                        "La semaine",
+                        f"{nom} publié partiellement — tendance écourtée",
+                        f"Run {nom} {run_m:%Y-%m-%dT%H:%M}Z : données jusqu'à "
+                        f"{fin:%Y-%m-%dT%H:%M}Z seulement (attendu ~{horizon_m} j, "
+                        f"manque ~{manque_j:.1f} j). Les jours non couverts n'affichent "
+                        f"pas les valeurs {nom} (écartées : jamais de valeur extrapolée).",
+                    )
+                )
 
         # Les deux modèles muets → bandeau d'indisponibilité (le détail va au
         # rapport de bug). Le mail 48 h part quand même.

@@ -141,6 +141,24 @@ def _masque_fenetre(index: pd.DatetimeIndex, jour: pd.Timestamp, fenetre: str) -
     return soir_veille | matin
 
 
+def _bornes_fenetre(jour: pd.Timestamp, fenetre: str) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Bornes ``[début, fin)`` de la fenêtre (même tz que ``jour``).
+
+    ``jour`` = [DEBUT, FIN) du jour J ; ``nuit`` = [FIN de J-1, DEBUT de J).
+    Sert à juger si les données couvrent toute l'étendue de la fenêtre.
+    """
+    if fenetre == FENETRE_JOUR:
+        return (
+            jour + pd.Timedelta(hours=FENETRE_JOUR_DEBUT),
+            jour + pd.Timedelta(hours=FENETRE_JOUR_FIN),
+        )
+    veille = jour - pd.DateOffset(days=1)
+    return (
+        veille + pd.Timedelta(hours=FENETRE_JOUR_FIN),
+        jour + pd.Timedelta(hours=FENETRE_JOUR_DEBUT),
+    )
+
+
 def _agreger_cellule(
     group: pd.DataFrame,
     fenetre: str,
@@ -274,11 +292,25 @@ def agreger_par_fenetre(
     if horizon_jours is not None:
         jours_uniques = jours_uniques[:horizon_jours]
 
+    # Pas natif (le plus grossier) : ARPEGE = 1 h puis 3 h ; ECMWF jusqu'à 6 h.
+    # Sert de tolérance de bord pour juger une fenêtre « complète ».
+    diffs = pd.Series(df.index).diff().dropna()
+    pas = diffs.max() if not diffs.empty else pd.Timedelta(hours=1)
+
     cellules: dict[tuple[pd.Timestamp, str], CelluleFenetre] = {}
     for jour in jours_uniques:
         for fenetre in (FENETRE_JOUR, FENETRE_NUIT):
             masque = _masque_fenetre(df.index, jour, fenetre)
             if int(masque.sum()) < MIN_HEURES_PAR_FENETRE:
+                continue
+            # JAMAIS de fausse valeur : on n'agrège (max/min/cumul) que si les
+            # données couvrent **toute l'étendue** de la fenêtre, aux deux bords
+            # (à un pas natif près). Une fenêtre tronquée — run partiellement
+            # publié, trou d'ingestion — est écartée plutôt que de produire un
+            # extrême ou un cumul faux (ex. max matinal pris pour max du jour).
+            debut, fin = _bornes_fenetre(jour, fenetre)
+            couverts = df.index[masque]
+            if couverts.min() > debut + pas or couverts.max() < fin - pas:
                 continue
             etp_fenetre = None
             if etp_loc is not None:

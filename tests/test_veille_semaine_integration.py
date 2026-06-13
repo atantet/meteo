@@ -60,6 +60,18 @@ class _StubArpegeMuet(_StubSingleRuns):
         return super().obtenir_run(modele, run_utc, latitude, longitude, horizon_jours, variables)
 
 
+class _StubArpegeTronque(_StubSingleRuns):
+    """ARPEGE publié partiellement : données s'arrêtant bien avant l'horizon."""
+
+    def obtenir_run(self, modele, run_utc, latitude, longitude, horizon_jours, variables):
+        from meteo_socle.sources.openmeteo_runs import ARPEGE
+
+        df = super().obtenir_run(modele, run_utc, latitude, longitude, horizon_jours, variables)
+        if modele == ARPEGE:
+            return df.iloc[:36]  # ~1,5 j au lieu de horizon_court → run tronqué
+        return df
+
+
 class _StubTousMuets:
     """Aucun modèle disponible (double coupure Open-Meteo)."""
 
@@ -164,6 +176,51 @@ def test_executer_semaine_sans_proba_mf_cellules_vides() -> None:
     assert res is not None
     cellule_proba_remplie = re.compile(r"font-size:10px;[^>]*>\s*\d+%\s*</td>")
     assert not cellule_proba_remplie.search(res["guides_tendance_html"])
+
+
+def test_executer_semaine_arpege_tronque_anomalie_visible() -> None:
+    """Run ARPEGE partiel (tronqué) → anomalie VISIBLE (pas une absence muette).
+
+    Distinction du principe « jamais de fausse valeur » : une absence anormale
+    (trou/troncature) doit apparaître clairement, contrairement à la 1re nuit
+    incomplète (absence normale, silencieuse)."""
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(_config_op(), now, source=_StubArpegeTronque(), fetch_cartes=False)
+    assert res is not None
+    resumes = " | ".join(a.resume for a in res["anomalies"])
+    assert "partiellement" in resumes.lower(), f"anomalie troncature absente : {resumes}"
+    # La note inline (visible en tête de section) signale l'anomalie.
+    assert "partiellement" in res["guides_tendance_html"].lower()
+
+
+def test_fmt_vent_combine_degrade_si_rafale_manquante() -> None:
+    """Rafale absente → on garde moyenne + direction (jamais cacher le vrai)."""
+    from apps.operationnelle.tendances import CelluleFenetre
+    from apps.veille.semaine import _fmt_vent_combine
+
+    def _cell(vent_moy, rafales):
+        return CelluleFenetre(
+            t_mean=15.0,
+            t_extreme=18.0,
+            pluie_mm=0.0,
+            prob_pluie_pct=float("nan"),
+            vent_moy_kmh=vent_moy,
+            rafales_max_kmh=rafales,
+            direction_cardinal="O",
+            direction_deg=270.0,
+            etp_mm=float("nan"),
+            nebulosite_pct=50.0,
+        )
+
+    # Rafale manquante mais moyenne + direction présentes → affichées, pas « — ».
+    html = _fmt_vent_combine(_cell(18.0, float("nan")), "jour")
+    assert html != "—"
+    assert "18" in html  # vent moyen affiché
+    assert "–" in html  # placeholder rafale (et non une fausse valeur)
+    # Vent moyen absent → cellule complète « — » (rien de fiable à montrer).
+    assert _fmt_vent_combine(_cell(float("nan"), float("nan")), "jour") == "—"
 
 
 def test_executer_semaine_tendance_demarre_aujourdhui() -> None:
