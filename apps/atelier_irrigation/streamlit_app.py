@@ -71,6 +71,15 @@ def _charger_coefficients_kc() -> dict[str, dict[str, float]]:
 _COULEUR_ETM = "#D55E00"  # vermillon
 _COULEUR_PLUIE = "#56B4E9"  # bleu
 _COULEUR_DEFICIT = "#009E73"  # vert
+_COULEUR_APPORT = "#009E73"  # vert — « Apport irrigation » du panneau réserves
+
+
+def _titre_section(label: str) -> str:
+    """Petit titre centré, souligné (bordure basse) — coiffe un groupe de valeurs."""
+    return (
+        "<div style='text-align:center;font-size:14px;font-weight:600;color:#34495e;"
+        f"border-bottom:1px solid #cfd6dc;padding-bottom:4px;margin:0 0 10px 0;'>{label}</div>"
+    )
 
 
 def _grande_valeur(col, label: str, valeur: str, couleur_label: str) -> None:
@@ -98,24 +107,19 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     etm_tot = float(bilan[etm_col].sum())
     pluie_tot = float(bilan["pluie_mm"].sum())
     deficit_tot = float(bilan["deficit_mm"].sum())
-    nb_irrig = int(bilan["irrigation_declenchee"].sum())
+    # Doses d'irrigation réellement appliquées (jours d'apport) → « X mm + Y mm ».
+    apports = [float(a) for a in bilan["apport_mm"] if float(a) > 0]
+    doses = " + ".join(f"{a:.0f} mm" for a in apports) if apports else "aucun"
     col_flux, col_res = st.columns(2)
     with col_flux:
-        st.markdown(
-            f"<div style='text-align:center;font-size:12px;color:#888;'>Cumuls sur {n_j} j</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(_titre_section(f"Cumuls sur {n_j} j"), unsafe_allow_html=True)
         m_etm, m_pluie, m_def = st.columns(3)
         _grande_valeur(m_etm, "ETM culture", f"{etm_tot:.1f} mm", _COULEUR_ETM)
         _grande_valeur(m_pluie, "Précipitations", f"{pluie_tot:.1f} mm", _COULEUR_PLUIE)
         _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
     with col_res:
-        st.markdown(
-            f"<div style='text-align:center;font-size:12px;color:#888;'>"
-            f"Irrigation sur {n_j} j</div>",
-            unsafe_allow_html=True,
-        )
-        _grande_valeur(st, "Déclenchements prévus", f"{nb_irrig}", "#2c3e50")
+        st.markdown(_titre_section(f"Irrigation sur {n_j} j"), unsafe_allow_html=True)
+        _grande_valeur(st, "Déclenchements prévus", doses, _COULEUR_APPORT)
 
 
 def main() -> None:
