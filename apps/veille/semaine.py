@@ -564,21 +564,28 @@ def bloc_sources_semaine(
     horizon_long: int,
     run_arpege: pd.Timestamp,
     run_ecmwf: pd.Timestamp,
+    acces_arpege: str = "Open-Meteo Single Runs",
+    acces_ecmwf: str = "Open-Meteo Single Runs",
 ) -> str:
-    """Pied de section semaine — transparence sur modèles, runs, méthode."""
+    """Pied de section semaine — transparence sur modèles, runs, **accès**, méthode.
+
+    ``acces_arpege`` / ``acces_ecmwf`` : provenance réelle de chaque modèle (MF
+    Données Publiques en direct, ECMWF Open Data en direct, ou Open-Meteo selon
+    les flags) — pour ne pas afficher de fausse étiquette de source.
+    """
 
     def _run(ts: pd.Timestamp) -> str:
         return ts.strftime("%d/%m %HZ")
 
     lignes = [
         f"<strong>ARPEGE</strong> Météo-France ~10 km — court terme "
-        f"(0-{horizon_court} j), guides + tendance · run {_run(run_arpege)}.",
+        f"(0-{horizon_court} j), guides + tendance · run {_run(run_arpege)} · {acces_arpege}.",
         f"<strong>ECMWF IFS</strong> ~9 km — tendance longue (0-{horizon_long} j) "
-        f"· run {_run(run_ecmwf)}.",
+        f"· run {_run(run_ecmwf)} · {acces_ecmwf}.",
         "<strong>Proba pluie</strong> : prévision officielle Météo-France calibrée "
         "(fenêtres 3 h/6 h), indépendante des deux modèles ci-dessus.",
         "<strong>ETP</strong> : socle FAO Penman-Monteith (pas le champ du fournisseur).",
-        "Single Runs Open-Meteo, runs explicites, raisonnement tout-UTC.",
+        "Runs déterministes explicites, raisonnement tout-UTC.",
     ]
     items = "".join(f'<div style="margin:2px 0;">{ligne}</div>' for ligne in lignes)
     return (
@@ -923,7 +930,20 @@ def executer_semaine(
             ),
             "cartes_geo": cartes_geo,
             "sources_html": bloc_sources_semaine(
-                horizon_court, horizon_long, run_arpege, run_ecmwf
+                horizon_court,
+                horizon_long,
+                run_arpege,
+                run_ecmwf,
+                acces_arpege=(
+                    "MF Données Publiques (WCS direct)"
+                    if sm.get("arpege_mf_direct", False)
+                    else "Open-Meteo Single Runs"
+                ),
+                acces_ecmwf=(
+                    "ECMWF Open Data (direct)"
+                    if sm.get("ecmwf_opendata_direct", False)
+                    else "Open-Meteo Single Runs"
+                ),
             ),
             "texte": composer_section_semaine_texte(guides),
             "anomalies": anomalies,
