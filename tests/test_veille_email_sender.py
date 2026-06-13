@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -195,6 +196,39 @@ def test_construire_message_multipart() -> None:
     assert msg["To"] == "c@d.com, e@f.com"
     payloads = msg.get_payload()
     assert len(payloads) == 2  # texte + html
+
+
+def test_construire_message_images_inline_cid() -> None:
+    """Images data-URI → parties inline CID, dédupliquées par contenu."""
+    from apps.veille.email import EmailComposed
+    from apps.veille.sender import construire_message
+
+    img_a = "data:image/png;base64,QUJD"  # "ABC" — utilisée 2×
+    img_b = "data:image/svg+xml;base64,WFla"  # "XYZ" — utilisée 1×
+    html = f'<p><img src="{img_a}"><img src="{img_a}"><img src="{img_b}"></p>'
+    email = EmailComposed(sujet="S", texte="T", html=html)
+    msg = construire_message(email, "a@b.com", ["c@d.com"])
+
+    # Structure multipart/related = 1 alternative + 2 images uniques (img_a dédupliquée).
+    assert msg.get_content_subtype() == "related"
+    parts = msg.get_payload()
+    assert len(parts) == 3
+
+    # Le HTML ne contient plus de data:, mais 3 références cid: (2 distinctes).
+    html_part = parts[0].get_payload()[1].get_payload(decode=True).decode("utf-8")
+    assert "data:image" not in html_part
+    assert html_part.count("cid:img") == 3
+
+    images = parts[1:]
+    assert len(images) == 2
+    for im in images:
+        assert im.get("Content-ID", "").startswith("<img")
+        assert im.get("Content-Disposition") == "inline"
+    assert sorted(im.get_content_subtype() for im in images) == ["png", "svg+xml"]
+    # Chaque cid du HTML correspond à un Content-ID joint.
+    cids_html = set(re.findall(r"cid:(img\d+@veille)", html_part))
+    cids_parts = {im.get("Content-ID").strip("<>") for im in images}
+    assert cids_html == cids_parts
 
 
 def test_envoyer_dry_run() -> None:
