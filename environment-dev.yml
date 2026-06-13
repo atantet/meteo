@@ -44,4 +44,10 @@ dependencies:
   # Python, eccodes = bibliothèque C + définitions.
   - eccodes
   - python-eccodes
+  # ECMWF IFS HRES direct depuis Open Data (cf. ecmwf_opendata.py) : cfgrib lit
+  # les GRIB multi-échéances, le client ecmwf-opendata (pip) les télécharge.
+  - cfgrib
   # Note: climetlab pour SAFRAN à ajouter quand on attaque l'app climato (cf. ADR-0002).
+  - pip:
+      # Client de téléchargement ECMWF Open Data (PyPI uniquement).
+      - ecmwf-opendata

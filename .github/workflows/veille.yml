@@ -64,6 +64,12 @@ jobs:
         with:
           path: .cache/arpege
           key: arpege-${{ steps.jour.outputs.val }}
+      # Idem pour ECMWF Open Data (sans effet si ecmwf_opendata_direct=false).
+      - name: Cache ECMWF Open Data
+        uses: actions/cache@v4
+        with:
+          path: .cache/ecmwf
+          key: ecmwf-${{ steps.jour.outputs.val }}
 
       - name: Exécuter la veille
         env:
