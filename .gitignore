@@ -10,6 +10,9 @@ dist/
 .mypy_cache/
 .ipynb_checkpoints/
 
+# Cache de runs météo (parquet ARPEGE direct, etc.) — artefacts, jamais versionnés
+.cache/
+
 # Conda / venv
 .conda/
 .venv/
