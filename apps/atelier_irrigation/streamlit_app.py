@@ -348,7 +348,7 @@ def main() -> None:
 - **ETP** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
 - **Apport** : quand la RFU est dépassée, de quoi recharger jusqu'à la capacité
   au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
-- **Kc** : référentiel ARDEPI
+- **Coefficient cultural** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
 - **Coefficient sous abri** : Castilla (2013, ch. 4) ; Möller et al. (2009).
 - **Cache** : 1 h sur la prévision. Rafraîchir = recharger la page.
