@@ -33,7 +33,7 @@ for _p in (_REPO_ROOT, _REPO_ROOT / "src"):
 import pandas as pd  # noqa: E402
 
 from apps.atelier_irrigation import calcul  # noqa: E402
-from apps.operationnelle.charts import figure_bilan_sol_complet, figure_bilan_tunnel  # noqa: E402
+from apps.operationnelle.charts import figure_bilan_sol_complet  # noqa: E402
 from apps.operationnelle.config import load_config as load_config_op  # noqa: E402
 from apps.veille.__main__ import executer_veille  # noqa: E402
 from apps.veille.config import load_config as load_config_veille  # noqa: E402
@@ -82,10 +82,11 @@ def main() -> None:
 
     fig_pa = figure_bilan_sol_complet(bilan_pa, apport_max_mm=params["apport_max_mm"])
     pa = OUT / "atelier_bilan_plein_champ.png"
-    fig_pa.savefig(pa, dpi=130, bbox_inches="tight")
-    fig_tu = figure_bilan_tunnel(bilan_tu, apport_max_mm=params["apport_max_mm"])
+    fig_pa.savefig(pa, dpi=300, bbox_inches="tight")
+    # Même disposition que le plein champ (figure complète flux + réserves).
+    fig_tu = figure_bilan_sol_complet(bilan_tu, apport_max_mm=params["apport_max_mm"])
     tu = OUT / "atelier_bilan_abri.png"
-    fig_tu.savefig(tu, dpi=130, bbox_inches="tight")
+    fig_tu.savefig(tu, dpi=300, bbox_inches="tight")
     print(f"Atelier (défauts {params['culture']}/{stade}) : {pa} · {tu}")
     print(f"  pluie ARPEGE par jour : {dict(bilan_pa['pluie_mm'].round(2))}")
 
