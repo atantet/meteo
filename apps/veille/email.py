@@ -451,11 +451,15 @@ def _bloc_cartes_synoptiques(
         ]
         for c in cartes:
             cible_loc = c.cible_utc.tz_convert(tz_locale)
-            cible_label = f"Cible : {_format_dt_court_fr(cible_loc)}"
+            # « Échéance » plutôt que « Cible » (plus lisible) ; heure locale,
+            # cohérente avec le sous-titre « (heure locale) » — surtout pas « UTC »
+            # ici (ce serait une fausse étiquette).
+            cible_label = f"Échéance : {_format_dt_court_fr(cible_loc)}"
             if not c.data_uri:
+                motif = getattr(c, "motif_indispo", "") or "indisponible"
                 lignes.append(
                     '<p style="text-align:center;color:#bbb;font-size:11px;'
-                    f'margin:6px 0;">{cible_label} — carte indisponible</p>'
+                    f'margin:6px 0;">{cible_label} — carte indisponible ({motif})</p>'
                 )
                 continue
             lignes.append(

@@ -358,14 +358,17 @@ def _table_jour(
     """
     nuit_lbl = "Nuit (18–6 h)" if premier else "Nuit"
     jour_lbl = "Jour (6–18 h)" if premier else "Jour"
+    # En-tête de jour marqué (fond plus sombre + filet épais sombre dessous +
+    # nom du jour en gras) pour séparer franchement les jours de la tendance.
+    bord_jour = "border-bottom:2px solid #aeb6bd;"
     en_tete = (
-        '<tr style="background:#fafafa;">'
-        '<th style="padding:6px 8px;text-align:left;color:#34495e;font-size:13px;">'
-        f"{_date_fr_courte(jour)}</th>"
+        '<tr style="background:#e9edf0;">'
+        '<th style="padding:6px 8px;text-align:left;color:#2c3e50;font-size:13px;'
+        f'font-weight:700;{bord_jour}">{_date_fr_courte(jour)}</th>'
         '<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;'
-        f'font-weight:400;">{nuit_lbl}</th>'
+        f'font-weight:400;{bord_jour}">{nuit_lbl}</th>'
         '<th style="padding:6px 4px;text-align:center;font-size:11px;color:#888;'
-        f'font-weight:400;">{jour_lbl}</th>'
+        f'font-weight:400;{bord_jour}">{jour_lbl}</th>'
         "</tr>"
     )
     lignes = [en_tete]
@@ -387,7 +390,7 @@ def _table_jour(
         lignes.append("<tr>" + label + cellules + "</tr>")
     return (
         '<table style="width:100%;border-collapse:collapse;table-layout:fixed;'
-        'margin:8px 0;border:1px solid #eee;border-radius:4px;">'
+        'margin:14px 0;border:1px solid #d0d5da;border-radius:4px;">'
         + _GRILLE_COLGROUP
         + "".join(lignes)
         + "</table>"

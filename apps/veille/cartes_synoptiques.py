@@ -52,6 +52,8 @@ import pandas as pd
 import requests
 from PIL import Image
 
+from apps.shared.cartes_indispo import _motif_indispo
+
 logger = logging.getLogger(__name__)
 
 # Met Office : run 00 UTC, échéances T+0 / T+12 / T+24 / T+36
@@ -110,6 +112,7 @@ class CarteSynoptique:
     run_utc: pd.Timestamp  # heure du run dont vient cette carte (tz UTC)
     cible_utc: pd.Timestamp  # heure de validité de la prévision (tz UTC)
     data_uri: str  # data:image/jpeg;base64,...  (vide si fetch échoué)
+    motif_indispo: str = ""  # raison si data_uri vide (404/réseau…), pour le rendu
 
 
 @dataclass
@@ -147,8 +150,12 @@ def _fetch_image(
     largeur_max_px: int,
     timeout: float,
     session: requests.Session,
-) -> str:
-    """Télécharge, redimensionne, encode JPEG base64. Retourne ``""`` si échec."""
+) -> tuple[str, str]:
+    """Télécharge, redimensionne, encode JPEG base64.
+
+    Retourne ``(data_uri, motif)`` : ``motif`` vide si OK ; sinon ``data_uri``
+    vide et ``motif`` = raison lisible (affichée explicitement, jamais muette).
+    """
     try:
         # Referer aide chez Météociel (page consommatrice attendue).
         resp = session.get(
@@ -162,8 +169,9 @@ def _fetch_image(
         resp.raise_for_status()
         img = Image.open(io.BytesIO(resp.content))
     except (requests.RequestException, OSError) as e:
-        logger.warning("Carte indisponible (%s) : %s", url, e)
-        return ""
+        motif = _motif_indispo(e)
+        logger.warning("Carte indisponible (%s) : %s — %s", url, e, motif)
+        return "", motif
 
     if img.mode in ("RGBA", "LA"):
         background = Image.new("RGB", img.size, (255, 255, 255))
@@ -179,7 +187,7 @@ def _fetch_image(
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=75, optimize=True)
     buf.seek(0)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii")
+    return "data:image/jpeg;base64," + base64.b64encode(buf.read()).decode("ascii"), ""
 
 
 def recuperer_cartes(
@@ -224,7 +232,7 @@ def recuperer_cartes(
 
     for ech in ech_metoffice:
         url = _url_metoffice(run_metoffice.date(), ech)
-        data_uri = _fetch_image(
+        data_uri, motif = _fetch_image(
             url,
             referer=METOFFICE_PAGE_AFFICHEE,
             largeur_max_px=largeur_max_px,
@@ -238,12 +246,13 @@ def recuperer_cartes(
                 run_utc=run_metoffice,
                 cible_utc=cible,
                 data_uri=data_uri,
+                motif_indispo=motif,
             )
         )
 
     for ech in ech_arome:
         url = _url_arome(run_arome, ech)
-        data_uri = _fetch_image(
+        data_uri, motif = _fetch_image(
             url,
             referer=METEOCIEL_PAGE_AFFICHEE,
             largeur_max_px=largeur_max_px,
@@ -257,6 +266,7 @@ def recuperer_cartes(
                 run_utc=run_arome,
                 cible_utc=cible,
                 data_uri=data_uri,
+                motif_indispo=motif,
             )
         )
 
