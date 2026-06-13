@@ -222,7 +222,7 @@ def main() -> None:
         )
         ru_vers_rfu = rfu_pct / 100.0
         ru_init_pct = st.slider(
-            "RU initiale (% de la capacité au champ)",
+            "RU initiale (% de la réserve utile)",
             min_value=0,
             max_value=100,
             value=int(defauts["fraction_ru_remplie_initial"] * 100),
@@ -282,7 +282,7 @@ def main() -> None:
             st.markdown(
                 "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
                 f"<strong>Plein champ — {culture} ({stade_aff})</strong> · "
-                f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
+                f"réserve utile <strong>{ru_max:.0f} mm</strong> · "
                 f"RFU <strong>{rfu:.0f} mm</strong> "
                 "(irrigation quand l'épuisement atteint la RFU).</div>",
                 unsafe_allow_html=True,
@@ -332,7 +332,7 @@ def main() -> None:
                 "<div style='font-size:16px;color:#2c3e50;line-height:1.4;'>"
                 f"<strong>Sous abri — {culture} ({stade_aff})</strong> · "
                 f"coefficient abri <strong>{k_tunnel:.2f}</strong> · "
-                f"capacité au champ <strong>{ru_max:.0f} mm</strong> · "
+                f"réserve utile <strong>{ru_max:.0f} mm</strong> · "
                 f"RFU <strong>{rfu:.0f} mm</strong> "
                 "(irrigation quand l'épuisement atteint la RFU).</div>",
                 unsafe_allow_html=True,
@@ -360,8 +360,12 @@ def main() -> None:
 - **Modèle** : ARPEGE Météo-France ~10 km, run 00Z du jour ({run_00z:%d/%m/%Y})
   — accès : [{source_meteo}]({lien_acces}).
 - **ET₀** : formule FAO Penman-Monteith ([code]({code_base}/etp_fao.py)).
-- **Apport** : quand la RFU est dépassée, de quoi recharger jusqu'à la capacité
-  au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
+- **Vocabulaire (FAO-56)** : *réserve utile* (RU) = eau du sol mobilisable, entre
+  la **capacité au champ** (sol ressuyé, réserve pleine) et le point de flétrissement ;
+  *RFU* = fraction facilement utilisable sans stress. On irrigue quand l'épuisement
+  atteint la RFU (réserve descendue à RU − RFU) et on recharge jusqu'à la capacité au champ.
+- **Apport** : quand l'épuisement atteint la RFU, de quoi recharger jusqu'à la
+  capacité au champ sans dépasser l'apport maximal permis ([code]({code_base}/bilan_hydrique.py)).
 - **Coefficient cultural** : référentiel ARDEPI
   ([maraîchage](https://www.ardepi.fr/nos-services/vous-etes-irrigant/estimer-ses-besoins-en-eau/maraichage/)).
 - **Coefficient sous abri** : Castilla, N. (2013). *Greenhouse Technology and

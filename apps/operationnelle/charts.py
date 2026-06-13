@@ -25,7 +25,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
-from matplotlib.ticker import MaxNLocator
 
 from apps.shared.dates_fr import JOURS_FR
 
@@ -415,9 +414,10 @@ def bilan_culture_carry_over(
         ru_post = max(0.0, min(ru_max, ru_remplie + (pluie_i - etm[i])))
         ru_dispo.append(ru_post)
         epuisement = ru_max - ru_post
-        # FAO 56 : si la RU disponible passe sous le seuil RFU, on recharge le
-        # jour même, sans dépasser l'apport maximal du système (``apport_max_mm``,
-        # lame d'eau journalière). seuil_irrigation_mm = garde-fou « dose minimale ».
+        # FAO 56 : quand l'épuisement (RU_max − RU disponible) atteint la RFU, on
+        # recharge le jour même, sans dépasser l'apport maximal du système
+        # (``apport_max_mm``, lame d'eau journalière). seuil_irrigation_mm =
+        # garde-fou « dose minimale ».
         if epuisement >= rfu and epuisement > seuil_irrigation_mm:
             ru_remplie = ru_post + min(epuisement, apport_max_mm)
             irrigue.append(True)
@@ -511,9 +511,11 @@ def figure_bilan_sol_complet(
       situation de déficit les deux barres ont la même hauteur). Le déficit
       *cumule* dans le sol ; il ne traduit pas directement la dose d'irrigation.
     - **Réserves (droite)** : RU disponible (ligne) entre la capacité au champ et
-      le **seuil RFU** ; les **apports d'irrigation** (dose réellement appliquée à
-      la recharge) sont en barres sur un axe secondaire, **entre deux jours**. Un
-      point « lendemain » montre la RU résultante après l'apport du dernier jour.
+      le **seuil RFU (RU − RFU)** ; les **apports d'irrigation** (dose réellement
+      appliquée à la recharge) sont en barres sur le **même axe (mm)** — l'apport
+      effectif vaut au plus min(apport_max, RU), donc reste sous la capacité au
+      champ —, **entre deux jours**. Un point « lendemain » montre la RU résultante
+      après l'apport du dernier jour.
 
     Pas de titre ; étiquettes de jours en français, **gras** le jour d'irrigation.
     """
@@ -557,33 +559,33 @@ def figure_bilan_sol_complet(
     y_ru = np.append(ru_dispo, carry_out_last)
     index_plus = [*list(bilan.index), bilan.index[-1] + pd.Timedelta(days=1)]
 
-    axr.axhline(ru_max, color="#95a5a6", linewidth=1.0, label="Capacité au champ")
-    axr.axhline(ru_max - rfu, color="#c0392b", linestyle="--", linewidth=1.2, label="Seuil RFU")
-    axr.plot(x_ru, y_ru, color="#0072B2", linewidth=2.0, marker="o", label="RU disponible")
-    axr.set_ylabel("Réserve du sol (mm)", fontsize=_FONT_PLOT)
+    # Apports d'irrigation en barres, sur le **même axe (mm)** que la réserve :
+    # l'apport effectif vaut au plus min(apport_max, RU) (épuisement ≤ RU), donc il
+    # tient sous la capacité au champ — pas d'axe secondaire. (apport_max_mm est déjà
+    # appliqué en amont, dans le bilan, sur ``apport_mm``.) zorder : barres dessous,
+    # repères au milieu, courbe RU au-dessus.
+    apport = bilan["apport_mm"].to_numpy()
+    mask = apport > 0
+    axr.bar((x + 0.5)[mask], apport[mask], 0.22, color="#009E73", zorder=1)
+    axr.axhline(ru_max, color="#95a5a6", linewidth=1.0, label="Capacité au champ", zorder=2)
+    axr.axhline(
+        ru_max - rfu,
+        color="#c0392b",
+        linestyle="--",
+        linewidth=1.2,
+        label="Seuil RFU (RU - RFU)",
+        zorder=2,
+    )
+    axr.plot(
+        x_ru, y_ru, color="#0072B2", linewidth=2.0, marker="o", label="RU disponible", zorder=3
+    )
+    axr.set_ylabel("Réserve utile et apport (mm)", fontsize=_FONT_PLOT)
     axr.set_ylim(0, ru_max * 1.12)
     axr.grid(axis="y", alpha=0.2)
     axr.set_xticks(x_ru)
     axr.set_xticklabels(_labels_jours_fr(index_plus), fontsize=_FONT_PLOT - 1)
     axr.tick_params(axis="y", labelsize=_FONT_PLOT - 1)
     _bold_ticks(axr, [*irrigation, False])
-
-    # Apports d'irrigation entre deux jours (x = i + 0,5), axe secondaire borné
-    # par l'apport maximal du système.
-    axa = axr.twinx()
-    apport = bilan["apport_mm"].to_numpy()
-    mask = apport > 0
-    axa.bar((x + 0.5)[mask], apport[mask], 0.22, color="#009E73")
-    axa.set_ylabel("Apport (mm)", fontsize=_FONT_PLOT)
-    # ymax légèrement au-dessus de l'apport max → on voit qu'aucune barre ne le
-    # dépasse ; yticks entiers.
-    axa.set_ylim(0, apport_max_mm + max(1.0, apport_max_mm * 0.08))
-    axa.yaxis.set_major_locator(MaxNLocator(integer=True))
-    axa.tick_params(axis="y", labelsize=_FONT_PLOT - 1)
-
-    # La courbe RU (axr) doit passer AU-DESSUS des barres d'apport (axa).
-    axr.set_zorder(axa.get_zorder() + 1)
-    axr.patch.set_visible(False)
 
     # Proxy de légende pour l'apport : couleur constante même les jours sans
     # apport (sinon le swatch dépend du BarContainer, vide → incohérent).
