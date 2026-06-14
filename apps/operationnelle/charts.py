@@ -510,11 +510,12 @@ def figure_bilan_sol_complet(
       empilés — le déficit est la part de l'ETM non couverte par la pluie (en
       situation de déficit les deux barres ont la même hauteur). Le déficit
       *cumule* dans le sol ; il ne traduit pas directement la dose d'irrigation.
-    - **Réserves (droite)** : RU disponible (ligne) entre la capacité au champ et
-      le **seuil RFU (RU − RFU)** ; les **apports d'irrigation** (dose réellement
-      appliquée à la recharge) sont en barres sur le **même axe (mm)** — l'apport
-      effectif vaut au plus min(apport_max, RU), donc reste sous la capacité au
-      champ —, **entre deux jours**. Un point « lendemain » montre la RU résultante
+    - **Réserves (droite)** : RU disponible (ligne) entre la **réserve utile** (pleine,
+      = sol à la capacité au champ) et le **seuil RFU (RU − RFU)** ; les **apports
+      d'irrigation** (dose réellement appliquée à la recharge) sont en barres sur le
+      **même axe (mm)** — l'apport effectif vaut au plus min(apport_max, RU), donc
+      reste sous la réserve utile —, **entre deux jours**. Un point « lendemain »
+      montre la RU résultante
       après l'apport du dernier jour.
 
     Pas de titre ; étiquettes de jours en français, **gras** le jour d'irrigation.
@@ -567,7 +568,7 @@ def figure_bilan_sol_complet(
     apport = bilan["apport_mm"].to_numpy()
     mask = apport > 0
     axr.bar((x + 0.5)[mask], apport[mask], 0.22, color="#009E73", zorder=1)
-    axr.axhline(ru_max, color="#95a5a6", linewidth=1.0, label="Capacité au champ", zorder=2)
+    axr.axhline(ru_max, color="#95a5a6", linewidth=1.0, label="Réserve utile", zorder=2)
     axr.axhline(
         ru_max - rfu,
         color="#c0392b",

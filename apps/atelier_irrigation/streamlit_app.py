@@ -73,6 +73,42 @@ _COULEUR_PLUIE = "#56B4E9"  # bleu
 _COULEUR_DEFICIT = "#009E73"  # vert
 _COULEUR_APPORT = "#009E73"  # vert — « Apport irrigation » du panneau réserves
 
+# Système graphique de l'app (chrome) : marine + 2 gris + filet doux. La palette
+# de DONNÉES du graphe (Wong, ci-dessus) reste distincte et intacte.
+_ARDOISE = "#2c3e50"  # texte principal / accent
+_GRIS_DOUX = "#6b7a8d"  # texte secondaire, légendes
+_FILET = "#e3e8ee"  # filets, bordures de cartes
+_CSS = f"""
+<style>
+/* Largeur de lecture confortable (on garde la marge haute par défaut de Streamlit
+   pour que le titre ne passe pas sous le header fixe). */
+.block-container {{ padding-bottom: 3rem; max-width: 1180px; }}
+
+/* En-tête. */
+.atelier-titre {{ font-size: 26px; font-weight: 700; color: {_ARDOISE};
+                  line-height: 1.15; margin: 0; }}
+.atelier-sous-titre {{ font-size: 15px; color: {_GRIS_DOUX}; margin: 2px 0 4px 0; }}
+
+/* Libellés de widgets (selectbox, slider) + onglets : homogènes. */
+[data-testid="stSelectbox"] label p,
+[data-testid="stSlider"] label p {{ font-size: 15px !important; font-weight: 600; color: #34495e; }}
+button[data-baseweb="tab"] p {{ font-size: 16px !important; font-weight: 600; }}
+
+/* Légendes : lisibles, aérées, gris doux. */
+[data-testid="stCaptionContainer"] p {{ font-size: 13px; color: {_GRIS_DOUX}; line-height: 1.5; }}
+
+/* Cartes (st.container(border=True)) : filet doux, coins arrondis, fond très clair. */
+[data-testid="stVerticalBlockBorderWrapper"] > div {{ border-radius: 12px; }}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {{ gap: 0.6rem; }}
+
+/* En-tête d'expander : net. */
+[data-testid="stExpander"] summary p {{ font-weight: 600; color: #34495e; font-size: 15px; }}
+
+/* Filets de séparation discrets. */
+hr {{ border-color: {_FILET}; margin: 1.2rem 0; }}
+</style>
+"""
+
 
 def _titre_section(label: str) -> str:
     """Petit titre centré, souligné (bordure basse) — coiffe un groupe de valeurs."""
@@ -110,16 +146,17 @@ def _synthese_bilan(bilan, n_j: int, etm_col: str) -> None:
     # Doses d'irrigation réellement appliquées (jours d'apport) → « X mm + Y mm ».
     apports = [float(a) for a in bilan["apport_mm"] if float(a) > 0]
     doses = " + ".join(f"{a:.0f} mm" for a in apports) if apports else "-"
-    col_flux, col_res = st.columns(2)
-    with col_flux:
-        st.markdown(_titre_section(f"Cumuls sur {n_j} j"), unsafe_allow_html=True)
-        m_etm, m_pluie, m_def = st.columns(3)
-        _grande_valeur(m_etm, "ETM culture", f"{etm_tot:.1f} mm", _COULEUR_ETM)
-        _grande_valeur(m_pluie, "Précipitations", f"{pluie_tot:.1f} mm", _COULEUR_PLUIE)
-        _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
-    with col_res:
-        st.markdown(_titre_section(f"Irrigation sur {n_j} j"), unsafe_allow_html=True)
-        _grande_valeur(st, "Déclenchements prévus", doses, _COULEUR_APPORT)
+    with st.container(border=True):
+        col_flux, col_res = st.columns(2)
+        with col_flux:
+            st.markdown(_titre_section(f"Cumuls sur {n_j} j"), unsafe_allow_html=True)
+            m_etm, m_pluie, m_def = st.columns(3)
+            _grande_valeur(m_etm, "ETM culture", f"{etm_tot:.1f} mm", _COULEUR_ETM)
+            _grande_valeur(m_pluie, "Précipitations", f"{pluie_tot:.1f} mm", _COULEUR_PLUIE)
+            _grande_valeur(m_def, "Déficit", f"{deficit_tot:.1f} mm", _COULEUR_DEFICIT)
+        with col_res:
+            st.markdown(_titre_section(f"Irrigation sur {n_j} j"), unsafe_allow_html=True)
+            _grande_valeur(st, "Déclenchements prévus", doses, _COULEUR_APPORT)
 
 
 def main() -> None:
@@ -133,24 +170,13 @@ def main() -> None:
     now_local = now_utc.tz_convert(site.get("tz", "Europe/Paris")).to_pydatetime()
 
     st.set_page_config(page_title="Bilan hydrique", page_icon="💧", layout="wide")
-    # Libellés des selectbox (Culture, Stade…) et des onglets (Plein champ / Sous
-    # abri) à la taille des titres de section (« Cumuls sur N j » = 16 px), pour
-    # une hiérarchie typographique cohérente. Sélecteurs Streamlit 1.57.
+    st.markdown(_CSS, unsafe_allow_html=True)
+    # En-tête : titre + sous-titre (date · lieu) hiérarchisés.
+    date_fr = format_date_fr(now_local, capitalize_jour=True)
+    sous_titre = f"{date_fr} · {lieu}" if lieu else date_fr
     st.markdown(
-        "<style>"
-        '[data-testid="stSelectbox"] label p{font-size:16px !important;}'
-        'button[data-baseweb="tab"] p{font-size:16px !important;}'
-        "</style>",
-        unsafe_allow_html=True,
-    )
-    titre = "Bilan hydrique du " + format_date_fr(now_local, capitalize_jour=False)
-    # Localisation formatée comme dans le mail : séparateur « — », gris, plus
-    # petit, poids normal (cf. apps/veille/email.py composer_html).
-    lieu_html = (
-        f'<span style="font-weight:400;color:#888;font-size:16px;"> — {lieu}</span>' if lieu else ""
-    )
-    st.markdown(
-        f'<h2 style="margin:0 0 10px 0;font-size:24px;color:#2c3e50;">{titre}{lieu_html}</h2>',
+        f'<div class="atelier-titre">💧 Bilan hydrique</div>'
+        f'<div class="atelier-sous-titre">{sous_titre}</div>',
         unsafe_allow_html=True,
     )
 
@@ -350,8 +376,8 @@ def main() -> None:
         except KeyError as e:
             st.warning(f"Donnée manquante pour le bilan tunnel ({e}).")
 
-    # Respiration avant le pied « Sources » (les onglets/synthèse collent sinon).
-    st.markdown("<div style='margin-top:32px;'></div>", unsafe_allow_html=True)
+    # Séparateur net avant le pied « Sources ».
+    st.divider()
     code_base = "https://github.com/atantet/meteo/blob/main/src/meteo_socle/indices"
     # Lien d'accès : la page GitHub de la release où le run MF est publié chaque
     # matin par le mail (ADR-0020) ; sinon la config qui définit la source/repli.
