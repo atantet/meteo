@@ -240,44 +240,6 @@ def _bloc_vigilance_mf(
     )
 
 
-def _bloc_definitions() -> str:
-    """Pied de mail : délégation des phénomènes dangereux + portée des guides.
-
-    Transparence (principe #5). Les phénomènes dangereux (canicule, pluie, vent,
-    orages) relèvent de la **Vigilance d'État** (une seule méthode par phénomène) ;
-    les **risques agro** (gel, maladie, irrigation…) sont portés par les **guides
-    de la semaine**, chacun affichant son seuil dans son intitulé. La Vigilance
-    exploitation 48 h (gel/maladie sur seuils) a été retirée — le gel est couvert,
-    en préventif, par le guide « purge + voiles » (Tmin ≤ 4 °C) sur 4 j.
-    """
-
-    def _def(terme: str, texte: str) -> str:
-        return (
-            f'<div style="margin:2px 0;">'
-            f'<strong style="color:#555;">{terme}</strong> : {texte}</div>'
-        )
-
-    lignes = [
-        _def(
-            "Canicule, pluie, vent, orages",
-            "relèvent de la Vigilance d'État (Météo-France) affichée plus haut.",
-        ),
-        _def(
-            "Guides de la semaine",
-            "risques agro (gel, tunnels, irrigation, maladie, travail du sol) sur 4 j ; "
-            "seuils configurés de l'exploitation, affichés dans chaque guide.",
-        ),
-    ]
-
-    return (
-        '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;'
-        'font-size:11px;color:#888;line-height:1.5;">'
-        '<div style="font-weight:600;color:#555;margin-bottom:4px;">Phénomènes &amp; seuils</div>'
-        + "".join(lignes)
-        + "</div>"
-    )
-
-
 def _format_dt_court_fr(dt: pd.Timestamp) -> str:
     """Formate un instant en français court : ``lun. 01/06 08 h``."""
     jour_court = JOURS_FR[dt.weekday()][:3] + "."
@@ -876,7 +838,6 @@ def composer_html(
         cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
     )
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
-    bloc_definitions = _bloc_definitions()
 
     # Titre neutre : le mail agrège 3 sources (prévi MF, Vigilance MF, cartes
     # synoptiques tierces) → pas de « prévision MF » dans le titre. La source est
@@ -931,7 +892,6 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {bloc_guides_tendance}
   {bloc_carte}
   {bloc_sources_semaine}
-  {bloc_definitions}
   {bloc_rapport_bug(anomalies or [], now_utc_ts)}
 </div>
 </body></html>"""

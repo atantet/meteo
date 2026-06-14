@@ -627,6 +627,52 @@ def bloc_sources_semaine(
     )
 
 
+def bloc_seuils_guides(exploitation: dict[str, Any], horizon_court: int) -> str:
+    """Pied « Seuils des guides » — transparence (principe #5) sur les seuils qui
+    déclenchent chaque guide de la semaine, **lus dans la config exploitation**
+    (pas en dur → toujours à jour). Les phénomènes dangereux (canicule, pluie,
+    vent, orages) sont délégués à la Vigilance d'État (une seule méthode/phénomène).
+    """
+    gel = exploitation.get("seuils_gel", {})
+    tun = exploitation.get("seuils_tunnel", {})
+    hyd = exploitation.get("seuils_hydrique", {})
+    thr = exploitation.get("seuils_thermique", {})
+    mal = exploitation.get("seuils_maladie", {})
+    sol = exploitation.get("seuils_travail_sol", {})
+
+    def f(d: dict[str, Any], cle: str, defaut: float) -> float:
+        return float(d.get(cle, defaut))
+
+    lignes = [
+        f"<strong>Froid</strong> : purge + voiles si T° min ≤ "
+        f"{f(gel, 'purge_voiles_t_seuil_celsius', 4):.0f} °C (une nuit suffit) ; récolte de "
+        f"protection des racines si T° min ≤ "
+        f"{f(gel, 'recolte_racines_t_seuil_celsius', 0):.0f} °C.",
+        f"<strong>Tunnels</strong> : fermer la nuit si T° min ≤ "
+        f"{f(tun, 'fermeture_nuit_t_min_celsius', 3):.0f} °C.",
+        f"<strong>Irrigation</strong> : déficit si bilan pluie − ETP ≤ "
+        f"{f(hyd, 'deficit_mm', -10):.0f} mm sur {horizon_court} j ; fortes chaleurs si ≥ "
+        f"{int(f(thr, 'stress_jours_min', 2))} j à T° max ≥ "
+        f"{f(thr, 'stress_t_max_celsius', 28):.0f} °C.",
+        f"<strong>Maladie</strong> : nuits douces si T° min ≥ "
+        f"{f(mal, 'nuit_douce_t_min_celsius', 15):.0f} °C (une nuit suffit).",
+        f"<strong>Travail du sol</strong> : fenêtre sèche (≤ "
+        f"{f(sol, 'fenetre_seche_pluie_max_mm_par_jour', 1):.1f} mm/j, "
+        f"{int(f(sol, 'fenetre_seche_duree_min_jours', 3))} j) ou pluvieuse (≥ "
+        f"{f(sol, 'fenetre_pluvieuse_pluie_min_mm_par_jour', 5):.1f} mm/j, "
+        f"{int(f(sol, 'fenetre_pluvieuse_duree_min_jours', 2))} j) selon la saison.",
+        "<strong>Canicule, pluie, vent, orages</strong> : relèvent de la Vigilance "
+        "d'État (Météo-France) affichée plus haut.",
+    ]
+    items = "".join(f'<div style="margin:2px 0;">{ligne}</div>' for ligne in lignes)
+    return (
+        '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;'
+        'font-size:11px;color:#888;line-height:1.5;">'
+        '<div style="font-weight:600;color:#555;margin-bottom:4px;">'
+        f"Seuils des guides de la semaine ({horizon_court} j)</div>" + items + "</div>"
+    )
+
+
 def _bloc_lien_atelier(atelier_url: str) -> str:
     """Lien vers l'atelier irrigation (bilan hydrique interactif), si configuré.
 
@@ -975,7 +1021,9 @@ def executer_semaine(
                     if sm.get("ecmwf_opendata_direct", False)
                     else "Open-Meteo Single Runs"
                 ),
-            ),
+            )
+            # Pied « Seuils des guides » juste après les sources (transparence).
+            + bloc_seuils_guides(exploitation, horizon_court),
             "texte": composer_section_semaine_texte(guides),
             "anomalies": anomalies,
         }

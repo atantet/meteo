@@ -466,16 +466,39 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
     assert "Vigilance exploitation" not in html
 
 
-def test_composer_html_pied_phenomenes_et_seuils() -> None:
-    """Pied : délégation Vigilance d'État + portée des guides (plus de seuils 48 h)."""
+def test_bloc_seuils_guides_documente_chaque_guide_depuis_la_config() -> None:
+    """Le pied « Seuils des guides » (après les sources) liste chaque seuil, lu config."""
+    from apps.veille.semaine import bloc_seuils_guides
+
+    exploitation = {
+        "seuils_gel": {
+            "purge_voiles_t_seuil_celsius": 4.0,
+            "recolte_racines_t_seuil_celsius": 0.0,
+        },
+        "seuils_tunnel": {"fermeture_nuit_t_min_celsius": 3.0},
+        "seuils_hydrique": {"deficit_mm": -10.0},
+        "seuils_thermique": {"stress_t_max_celsius": 28.0, "stress_jours_min": 2},
+        "seuils_maladie": {"nuit_douce_t_min_celsius": 15.0},
+        "seuils_travail_sol": {
+            "fenetre_seche_pluie_max_mm_par_jour": 1.0,
+            "fenetre_seche_duree_min_jours": 3,
+            "fenetre_pluvieuse_pluie_min_mm_par_jour": 5.0,
+            "fenetre_pluvieuse_duree_min_jours": 2,
+        },
+    }
+    html = bloc_seuils_guides(exploitation, horizon_court=4)
+    assert "Seuils des guides de la semaine (4 j)" in html
+    assert "purge + voiles si T° min ≤ 4 °C" in html
+    assert "racines si T° min ≤ 0 °C" in html
+    assert "fermer la nuit si T° min ≤ 3 °C" in html
+    assert "nuits douces si T° min ≥ 15 °C" in html
+    assert "Vigilance d'État" in html
+
+
+def test_composer_html_sans_pied_48h_obsolete() -> None:
+    """Le pied 48 h « Vigilance exploitation » a disparu (seuils portés par la semaine)."""
     from apps.veille.email import composer_html
 
     html = composer_html(_ind(), [], datetime(2026, 6, 1, 5, 30))
-    # Nouveau pied « Phénomènes & seuils » : délégation d'État + guides.
-    assert "Phénomènes" in html
-    assert "Vigilance d'État" in html
-    assert "Guides de la semaine" in html
-    # Plus de pied « Vigilance exploitation (48 h) » ni de ligne gel/maladie 48 h.
     assert "Vigilance exploitation (48" not in html
     assert "sur une plage de 6 h" not in html
-    assert "Définition des indicateurs" not in html
