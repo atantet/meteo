@@ -56,8 +56,10 @@ _BBOX_DEG = 0.13
 # OK). Le limiteur ci-dessous est le vrai garde-fou ; les workers ne font qu'amortir
 # la latence réseau.
 _MAX_WORKERS = 6
-# Plafond d'appels par minute (sous la limite observée ~85/min, avec marge).
-_MAX_PAR_MINUTE = 50
+# Plafond d'appels par minute, sous la limite réelle observée (~85/min). Monté de
+# 50 à 65 (2026-06-14) pour réduire le plancher du fetch matin (~517 req → ~8 min de
+# pacing au lieu de ~10). À monter encore prudemment en surveillant le throttle.
+_MAX_PAR_MINUTE = 65
 
 
 class ArpegeIndisponibleError(RuntimeError):
@@ -226,8 +228,10 @@ def _valeur_point(
         if resp.content.startswith(b"GRIB"):
             break
         if b"throttled" in resp.content.lower() and tentative < 2:
-            logger.warning("ARPEGE direct : throttle, attente 60 s avant retry.")
-            time.sleep(60)
+            # Quota MF sur fenêtre glissante de 60 s : ~10 s suffisent à libérer des
+            # jetons (inutile d'attendre 60 s, qui gonflaient le fetch matin).
+            logger.warning("ARPEGE direct : throttle, attente 10 s avant retry.")
+            time.sleep(10)
             continue
         raise ArpegeIndisponibleError(
             f"GetCoverage {coverage_id} @ {valid} : {resp.content[:160]!r}"
