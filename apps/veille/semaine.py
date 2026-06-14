@@ -560,7 +560,7 @@ def bloc_guides(guides: list[GuideDecision], atelier_url: str = "") -> str:
         '<h3 style="margin:16px 0 6px 0;font-size:15px;color:#34495e;">'
         "Guides de décision de la semaine</h3>"
         '<p style="margin:0 0 6px 0;font-size:11px;color:#888;line-height:1.4;">'
-        "Invitations à vérifier sur le terrain, motivées par la prévision 7 j. "
+        "Invitations à vérifier sur le terrain, motivées par la prévision 4 j (ARPEGE). "
         "Seuils par défaut de l'exploitation.</p>"
     )
     if not guides:
@@ -679,7 +679,7 @@ def composer_guides_tendance(
 
 def composer_section_semaine_texte(guides: list[GuideDecision]) -> str:
     """Équivalent texte (fallback) — les guides en mots, l'essentiel actionnable."""
-    lignes = ["", "=" * 70, "LA SEMAINE (7 j) — horaires UTC", ""]
+    lignes = ["", "=" * 70, "LA SEMAINE — guides 4 j, tendance jusqu'à 10 j (horaires UTC)", ""]
     lignes.append("GUIDES DE DÉCISION :")
     if not guides:
         lignes.append("  Aucun guide applicable cette semaine.")

@@ -93,43 +93,6 @@ class EmailComposed:
     html: str
 
 
-def _bloc_chart(chart_base64: str) -> str:
-    """Bloc HTML pour le graphique 48 h embarqué (vide si non fourni)."""
-    if not chart_base64:
-        return ""
-    return (
-        '<div style="margin:12px 0;text-align:center;">'
-        f'<img src="{chart_base64}" alt="Prévision 48 h" '
-        'style="max-width:100%;height:auto;border-radius:4px;">'
-        "</div>"
-    )
-
-
-def _libelle_decalage_utc(
-    prevision_horaire: pd.DataFrame | None,
-    tz_locale: str = "Europe/Paris",
-) -> str:
-    """Texte discret du décalage UTC↔local sur la fenêtre (ex. « CEST = UTC+2 »).
-
-    La série temporelle est en **UTC** (axe fixe, ADR-0014) ; ce libellé aide à
-    convertir mentalement vers l'heure locale. Renvoie les **deux** décalages
-    (« CET = UTC+1 / CEST = UTC+2 ») si la fenêtre chevauche un changement
-    d'heure, ou « » si la prévision est absente.
-    """
-    if prevision_horaire is None or prevision_horaire.empty:
-        return ""
-    idx = pd.DatetimeIndex(prevision_horaire.index).tz_convert(tz_locale)
-    paires: dict[str, int] = {}
-    for ts in idx:
-        offset = ts.utcoffset()
-        nom = ts.tzname()
-        if offset is None or nom is None:
-            continue
-        paires[nom] = int(offset.total_seconds() // 3600)
-    parts = [f"{nom} = UTC{h:+d}" for nom, h in sorted(paires.items(), key=lambda p: p[1])]
-    return " / ".join(parts)
-
-
 DWD_URL_AFFICHEE = (
     "https://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png"
 )
@@ -277,58 +240,16 @@ def _bloc_vigilance_mf(
     )
 
 
-def _bloc_vigilance_exploitation(alertes: list[Alerte]) -> str:
-    """Bloc HTML Vigilance exploitation — seuils agronomiques configurés.
+def _bloc_definitions() -> str:
+    """Pied de mail : délégation des phénomènes dangereux + portée des guides.
 
-    Pendant local de la Vigilance Météo-France : seuils propres à
-    l'exploitation (gel, risque maladies…).
-    Affiché juste après la Vigilance MF pour que les deux "rien à
-    signaler" soient explicitement séparés — pas de bandeau vert global
-    qui laisserait croire à un « tout va bien » alors que MF peut être
-    en vigilance orages (incohérence constatée 2026-06-01).
-
-    - Aucune alerte → on garde le titre de section + ligne grise
-      "Aucune alerte sur les 48 h" (même style que le cas MF vide).
-    - ≥ 1 alerte → items colorés par niveau (warning / critique).
+    Transparence (principe #5). Les phénomènes dangereux (canicule, pluie, vent,
+    orages) relèvent de la **Vigilance d'État** (une seule méthode par phénomène) ;
+    les **risques agro** (gel, maladie, irrigation…) sont portés par les **guides
+    de la semaine**, chacun affichant son seuil dans son intitulé. La Vigilance
+    exploitation 48 h (gel/maladie sur seuils) a été retirée — le gel est couvert,
+    en préventif, par le guide « purge + voiles » (Tmin ≤ 4 °C) sur 4 j.
     """
-    if not alertes:
-        return (
-            '<div style="margin:12px 0 6px 0;">'
-            '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
-            "Vigilance exploitation</h3>"
-            '<div style="padding:8px 12px;background:#f4f4f4;border-radius:4px;'
-            'font-size:12px;color:#555;">Aucune alerte sur les 48 h.</div>'
-            "</div>"
-        )
-
-    couleur_niveau = {"critique": "#D55E00", "warning": "#E69F00"}
-    items: list[str] = []
-    for a in alertes:
-        c = couleur_niveau.get(a.niveau, "#7f8c8d")
-        items.append(
-            f'<div style="margin:6px 0;padding:8px 12px;background:{c};'
-            f'color:white;border-radius:4px;">'
-            f"<strong>{a.titre}</strong>"
-            f'<div style="font-size:0.85em;opacity:0.9;">'
-            f"seuil configuré : {a.seuil} {a.unite}</div>"
-            f"</div>"
-        )
-    return (
-        '<div style="margin:12px 0 6px 0;">'
-        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
-        "Vigilance exploitation</h3>" + "".join(items) + "</div>"
-    )
-
-
-def _bloc_definitions(seuils: dict[str, Any] | None) -> str:
-    """Seuils de Vigilance exploitation en pied de mail (11 px gris, comme les sources).
-
-    Transparence (principe #5) : les seuils EXACTS qui déclenchent la
-    Vigilance exploitation, lus dans la config (pas en dur). Les
-    phénomènes dangereux (canicule, pluie, vent, orages) sont délégués à
-    la Vigilance d'État (une seule méthode par phénomène).
-    """
-    seuils = seuils or {}
 
     def _def(terme: str, texte: str) -> str:
         return (
@@ -336,44 +257,23 @@ def _bloc_definitions(seuils: dict[str, Any] | None) -> str:
             f'<strong style="color:#555;">{terme}</strong> : {texte}</div>'
         )
 
-    seuils_lignes: list[str] = []
-    g = seuils.get("gel", {})
-    if g.get("actif"):
-        seuils_lignes.append(
-            _def(
-                "Gel",
-                f"T° min ≤ {g['seuil_celsius']:.0f} °C sur une plage de 6 h "
-                "(nuit/matin/midi/soir) — purge eau & voilage.",
-            )
-        )
-    rm = seuils.get("risque_maladies", {})
-    if rm.get("actif"):
-        seuils_lignes.append(
-            _def(
-                "Risque maladies",
-                f"T° min nuit prochaine ≥ {rm['t_min_nuit_celsius']:.0f} °C.",
-            )
-        )
-    seuils_lignes.append(
+    lignes = [
         _def(
             "Canicule, pluie, vent, orages",
             "relèvent de la Vigilance d'État (Météo-France) affichée plus haut.",
-        )
-    )
-    seuils_lignes.append(
+        ),
         _def(
             "Guides de la semaine",
-            "utilisent les seuils configurés de l'exploitation (gel, tunnels, "
-            "irrigation, maladie, travail du sol).",
-        )
-    )
+            "risques agro (gel, tunnels, irrigation, maladie, travail du sol) sur 4 j ; "
+            "seuils configurés de l'exploitation, affichés dans chaque guide.",
+        ),
+    ]
 
     return (
         '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;'
         'font-size:11px;color:#888;line-height:1.5;">'
-        '<div style="font-weight:600;color:#555;margin-bottom:4px;">'
-        "Seuils — Vigilance exploitation (48 h) & guides (semaine)</div>"
-        + "".join(seuils_lignes)
+        '<div style="font-weight:600;color:#555;margin-bottom:4px;">Phénomènes &amp; seuils</div>'
+        + "".join(lignes)
         + "</div>"
     )
 
@@ -693,7 +593,7 @@ def _bloc_grille_indicateurs_48h(
                 cells.append(
                     '<td style="padding:1px 4px;text-align:center;">'
                     f'<img src="{uri}" alt="{alt}" title="{alt}" '
-                    'style="width:56px;height:56px;display:block;margin:0 auto;">'
+                    'style="width:45px;height:45px;display:block;margin:0 auto;">'
                     "</td>"
                 )
             return (
@@ -829,23 +729,37 @@ def _titre_mail(maintenant: datetime, moment: str = "", tz_locale: str = "Europe
     return f"Météo du {date_str}" + (f" {moment}" if moment else "")
 
 
+def resume_vigilance_mf(vigilance: VigilanceDepartement | None) -> str:
+    """Résumé court de la Vigilance MF d'État pour le sujet du mail.
+
+    Ex. « Vigilance orange : Orages » (phénomènes au pire niveau) ; « RAS » si
+    aucune vigilance (tout vert ou indisponible).
+    """
+    if vigilance is None or vigilance.niveau_max_global <= 1:
+        return "RAS"
+    niveau = vigilance.niveau_max_global
+    noms = ", ".join(p.nom for p in vigilance.phenomenes if p.niveau == niveau)
+    return f"Vigilance {VIGILANCE_NIVEAU_NOMS[niveau].lower()} : {noms}"
+
+
 def composer_sujet(
     alertes: list[Alerte],
     maintenant: datetime,
     template: str,
     moment: str = "",
     tz_locale: str = "Europe/Paris",
+    vigilance: VigilanceDepartement | None = None,
 ) -> str:
     """Formate le sujet selon template config.
 
     Variables disponibles : ``{titre}`` (titre identique au contenu, ex.
-    "Météo du samedi 7/06 après-midi"), ``{alertes_resume}``
-    (ex. "gel + vent fort" ou "RAS"), ``{date}`` (YYYY-MM-DD),
+    "Météo du samedi 7/06 après-midi"), ``{vigilance_resume}`` (Vigilance MF
+    d'État, ex. "Vigilance orange : Orages" ou "RAS"), ``{alertes_resume}``
+    (ancien résumé d'alertes exploitation), ``{date}`` (YYYY-MM-DD),
     ``{alertes_count}``, ``{moment}`` ("matin"/"après-midi").
 
-    Le template par défaut ``"{titre} — {alertes_resume}"`` aligne le sujet
-    sur le titre affiché, en conservant le résumé d'alertes (« RAS » ou autre)
-    en fin de ligne.
+    Le template par défaut ``"{titre} — {vigilance_resume}"`` aligne le sujet
+    sur le titre affiché, suffixé du niveau de Vigilance d'État.
     """
     return template.format(
         titre=_titre_mail(maintenant, moment, tz_locale),
@@ -853,6 +767,7 @@ def composer_sujet(
         alertes_resume=resume_alertes(alertes),
         alertes_count=len(alertes),
         moment=moment,
+        vigilance_resume=resume_vigilance_mf(vigilance),
     )
 
 
@@ -878,15 +793,6 @@ def composer_texte(
     if updated_on is not None:
         maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
         lignes.append(f"  Mise à jour {maj}")
-    lignes.append("")
-
-    lignes.append("VIGILANCE EXPLOITATION :")
-    if alertes:
-        for a in alertes:
-            lignes.append(f"  [{a.niveau.upper()}] {a.titre}")
-            lignes.append(f"      seuil configuré : {a.seuil} {a.unite}")
-    else:
-        lignes.append("  Aucune alerte sur les 48 h.")
     lignes.append("")
 
     # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
@@ -970,15 +876,7 @@ def composer_html(
         cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
     )
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
-    bloc_vigilance_exploitation = _bloc_vigilance_exploitation(alertes)
-    bloc_definitions = _bloc_definitions(seuils_config)
-    # Décalage UTC↔local pour la série temporelle (axe en UTC, ADR-0014).
-    decalage_utc = _libelle_decalage_utc(prevision_horaire, tz_locale)
-    note_horaire = (
-        f"Détail horaire 48 h — UTC ({decalage_utc})"
-        if decalage_utc
-        else "Détail horaire 48 h — UTC"
-    )
+    bloc_definitions = _bloc_definitions()
 
     # Titre neutre : le mail agrège 3 sources (prévi MF, Vigilance MF, cartes
     # synoptiques tierces) → pas de « prévision MF » dans le titre. La source est
@@ -1029,10 +927,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {section_mf}
   {maj_html}
   {bloc_vigilance}
-  {bloc_vigilance_exploitation}
   {bloc_grille}
-  <h3 style="margin:16px 0 6px 0;font-size:13px;color:#888;">{note_horaire}</h3>
-  {_bloc_chart(chart_48h_base64)}
   {bloc_guides_tendance}
   {bloc_carte}
   {bloc_sources_semaine}
@@ -1085,7 +980,12 @@ def composer_email(
     # Moment d'envoi (matin / après-midi) = heure locale (cron 6h30/18h30, D4).
     moment = moment_envoi(now_utc_ts, tz_locale)
     sujet = composer_sujet(
-        alertes, maintenant, email_cfg["sujet_template"], moment=moment, tz_locale=tz_locale
+        alertes,
+        maintenant,
+        email_cfg["sujet_template"],
+        moment=moment,
+        tz_locale=tz_locale,
+        vigilance=vigilance,
     )
     texte = composer_texte(
         ind,
