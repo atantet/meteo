@@ -93,7 +93,10 @@ alertes:
   # premier gel (laisse le temps de purger et de poser les voiles).
   # Une fois purge faite et hors période sensible, mettre actif: false.
   gel:
-    actif: true
+    # DÉSACTIVÉ 2026-06-14 — la Vigilance exploitation 48 h est abandonnée. Le gel
+    # est désormais couvert, en préventif (Tmin ≤ 4 °C, une nuit suffit), par le
+    # guide « purge + voiles » de la semaine (4 j ARPEGE, config exploitation.yaml).
+    actif: false
     # Seuil sur T° min d'une plage de 6 h sur 0-48 h (°C).
     seuil_celsius: 4.0
 
@@ -145,7 +148,10 @@ alertes:
   # l'humectation, a été abandonné : le risque maladie ne repose plus
   # que sur la T° min de nuit.)
   risque_maladies:
-    actif: true
+    # DÉSACTIVÉ 2026-06-14 — Vigilance exploitation 48 h abandonnée. Le risque
+    # maladie reste couvert, au même seuil (15 °C, une nuit suffit), par le guide
+    # « nuits douces » de la semaine (4 j, config exploitation.yaml).
+    actif: false
     # Seuil T° min nuit prochaine (°C). 15 °C correspond à la borne
     # basse des "nuits douces" citée Agrobio35 (15-20 °C propices).
     t_min_nuit_celsius: 15.0
@@ -169,11 +175,12 @@ vigilance_mf:
 email:
   # html_mobile : table compacte responsive ; alt: texte_simple
   format: html_mobile
-  # Template du sujet. Par défaut le sujet reprend le titre affiché dans le
-  # mail ({titre}, ex. "Météo du samedi 7/06 après-midi") suivi du
-  # résumé d'alertes ("RAS" ou autre). Variables : {titre}, {alertes_resume},
-  # {date}, {alertes_count}, {moment} ("matin"/"après-midi").
-  sujet_template: "{titre} — {alertes_resume}"
+  # Template du sujet. Par défaut le sujet reprend le titre affiché dans le mail
+  # ({titre}, ex. "Météo du samedi 7/06 après-midi") suivi du niveau de Vigilance
+  # d'État ({vigilance_resume}, ex. "Vigilance orange : Orages" ou "RAS").
+  # Variables : {titre}, {vigilance_resume}, {alertes_resume}, {date},
+  # {alertes_count}, {moment} ("matin"/"après-midi").
+  sujet_template: "{titre} — {vigilance_resume}"
   # Lien depuis chaque indicateur vers sa "fiche indice" sur Pages
   # (publiée plus tard). Aligne avec le principe #5 transparence.
   inclure_lien_fiches_indices: true

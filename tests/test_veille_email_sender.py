@@ -143,8 +143,8 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     from apps.veille.email import composer_texte
 
     txt = composer_texte(_ind(), [_alerte_gel()], datetime(2024, 6, 15, 7, 30))
-    assert "VIGILANCE EXPLOITATION" in txt
-    assert "Gel" in txt
+    # Vigilance exploitation 48 h retirée (2026-06-14) — plus de bloc d'alertes ici.
+    assert "VIGILANCE EXPLOITATION" not in txt
     assert "INDICATEURS" in txt
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
@@ -156,12 +156,13 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "Vent direction dom." in txt
 
 
-def test_composer_texte_aucune_alerte() -> None:
+def test_composer_texte_sans_bloc_vigilance_exploitation() -> None:
+    """La Vigilance exploitation 48 h a été retirée du corps texte (2026-06-14)."""
     from apps.veille.email import composer_texte
 
     txt = composer_texte(_ind(), [], datetime(2024, 6, 15, 7, 30))
-    assert "Vigilance exploitation".upper() in txt
-    assert "Aucune alerte sur les 48 h" in txt
+    assert "VIGILANCE EXPLOITATION" not in txt
+    assert "INDICATEURS" in txt
 
 
 def test_composer_html_structure() -> None:
@@ -170,9 +171,10 @@ def test_composer_html_structure() -> None:
     html = composer_html(_ind(), [_alerte_gel()], datetime(2024, 6, 15, 7, 30))
     assert "<!DOCTYPE html>" in html
     assert 'name="viewport"' in html  # responsive mobile
-    assert "Gel" in html
-    # Sans prevision_horaire la grille reste vide mais le bandeau alertes (gel)
-    # doit toujours apparaître ; footer + source (prévision officielle MF) garantis.
+    # Vigilance exploitation 48 h retirée → l'alerte gel ne s'affiche plus ici
+    # (le gel est porté par le guide « purge + voiles » de la semaine).
+    assert "Vigilance exploitation" not in html
+    # Footer + source (prévision officielle MF) garantis.
     assert "Météo-France" in html
 
 
@@ -428,12 +430,9 @@ def test_composer_html_sans_alerte_section_exploitation_separee() -> None:
         datetime(2026, 5, 31, 7, 0),
         vigilance=_vigilance_jaune_orages(),
     )
-    # Section exploitation présente (titre conservé) et son "rien à signaler".
-    assert "Vigilance exploitation" in html
-    assert "Aucune alerte sur les 48 h" in html
-    # Plus de bandeau vert "tout va bien" global trompeur, plus de "prochaines 24 h".
-    assert "prochaines 24 h" not in html
-    # La Vigilance MF (orages) reste bien affichée à côté.
+    # Vigilance exploitation 48 h retirée (2026-06-14) : la section n'existe plus.
+    assert "Vigilance exploitation" not in html
+    # La Vigilance MF d'État (orages) reste bien affichée.
     assert "Vigilance Météo-France" in html
     assert "Orages" in html
 
@@ -460,51 +459,46 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
         ],
     )
     html = composer_html(_ind(), [], datetime(2026, 5, 31, 7, 0), vigilance=vigilance_verte)
-    # Les deux titres de section sont rendus en <h3> même sans alerte.
+    # Le titre Vigilance MF d'État est rendu en <h3> même tout vert.
     assert ">Vigilance Météo-France</h3>" in html
-    assert ">Vigilance exploitation</h3>" in html
-    # Chacun annonce séparément l'absence : « rien à signaler » côté MF,
-    # « aucune alerte » côté exploitation (libellés distincts, pas de redondance).
     assert "Aucune vigilance en cours" in html
-    assert "Aucune alerte sur les 48 h" in html
+    # La Vigilance exploitation 48 h a été retirée (2026-06-14).
+    assert "Vigilance exploitation" not in html
 
 
-def test_composer_html_section_seuils_vigilance_en_pied() -> None:
-    """Section seuils de Vigilance exploitation en pied, valeurs réelles de la config."""
-    from apps.veille.email import composer_html
+def test_bloc_seuils_guides_documente_chaque_guide_depuis_la_config() -> None:
+    """Le pied « Seuils des guides » (après les sources) liste chaque seuil, lu config."""
+    from apps.veille.semaine import bloc_seuils_guides
 
-    seuils = {
-        "gel": {"actif": True, "seuil_celsius": 4.0},
-        "risque_maladies": {"actif": True, "t_min_nuit_celsius": 15.0},
-        "canicule_aeration": {"actif": False, "seuil_celsius": 25.0},
+    exploitation = {
+        "seuils_gel": {
+            "purge_voiles_t_seuil_celsius": 4.0,
+            "recolte_racines_t_seuil_celsius": 0.0,
+        },
+        "seuils_tunnel": {"fermeture_nuit_t_min_celsius": 3.0},
+        "seuils_hydrique": {"deficit_mm": -10.0},
+        "seuils_thermique": {"stress_t_max_celsius": 28.0, "stress_jours_min": 2},
+        "seuils_maladie": {"nuit_douce_t_min_celsius": 15.0},
+        "seuils_travail_sol": {
+            "fenetre_seche_pluie_max_mm_par_jour": 1.0,
+            "fenetre_seche_duree_min_jours": 3,
+            "fenetre_pluvieuse_pluie_min_mm_par_jour": 5.0,
+            "fenetre_pluvieuse_duree_min_jours": 2,
+        },
     }
-    html = composer_html(_ind(), [], datetime(2026, 6, 1, 5, 30), seuils_config=seuils)
-    # Titre élargi : les seuils valent pour la 48 h ET les guides de la semaine.
-    assert "Vigilance exploitation (48" in html
-    assert "guides (semaine)" in html
-    # Pas de bloc "Définition des indicateurs" (retiré sur demande).
-    assert "Définition des indicateurs" not in html
-    # Gel unifié (purge + voilage) sur une plage de 6 h.
-    assert "Gel</strong> : T° min ≤ 4 °C sur une plage de 6 h" in html
-    assert "purge eau & voilage" in html
-    # Plus d'alertes séparées irrigation/cultures.
-    assert "Gel irrigation" not in html
-    assert "Gel cultures" not in html
-    # Risque maladies : température nocturne seule (plus de critère HR).
-    assert "T° min nuit prochaine ≥ 15 °C." in html
-    assert "& HR" not in html
-    assert "pendant au moins" not in html
-    # Seuil archivé (actif=False) absent.
-    assert "25 °C" not in html
-    # Phénomènes délégués à la Vigilance d'État (sans le titre de bloc exact).
+    html = bloc_seuils_guides(exploitation, horizon_court=4)
+    assert "Seuils des guides de la semaine (4 j)" in html
+    assert "purge + voiles si T° min ≤ 4 °C" in html
+    assert "racines si T° min ≤ 0 °C" in html
+    assert "fermer la nuit si T° min ≤ 3 °C" in html
+    assert "nuits douces si T° min ≥ 15 °C" in html
     assert "Vigilance d'État" in html
 
 
-def test_composer_html_avec_alerte_section_exploitation_colorée() -> None:
-    """Avec une alerte gel : la section exploitation affiche l'item coloré."""
+def test_composer_html_sans_pied_48h_obsolete() -> None:
+    """Le pied 48 h « Vigilance exploitation » a disparu (seuils portés par la semaine)."""
     from apps.veille.email import composer_html
 
-    html = composer_html(_ind(), [_alerte_gel()], datetime(2026, 5, 31, 7, 0))
-    assert "Vigilance exploitation" in html
-    assert "Gel" in html
-    assert "seuil configuré" in html
+    html = composer_html(_ind(), [], datetime(2026, 6, 1, 5, 30))
+    assert "Vigilance exploitation (48" not in html
+    assert "sur une plage de 6 h" not in html

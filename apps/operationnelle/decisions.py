@@ -123,16 +123,6 @@ def _saison_active(exploitation: dict[str, Any], cle: str, mois_courant: int) ->
     return mois_courant in mois
 
 
-def degres_jours_sous_seuil(t_min: pd.Series, seuil: float = 0.0) -> float:
-    """Somme cumulée de l'écart sous ``seuil`` sur les jours t_min < seuil."""
-    if t_min.empty:
-        return 0.0
-    sous = t_min[t_min < seuil]
-    if sous.empty:
-        return 0.0
-    return float((seuil - sous).sum())
-
-
 def plus_longue_suite_consecutive(masque: pd.Series) -> tuple[int, int, int] | None:
     """Plus longue suite de True consécutifs dans un masque booléen."""
     if masque.empty or not masque.any():
@@ -175,48 +165,26 @@ def _fmt_date_courte(ts: pd.Timestamp) -> str:
 
 # ---------- Paramètres ajustables réutilisables par règle ----------
 
-_PARAMS_PURGE_GEL = [
+_PARAMS_GEL_PURGE_VOILES = [
     ParamAjustable(
         "Seuil T° min déclencheur (°C)",
-        "seuils_gel.purge_irrigation_t_seuil_celsius",
+        "seuils_gel.purge_voiles_t_seuil_celsius",
         -5.0,
-        5.0,
+        6.0,
         0.5,
-        "Sous cette T° min, on signale l'épisode (défaut 0 °C = gel franc).",
-    ),
-]
-
-_PARAMS_VOILES = [
-    ParamAjustable(
-        "Seuil T° de comptage (°C)",
-        "seuils_gel.voiles_p17_t_seuil_celsius",
-        -10.0,
-        5.0,
-        0.5,
-    ),
-    ParamAjustable(
-        "DJ cumulés déclencheurs",
-        "seuils_gel.voiles_p17_degres_jours_min",
-        0.5,
-        30.0,
-        0.5,
+        "Dès qu'une nuit descend à ou sous ce seuil : purger l'irrigation et poser "
+        "les voiles P17 (défaut 4 °C = marge avant le premier gel ; une nuit suffit).",
     ),
 ]
 
 _PARAMS_RACINES = [
     ParamAjustable(
-        "Seuil T° sévère (°C)",
+        "Seuil T° gel franc (°C)",
         "seuils_gel.recolte_racines_t_seuil_celsius",
-        -15.0,
-        0.0,
+        -10.0,
+        2.0,
         0.5,
-    ),
-    ParamAjustable(
-        "DJ sévères déclencheurs",
-        "seuils_gel.recolte_racines_degres_jours_min",
-        1.0,
-        30.0,
-        0.5,
+        "Sous ce seuil, récolte de protection des légumes racine (défaut 0 °C = gel franc).",
     ),
 ]
 
@@ -313,28 +281,31 @@ _PARAMS_FENETRE_PLUVIEUSE = [
 # ---------- Guides froid ----------
 
 
-def regle_purge_irrigation_gel(
+def regle_gel_purge_voiles(
     quotidien: pd.DataFrame,
     exploitation: dict[str, Any],
     today: pd.Timestamp,  # noqa: ARG001
 ) -> GuideDecision | None:
+    """Gel (T° min basse) → purger l'irrigation et poser les voiles P17.
+
+    Une **seule** nuit à ou sous le seuil suffit (pas de cumul de degrés-jours) :
+    on agit *avant* le gel (seuil préventif, défaut 4 °C). Fusionne les anciens
+    guides « purge irrigation » et « voiles P17 ».
+    """
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
     n_jours = len(quotidien)
-    seuil_t = float(exploitation.get("seuils_gel", {}).get("purge_irrigation_t_seuil_celsius", 0.0))
+    seuil_t = float(exploitation.get("seuils_gel", {}).get("purge_voiles_t_seuil_celsius", 4.0))
+    voiles = exploitation.get("equipement", {}).get("voiles_p17_disponibles", True)
+    action = "purger l'irrigation, poser les voiles P17" if voiles else "purger l'irrigation"
     masque = quotidien["t_min_celsius"] <= seuil_t
     if masque.any():
         t_min_min = float(quotidien.loc[masque, "t_min_celsius"].min())
-        titre = (
-            f"Gel attendu sur {n_jours} j — T° min prévue {t_min_min:.1f} °C "
-            "(penser à purger l'irrigation)"
-        )
+        titre = f"Gel possible sur {n_jours} j — T° min prévue {t_min_min:.1f} °C ({action})"
         active = True
     else:
-        t_min_observe = float(quotidien["t_min_celsius"].min())
-        titre = (
-            f"Pas de gel attendu — T° min mini +{t_min_observe:.1f} °C (seuil {seuil_t:+.1f} °C)"
-        )
+        t_min_obs = float(quotidien["t_min_celsius"].min())
+        titre = f"Pas de gel attendu — T° min mini {t_min_obs:+.1f} °C (seuil ≤ {seuil_t:.0f} °C)"
         active = False
 
     return GuideDecision(
@@ -345,47 +316,7 @@ def regle_purge_irrigation_gel(
         theme=THEME_FROID,
         active=active,
         surlignage={"t_min_celsius": ("≤", seuil_t)},
-        parametres_ajustables=_PARAMS_PURGE_GEL,
-    )
-
-
-def regle_voiles_p17(
-    quotidien: pd.DataFrame,
-    exploitation: dict[str, Any],
-    today: pd.Timestamp,  # noqa: ARG001
-) -> GuideDecision | None:
-    if not exploitation.get("equipement", {}).get("voiles_p17_disponibles", False):
-        return None
-    if "t_min_celsius" not in quotidien.columns or quotidien.empty:
-        return None
-    n_jours = len(quotidien)
-    s = exploitation.get("seuils_gel", {})
-    seuil_t = float(s.get("voiles_p17_t_seuil_celsius", 0.0))
-    seuil_dj = float(s.get("voiles_p17_degres_jours_min", 2.0))
-
-    dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
-    if dj >= seuil_dj:
-        titre = (
-            f"Froid cumulé sur {n_jours} j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
-            "(envisager des voiles P17)"
-        )
-        active = True
-    else:
-        titre = (
-            f"Pas de froid cumulé notable — {dj:.1f} DJ sous {seuil_t:.0f} °C "
-            f"(seuil {seuil_dj:.1f} DJ)"
-        )
-        active = False
-
-    return GuideDecision(
-        titre=titre,
-        niveau=NIVEAU_ANTICIPER if active else NIVEAU_INFO,
-        picto="🛡️",
-        detail_df=quotidien[["t_min_celsius"]],
-        theme=THEME_FROID,
-        active=active,
-        surlignage={"t_min_celsius": ("<", seuil_t)},
-        parametres_ajustables=_PARAMS_VOILES,
+        parametres_ajustables=_PARAMS_GEL_PURGE_VOILES,
     )
 
 
@@ -394,27 +325,27 @@ def regle_recolte_racines_avant_gel(
     exploitation: dict[str, Any],
     today: pd.Timestamp,
 ) -> GuideDecision | None:
+    """Gel franc (T° min ≤ seuil, défaut 0 °C) → récolte de protection des racines.
+
+    Une seule nuit sous le seuil suffit (pas de cumul de degrés-jours).
+    """
     if not _saison_active(exploitation, "legumes_racine_au_champ", today.month):
         return None
     if "t_min_celsius" not in quotidien.columns or quotidien.empty:
         return None
     n_jours = len(quotidien)
-    s = exploitation.get("seuils_gel", {})
-    seuil_t = float(s.get("recolte_racines_t_seuil_celsius", -5.0))
-    seuil_dj = float(s.get("recolte_racines_degres_jours_min", 4.0))
-
-    dj = degres_jours_sous_seuil(quotidien["t_min_celsius"], seuil_t)
-    if dj >= seuil_dj:
+    seuil_t = float(exploitation.get("seuils_gel", {}).get("recolte_racines_t_seuil_celsius", 0.0))
+    masque = quotidien["t_min_celsius"] <= seuil_t
+    if masque.any():
+        t_min_min = float(quotidien.loc[masque, "t_min_celsius"].min())
         titre = (
-            f"Froid sévère cumulé sur {n_jours} j — {dj:.1f} DJ sous {seuil_t:.0f} °C "
-            "(envisager une récolte de protection)"
+            f"Gel franc sur {n_jours} j — T° min prévue {t_min_min:.1f} °C "
+            "(récolte de protection des légumes racine)"
         )
         active = True
     else:
-        titre = (
-            f"Pas de froid sévère cumulé — {dj:.1f} DJ sous {seuil_t:.0f} °C "
-            f"(seuil {seuil_dj:.1f} DJ)"
-        )
+        t_min_obs = float(quotidien["t_min_celsius"].min())
+        titre = f"Pas de gel franc — T° min mini {t_min_obs:+.1f} °C (seuil ≤ {seuil_t:.0f} °C)"
         active = False
 
     return GuideDecision(
@@ -424,7 +355,7 @@ def regle_recolte_racines_avant_gel(
         detail_df=quotidien[["t_min_celsius"]],
         theme=THEME_FROID,
         active=active,
-        surlignage={"t_min_celsius": ("<", seuil_t)},
+        surlignage={"t_min_celsius": ("≤", seuil_t)},
         parametres_ajustables=_PARAMS_RACINES,
     )
 
@@ -520,7 +451,7 @@ def regle_stress_thermique(
     exploitation: dict[str, Any],
     today: pd.Timestamp,  # noqa: ARG001
 ) -> GuideDecision | None:
-    """Fortes chaleurs prolongées → bassinage / ombrage (Agrobio 35)."""
+    """Fortes chaleurs (pic journalier ≥ seuil) → bassinage / ombrage (Agrobio 35)."""
     if "t_max_celsius" not in quotidien.columns or quotidien.empty:
         return None
     n_jours = len(quotidien)
@@ -720,8 +651,7 @@ def evaluer_decisions(
     guides: list[GuideDecision] = []
 
     for regle in (
-        lambda q, t: regle_purge_irrigation_gel(q, exploitation, t),
-        lambda q, t: regle_voiles_p17(q, exploitation, t),
+        lambda q, t: regle_gel_purge_voiles(q, exploitation, t),
         lambda q, t: regle_recolte_racines_avant_gel(q, exploitation, t),
         lambda q, t: regle_fermeture_nuit_tunnels(q, exploitation, t),
         lambda q, t: regle_deficit_hydrique(q, exploitation, t),

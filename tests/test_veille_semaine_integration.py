@@ -420,8 +420,8 @@ def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
     # Ordre : 48 h → La semaine → Situation synoptique → Seuils (tout en bas).
     i_mf = html.find("Prévision Météo-France officielle")
     i_sem = html.find("La semaine")
-    # Ancre ASCII fiable du bloc seuils (bas de mail) : terme propre aux seuils.
-    i_seuils = html.find("Guides de la semaine")
+    # Ancre du bloc seuils (juste après les sources, bas de mail).
+    i_seuils = html.find("Seuils des guides de la semaine")
     assert i_mf < i_sem < i_seuils, (
         f"Ordre des sections inattendu : mf={i_mf} sem={i_sem} seuils={i_seuils}"
     )

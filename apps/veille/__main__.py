@@ -44,7 +44,6 @@ from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
 from .alertes import evaluer_alertes
 from .anomalies import Anomalie
 from .cartes_synoptiques import recuperer_cartes
-from .charts import graphique_48h_base64
 from .config import (
     ConfigError,
     load_config,
@@ -241,8 +240,6 @@ def executer_veille(
         alertes = evaluer_alertes(ind, config)
         logger.info("%d alerte(s) déclenchée(s)", len(alertes))
 
-        # ADR-0014 : affichage tout en heure locale (fenêtre + périodes 6 h).
-        chart = graphique_48h_base64(prevision_df, now_utc, tz_locale=tz_locale)
         # Grille Met Office + AROME (cartes synoptiques images). Cibles décalées
         # selon le moment d'envoi. Cartes manquantes sautées silencieusement.
         apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
@@ -303,7 +300,6 @@ def executer_veille(
             alertes,
             config,
             now_utc.to_pydatetime(),
-            chart_48h_base64=chart,
             cartes_grille=cartes_grille,
             vigilance=vigilance,
             prevision_horaire=prevision_df,

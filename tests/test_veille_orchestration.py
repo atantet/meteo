@@ -108,8 +108,13 @@ def test_grille_couvre_plusieurs_periodes() -> None:
     assert email.html.count("data:image") >= 6
 
 
-def test_executer_veille_alerte_gel_dans_email() -> None:
-    """Avec T° très basse, l'alerte gel doit apparaître dans l'email dry-run."""
+def test_executer_veille_gel_plus_dans_le_corps_48h() -> None:
+    """Vigilance exploitation 48 h retirée : un gel ne rend plus d'alerte dans le corps.
+
+    L'alerte reste évaluée (le template de test la résume via {alertes_resume} dans le
+    sujet), mais le bloc « Vigilance exploitation » a disparu — le gel est désormais
+    porté par le guide « purge + voiles » de la semaine.
+    """
     from apps.veille.__main__ import executer_veille
 
     config = _config_test()
@@ -125,10 +130,11 @@ def test_executer_veille_alerte_gel_dans_email() -> None:
 
     assert code == 0
     out = buf.getvalue()
-    assert "gel" in out.lower()
-    assert "purger" in out.lower()
-    assert "voiler" in out.lower()
-    assert "-5.0" in out
+    # Résumé d'alertes encore disponible pour le sujet (template de test).
+    assert "— gel" in out
+    # Mais plus de bloc « Vigilance exploitation » ni d'action gel dans le corps.
+    assert "VIGILANCE EXPLOITATION" not in out
+    assert "purger" not in out.lower()
 
 
 def test_executer_veille_http_error_returns_2() -> None:
