@@ -158,8 +158,8 @@ def test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec() -> None:
     """Essai intermédiaire (fallback_mf=False) : MF down → code 2 SANS mail d'échec.
 
     Le webservice MF est souvent injoignable depuis les runners ; le workflow
-    retente puis bascule en repli ARPEGE (mail dégradé). Les essais intermédiaires
-    ne doivent pas spammer de mails d'échec.
+    retente puis, en dernier recours, omet la 48 h (mail « semaine seule »). Les
+    essais intermédiaires ne doivent pas spammer de mails d'échec.
     """
     import requests
 
@@ -181,8 +181,13 @@ def test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec() -> None:
     mock_echec.assert_not_called()
 
 
-def test_executer_veille_mf_et_repli_down_envoie_echec() -> None:
-    """Dernier recours (fallback_mf=True) : MF down ET repli ARPEGE muet → mail d'échec."""
+def test_executer_veille_mf_down_dernier_recours_sans_semaine_envoie_echec() -> None:
+    """Dernier recours (fallback_mf=True) sans semaine : MF down → mail d'échec.
+
+    Plus de repli ARPEGE 48 h : MF injoignable → on omet la 48 h. Mais ici la
+    section semaine est désactivée (``inclure_semaine=False``) → aucun contenu
+    exploitable → vrai échec notifié (on ne livre jamais un mail vide).
+    """
     import requests
 
     from apps.veille.__main__ import executer_veille
@@ -190,10 +195,7 @@ def test_executer_veille_mf_et_repli_down_envoie_echec() -> None:
     mock_source = MagicMock()
     mock_source.obtenir_prevision.side_effect = requests.HTTPError("timeout")
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
-    with (
-        patch("apps.veille.__main__._prevision_repli_arpege", return_value=None),
-        patch("apps.veille.__main__._envoyer_echec") as mock_echec,
-    ):
+    with patch("apps.veille.__main__._envoyer_echec") as mock_echec:
         code = executer_veille(
             _config_test(),
             secrets=None,

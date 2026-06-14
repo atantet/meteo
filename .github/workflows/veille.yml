@@ -90,9 +90,10 @@ jobs:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
         # Le webservice MF est injoignable par intermittence depuis les runners
         # (timeout connexion datacenter↔MF). On retente MF (laisse passer une
-        # coupure courte → vraie prévi MF), puis en dernier recours on replie le
-        # 48 h sur ARPEGE Single Runs (--fallback-mf) pour qu'un mail parte quand
-        # même. Quand MF répond, la 1ʳᵉ tentative réussit → zéro surcoût.
+        # coupure courte → vraie prévi MF), puis en dernier recours (--fallback-mf)
+        # on OMET la partie 48 h et on envoie le mail avec la seule section « La
+        # semaine » (tendance 0-10 j ARPEGE/ECMWF, qui porte l'essentiel) — plus de
+        # repli 48 h inventé. Quand MF répond, la 1ʳᵉ tentative réussit → 48 h pleine.
         run: |
           set +e
           for tentative in 1 2; do

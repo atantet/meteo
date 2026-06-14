@@ -698,23 +698,28 @@ def composer_guides_tendance(
     atelier_url: str = "",
     note_anomalie: str = "",
     rappel: bool = False,
+    avec_48h: bool = True,
 ) -> str:
     """Bloc « La semaine » : guides (avec lien atelier sous le déficit hydrique) +
     tendance. ``note_anomalie`` (HTML) est inséré après l'intro, avant les guides
     (ex. repli ARPEGE→ECMWF). ``rappel`` (mail d'après-midi) ajoute « pour rappel »
-    à l'intro (semaine identique au matin). Les cartes sont regroupées avec le 48 h."""
+    à l'intro (semaine identique au matin). ``avec_48h`` (défaut ``True``) rappelle
+    que la 48 h ci-dessus est en heure locale ; ``False`` (48 h omise, MF
+    injoignable) supprime ce renvoi pour ne pas évoquer une section absente. Les
+    cartes sont regroupées avec le 48 h."""
     rappel_txt = (
         " <strong>Pour rappel</strong> : tendance du matin (mise à jour 1×/jour, run 00Z)."
         if rappel
         else ""
     )
+    intro = "Tendance et anticipation à moyen terme — horaires en <strong>UTC</strong>"
+    intro += " (la partie 48 h ci-dessus est en heure locale)." if avec_48h else "."
     return (
         '<h2 style="margin:24px 0 8px 0;font-size:17px;color:#2c3e50;'
         'border-bottom:2px solid #2c3e50;padding-bottom:4px;">'
         "La semaine</h2>"
         '<p style="margin:0 0 8px 0;font-size:12px;color:#888;">'
-        "Tendance et anticipation à moyen terme — horaires en <strong>UTC</strong> "
-        "(la partie 48 h ci-dessus est en heure locale)."
+        + intro
         + rappel_txt
         + "</p>"
         + note_anomalie
@@ -767,6 +772,7 @@ def executer_semaine(
     source_arpege_mf: Any = None,
     source_ecmwf_opendata: Any = None,
     proba_mf: pd.Series | None = None,
+    avec_48h: bool = True,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -776,7 +782,14 @@ def executer_semaine(
     - ``cartes_geo`` : ``CartesGeoSerie`` ARPEGE J+3/J+4 (regroupée avec le bloc
       synoptique 48 h par ``email.py``), ou ``None`` ;
     - ``sources_html`` : pied « Sources — semaine » (placé en bas du mail) ;
-    - ``texte`` : équivalent texte (fallback).
+    - ``texte`` : équivalent texte (fallback) ;
+    - ``vide`` : ``True`` si la section n'a AUCUN contenu exploitable (les deux
+      modèles muets, ou erreur de composition) → réduite à un bandeau. L'appelant
+      s'en sert quand la 48 h est elle aussi absente (MF injoignable) pour ne pas
+      envoyer un mail vide.
+
+    ``avec_48h`` (défaut ``True``) est transmis au bloc « La semaine » : ``False``
+    (48 h omise faute de prévi MF) supprime le renvoi « la partie 48 h ci-dessus ».
 
 
     Forward-only (pas de passé stitché) : le mail matin est tourné vers
@@ -941,6 +954,7 @@ def executer_semaine(
                 "sources_html": "",
                 "texte": "GUIDES DE DÉCISION : section indisponible (runs modèles non publiés).",
                 "anomalies": anomalies,
+                "vide": True,
             }
 
         # Proba pluie : **proba officielle MF calibrée** (signal autonome, ni
@@ -1004,6 +1018,7 @@ def executer_semaine(
                 atelier_url=atelier_url,
                 note_anomalie=note,
                 rappel=rappel,
+                avec_48h=avec_48h,
             ),
             "cartes_geo": cartes_geo,
             "sources_html": bloc_sources_semaine(
@@ -1026,6 +1041,7 @@ def executer_semaine(
             + bloc_seuils_guides(exploitation, horizon_court),
             "texte": composer_section_semaine_texte(guides),
             "anomalies": anomalies,
+            "vide": False,
         }
     except Exception as e:  # noqa: BLE001 — la semaine ne doit jamais casser la 48 h
         logger.error("Semaine : composition échouée : %s", e)
@@ -1041,4 +1057,5 @@ def executer_semaine(
                     f"{type(e).__name__}: {e}",
                 )
             ],
+            "vide": True,
         }
