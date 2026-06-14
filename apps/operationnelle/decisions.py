@@ -451,7 +451,7 @@ def regle_stress_thermique(
     exploitation: dict[str, Any],
     today: pd.Timestamp,  # noqa: ARG001
 ) -> GuideDecision | None:
-    """Fortes chaleurs prolongées → bassinage / ombrage (Agrobio 35)."""
+    """Fortes chaleurs (pic journalier ≥ seuil) → bassinage / ombrage (Agrobio 35)."""
     if "t_max_celsius" not in quotidien.columns or quotidien.empty:
         return None
     n_jours = len(quotidien)

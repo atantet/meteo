@@ -651,9 +651,9 @@ def bloc_seuils_guides(exploitation: dict[str, Any], horizon_court: int) -> str:
         f"<strong>Tunnels</strong> : fermer la nuit si T° min ≤ "
         f"{f(tun, 'fermeture_nuit_t_min_celsius', 3):.0f} °C.",
         f"<strong>Irrigation</strong> : déficit si bilan pluie − ETP ≤ "
-        f"{f(hyd, 'deficit_mm', -10):.0f} mm sur {horizon_court} j ; fortes chaleurs si ≥ "
-        f"{int(f(thr, 'stress_jours_min', 2))} j à T° max ≥ "
-        f"{f(thr, 'stress_t_max_celsius', 28):.0f} °C.",
+        f"{f(hyd, 'deficit_mm', -10):.0f} mm sur {horizon_court} j ; fortes chaleurs si le "
+        f"pic journalier atteint {f(thr, 'stress_t_max_celsius', 28):.0f} °C sur ≥ "
+        f"{int(f(thr, 'stress_jours_min', 1))} j.",
         f"<strong>Maladie</strong> : nuits douces si T° min ≥ "
         f"{f(mal, 'nuit_douce_t_min_celsius', 15):.0f} °C (une nuit suffit).",
         f"<strong>Travail du sol</strong> : fenêtre sèche (≤ "
