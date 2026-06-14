@@ -23,7 +23,6 @@ from apps.operationnelle.decisions import (  # noqa: E402
     THEMES_ORDRE,
     GuideDecision,
     _saison_active,
-    degres_jours_sous_seuil,
     evaluer_decisions,
     get_chemin,
     grouper_par_theme,
@@ -32,11 +31,10 @@ from apps.operationnelle.decisions import (  # noqa: E402
     regle_fenetre_pluvieuse_travail_sol_ete,
     regle_fenetre_seche_travail_sol_hiver,
     regle_fermeture_nuit_tunnels,
-    regle_purge_irrigation_gel,
+    regle_gel_purge_voiles,
     regle_recolte_racines_avant_gel,
     regle_risque_maladie,
     regle_stress_thermique,
-    regle_voiles_p17,
     set_chemin,
 )
 
@@ -49,11 +47,8 @@ EXPLOITATION_DEFAUT: dict = {
     },
     "equipement": {"voiles_p17_disponibles": True},
     "seuils_gel": {
-        "purge_irrigation_t_seuil_celsius": 0.0,
-        "voiles_p17_t_seuil_celsius": 0.0,
-        "voiles_p17_degres_jours_min": 2.0,
-        "recolte_racines_t_seuil_celsius": -5.0,
-        "recolte_racines_degres_jours_min": 4.0,
+        "purge_voiles_t_seuil_celsius": 4.0,
+        "recolte_racines_t_seuil_celsius": 0.0,
     },
     "seuils_tunnel": {
         "fermeture_nuit_t_min_celsius": 3.0,
@@ -115,21 +110,6 @@ def test_set_chemin_cree_les_niveaux() -> None:
     assert d == {"a": {"b": {"c": 7}}}
 
 
-# ---------- degres_jours_sous_seuil ----------
-
-
-def test_dj_serie_vide() -> None:
-    assert degres_jours_sous_seuil(pd.Series([], dtype=float), 0.0) == 0.0
-
-
-def test_dj_seuil_0_equivalent_ancien_dj_neg() -> None:
-    assert degres_jours_sous_seuil(pd.Series([5.0, -3.0, 2.0, -1.0, 0.0]), 0.0) == 4.0
-
-
-def test_dj_seuil_severe_minus_5() -> None:
-    assert degres_jours_sous_seuil(pd.Series([0.0, -7.0, -8.0, -4.0]), -5.0) == 5.0
-
-
 # ---------- _saison_active ----------
 
 
@@ -145,76 +125,53 @@ def test_saison_active_cle_absente_signifie_toujours() -> None:
     assert _saison_active({"saisons": {}}, "foo", 6) is True
 
 
-# ---------- regle_purge_irrigation_gel : active / inactive ----------
+# ---------- regle_gel_purge_voiles : purge + voiles fusionnés, 1 nuit suffit ----------
 
 
-def test_purge_gel_active_quand_t_min_negative() -> None:
-    quot = _quotidien(t_min=[5.0, 2.0, -1.0, 3.0])
-    guide = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-01"))
+def test_gel_purge_voiles_active_des_une_nuit_sous_seuil() -> None:
+    # 3.5 °C ≤ 4 °C → actif (une seule nuit suffit, pas de cumul).
+    quot = _quotidien(t_min=[6.0, 3.5, 8.0])
+    guide = regle_gel_purge_voiles(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-01"))
     assert isinstance(guide, GuideDecision)
     assert guide.active is True
     assert guide.niveau == NIVEAU_ANTICIPER
-    assert "purger" in guide.titre.lower()
-    assert guide.surlignage == {"t_min_celsius": ("≤", 0.0)}
+    assert "purger" in guide.titre.lower() and "p17" in guide.titre.lower()
+    assert guide.surlignage == {"t_min_celsius": ("≤", 4.0)}
 
 
-def test_purge_gel_inactive_sans_gel() -> None:
-    """Désormais la guide est rendue grisée plutôt que None."""
-    quot = _quotidien(t_min=[5.0, 6.0, 7.0])
-    guide = regle_purge_irrigation_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-01"))
+def test_gel_purge_voiles_inactive_si_nuits_clementes() -> None:
+    quot = _quotidien(t_min=[6.0, 7.0, 8.0])
+    guide = regle_gel_purge_voiles(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-06-01"))
     assert isinstance(guide, GuideDecision)
     assert guide.active is False
     assert "pas de gel" in guide.titre.lower()
-    # Paramètres ajustables toujours présents pour modifier les seuils.
     assert any(
-        p.chemin == "seuils_gel.purge_irrigation_t_seuil_celsius"
-        for p in guide.parametres_ajustables
+        p.chemin == "seuils_gel.purge_voiles_t_seuil_celsius" for p in guide.parametres_ajustables
     )
 
 
-def test_purge_gel_seuil_relevable_pour_anticiper() -> None:
-    expl = {**EXPLOITATION_DEFAUT}
-    expl["seuils_gel"] = {**expl["seuils_gel"], "purge_irrigation_t_seuil_celsius": 2.0}
-    quot = _quotidien(t_min=[5.0, 1.5, 4.0])
-    guide = regle_purge_irrigation_gel(quot, expl, pd.Timestamp("2026-01-15"))
-    assert guide is not None and guide.active is True
-    assert guide.surlignage == {"t_min_celsius": ("≤", 2.0)}
-
-
-# ---------- regle_voiles_p17 ----------
-
-
-def test_voiles_active_si_dj_au_dessus_seuil() -> None:
-    quot = _quotidien(t_min=[5.0, -3.0, 4.0])
-    guide = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
-    assert guide is not None and guide.active is True
-    assert "p17" in guide.titre.lower()
-
-
-def test_voiles_inactive_si_dj_sous_seuil() -> None:
-    quot = _quotidien(t_min=[5.0, -1.0, 4.0])
-    guide = regle_voiles_p17(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-03-15"))
-    assert guide is not None and guide.active is False
-
-
-def test_voiles_filtree_si_voiles_non_disponibles() -> None:
-    """Pas d'équipement → on cache la guide (None)."""
+def test_gel_purge_voiles_sans_voiles_dispo_mentionne_purge_seule() -> None:
     expl = {**EXPLOITATION_DEFAUT, "equipement": {"voiles_p17_disponibles": False}}
-    quot = _quotidien(t_min=[-5.0, -3.0, -2.0])
-    assert regle_voiles_p17(quot, expl, pd.Timestamp("2026-01-15")) is None
+    quot = _quotidien(t_min=[2.0, 5.0])
+    guide = regle_gel_purge_voiles(quot, expl, pd.Timestamp("2026-01-15"))
+    assert guide is not None and guide.active is True
+    assert "purger" in guide.titre.lower()
+    assert "p17" not in guide.titre.lower()
 
 
 # ---------- regle_recolte_racines (saison + active/inactive) ----------
 
 
-def test_racines_active_si_dj_severe_en_saison() -> None:
-    quot = _quotidien(t_min=[0.0, -7.0, -8.0, -3.0])
+def test_racines_active_des_un_gel_franc_en_saison() -> None:
+    # -1 °C ≤ 0 °C → actif (une nuit suffit, pas de cumul).
+    quot = _quotidien(t_min=[2.0, -1.0, 3.0])
     guide = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
     assert guide is not None and guide.active is True
+    assert guide.surlignage == {"t_min_celsius": ("≤", 0.0)}
 
 
-def test_racines_inactive_en_saison_sans_gel_severe() -> None:
-    quot = _quotidien(t_min=[-4.0, -4.0, -4.0])
+def test_racines_inactive_en_saison_sans_gel_franc() -> None:
+    quot = _quotidien(t_min=[1.0, 2.0, 0.5])  # rien ≤ 0 °C
     guide = regle_recolte_racines_avant_gel(quot, EXPLOITATION_DEFAUT, pd.Timestamp("2026-01-15"))
     assert guide is not None and guide.active is False
 
@@ -349,7 +306,8 @@ def test_demo_hiver_a_les_guides_actifs_attendus() -> None:
 
     guides = evaluer_decisions(quotidien_hiver(), EXPLOITATION_DEFAUT, today_hiver())
     pictos_actifs = {g.picto for g in guides if g.active}
-    attendus = {"❄️", "🛡️", "🥕", "🔒", "🚜"}
+    # ❄️ purge+voiles (ex-🛡️ fusionné), 🥕 racines, 🔒 tunnels, 🚜 travail du sol.
+    attendus = {"❄️", "🥕", "🔒", "🚜"}
     assert attendus.issubset(pictos_actifs), (
         f"Guides hiver actifs manquants : {attendus - pictos_actifs}"
     )
