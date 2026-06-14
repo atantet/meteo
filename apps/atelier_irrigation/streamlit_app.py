@@ -80,8 +80,9 @@ _GRIS_DOUX = "#6b7a8d"  # texte secondaire, légendes
 _FILET = "#e3e8ee"  # filets, bordures de cartes
 _CSS = f"""
 <style>
-/* Marge haute resserrée + largeur de lecture confortable. */
-.block-container {{ padding-top: 2rem; padding-bottom: 3rem; max-width: 1180px; }}
+/* Largeur de lecture confortable (on garde la marge haute par défaut de Streamlit
+   pour que le titre ne passe pas sous le header fixe). */
+.block-container {{ padding-bottom: 3rem; max-width: 1180px; }}
 
 /* En-tête. */
 .atelier-titre {{ font-size: 26px; font-weight: 700; color: {_ARDOISE};
