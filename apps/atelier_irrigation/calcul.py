@@ -112,12 +112,13 @@ def obtenir_prevision(
     """Prévision de l'atelier : run MF **partagé avec le mail** en priorité, repli OM.
 
     Renvoie ``(df, source)`` ; ``source`` = libellé d'affichage honnête de la
-    provenance (« Météo-France direct (run du mail) » ou « Open-Meteo (repli) »).
+    provenance (« API Météo-France via publication GitHub Actions » ou
+    « Open-Meteo (repli) »).
     """
     if url_partage:
         df = charger_run_partage(url_partage, run_utc)
         if df is not None:
-            return df, "Météo-France direct (run du mail)"
+            return df, "API Météo-France via publication GitHub Actions"
     df = fetch_arpege_run(latitude, longitude, horizon_jours, run_utc, source=source)
     return df, "Open-Meteo (repli)"
 
