@@ -148,6 +148,58 @@ def test_executer_veille_http_error_returns_2() -> None:
     assert code == 2
 
 
+def test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec() -> None:
+    """Essai intermédiaire (fallback_mf=False) : MF down → code 2 SANS mail d'échec.
+
+    Le webservice MF est souvent injoignable depuis les runners ; le workflow
+    retente puis bascule en repli ARPEGE (mail dégradé). Les essais intermédiaires
+    ne doivent pas spammer de mails d'échec.
+    """
+    import requests
+
+    from apps.veille.__main__ import executer_veille
+
+    mock_source = MagicMock()
+    mock_source.obtenir_prevision.side_effect = requests.HTTPError("timeout")
+    now = pd.Timestamp("2024-06-15 04:30:00+00:00")
+    with patch("apps.veille.__main__._envoyer_echec") as mock_echec:
+        code = executer_veille(
+            _config_test(),
+            secrets=None,
+            source=mock_source,
+            now_utc=now,
+            inclure_semaine=False,
+            fallback_mf=False,
+        )
+    assert code == 2
+    mock_echec.assert_not_called()
+
+
+def test_executer_veille_mf_et_repli_down_envoie_echec() -> None:
+    """Dernier recours (fallback_mf=True) : MF down ET repli ARPEGE muet → mail d'échec."""
+    import requests
+
+    from apps.veille.__main__ import executer_veille
+
+    mock_source = MagicMock()
+    mock_source.obtenir_prevision.side_effect = requests.HTTPError("timeout")
+    now = pd.Timestamp("2024-06-15 04:30:00+00:00")
+    with (
+        patch("apps.veille.__main__._prevision_repli_arpege", return_value=None),
+        patch("apps.veille.__main__._envoyer_echec") as mock_echec,
+    ):
+        code = executer_veille(
+            _config_test(),
+            secrets=None,
+            source=mock_source,
+            now_utc=now,
+            inclure_semaine=False,
+            fallback_mf=True,
+        )
+    assert code == 2
+    mock_echec.assert_called_once()
+
+
 def test_executer_veille_envoi_reel_appelle_smtp() -> None:
     """En mode envoi_reel=True, vérifie que envoyer() invoque le SMTP."""
     from apps.veille.__main__ import executer_veille

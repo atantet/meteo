@@ -202,12 +202,22 @@ def executer_veille(
             _prevision_repli_arpege(config, now_utc, source=semaine_source) if fallback_mf else None
         )
         if prevision is None:
-            etape = (
-                "fetch prévision MF (repli ARPEGE muet aussi)"
-                if fallback_mf
-                else "fetch prévision MF (muette)"
-            )
-            _envoyer_echec(config, secrets, now_utc, preview_path, etape, e)
+            if fallback_mf:
+                # Dernier recours : MF ET le repli ARPEGE muets → vrai échec, on notifie.
+                _envoyer_echec(
+                    config,
+                    secrets,
+                    now_utc,
+                    preview_path,
+                    "fetch prévision MF (repli ARPEGE muet aussi)",
+                    e,
+                )
+            else:
+                # Tentative intermédiaire : webservice MF injoignable (fréquent depuis les
+                # runners GitHub). PAS de mail d'échec — le workflow retente puis bascule en
+                # repli ARPEGE, qui enverra un mail dégradé (avec rapport de bug). Évite le
+                # spam de mails d'échec quand MF est durablement bloqué (un seul mail au final).
+                logger.warning("MF injoignable (essai sans repli) — pas d'échec mailé, on retente.")
             return 2
         repli_mf = True
         logger.warning("Repli 48 h sur ARPEGE Single Runs (webservice MF injoignable).")

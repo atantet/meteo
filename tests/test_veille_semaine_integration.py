@@ -490,8 +490,15 @@ def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
     assert "Pour rappel" in html
 
 
-def test_executer_veille_mail_echec_si_mf_muette(tmp_path: Path) -> None:
-    """Prévi MF muette → mail d'échec (HTML) avec étape + type + message exception."""
+def test_executer_veille_mail_echec_si_mf_et_repli_muets(tmp_path: Path) -> None:
+    """Dernier recours (fallback_mf) : MF muette ET repli ARPEGE muet → mail d'échec HTML.
+
+    L'échec n'est notifié qu'en dernier recours (pas sur les essais intermédiaires,
+    cf. test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec) ; le HTML d'échec
+    porte l'étape + le type + le message de l'exception pour le debug.
+    """
+    from unittest.mock import patch
+
     from apps.veille.__main__ import executer_veille
     from apps.veille.config import load_config
     from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
@@ -503,18 +510,44 @@ def test_executer_veille_mail_echec_si_mf_muette(tmp_path: Path) -> None:
         "Prévision MF inaccessible : connect timeout"
     )
     out = tmp_path / "echec.html"
+    # Repli ARPEGE muet aussi → vrai échec total.
+    with patch("apps.veille.__main__._prevision_repli_arpege", return_value=None):
+        code = executer_veille(
+            config,
+            secrets=None,
+            source=mock_mf,
+            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+            preview_path=out,
+            fallback_mf=True,
+        )
+    assert code == 2
+    html = out.read_text(encoding="utf-8")
+    assert "échec" in html.lower()
+    assert "PrevisionIndisponibleError" in html  # type d'exception (debug)
+    assert "connect timeout" in html  # message (debug)
+
+
+def test_executer_veille_mf_muette_sans_repli_pas_de_mail(tmp_path: Path) -> None:
+    """Essai intermédiaire (sans fallback_mf) : MF muette → code 2 SANS écrire d'échec."""
+    from apps.veille.__main__ import executer_veille
+    from apps.veille.config import load_config
+    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+
+    config = load_config()
+    config["diffusion"]["envoi_reel"] = False
+    mock_mf = MagicMock()
+    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("connect timeout")
+    out = tmp_path / "echec.html"
     code = executer_veille(
         config,
         secrets=None,
         source=mock_mf,
         now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
         preview_path=out,
+        fallback_mf=False,
     )
     assert code == 2
-    html = out.read_text(encoding="utf-8")
-    assert "échec" in html.lower()
-    assert "PrevisionIndisponibleError" in html  # type d'exception (debug)
-    assert "connect timeout" in html  # message (debug)
+    assert not out.exists()  # aucun mail d'échec écrit → pas de spam
 
 
 def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> None:
