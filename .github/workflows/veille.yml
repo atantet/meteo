@@ -25,8 +25,9 @@ jobs:
   veille:
     runs-on: ubuntu-latest
     # Marge pour les re-runs MF (2 × ~1 min + 120 s) + le fetch ARPEGE direct du
-    # matin (~10 min, ~500 requêtes WCS cadencées ; l'après-midi sert du cache).
-    timeout-minutes: 30
+    # matin (~500 requêtes WCS cadencées ; l'après-midi sert du cache). Filet à 40 min
+    # le temps d'observer l'effet du débit relevé (65/min) + retry throttle court (10 s).
+    timeout-minutes: 40
     # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless
     # à l'import de pyplot (charts.py) dans le pipeline du mail.
     env:
