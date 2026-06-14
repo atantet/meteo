@@ -490,15 +490,15 @@ def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
     assert "Pour rappel" in html
 
 
-def test_executer_veille_mail_echec_si_mf_et_repli_muets(tmp_path: Path) -> None:
-    """Dernier recours (fallback_mf) : MF muette ET repli ARPEGE muet → mail d'échec HTML.
+def test_executer_veille_mail_echec_si_mf_et_semaine_muets(tmp_path: Path) -> None:
+    """Dernier recours (fallback_mf) : MF muette ET semaine muette → mail d'échec HTML.
 
-    L'échec n'est notifié qu'en dernier recours (pas sur les essais intermédiaires,
-    cf. test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec) ; le HTML d'échec
-    porte l'étape + le type + le message de l'exception pour le debug.
+    Plus de repli 48 h : MF injoignable → 48 h omise. Mais si la semaine est elle
+    aussi vide (les deux modèles muets), il ne reste rien d'utile → vrai échec (on
+    ne livre jamais un mail vide). L'échec n'est notifié qu'en dernier recours (pas
+    sur les essais intermédiaires, cf. test_executer_veille_mf_muette_sans_repli_pas_de_mail) ;
+    le HTML d'échec porte l'étape + le type + le message de l'exception pour le debug.
     """
-    from unittest.mock import patch
-
     from apps.veille.__main__ import executer_veille
     from apps.veille.config import load_config
     from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
@@ -510,21 +510,25 @@ def test_executer_veille_mail_echec_si_mf_et_repli_muets(tmp_path: Path) -> None
         "Prévision MF inaccessible : connect timeout"
     )
     out = tmp_path / "echec.html"
-    # Repli ARPEGE muet aussi → vrai échec total.
-    with patch("apps.veille.__main__._prevision_repli_arpege", return_value=None):
-        code = executer_veille(
-            config,
-            secrets=None,
-            source=mock_mf,
-            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-            preview_path=out,
-            fallback_mf=True,
-        )
+    # Les deux modèles de la semaine muets aussi (flags directs ON en config prod) →
+    # semaine vide → vrai échec total.
+    code = executer_veille(
+        config,
+        secrets=None,
+        source=mock_mf,
+        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+        preview_path=out,
+        source_arpege_mf=_StubArpegeMfMuet(),
+        source_ecmwf_opendata=_StubEcmwfMuet(),
+        fetch_cartes_semaine=False,
+        fallback_mf=True,
+    )
     assert code == 2
     html = out.read_text(encoding="utf-8")
     assert "échec" in html.lower()
     assert "PrevisionIndisponibleError" in html  # type d'exception (debug)
     assert "connect timeout" in html  # message (debug)
+    assert "semaine aussi indisponible" in html  # étape (debug)
 
 
 def test_executer_veille_mf_muette_sans_repli_pas_de_mail(tmp_path: Path) -> None:
@@ -578,8 +582,9 @@ def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> Non
     assert "ARPEGE indisponible" in html
 
 
-def test_executer_veille_repli_mf_vers_arpege(tmp_path: Path) -> None:
-    """MF injoignable + fallback_mf → 48 h reconstruit depuis ARPEGE, étiqueté."""
+def test_executer_veille_mf_indispo_omet_48h_envoie_semaine(tmp_path: Path) -> None:
+    """MF injoignable + fallback_mf : la partie 48 h est OMISE (plus de repli ARPEGE),
+    le mail part avec la seule section « La semaine » + rapport de bug l'expliquant."""
     from apps.veille.__main__ import executer_veille
     from apps.veille.config import load_config
     from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
@@ -588,48 +593,28 @@ def test_executer_veille_repli_mf_vers_arpege(tmp_path: Path) -> None:
     config["diffusion"]["envoi_reel"] = False
     mock_mf = MagicMock()
     mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("MF connect timeout")
-    out = tmp_path / "repli_mf.html"
+    out = tmp_path / "sans_48h.html"
     code = executer_veille(
         config,
         secrets=None,
         source=mock_mf,
         now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
         preview_path=out,
-        semaine_source=_StubSingleRuns(),  # ARPEGE dispo (repli OK)
-        source_ecmwf_opendata=_StubEcmwfOpendata(),  # semaine offline (flag ECMWF ON)
+        source_arpege_mf=_StubArpegeMfDirect(),  # ARPEGE direct dispo → semaine OK
+        source_ecmwf_opendata=_StubEcmwfOpendata(),
         fetch_cartes_semaine=False,
         fallback_mf=True,
     )
     assert code == 0  # mail envoyé malgré MF muette
     html = out.read_text(encoding="utf-8")
-    assert "repli" in html.lower()
-    assert "Prévision ARPEGE-Europe (repli" in html  # section relabellée
-    assert "Prévision Météo-France indisponible" in html  # note + rapport de bug
+    # Plus aucune section / label de prévision MF 48 h, ni de « repli » inventé.
+    assert "Prévision Météo-France officielle" not in html
+    assert "Prévision ARPEGE-Europe" not in html
+    assert "repli" not in html.lower()
+    # La semaine est bien là (porte l'essentiel) + rapport de bug expliquant l'omission.
+    assert "La semaine" in html
+    assert "Tendance jusqu'à 10 jours" in html
     assert "Rapport de bug" in html
-
-
-def test_executer_veille_repli_mf_echoue_si_arpege_muet(tmp_path: Path) -> None:
-    """MF injoignable + fallback_mf mais ARPEGE muet aussi → échec + mail d'échec."""
-    from apps.veille.__main__ import executer_veille
-    from apps.veille.config import load_config
-    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
-
-    config = load_config()
-    config["diffusion"]["envoi_reel"] = False
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("MF connect timeout")
-    out = tmp_path / "repli_echec.html"
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-        preview_path=out,
-        semaine_source=_StubTousMuets(),  # ARPEGE muet aussi
-        fetch_cartes_semaine=False,
-        fallback_mf=True,
-    )
-    assert code == 2
-    html = out.read_text(encoding="utf-8")
-    assert "échec" in html.lower()
-    assert "repli ARPEGE muet aussi" in html
+    assert "partie 48 h omise" in html
+    # L'intro semaine ne renvoie plus à une « partie 48 h ci-dessus » absente.
+    assert "la partie 48 h ci-dessus" not in html

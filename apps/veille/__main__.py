@@ -85,43 +85,6 @@ def _envoyer_echec(
         logger.error("Mail d'échec impossible à envoyer (%s) : %s", etape, e2)
 
 
-def _prevision_repli_arpege(config: dict[str, Any], now_utc: pd.Timestamp, source: Any = None):
-    """Repli 48 h sur ARPEGE Single Runs (Open-Meteo) quand le webservice MF pend.
-
-    ARPEGE-Europe via Open-Meteo reste joignable depuis le runner même quand le
-    webservice MF time out (blocage réseau MF↔datacenter). Le run ARPEGE renvoie
-    les **mêmes colonnes socle** que la prévi MF (il manque seulement la proba
-    calibrée → NaN) → pipeline 48 h inchangé. Mode dégradé : picto WMO ARPEGE (pas
-    WWMF), pas de proba calibrée. Renvoie ``None`` si ARPEGE est aussi muet.
-    """
-    from meteo_socle.sources.meteofrance_officiel import PrevisionMF
-    from meteo_socle.sources.openmeteo_runs import (
-        ARPEGE,
-        VARS_MONO_MODELE,
-        OpenMeteoSingleRuns,
-        creneau_run,
-        runs_du_creneau,
-    )
-
-    site = config["site"]
-    creneau, jour = creneau_run(now_utc)
-    run = runs_du_creneau(creneau, jour)[ARPEGE]
-    src = source or OpenMeteoSingleRuns()
-    df = src.obtenir_run(ARPEGE, run, site["latitude"], site["longitude"], 4, VARS_MONO_MODELE)
-    if df is None or df.empty:
-        return None
-    df = df.copy()
-    if "weather_code" in df.columns:
-        df["weather_code"] = df["weather_code"].astype("Int64")
-    if "probabilite_pluie_pct" not in df.columns:
-        df["probabilite_pluie_pct"] = pd.Series(index=df.index, dtype="float64")
-    return PrevisionMF(
-        df=df,
-        updated_on=run,
-        position={"name": "ARPEGE-Europe (repli)", "timezone": site.get("tz", "Europe/Paris")},
-    )
-
-
 def executer_veille(
     config: dict[str, Any],
     secrets: dict[str, Any] | None,
@@ -162,10 +125,11 @@ def executer_veille(
         Passé à ``executer_semaine`` ; ``False`` désactive le fetch réseau
         des cartes ARPEGE-Europe (tests).
     fallback_mf :
-        Si ``True`` et que la prévi MF est injoignable, replie le 48 h sur ARPEGE
-        Single Runs (mode dégradé étiqueté) au lieu d'échouer. Le workflow réserve
-        ce mode à la **dernière** tentative (après re-runs MF), pour privilégier la
-        vraie prévi MF quand elle se rétablit.
+        Si ``True`` et que la prévi MF reste injoignable, **omet la partie 48 h**
+        (au lieu d'échouer) et envoie le mail avec la seule section « La semaine »
+        (tendance 0-10 j ARPEGE/ECMWF), qui porte l'essentiel. On n'invente plus de
+        repli 48 h. Le workflow réserve ce mode à la **dernière** tentative (après
+        re-runs MF), pour privilégier la vraie prévi MF quand elle se rétablit.
 
     Returns
     -------
@@ -187,7 +151,8 @@ def executer_veille(
         site["latitude"],
         site["longitude"],
     )
-    repli_mf = False
+    mf_indispo = False
+    mf_exc: BaseException | None = None
     try:
         prevision = source.obtenir_prevision(
             latitude=site["latitude"],
@@ -195,50 +160,47 @@ def executer_veille(
         )
     except (requests.HTTPError, PrevisionIndisponibleError) as e:
         logger.error("Prévision MF indisponible : %s", e)
-        # Repli ARPEGE seulement à la dernière tentative (fallback_mf=True) ; sinon
-        # on échoue (le workflow re-tente MF avant de basculer).
-        prevision = (
-            _prevision_repli_arpege(config, now_utc, source=semaine_source) if fallback_mf else None
-        )
-        if prevision is None:
-            if fallback_mf:
-                # Dernier recours : MF ET le repli ARPEGE muets → vrai échec, on notifie.
-                _envoyer_echec(
-                    config,
-                    secrets,
-                    now_utc,
-                    preview_path,
-                    "fetch prévision MF (repli ARPEGE muet aussi)",
-                    e,
-                )
-            else:
-                # Tentative intermédiaire : webservice MF injoignable (fréquent depuis les
-                # runners GitHub). PAS de mail d'échec — le workflow retente puis bascule en
-                # repli ARPEGE, qui enverra un mail dégradé (avec rapport de bug). Évite le
-                # spam de mails d'échec quand MF est durablement bloqué (un seul mail au final).
-                logger.warning("MF injoignable (essai sans repli) — pas d'échec mailé, on retente.")
+        if not fallback_mf:
+            # Tentative intermédiaire : webservice MF injoignable (fréquent depuis les
+            # runners GitHub). PAS de mail d'échec — le workflow retente puis bascule en
+            # dernier recours (fallback_mf), qui enverra le mail SANS la partie 48 h.
+            # Évite le spam de mails d'échec quand MF est durablement bloqué.
+            logger.warning("MF injoignable (essai intermédiaire) — pas d'échec mailé, on retente.")
             return 2
-        repli_mf = True
-        logger.warning("Repli 48 h sur ARPEGE Single Runs (webservice MF injoignable).")
+        # Dernier recours : on n'invente PLUS de 48 h. L'ancien repli ARPEGE couvrait
+        # 4 j (pas 48 h) et doublonnait la tendance 10 j → on OMET simplement la
+        # partie 48 h et on livre le mail « La semaine » seule. L'omission est tracée
+        # au rapport de bug ci-dessous.
+        logger.warning("MF injoignable au dernier essai → mail sans la partie 48 h.")
+        prevision = None
+        mf_indispo = True
+        mf_exc = e
 
     # Composition défensive : toute erreur inattendue → mail d'échec avec trace
-    # (en plus de l'alerte GitHub) puis sortie code 4. La 48 h reste prioritaire.
+    # (en plus de l'alerte GitHub) puis sortie code 4.
     anomalies: list[Anomalie] = []
-    if repli_mf:
+    if mf_indispo:
         anomalies.append(
             Anomalie(
                 "Prévision 48 h",
-                "Prévision Météo-France indisponible, repli sur ARPEGE-Europe",
-                "Webservice MF injoignable (timeout connexion depuis le runner) → 48 h "
-                "reconstruit depuis ARPEGE Single Runs (Open-Meteo). Picto WMO ARPEGE, "
-                "sans proba calibrée MF.",
+                "Prévision Météo-France indisponible — partie 48 h omise",
+                "Webservice MF injoignable (timeout connexion depuis le runner). La "
+                "partie 48 h (prévision officielle MF) est omise ; la tendance des "
+                "prochains jours ci-dessous (ARPEGE/ECMWF) porte l'essentiel.",
             )
         )
     try:
-        prevision_df = prevision.df
-        ind = calculer_indicateurs(prevision_df, now_utc, config)
-        alertes = evaluer_alertes(ind, config)
-        logger.info("%d alerte(s) déclenchée(s)", len(alertes))
+        if prevision is not None:
+            prevision_df = prevision.df
+            ind = calculer_indicateurs(prevision_df, now_utc, config)
+            alertes = evaluer_alertes(ind, config)
+            logger.info("%d alerte(s) déclenchée(s)", len(alertes))
+        else:
+            # 48 h omise : pas d'indicateurs ni d'alertes exploitation (la Vigilance
+            # d'État, elle, reste tentée plus bas — fetch indépendant).
+            prevision_df = None
+            ind = None
+            alertes = []
 
         # Grille Met Office + AROME (cartes synoptiques images). Cibles décalées
         # selon le moment d'envoi. Cartes manquantes sautées silencieusement.
@@ -258,6 +220,7 @@ def executer_veille(
         bloc_sources_semaine = ""
         cartes_longue = None
         bloc_semaine_texte = ""
+        resultat_semaine: dict[str, Any] | None = None
         if inclure_semaine:
             try:
                 from apps.operationnelle.config import load_config as load_config_op
@@ -273,9 +236,12 @@ def executer_veille(
                     rappel=apres_midi,
                     source_arpege_mf=source_arpege_mf,
                     source_ecmwf_opendata=source_ecmwf_opendata,
-                    # Proba pluie de la semaine = proba officielle MF calibrée,
-                    # déjà récupérée ici (signal autonome ~J+10). Vide en repli ARPEGE.
-                    proba_mf=prevision.proba_bins,
+                    # Proba pluie de la semaine = proba officielle MF calibrée, déjà
+                    # récupérée ici (signal autonome ~J+10). None si MF injoignable
+                    # (48 h omise) → pas de proba (dégradation gracieuse).
+                    proba_mf=prevision.proba_bins if prevision is not None else None,
+                    # 48 h omise → l'intro semaine ne renvoie pas à une section absente.
+                    avec_48h=not mf_indispo,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)
@@ -295,6 +261,21 @@ def executer_veille(
                 anomalies.extend(resultat_semaine.get("anomalies", []))
                 logger.info("Section semaine ajoutée au mail matinal.")
 
+        # Dernier recours sans contenu : MF injoignable (48 h omise) ET la semaine
+        # vide (les deux modèles muets ou erreur) → rien d'utile à envoyer → vrai
+        # échec (mail de debug). On ne livre jamais un mail vide (jamais_fausses_valeurs).
+        if mf_indispo and (resultat_semaine is None or resultat_semaine.get("vide", False)):
+            assert mf_exc is not None
+            _envoyer_echec(
+                config,
+                secrets,
+                now_utc,
+                preview_path,
+                "fetch prévision MF (semaine aussi indisponible)",
+                mf_exc,
+            )
+            return 2
+
         email = composer_email(
             ind,
             alertes,
@@ -303,14 +284,13 @@ def executer_veille(
             cartes_grille=cartes_grille,
             vigilance=vigilance,
             prevision_horaire=prevision_df,
-            updated_on=prevision.updated_on,
-            position=prevision.position,
+            updated_on=prevision.updated_on if prevision is not None else None,
+            position=prevision.position if prevision is not None else None,
             bloc_guides_tendance=bloc_guides_tendance,
             bloc_sources_semaine=bloc_sources_semaine,
             cartes_longue=cartes_longue,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
-            repli_mf=repli_mf,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)

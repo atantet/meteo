@@ -53,7 +53,7 @@ from meteo_socle.sources.meteofrance_vigilance import (
 )
 
 from .alertes import Alerte, resume_alertes
-from .anomalies import Anomalie, bloc_rapport_bug, note_inline
+from .anomalies import Anomalie, bloc_rapport_bug
 from .cartes_synoptiques import (
     METEOCIEL_PAGE_AFFICHEE,
     METOFFICE_PAGE_AFFICHEE,
@@ -734,7 +734,7 @@ def composer_sujet(
 
 
 def composer_texte(
-    ind: IndicateursVeille,
+    ind: IndicateursVeille | None,
     alertes: list[Alerte],
     maintenant: datetime,
     tz_locale: str = "Europe/Paris",
@@ -745,53 +745,65 @@ def composer_texte(
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile.
 
-    ``bloc_semaine_texte`` (optionnel) — équivalent texte de la section
+    ``ind`` à ``None`` (webservice MF injoignable au dernier essai) → la partie
+    48 h est omise : on l'indique en une ligne et le corps se réduit à la section
+    semaine. ``bloc_semaine_texte`` (optionnel) — équivalent texte de la section
     semaine, ajouté en fin de corps (mail matinal uniquement).
     """
     lignes: list[str] = []
     lignes.append(_titre_mail(maintenant, moment, tz_locale))
     lignes.append("=" * 70)
-    lignes.append("PRÉVISION MÉTÉO-FRANCE OFFICIELLE")
-    if updated_on is not None:
-        maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
-        lignes.append(f"  Mise à jour {maj}")
-    lignes.append("")
-
-    # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
-    tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
-    if tendance_lignes:
-        lignes.append("TENDANCE 48 h :")
-        lignes.extend(tendance_lignes)
+    if ind is None:
+        # Pas de repli inventé : on omet la 48 h et on le dit. La tendance des
+        # prochains jours (section semaine ci-dessous) porte l'essentiel.
+        lignes.append("PRÉVISION 48 h MÉTÉO-FRANCE INDISPONIBLE")
+        lignes.append("  (partie omise — voir la tendance des prochains jours ci-dessous)")
+    else:
+        lignes.append("PRÉVISION MÉTÉO-FRANCE OFFICIELLE")
+        if updated_on is not None:
+            maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
+            lignes.append(f"  Mise à jour {maj}")
         lignes.append("")
 
-    def fmt(label: str, val: str, win: str) -> str:
-        return f"  {label:<22}: {val:>12}   [{win}]"
+        # Tendance 48 h en mots (équivalent texte de la bande pictos HTML).
+        tendance_lignes = _tendance_texte_48h(prevision_horaire, tz_locale)
+        if tendance_lignes:
+            lignes.append("TENDANCE 48 h :")
+            lignes.extend(tendance_lignes)
+            lignes.append("")
 
-    direction = ind.direction_vent_dominante_cardinal or "—"
+        def fmt(label: str, val: str, win: str) -> str:
+            return f"  {label:<22}: {val:>12}   [{win}]"
 
-    lignes.append("INDICATEURS :")
-    lignes.append(fmt("T° min", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
-    lignes.append(fmt("T° max", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
-    lignes.append(fmt("Cumul pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h"))
-    lignes.append(fmt("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h"))
-    lignes.append(fmt("Proba. pluie 24 h", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire"))
-    lignes.append(fmt("Proba. pluie 48 h", f"{ind.prob_pluie_max_48h_pct:.0f} %", "max horaire"))
-    lignes.append(fmt("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h"))
-    lignes.append(fmt("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h"))
-    lignes.append(
-        fmt(
-            "Vent direction dom.",
-            f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
-            "0-24 h, pondéré vitesse",
+        direction = ind.direction_vent_dominante_cardinal or "—"
+
+        lignes.append("INDICATEURS :")
+        lignes.append(fmt("T° min", f"{ind.temperature_min_24h_celsius:.1f} °C", "0-24 h"))
+        lignes.append(fmt("T° max", f"{ind.temperature_max_24h_celsius:.1f} °C", "0-24 h"))
+        lignes.append(fmt("Cumul pluie 24 h", f"{ind.cumul_pluie_24h_mm:.1f} mm", "0-24 h"))
+        lignes.append(fmt("Cumul pluie 48 h", f"{ind.cumul_pluie_48h_mm:.1f} mm", "0-48 h"))
+        lignes.append(
+            fmt("Proba. pluie 24 h", f"{ind.prob_pluie_max_24h_pct:.0f} %", "max horaire")
         )
-    )
+        lignes.append(
+            fmt("Proba. pluie 48 h", f"{ind.prob_pluie_max_48h_pct:.0f} %", "max horaire")
+        )
+        lignes.append(fmt("Vent moy max", f"{ind.vent_max_24h_kmh:.0f} km/h", "0-24 h"))
+        lignes.append(fmt("Rafales max", f"{ind.rafales_max_24h_kmh:.0f} km/h", "0-24 h"))
+        lignes.append(
+            fmt(
+                "Vent direction dom.",
+                f"{direction} ({ind.direction_vent_dominante_deg:.0f}°)",
+                "0-24 h, pondéré vitesse",
+            )
+        )
     if bloc_semaine_texte:
         lignes.append(bloc_semaine_texte)
     return "\n".join(lignes)
 
 
 def composer_html(
-    ind: IndicateursVeille,
+    ind: IndicateursVeille | None,
     alertes: list[Alerte],
     maintenant: datetime,
     chart_48h_base64: str = "",
@@ -808,7 +820,6 @@ def composer_html(
     cartes_longue: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
-    repli_mf: bool = False,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -818,7 +829,11 @@ def composer_html(
     (Met Office + AROME + ARPEGE ``cartes_longue``, toutes les cartes regroupées)
     · sources semaine · seuils exploitation (bas, valables 48 h + semaine).
 
-    Les blocs semaine sont vides l'après-midi → mail 48 h seul.
+    Les blocs semaine sont vides l'après-midi → mail 48 h seul. À l'inverse, si
+    ``prevision_horaire`` est ``None`` (webservice MF injoignable au dernier essai)
+    la **partie 48 h est entièrement omise** (pas de section, pas de grille, pas de
+    repli inventé) → mail « La semaine » seule, l'omission étant tracée au rapport
+    de bug.
     """
     # ``now_utc`` pour aligner la fenêtre J0 00 h 00 → J0+48 h entre
     # la grille Tendance et le graphique. On le dérive de ``maintenant``
@@ -858,15 +873,14 @@ def composer_html(
         else ""
     )
 
-    # Mode dégradé : le 48 h vient d'ARPEGE-Europe (MF injoignable). On relabelle
-    # la section + note inline renvoyant au rapport de bug (ne pas faire croire à
-    # une prévi MF officielle).
-    if repli_mf:
-        section_mf = note_inline("Prévision Météo-France indisponible, repli sur ARPEGE-Europe") + (
-            '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
-            'border-bottom:2px solid #eee;padding-bottom:4px;">'
-            "Prévision ARPEGE-Europe (repli — Météo-France indisponible)</h2>"
-        )
+    # Partie 48 h omise (webservice MF injoignable au dernier essai) : ``ind`` à
+    # ``None`` → on ne rend NI l'en-tête de section, NI la fraîcheur, NI la grille.
+    # On n'invente pas de repli (l'ancien repli ARPEGE couvrait 4 j, pas 48 h, et
+    # doublonnait la tendance 10 j). L'omission est expliquée au rapport de bug.
+    # Sinon, en-tête de la prévision officielle MF.
+    if ind is None:
+        section_mf = ""
+        maj_html = ""
     else:
         section_mf = (
             '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
@@ -898,7 +912,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 
 
 def composer_email(
-    ind: IndicateursVeille,
+    ind: IndicateursVeille | None,
     alertes: list[Alerte],
     config: dict[str, Any],
     maintenant: datetime,
@@ -913,7 +927,6 @@ def composer_email(
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
-    repli_mf: bool = False,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -976,7 +989,6 @@ def composer_email(
         cartes_longue=cartes_longue,
         lieu=lieu,
         anomalies=anomalies,
-        repli_mf=repli_mf,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 
