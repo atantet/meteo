@@ -29,12 +29,14 @@ from meteo_socle.sources.meteofrance_arpege import ENV_BASIC, _bearer  # noqa: E
 
 DPVIGILANCE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
 BASE = "https://public-api.meteofrance.fr/public"
+# Chemins exacts d'après le client MAIF/meteole (contexte + préfixe collection).
 EPS_CANDIDATS: list[str] = [
-    f"{BASE}/arome-eps/1.0/wcs/MF-NWP-HIGHRES-AROME-EPS-0025-FRANCE-WCS",
-    f"{BASE}/arome-eps/1.0/wcs/MF-NWP-HIGHRES-AROME-EPS-FRANCE-WCS",
-    f"{BASE}/arome-pe/1.0/wcs/MF-NWP-HIGHRES-AROME-PE-0025-FRANCE-WCS",
     f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
-    f"{BASE}/arome-eps/1.0/wcs/MF-NWP-HIGHRES-AROME-EPS-0025-FRANCE-WCS-EXP",
+    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-001-FRANCE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/aromepi/1.0/wcs/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WCS",
+    f"{BASE}/piaf/1.0/wcs/MF-NWP-HIGHRES-PIAF-001-FRANCE-WCS",
 ]
 _TIMEOUT = (10.0, 30.0)
 DEPT = "35"
@@ -104,9 +106,14 @@ def _sonde_eps(session: requests.Session, bearer: str) -> None:
         except requests.RequestException as e:
             print(f"  {court}\n    ÉCHEC {type(e).__name__}")
             continue
-        n = len(re.findall(r"<(?:\w+:)?CoverageId>", resp.text)) if resp.ok else 0
-        extra = f" — {n} coverages" if n else f" — {resp.text[:90]!r}"
-        print(f"  [{resp.status_code}] {court}{extra}")
+        if not resp.ok:
+            print(f"  [{resp.status_code}] {court} — {resp.text[:90]!r}")
+            continue
+        ids = re.findall(r"<(?:\w+:)?CoverageId>([^<]+)</(?:\w+:)?CoverageId>", resp.text)
+        prefixes = sorted({cid.split("__", 1)[0] for cid in ids})
+        precip = [p for p in prefixes if "PRECIP" in p.upper()]
+        print(f"  [{resp.status_code}] {court} — {len(ids)} coverages, {len(prefixes)} familles")
+        print(f"        précip: {', '.join(precip) if precip else '—'}")
     print()
 
 
