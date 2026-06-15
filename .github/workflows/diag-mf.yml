@@ -14,7 +14,7 @@ permissions:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash -el {0}
@@ -56,3 +56,8 @@ jobs:
         env:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
         run: python -m scripts.diag_arome_getcoverage
+
+      - name: Smoke chaîne 48 h assemblée (AROME+PE-AROME+DPVigilance)
+        env:
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+        run: python -m scripts.diag_assemblage_48h
