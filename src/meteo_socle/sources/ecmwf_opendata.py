@@ -45,8 +45,10 @@ class EcmwfIndisponibleError(RuntimeError):
     """Run ECMWF Open Data non récupérable (réseau, run absent, GRIB illisible)."""
 
 
-# Paramètres Open Data (oper/fc) → nom court cfgrib en sortie.
-_PARAMS_OPENDATA = ["2t", "2d", "10u", "10v", "10fg", "tcc", "ssrd", "tp"]
+# Paramètres Open Data (oper/fc) → nom court cfgrib en sortie. ``ptype``/``sf``
+# ajoutés pour le picto (phase pluie/neige/verglas cohérente 0-10 j, cf. ADR-0021) —
+# disponibles en open data (vérifié 2026-06-15).
+_PARAMS_OPENDATA = ["2t", "2d", "10u", "10v", "10fg", "tcc", "ssrd", "tp", "ptype", "sf"]
 # Nom court cfgrib → colonne socle (variables **instantanées**).
 _INSTANT = {
     "t2m": "temperature_2m",  # K
@@ -60,6 +62,10 @@ _CUMUL = {
     "tp": "precipitation",  # m cumulés → mm sur la fenêtre
     "ssrd": "rayonnement_global",  # J/m² cumulés → J/m²/h sur la fenêtre
 }
+# Champs picto **optionnels** (NaN si absents du run, sans faire échouer la cascade).
+# ``ptype`` = code GRIB de type de précip (phase) ; ``sf`` = neige cumulée (m → mm).
+_INSTANT_OPT = {"ptype": "type_precip"}
+_CUMUL_OPT = {"sf": "precipitation_neige"}
 
 
 def _humidite_relative(t2m_k: pd.Series, d2m_k: pd.Series) -> pd.Series:
@@ -138,6 +144,18 @@ def _assembler(
     for shortname, col in _CUMUL.items():
         brut = _serie_point(datasets, shortname, latitude, longitude)
         series[col] = _deaccumuler(brut, "mm" if col == "precipitation" else "J_par_h")
+    # Champs picto optionnels : NaN (sur l'index t2m) s'ils manquent du run.
+    for shortname, col in _INSTANT_OPT.items():
+        try:
+            series[col] = _serie_point(datasets, shortname, latitude, longitude)
+        except EcmwfIndisponibleError:
+            series[col] = pd.Series(np.nan, index=t2m.index, name=col)
+    for shortname, col in _CUMUL_OPT.items():
+        try:
+            brut = _serie_point(datasets, shortname, latitude, longitude)
+            series[col] = _deaccumuler(brut, "mm")  # neige : m → mm comme la pluie
+        except EcmwfIndisponibleError:
+            series[col] = pd.Series(np.nan, index=t2m.index, name=col)
 
     df = pd.DataFrame(series)
     df.index.name = "time"

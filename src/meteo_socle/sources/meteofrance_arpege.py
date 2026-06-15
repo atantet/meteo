@@ -271,7 +271,10 @@ def _suffixe_accum(fenetre_s: float) -> str:
 
 
 # Colonnes accumulées (réparties sur leur fenêtre lors du rééchantillonnage).
-_COLS_ACCUM_FINALES = ("precipitation", "rayonnement_global")
+# ``precipitation_neige`` (AROME/ECMWF, absent d'ARPEGE) répartie comme la pluie.
+_COLS_ACCUM_FINALES = ("precipitation", "precipitation_neige", "rayonnement_global")
+#: Cumuls répartis « total/n par heure » (vs flux moyen répété, ex. rayonnement).
+_COLS_ACCUM_REPARTIES = ("precipitation", "precipitation_neige")
 
 
 def _reechantillonner_horaire(df: pd.DataFrame, run_utc: pd.Timestamp) -> pd.DataFrame:
@@ -290,13 +293,15 @@ def _reechantillonner_horaire(df: pd.DataFrame, run_utc: pd.Timestamp) -> pd.Dat
     for c in [c for c in df.columns if c not in _COLS_ACCUM_FINALES]:
         out[c] = df[c].reindex(out.index).interpolate(method="time")
     for c in _COLS_ACCUM_FINALES:
+        if c not in df.columns:  # ARPEGE n'a pas la neige → on saute proprement.
+            continue
         serie = pd.Series(0.0, index=out.index)
         prev = run_utc
         for t in df.index[1:]:
             heures = out.index[(out.index > prev) & (out.index <= t)]
             if len(heures):
                 val = float(df.at[t, c])  # type: ignore[arg-type]  # colonne float au runtime
-                serie.loc[heures] = (val / len(heures)) if c == "precipitation" else val
+                serie.loc[heures] = (val / len(heures)) if c in _COLS_ACCUM_REPARTIES else val
             prev = t
         out[c] = serie
     return out

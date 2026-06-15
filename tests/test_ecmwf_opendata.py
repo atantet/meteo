@@ -142,6 +142,32 @@ def test_assembler_produit_un_df_socle_horaire() -> None:
     assert (df.precipitation >= 0).all()
 
 
+def test_assembler_ptype_sf_presents() -> None:
+    """ptype (code, passthrough) et sf (neige cumulée m → mm) traités quand présents."""
+    run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
+    steps = list(range(0, 13, 3))
+    ds = _dataset_synthetique(run, steps)
+    ptype = xr.zeros_like(ds["t2m"]) + 1.0  # code 1 = pluie (passé tel quel)
+    sf = xr.zeros_like(ds["t2m"])
+    for i in range(len(steps)):
+        sf.values[i] = 0.0005 * i  # m cumulés
+    ds = ds.assign(ptype=ptype, sf=sf)
+    df = _assembler([ds], run, horizon_jours=1, latitude=48.544, longitude=-1.612)
+    assert "type_precip" in df.columns and "precipitation_neige" in df.columns
+    assert (df.type_precip == 1.0).all()  # code, pas de conversion
+    assert (df.precipitation_neige >= 0).all()
+    assert df.precipitation_neige.sum() > 0  # m → mm, réparti à l'heure
+
+
+def test_assembler_ptype_sf_absents_nan() -> None:
+    """Sans ptype/sf dans le run : colonnes présentes mais le type de précip est NaN."""
+    run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
+    ds = _dataset_synthetique(run, list(range(0, 13, 3)))
+    df = _assembler([ds], run, horizon_jours=1, latitude=48.544, longitude=-1.612)
+    assert "type_precip" in df.columns
+    assert df.type_precip.isna().all()  # instantané absent → NaN (pas de phase)
+
+
 def test_obtenir_run_cache_hit_sans_reseau(tmp_path: Path) -> None:
     """Si le parquet de cache existe, aucun téléchargement n'est tenté."""
     run = pd.Timestamp("2026-06-12 00:00", tz="UTC")
