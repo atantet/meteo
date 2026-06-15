@@ -41,3 +41,8 @@ jobs:
           # Absent → le script tombe sur le token mobile public codé en dur.
           METEOFRANCE_WS_TOKEN: ${{ secrets.METEOFRANCE_WS_TOKEN }}
         run: python -m scripts.diag_mf_webservice
+
+      - name: Sonde capabilities AROME (visibilité ?)
+        env:
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+        run: python -m scripts.diag_arome_capabilities
