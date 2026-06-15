@@ -66,8 +66,11 @@ Basculer **toute** la 48 h et la Vigilance d'App 1 sur `portail-api` (clé DP
    P(pluie > seuil mm / 6 h), `N_PROBA_PRECI12_*` (12 h). **Un champ, pas
    d'agrégation.** Couvre **0-48 h** (échéance PE-AROME ~51 h). Au-delà :
    - **ECMWF-ENS écarté** (décision : fetch trop lourd, ~40 Mo/membre-param-échéance) ;
-   - **PEARP « champs statistiques »** (≤ ~108 h) = extension **différée** pour
-     J2-4,5 (route à finaliser, peut-être un abonnement distinct) ;
+   - **PEARP** (abonnement PE-ARPEGE, `pearpege/.../MF-NWP-GLOBAL-PEARP000-025-GLOBE-WCS`)
+     ne sert que les **champs bruts** (T, TP, nébulosité, CAPE…), **pas de
+     `N_PROBA`** pré-calculé. La proba PEARP pré-calculée est un **produit séparé**
+     (« Champs statistiques de la prévision d'ensemble ARPEGE », id 297, à abonner) →
+     extension **différée** pour J2-4,5 ; agréger les membres bruts = écarté (lourd) ;
    - **J5-10 : proba absente**, marquée (jamais de fausse valeur).
    Remplace la proba webservice d'ADR-0017 (calibrée mais sur le backend bloqué).
 
@@ -94,7 +97,8 @@ Basculer **toute** la 48 h et la Vigilance d'App 1 sur `portail-api` (clé DP
 
 - Valeurs numériques exactes de `PTYPE_60` (table GRIB 4.201 / locale MF) → mapping phase.
 - Sémantique `N_PROBA_PRECI` (seuil en mm, valeur en %) et échéances exactes.
-- Route + abonnement PEARP « champs statistiques » (extension proba J2-4,5).
+- Abonnement + route du produit « Champs statistiques PE-ARPEGE » (id 297) pour la
+  proba pré-calculée J2-4,5 ; sinon proba absente au-delà de 48 h en v0.
 
 ## Plan d'implémentation (phasé, flags de staging comme ADR-0016/0018)
 
