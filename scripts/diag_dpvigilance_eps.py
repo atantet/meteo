@@ -32,11 +32,10 @@ BASE = "https://public-api.meteofrance.fr/public"
 # Chemins exacts d'après le client MAIF/meteole (contexte + préfixe collection).
 EPS_CANDIDATS: list[str] = [
     f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
-    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-001-FRANCE-WCS",
     f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-EUROPE-WCS",
-    f"{BASE}/aromepi/1.0/wcs/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WCS",
-    f"{BASE}/piaf/1.0/wcs/MF-NWP-HIGHRES-PIAF-001-FRANCE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/pe-arpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
+    f"{BASE}/pe-arpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
 ]
 _TIMEOUT = (10.0, 30.0)
 DEPT = "35"
