@@ -172,13 +172,16 @@ def _echeances(
     token: str,
     run_utc: pd.Timestamp,
     wcs_base: str = WCS_BASE,
+    coverage_prefixe: str = "TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
 ) -> list[pd.Timestamp]:
-    """Échéances (valid times) disponibles, lues dans le DescribeCoverage T° 2 m.
+    """Échéances (valid times) disponibles, lues dans le DescribeCoverage d'un champ.
 
     ``wcs_base`` permet de réutiliser ce helper pour un autre modèle MF servi par le
-    même WCS (AROME, etc.) ; défaut = ARPEGE (rétrocompatible).
+    même WCS (AROME, etc.) ; défaut = ARPEGE. ``coverage_prefixe`` cible le champ dont
+    on lit l'axe temps (défaut T° 2 m ; ex. ``N_PROBA_PRECI06_1__GROUND_OR_WATER_SURFACE``
+    pour PE-AROME, qui n'a pas de T°). Tous deux rétrocompatibles.
     """
-    cid = f"TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND___{_coverage_run(run_utc)}"
+    cid = f"{coverage_prefixe}___{_coverage_run(run_utc)}"
     resp = session.get(
         f"{wcs_base}/DescribeCoverage",
         params={"service": "WCS", "version": "2.0.1", "coverageid": cid},
