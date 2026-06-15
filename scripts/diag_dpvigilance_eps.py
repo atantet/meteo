@@ -12,7 +12,6 @@ pas documenté clairement) et on rapporte le statut de chacun.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import sys
@@ -31,9 +30,8 @@ DPVIGILANCE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/carte
 BASE = "https://public-api.meteofrance.fr/public"
 # Chemins exacts d'après le client MAIF/meteole (contexte + préfixe collection).
 EPS_CANDIDATS: list[str] = [
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP000-025-GLOBE-WCS",
+    # PEARP différé (ADR-0021) ; on garde PE-AROME comme contrôle (quota MF/min).
+    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
 ]
 _TIMEOUT = (10.0, 30.0)
 DEPT = "35"
@@ -78,14 +76,24 @@ def _sonde_dpvigilance(session: requests.Session, bearer: str) -> None:
     except ValueError:
         print(f"  Pas du JSON : {resp.text[:160]!r}\n")
         return
-    print("  Structure (2 niveaux) :")
-    print(_resume_structure(data, prof=2))
-    # Cherche les périodes et le timing orages pour le dept 35.
-    txt = json.dumps(data, ensure_ascii=False)
-    print(f"\n  'periods' présent : {'periods' in txt}")
-    print(f"  'timelaps' présent : {'timelaps' in txt}")
-    print(f"  dept {DEPT} cité : {bool(re.search(rf'\"{DEPT}\"', txt))}")
-    print(f"  phénomène orages (id {ORAGES_ID}) cité : {ORAGES_ID in txt}")
+    # Structure réelle : périodes → dept 35 → phénomène orages → fenêtres horodatées.
+    prod = data.get("product", {})
+    periods = prod.get("periods", [])
+    print(f"  périodes : {[p.get('echeance') for p in periods]}")
+    for per in periods:
+        ech = per.get("echeance")
+        print(f"\n  -- période {ech} : clés = {list(per)}")
+        # per_phenomenon_items (couleur max par phénomène).
+        for it in per.get("per_phenomenon_items", [])[:1]:
+            print(f"     per_phenomenon_items[0] = {it}")
+        # timelaps.domain_ids → dept 35.
+        domains = (per.get("timelaps") or {}).get("domain_ids", [])
+        d35 = next((d for d in domains if str(d.get("domain_id")) == DEPT), None)
+        if d35 is None:
+            print(f"     dept {DEPT} absent de timelaps.domain_ids")
+            continue
+        print(f"     dept {DEPT} : clés = {list(d35)}")
+        print(f"     dept {DEPT} structure (3 niv) :\n{_resume_structure(d35, prof=2, max_prof=3)}")
     print()
 
 
