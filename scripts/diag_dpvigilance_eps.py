@@ -31,9 +31,9 @@ DPVIGILANCE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/carte
 BASE = "https://public-api.meteofrance.fr/public"
 # Chemins exacts d'après le client MAIF/meteole (contexte + préfixe collection).
 EPS_CANDIDATS: list[str] = [
-    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
     f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP000-025-GLOBE-WCS",
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP000-01-EUROPE-WCS",
 ]
 _TIMEOUT = (10.0, 30.0)
 DEPT = "35"
