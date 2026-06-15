@@ -46,3 +46,8 @@ jobs:
         env:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
         run: python -m scripts.diag_arome_capabilities
+
+      - name: Sonde DPVigilance + route AROME-EPS
+        env:
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+        run: python -m scripts.diag_dpvigilance_eps
