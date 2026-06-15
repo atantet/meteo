@@ -172,6 +172,7 @@ def symbole_metno(
     low_cloud_pct: float | None = None,
     mid_cloud_pct: float | None = None,
     max_precipitation_mm: float | None = None,
+    phase: int | None = None,
 ) -> str:
     """Symbole temps MET Norway (chaîne du vocabulaire « base »).
 
@@ -225,7 +226,9 @@ def symbole_metno(
     if gouttes == 0:
         return _NEBULOSITE_VERS_SYMBOLE[nebulosite]
 
-    phase = _phase(temperature_c)
+    # Phase : pilotée par le type de précip MF (``phase`` fourni, ADR-0021) ou, à
+    # défaut, par la température (heuristique MET Norway d'origine).
+    phase = phase if phase is not None else _phase(temperature_c)
     couvert = nebulosite == 3  # couvert → pluie continue ; sinon → averses
 
     # Famille de base selon l'intensité (1-3) et continu/averse.
@@ -469,3 +472,120 @@ def code_temps_fenetre(df: pd.DataFrame, hours: int | None = None) -> int | None
         low_cloud_pct=float(low.mean()) * 100.0,
         mid_cloud_pct=float(mid.mean()) * 100.0,
     )
+
+
+# ===========================================================================
+# Picto piloté par les DIAGNOSTICS MF (ADR-0021) — chemin privilégié quand on
+# a AROME/ECMWF direct : phase ← type de précip (PTYPE, pas la T° heuristique),
+# brouillard ← visibilité (pas le proxy HR), **orage jamais dérivé** (Vigilance).
+# Module ravivé (dé-déprécié, cf. ADR-0013) pour servir ce chemin.
+# ===========================================================================
+
+#: Type de précip → phase. Codes GRIB 4.201 (0 = aucune, vérifié au point ;
+#: les autres à confirmer sur un run humide, deferral ADR-0021).
+_PTYPE_NEIGE = frozenset({5, 9})  # neige, granules de neige roulée
+_PTYPE_FONDUE = frozenset({4, 6, 7, 8})  # glace/mélange, neige mouillée, pluie+neige, grésil
+_PTYPE_VERGLAS = frozenset({3, 12})  # pluie / bruine verglaçante
+#: Visibilité (m) sous laquelle on signale le brouillard (seuil OMM brouillard).
+VISI_SEUIL_BROUILLARD_M = 1000.0
+#: Pluie verglaçante (OMM) : légère / forte.
+WMO_VERGLAS_LEGER, WMO_VERGLAS_FORT = 66, 67
+
+
+def phase_depuis_ptype(code: float) -> str:
+    """Type de précip MF (code GRIB) → phase : ``rain`` / ``sleet`` / ``snow`` / ``verglas``.
+
+    Inconnu / NaN / 0 (aucune) / 1 (pluie) / 2 (orage : phase pluie, l'orage relève de
+    la Vigilance, pas du picto) / 11 (bruine) → ``rain``.
+    """
+    if pd.isna(code):
+        return "rain"
+    c = int(round(code))
+    if c in _PTYPE_VERGLAS:
+        return "verglas"
+    if c in _PTYPE_NEIGE:
+        return "snow"
+    if c in _PTYPE_FONDUE:
+        return "sleet"
+    return "rain"
+
+
+_PHASE_VERS_INDICE = {"rain": 0, "sleet": 1, "snow": 2}
+
+
+def code_wmo_diagnostic(
+    cloud_cover_frac: float,
+    precipitation_mm: float,
+    type_precip_code: float,
+    visibilite_m: float = float("nan"),
+    *,
+    hours: int = 1,
+    low_cloud_frac: float | None = None,
+    mid_cloud_frac: float | None = None,
+) -> int:
+    """Code OMM 4677 depuis les diagnostics MF (phase PTYPE, brouillard visibilité).
+
+    ``cloud_cover_frac`` et couches en **fraction 0-1**, pluie en **mm**,
+    ``type_precip_code`` = code GRIB, ``visibilite_m`` en **mètres** (NaN si absent).
+    Pas d'orage (Vigilance). Pluie verglaçante → 66/67 ; brouillard (visi basse, sec)
+    → 45 ; sinon vocabulaire MET Norway avec phase forcée par PTYPE.
+    """
+    sec = pd.isna(precipitation_mm) or precipitation_mm < 0.1
+    if not pd.isna(visibilite_m) and visibilite_m < VISI_SEUIL_BROUILLARD_M and sec:
+        return 45  # brouillard (givrant 48 non distingué en v0)
+    phase = phase_depuis_ptype(type_precip_code)
+    if phase == "verglas" and not sec:
+        return WMO_VERGLAS_FORT if precipitation_mm >= 2.5 else WMO_VERGLAS_LEGER
+    return code_temps_wmo(
+        cloud_cover_frac * 100.0,
+        precipitation_mm,
+        hours=hours,
+        thunder=False,
+        fog=False,
+        phase=_PHASE_VERS_INDICE[phase if phase != "verglas" else "rain"],
+        low_cloud_pct=None if low_cloud_frac is None else low_cloud_frac * 100.0,
+        mid_cloud_pct=None if mid_cloud_frac is None else mid_cloud_frac * 100.0,
+    )
+
+
+def serie_code_temps_mf(df: pd.DataFrame, hours: int = 1) -> pd.Series:
+    """Série OMM 4677 depuis les colonnes diagnostic MF d'un DataFrame (AROME/ECMWF).
+
+    Requiert ``cloud_cover`` (fraction) et ``precipitation`` (mm) ; exploite si
+    présentes ``type_precip`` (phase), ``visibilite_m`` (brouillard), ``cloud_cover_
+    low``/``mid`` (réduction cirrus). ``<NA>`` là où ciel ou pluie manquent.
+    """
+    for c in ("cloud_cover", "precipitation"):
+        if c not in df.columns:
+            raise KeyError(f"serie_code_temps_mf : colonne socle manquante {c!r}")
+    cc = df["cloud_cover"].to_numpy(dtype=float)
+    pr = df["precipitation"].to_numpy(dtype=float)
+    pt = (
+        df["type_precip"].to_numpy(dtype=float)
+        if "type_precip" in df.columns
+        else np.full(len(df), np.nan)
+    )
+    vis = (
+        df["visibilite_m"].to_numpy(dtype=float)
+        if "visibilite_m" in df.columns
+        else np.full(len(df), np.nan)
+    )
+    low = df["cloud_cover_low"].to_numpy(dtype=float) if "cloud_cover_low" in df.columns else None
+    mid = df["cloud_cover_mid"].to_numpy(dtype=float) if "cloud_cover_mid" in df.columns else None
+    codes: list[int | None] = []
+    for i in range(len(df)):
+        if np.isnan(cc[i]) or np.isnan(pr[i]):
+            codes.append(None)
+            continue
+        codes.append(
+            code_wmo_diagnostic(
+                float(cc[i]),
+                float(pr[i]),
+                float(pt[i]),
+                float(vis[i]),
+                hours=hours,
+                low_cloud_frac=None if low is None else float(low[i]),
+                mid_cloud_frac=None if mid is None else float(mid[i]),
+            )
+        )
+    return pd.Series(codes, index=df.index, dtype="Int64", name="weather_code")
