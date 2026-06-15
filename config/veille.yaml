@@ -76,6 +76,12 @@ source_meteo:
     - ecmwf_ifs025
   # Horizon plafond Veille = 48 h (AROME France HD couvre 0-48 h).
   horizon_max_jours: 2
+  # Source de la 48 h (ADR-0021). `false` = webservice officiel MF (roulant) —
+  # bloqué par intermittence depuis les runners. `true` = portail-api direct
+  # (AROME HD + PE-AROME proba + DPVigilance, clé DP, joignable CI ; picto dérivé,
+  # orage via Vigilance horodatée). **OFF par défaut** : bascule live après
+  # validation par previews (cf. ADR-0021, scripts/diag_assemblage_48h).
+  veille_portail_api: false
 
 # ----- Alertes seuils -----
 #

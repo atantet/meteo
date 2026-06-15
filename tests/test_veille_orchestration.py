@@ -92,6 +92,39 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     mock_source.obtenir_prevision.assert_called_once_with(latitude=48.5, longitude=-1.6)
 
 
+def test_executer_veille_portail_api_flag() -> None:
+    """Chemin portail-api (flag ON, ADR-0021) : assemblage mocké → mail composé."""
+    from apps.veille import __main__ as veille_main
+    from apps.veille.prevision_48h import Prevision48h
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
+
+    config = _config_test()
+    config["source_meteo"] = {"veille_portail_api": True}
+    config["vigilance_mf"] = {"departement": "35"}
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")
+    df = _prevision_synthetique(12.0, debut="2024-06-15 00:00")
+    prev = Prevision48h(
+        df=df,
+        proba_bins=df["probabilite_pluie_pct"],
+        updated_on=pd.Timestamp("2024-06-15 03:00", tz="UTC"),
+        position={"name": "Pleine-Fougères", "timezone": "Europe/Paris"},
+    )
+    vig = VigilanceDepartementDP(departement="35", phenomenes=[])
+
+    buf = io.StringIO()
+    with (
+        patch.object(veille_main, "assembler_prevision_48h", return_value=(prev, vig)) as mock_asm,
+        patch.object(veille_main, "MeteoFranceOfficiel") as mock_ws,
+        patch("sys.stdout", buf),
+    ):
+        code = veille_main.executer_veille(
+            config, secrets=None, source=None, now_utc=now, inclure_semaine=False
+        )
+    assert code == 0
+    mock_asm.assert_called_once()  # chemin portail emprunté
+    mock_ws.assert_not_called()  # webservice JAMAIS instancié quand le flag est ON
+
+
 def test_grille_couvre_plusieurs_periodes() -> None:
     """La grille du mail couvre plusieurs périodes 6 h (pictos depuis weather_code MF)."""
     from apps.veille.alertes import evaluer_alertes

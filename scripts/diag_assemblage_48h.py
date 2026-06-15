@@ -73,7 +73,7 @@ def main() -> None:
         lat,
         lon,
         departement="35",
-        position=position,
+        position={"name": position, "timezone": "Europe/Paris"},
         run_proba_utc=run_proba,
         basic=basic,
         session=session,

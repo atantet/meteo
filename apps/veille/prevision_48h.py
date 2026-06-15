@@ -48,7 +48,7 @@ class Prevision48h:
     df: pd.DataFrame
     proba_bins: pd.Series
     updated_on: pd.Timestamp
-    position: str
+    position: dict  # {"name": commune, "timezone": tz} — forme attendue par composer_email
 
 
 def _proba_horaire(proba_fenetre: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
@@ -86,7 +86,7 @@ def assembler_prevision_48h(
     latitude: float,
     longitude: float,
     departement: str,
-    position: str,
+    position: dict,
     run_proba_utc: pd.Timestamp | None = None,
     basic: str | None = None,
     session: requests.Session | None = None,

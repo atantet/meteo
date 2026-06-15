@@ -35,10 +35,16 @@ from typing import Any
 import pandas as pd
 import requests
 
+from meteo_socle.sources.dpvigilance import (
+    VigilanceDPIndisponibleError,
+    recuperer_vigilance_dp,
+)
+from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 from meteo_socle.sources.meteofrance_officiel import (
     MeteoFranceOfficiel,
     PrevisionIndisponibleError,
 )
+from meteo_socle.sources.meteofrance_proba_arome import ProbaAromeIndisponibleError
 from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
 
 from .alertes import evaluer_alertes
@@ -52,10 +58,26 @@ from .config import (
 )
 from .email import composer_email, composer_email_echec
 from .indicateurs import calculer_indicateurs, moment_envoi
+from .prevision_48h import assembler_prevision_48h
 from .semaine import executer_semaine
 from .sender import envoyer
 
 logger = logging.getLogger(__name__)
+
+# Sélection de run portail-api (ADR-0021) : déterministe, constante corrigeable
+# (cf. principe runs-déterministes). Latence AROME ~4,5 h observée (run 15 Z dispo
+# à 19 h 30) → 5 h garantit un run publié. Cycles : AROME HD 3 h, PE-AROME 6 h.
+LATENCE_PORTAIL_H = 5
+CYCLE_AROME_H = 3
+CYCLE_PEAROME_H = 6
+# Erreurs « 48 h indisponible » (webservice OU portail-api) → même repli (omission).
+_ERREURS_48H = (
+    requests.RequestException,
+    PrevisionIndisponibleError,
+    AromeIndisponibleError,
+    ProbaAromeIndisponibleError,
+    VigilanceDPIndisponibleError,
+)
 
 
 def _envoyer_echec(
@@ -136,42 +158,55 @@ def executer_veille(
     int
         Code de retour (0 succès, 2 source, 3 SMTP / écriture, 4 composition).
     """
-    if source is None:
-        # Prévision officielle Météo-France roulante (ADR-0014) : un seul JSON
-        # au point (picto orage + proba calibrée + T/pluie/vent), étiqueté par
-        # sa fraîcheur (updated_on). Pas de run, pas d'ETP (cf. App 2).
-        source = MeteoFranceOfficiel()
     if now_utc is None:
         now_utc = pd.Timestamp.now(tz="UTC")
-
     site = config["site"]
     tz_locale = site.get("tz", "Europe/Paris")
+    departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
+    # Source 48 h : webservice MF (roulant, ADR-0014) OU portail-api direct (AROME +
+    # PE-AROME + DPVigilance, ADR-0021) selon le flag. ``source`` injectée (tests) →
+    # webservice. Flag OFF par défaut → bascule live progressive.
+    portail = source is None and bool(
+        config.get("source_meteo", {}).get("veille_portail_api", False)
+    )
+    if source is None and not portail:
+        source = MeteoFranceOfficiel()
     logger.info(
-        "Fetch prévision officielle MF lat=%.4f lon=%.4f",
+        "Fetch prévision 48 h (%s) lat=%.4f lon=%.4f",
+        "portail-api" if portail else "webservice MF",
         site["latitude"],
         site["longitude"],
     )
     mf_indispo = False
     mf_exc: BaseException | None = None
+    vigilance_pre = None  # Vigilance fetchée avec la 48 h (chemin portail) ou None.
     try:
-        prevision = source.obtenir_prevision(
-            latitude=site["latitude"],
-            longitude=site["longitude"],
-        )
-    except (requests.HTTPError, PrevisionIndisponibleError) as e:
-        logger.error("Prévision MF indisponible : %s", e)
+        if portail:
+            base = now_utc - pd.Timedelta(hours=LATENCE_PORTAIL_H)
+            prevision, vigilance_pre = assembler_prevision_48h(
+                base.floor(f"{CYCLE_AROME_H}h"),
+                site["latitude"],
+                site["longitude"],
+                departement=departement,
+                position={"name": site.get("localisation", ""), "timezone": tz_locale},
+                run_proba_utc=base.floor(f"{CYCLE_PEAROME_H}h"),
+            )
+        else:
+            prevision = source.obtenir_prevision(
+                latitude=site["latitude"],
+                longitude=site["longitude"],
+            )
+    except _ERREURS_48H as e:
+        logger.error("Prévision 48 h indisponible : %s", e)
         if not fallback_mf:
-            # Tentative intermédiaire : webservice MF injoignable (fréquent depuis les
-            # runners GitHub). PAS de mail d'échec — le workflow retente puis bascule en
-            # dernier recours (fallback_mf), qui enverra le mail SANS la partie 48 h.
-            # Évite le spam de mails d'échec quand MF est durablement bloqué.
-            logger.warning("MF injoignable (essai intermédiaire) — pas d'échec mailé, on retente.")
+            # Tentative intermédiaire : 48 h injoignable (webservice bloqué depuis les
+            # runners, ou portail en erreur). PAS de mail d'échec — le workflow retente
+            # puis bascule en dernier recours (fallback_mf), qui envoie SANS la 48 h.
+            logger.warning("48 h injoignable (essai intermédiaire) — pas d'échec mailé, retry.")
             return 2
-        # Dernier recours : on n'invente PLUS de 48 h. L'ancien repli ARPEGE couvrait
-        # 4 j (pas 48 h) et doublonnait la tendance 10 j → on OMET simplement la
-        # partie 48 h et on livre le mail « La semaine » seule. L'omission est tracée
-        # au rapport de bug ci-dessous.
-        logger.warning("MF injoignable au dernier essai → mail sans la partie 48 h.")
+        # Dernier recours : on n'invente PLUS de 48 h → on OMET la partie 48 h et on
+        # livre le mail « La semaine » seule (omission tracée au rapport de bug).
+        logger.warning("48 h injoignable au dernier essai → mail sans la partie 48 h.")
         prevision = None
         mf_indispo = True
         mf_exc = e
@@ -207,10 +242,18 @@ def executer_veille(
         apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
         cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
         # Vigilance MF (officielle d'État) — référence pour orages, vent, pluie,
-        # canicule, neige-verglas, grand froid sur 0-48 h. Via le webservice
-        # public (pas de clé) ; si injoignable, retourne None et le bloc est skippé.
-        departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
-        vigilance = recuperer_vigilance(departement=departement)
+        # canicule, neige-verglas, grand froid sur 0-48 h. Chemin portail : déjà
+        # fetchée avec la 48 h (DPVigilance, horodatée) ; sinon webservice public.
+        # Injoignable → None et le bloc est skippé.
+        if portail:
+            vigilance = vigilance_pre
+            if vigilance is None:  # 48 h portail échouée → Vigilance seule, best-effort.
+                try:
+                    vigilance = recuperer_vigilance_dp(departement=departement)
+                except VigilanceDPIndisponibleError:
+                    vigilance = None
+        else:
+            vigilance = recuperer_vigilance(departement=departement)
 
         # Partie 2 « La semaine » — dans les DEUX créneaux. Le matin l'actualise ;
         # l'après-midi la rappelle à l'identique (``rappel=True`` → même run 00Z,

@@ -126,6 +126,9 @@ def parser_vigilance_dp(data: dict, departement: str) -> VigilanceDepartementDP:
     update_time = _ts(
         meta.get("update_time") or meta.get("produced_on") or product.get("update_time")
     )
+    if update_time is None:  # fallback : début de validité (≈ émission du cycle).
+        debuts = [_ts(p.get("begin_validity_time")) for p in periods]
+        update_time = min((t for t in debuts if t is not None), default=None)
     fins = [_ts(p.get("end_validity_time")) for p in periods]
     fin_validite = max((t for t in fins if t is not None), default=None)
     tranches: dict[int, list[TrancheVigilance]] = {pid: [] for pid in PHENOMENES_PERTINENTS}

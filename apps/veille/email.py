@@ -172,21 +172,28 @@ def _bloc_vigilance_mf(
     if vigilance is None:
         return ""
 
-    update_loc = vigilance.update_time.tz_convert(tz_locale)
     validite = ""
     if vigilance.fin_validite is not None:
         fin_loc = vigilance.fin_validite.tz_convert(tz_locale)
         validite = f"valide jusqu'au {fin_loc.strftime('%d/%m %Hh%M %Z')} · "
+    # `update_time` peut manquer (DPVigilance sans meta) → on omet la fraîcheur.
+    maj = ""
+    if vigilance.update_time is not None:
+        update_loc = vigilance.update_time.tz_convert(tz_locale)
+        maj = f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
     legende = (
         f'<a href="{VIGILANCE_URL_AFFICHEE}" '
         'style="color:#888;text-decoration:underline;">Vigilance Météo-France</a> · '
-        f"dépt {vigilance.departement} · {validite}"
-        f"mise à jour {update_loc.strftime('%d/%m %Hh%M %Z')}"
+        f"dépt {vigilance.departement} · {validite}{maj}"
     )
     # Fraîcheur (ADR-0014 D10) : carte plus vieille que ~12 h → l'actualisation du
     # cycle courant (6 h/16 h locales) n'est pas encore publiée. On le signale,
     # sans retry (si systématique, retarder le cron).
-    if now is not None and (now - vigilance.update_time) > VIGILANCE_AGE_MAX:
+    if (
+        now is not None
+        and vigilance.update_time is not None
+        and (now - vigilance.update_time) > VIGILANCE_AGE_MAX
+    ):
         legende += (
             '<br><span style="color:#a04000;">⚠ Actualisation du cycle non encore publiée</span>'
         )
