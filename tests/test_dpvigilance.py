@@ -99,5 +99,20 @@ def test_phenomene_absent_vert_sans_tranche() -> None:
 
 def test_departement_absent() -> None:
     vig = parser_vigilance_dp(_JSON, "99")
-    assert vig.niveau_max_global() == 1
+    assert vig.niveau_max_global == 1  # propriété (drop-in mail)
     assert vig.tranches_orages() == []
+
+
+def test_temps_emission_et_validite() -> None:
+    data = {
+        "meta": {"update_time": "2026-06-15T10:00:00Z"},
+        "product": {
+            "periods": [
+                {"echeance": "J", "end_validity_time": "2026-06-15T22:00:00Z", "timelaps": {}},
+                {"echeance": "J1", "end_validity_time": "2026-06-16T22:00:00Z", "timelaps": {}},
+            ]
+        },
+    }
+    vig = parser_vigilance_dp(data, "35")
+    assert vig.update_time == pd.Timestamp("2026-06-15T10:00:00Z")
+    assert vig.fin_validite == pd.Timestamp("2026-06-16T22:00:00Z")  # J+1

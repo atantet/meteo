@@ -52,20 +52,35 @@ class TrancheVigilance:
 
 @dataclass
 class VigilancePhenomeneDP:
-    """Vigilance d'un phénomène au département : niveau max + tranches horodatées."""
+    """Vigilance d'un phénomène au département : niveau max + tranches horodatées.
+
+    ``niveau`` est un alias de ``niveau_max`` (compatibilité avec le rendu mail, qui
+    lit ``phenomene.niveau``).
+    """
 
     code: int
     nom: str
     niveau_max: int
     tranches: list[TrancheVigilance] = field(default_factory=list)
 
+    @property
+    def niveau(self) -> int:
+        return self.niveau_max
+
 
 @dataclass
 class VigilanceDepartementDP:
-    """Vigilance DPVigilance d'un département (phénomènes pertinents), J + J+1."""
+    """Vigilance DPVigilance d'un département (phénomènes pertinents), J + J+1.
+
+    Expose la même surface que ``VigilanceDepartement`` (webservice) pour rester
+    **drop-in** côté rendu mail : ``departement``, ``update_time``, ``fin_validite``,
+    ``niveau_max_global`` (propriété), ``phenomenes[].niveau``/``.nom``.
+    """
 
     departement: str
     phenomenes: list[VigilancePhenomeneDP]
+    update_time: pd.Timestamp | None = None  # émission (meta)
+    fin_validite: pd.Timestamp | None = None  # fin de validité (J+1)
 
     def phenomene(self, code: int) -> VigilancePhenomeneDP | None:
         return next((p for p in self.phenomenes if p.code == code), None)
@@ -81,6 +96,7 @@ class VigilanceDepartementDP:
             return []
         return [t for t in ph.tranches if t.niveau >= niveau_min]
 
+    @property
     def niveau_max_global(self) -> int:
         return max((p.niveau_max for p in self.phenomenes), default=1)
 
@@ -102,9 +118,16 @@ def parser_vigilance_dp(data: dict, departement: str) -> VigilanceDepartementDP:
     (J, J+1) ; le niveau max vient du pire ``color_id`` rencontré. Les phénomènes
     absents → niveau 1 (vert), sans tranche.
     """
-    periods = (data.get("product") or {}).get("periods") or []
+    product = data.get("product") or {}
+    periods = product.get("periods") or []
     if not periods:
         raise VigilanceDPIndisponibleError("Payload DPVigilance sans périodes.")
+    meta = data.get("meta") or {}
+    update_time = _ts(
+        meta.get("update_time") or meta.get("produced_on") or product.get("update_time")
+    )
+    fins = [_ts(p.get("end_validity_time")) for p in periods]
+    fin_validite = max((t for t in fins if t is not None), default=None)
     tranches: dict[int, list[TrancheVigilance]] = {pid: [] for pid in PHENOMENES_PERTINENTS}
     for per in periods:
         domains = (per.get("timelaps") or {}).get("domain_ids") or []
@@ -129,7 +152,12 @@ def parser_vigilance_dp(data: dict, departement: str) -> VigilanceDepartementDP:
         )
         for pid, tr in tranches.items()
     ]
-    return VigilanceDepartementDP(departement=str(departement), phenomenes=phenomenes)
+    return VigilanceDepartementDP(
+        departement=str(departement),
+        phenomenes=phenomenes,
+        update_time=update_time,
+        fin_validite=fin_validite,
+    )
 
 
 def recuperer_vigilance_dp(
