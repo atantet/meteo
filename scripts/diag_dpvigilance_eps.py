@@ -106,7 +106,7 @@ def _sonde_eps(session: requests.Session, bearer: str) -> None:
             print(f"  {court}\n    ÉCHEC {type(e).__name__}")
             continue
         if not resp.ok:
-            print(f"  [{resp.status_code}] {court} — {resp.text[:90]!r}")
+            print(f"  [{resp.status_code}] {court} — {resp.text[:400]!r}")
             continue
         ids = re.findall(r"<(?:\w+:)?CoverageId>([^<]+)</(?:\w+:)?CoverageId>", resp.text)
         prefixes = sorted({cid.split("__", 1)[0] for cid in ids})
