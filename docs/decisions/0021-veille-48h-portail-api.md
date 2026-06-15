@@ -95,10 +95,13 @@ Basculer **toute** la 48 h et la Vigilance d'App 1 sur `portail-api` (clé DP
   picto devient dérivé — la frontière App 1 (officiel) / App 2 (runs bruts) se
   **brouille** côté picto ; acté comme compromis fiabilité > officialité du symbole.
 
-## À vérifier (deferrals v0, à lever par un `GetCoverage` réel)
+## À vérifier (deferrals v0)
 
-- Valeurs numériques exactes de `PTYPE_60` (table GRIB 4.201 / locale MF) → mapping phase.
-- Sémantique `N_PROBA_PRECI` (seuil en mm, valeur en %) et échéances exactes.
+- ✅ **Levé** (smoke `diag_arome_getcoverage`, 2026-06-15) : `PTYPE_60` = **code GRIB
+  4.201** (0 = pas de précip, vérifié ; codes pluie/neige/verglas = table 4.201, à
+  confirmer sur un run **humide**). `N_PROBA_PRECI06_1` = **proba en % (0-100)**,
+  échéances jusqu'à **+51 h**. Coverage IDs AROME validés au point. Unités : **nébulosité
+  AROME en fraction 0-1** (≠ ARPEGE en %), HR % → fraction.
 - Abonnement + route du produit « Champs statistiques PE-ARPEGE » (id 297) pour la
   proba pré-calculée J2-4,5 ; sinon proba absente au-delà de 48 h en v0.
 
