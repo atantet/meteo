@@ -91,6 +91,30 @@ def main() -> None:
             tag = ", ".join(hits) if hits else "—"
             print(f"    {motif:<10}: {tag}")
         print(f"    TOUTES : {', '.join(prefixes)}")
+        # IDs complets (run + accumulation retirés) des variables cibles du picto v0,
+        # pour figer le token de niveau exact (PRECIPITATION_TYPE, VISIBILITY...).
+        cibles = (
+            "TEMPERATURE__",
+            "RELATIVE_HUMIDITY",
+            "_COMPONENT_OF_WIND",
+            "WIND_SPEED_GUST",
+            "TOTAL_CLOUD_COVER",
+            "TOTAL_PRECIPITATION_",
+            "PRECIPITATION_TYPE",
+            "VISIBILITY_MINI",
+            "TOTAL_SNOW",
+            "DOWNWARD_SHORT_WAVE",
+        )
+        templates = sorted(
+            {
+                re.sub(r"_PT\d+H$", "", cid.split("___", 1)[0])
+                for cid in ids
+                if any(c in cid for c in cibles)
+            }
+        )
+        print("    IDS CIBLES :")
+        for t in templates:
+            print(f"      {t}")
         print()
 
 
