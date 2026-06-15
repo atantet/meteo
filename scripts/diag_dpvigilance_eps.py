@@ -92,8 +92,18 @@ def _sonde_dpvigilance(session: requests.Session, bearer: str) -> None:
         if d35 is None:
             print(f"     dept {DEPT} absent de timelaps.domain_ids")
             continue
-        print(f"     dept {DEPT} : clés = {list(d35)}")
-        print(f"     dept {DEPT} structure (3 niv) :\n{_resume_structure(d35, prof=2, max_prof=3)}")
+        print(f"     dept {DEPT} : max_color_id={d35.get('max_color_id')}")
+        deb, fin = per.get("begin_validity_time"), per.get("end_validity_time")
+        print(f"     validité = {deb} / {fin}")
+        orages = next(
+            (
+                p
+                for p in d35.get("phenomenon_items", [])
+                if str(p.get("phenomenon_id")) == ORAGES_ID
+            ),
+            None,
+        )
+        print(f"     orages (id {ORAGES_ID}) = {orages}")
     print()
 
 
