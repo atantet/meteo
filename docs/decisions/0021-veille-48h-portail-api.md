@@ -1,6 +1,8 @@
 # ADR-0021 — Veille 48 h sur portail-api MF (AROME + PE-AROME + DPVigilance), sortie du webservice bloqué
 
-Statut : **Proposé** · remplace le canal _prévision_ de [ADR-0014](0014-prevision-officielle-mf-veille.md)
+Statut : **Accepté** (2026-06-15) · **v0 acté sans la proba PE-ARPEGE J2-4,5** (proba
+0-48 h PE-AROME seule ; extension différée, cf. deferrals) · remplace le canal
+_prévision_ de [ADR-0014](0014-prevision-officielle-mf-veille.md)
 (webservice → portail-api) ; amende [ADR-0017](0017-proba-semaine-mf-calibree.md)
 (source proba) ; **dé-déprécie** [ADR-0013](0013-temps-sensible-arome.md) (moteur picto
 ravivé) ; prolonge [ADR-0018](0018-ecmwf-direct-opendata.md) (enrichissement ECMWF).
