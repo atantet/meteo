@@ -51,3 +51,8 @@ jobs:
         env:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
         run: python -m scripts.diag_dpvigilance_eps
+
+      - name: Smoke GetCoverage AROME (IDs + PTYPE + N_PROBA)
+        env:
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+        run: python -m scripts.diag_arome_getcoverage

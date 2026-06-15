@@ -167,11 +167,20 @@ def _coverage_run(run_utc: pd.Timestamp) -> str:
     return run_utc.tz_convert("UTC").strftime("%Y-%m-%dT%H.%M.%SZ")
 
 
-def _echeances(session: requests.Session, token: str, run_utc: pd.Timestamp) -> list[pd.Timestamp]:
-    """Échéances (valid times) disponibles, lues dans le DescribeCoverage T° 2 m."""
+def _echeances(
+    session: requests.Session,
+    token: str,
+    run_utc: pd.Timestamp,
+    wcs_base: str = WCS_BASE,
+) -> list[pd.Timestamp]:
+    """Échéances (valid times) disponibles, lues dans le DescribeCoverage T° 2 m.
+
+    ``wcs_base`` permet de réutiliser ce helper pour un autre modèle MF servi par le
+    même WCS (AROME, etc.) ; défaut = ARPEGE (rétrocompatible).
+    """
     cid = f"TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND___{_coverage_run(run_utc)}"
     resp = session.get(
-        f"{WCS_BASE}/DescribeCoverage",
+        f"{wcs_base}/DescribeCoverage",
         params={"service": "WCS", "version": "2.0.1", "coverageid": cid},
         headers={"Authorization": f"Bearer {token}"},
         timeout=40,
@@ -199,8 +208,12 @@ def _valeur_point(
     lat: float,
     lon: float,
     hauteur: int | None,
+    wcs_base: str = WCS_BASE,
 ) -> float:
-    """GetCoverage sous-ensemblé (bbox + hauteur + 1 échéance) → valeur au point."""
+    """GetCoverage sous-ensemblé (bbox + hauteur + 1 échéance) → valeur au point.
+
+    ``wcs_base`` : modèle MF cible (défaut ARPEGE) — réutilisable pour AROME, etc.
+    """
     subset = [
         f"long({lon - _BBOX_DEG},{lon + _BBOX_DEG})",
         f"lat({lat - _BBOX_DEG},{lat + _BBOX_DEG})",
@@ -219,7 +232,7 @@ def _valeur_point(
     for tentative in range(3):
         _LIMITEUR.acquerir()
         resp = session.get(
-            f"{WCS_BASE}/GetCoverage",
+            f"{wcs_base}/GetCoverage",
             params=params,
             headers={"Authorization": f"Bearer {token}"},
             timeout=60,
