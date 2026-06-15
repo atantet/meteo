@@ -1,0 +1,43 @@
+name: Diag webservice MF (IP vs token)
+
+# Workflow JETABLE de diagnostic (cf. scripts/diag_mf_webservice.py).
+# But : trancher si le webservice MF (48 h) est bloqué par IP datacenter ou par
+# token, et tester si la clé Données Publiques perso ouvre le webservice.
+# À supprimer une fois le verdict connu. Déclenchement manuel uniquement.
+on:
+  workflow_dispatch:
+
+# Lecture seule : ce diag n'écrit rien.
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda + env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment-dev.yml
+          auto-activate-base: false
+          use-mamba: true
+
+      - name: Diagnostic webservice MF
+        env:
+          # Clé DP perso (portail-api). Testée aussi, en Bearer et en ?token=,
+          # contre le webservice — pour vérifier si elle l'ouvre.
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+          # Optionnel : un autre token webservice à tester (secret facultatif).
+          # Absent → le script tombe sur le token mobile public codé en dur.
+          METEOFRANCE_WS_TOKEN: ${{ secrets.METEOFRANCE_WS_TOKEN }}
+        run: python -m scripts.diag_mf_webservice
