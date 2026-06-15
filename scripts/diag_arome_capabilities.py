@@ -90,6 +90,7 @@ def main() -> None:
             hits = [p for p in prefixes if motif in p.upper()]
             tag = ", ".join(hits) if hits else "—"
             print(f"    {motif:<10}: {tag}")
+        print(f"    TOUTES : {', '.join(prefixes)}")
         print()
 
 
