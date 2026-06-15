@@ -34,7 +34,7 @@ EPS_CANDIDATS: list[str] = [
     f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
     f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-001-FRANCE-WCS",
     f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-01-EUROPE-WCS",
-    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-EUROPE-WCS",
     f"{BASE}/aromepi/1.0/wcs/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WCS",
     f"{BASE}/piaf/1.0/wcs/MF-NWP-HIGHRES-PIAF-001-FRANCE-WCS",
 ]
@@ -111,9 +111,8 @@ def _sonde_eps(session: requests.Session, bearer: str) -> None:
             continue
         ids = re.findall(r"<(?:\w+:)?CoverageId>([^<]+)</(?:\w+:)?CoverageId>", resp.text)
         prefixes = sorted({cid.split("__", 1)[0] for cid in ids})
-        precip = [p for p in prefixes if "PRECIP" in p.upper()]
         print(f"  [{resp.status_code}] {court} — {len(ids)} coverages, {len(prefixes)} familles")
-        print(f"        précip: {', '.join(precip) if precip else '—'}")
+        print(f"        familles: {', '.join(prefixes)}")
     print()
 
 
