@@ -1,0 +1,46 @@
+name: Preview Veille portail-api (validation ADR-0021)
+
+# Génère les 2 previews du mail Veille avec la 48 h portail-api (flag forcé ON) et
+# les publie en ARTEFACTS téléchargeables — pour valider le rendu flag-ON sans clé
+# DP en local (la clé est ici un secret). Déclenchement manuel. À retirer après la
+# bascule (cf. ADR-0021), comme diag-mf.yml.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MPLBACKEND: Agg
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup conda + env meteo
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: meteo
+          environment-file: environment-dev.yml
+          auto-activate-base: false
+          use-mamba: true
+
+      - name: Générer les previews flag-ON
+        env:
+          METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+        run: python scripts/preview_veille_portail.py
+
+      - name: Publier les previews en artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: veille-previews-portail
+          path: /tmp/veille_preview_*.html
+          if-no-files-found: warn
