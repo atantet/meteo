@@ -207,17 +207,36 @@ def executer_veille(
     vigilance_pre = None  # Vigilance fetchée avec la 48 h (chemin portail) ou None.
     try:
         if portail:
-            prevision, vigilance_pre = assembler_prevision_48h(
-                _run_recent(now_utc, CYCLE_AROME_H, OFFSET_AROME_H),
-                site["latitude"],
-                site["longitude"],
-                departement=departement,
-                position={"name": site.get("localisation", ""), "timezone": tz_locale},
-                run_proba_utc=_run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H),
-                # Cache parquet du run AROME (résilience aux re-runs du workflow ; le
-                # fetch 48 h horaire est ~600 requêtes WCS cadencées).
-                cache_dir=config.get("source_meteo", {}).get("arome_cache_dir"),
-            )
+            run_a = _run_recent(now_utc, CYCLE_AROME_H, OFFSET_AROME_H)
+            run_p = _run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H)
+            pos = {"name": site.get("localisation", ""), "timezone": tz_locale}
+            # Cache parquet du run AROME (le fetch 48 h horaire est ~500 requêtes WCS).
+            cache_arome = config.get("source_meteo", {}).get("arome_cache_dir")
+            # Repli run précédent : si le run le plus frais n'est pas ENCORE publié
+            # (404 rapide au matin, latence > estimée), on retente une fois sur le cycle
+            # d'avant plutôt que d'omettre la 48 h.
+            for essai in range(2):
+                try:
+                    prevision, vigilance_pre = assembler_prevision_48h(
+                        run_a,
+                        site["latitude"],
+                        site["longitude"],
+                        departement=departement,
+                        position=pos,
+                        run_proba_utc=run_p,
+                        cache_dir=cache_arome,
+                    )
+                    break
+                except (AromeIndisponibleError, ProbaAromeIndisponibleError) as e:
+                    if essai == 1:
+                        raise
+                    logger.warning(
+                        "Run portail (AROME %s) indisponible (%s) → repli run précédent.",
+                        f"{run_a:%Y-%m-%dT%HZ}",
+                        e,
+                    )
+                    run_a -= pd.Timedelta(hours=CYCLE_AROME_H)
+                    run_p -= pd.Timedelta(hours=CYCLE_PEAROME_H)
         else:
             prevision = source.obtenir_prevision(
                 latitude=site["latitude"],

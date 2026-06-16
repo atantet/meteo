@@ -60,6 +60,32 @@ def test_sans_tranche_aucun_orage() -> None:
     assert df["probabilite_pluie_pct"].isna().all()  # proba vide → NaN
 
 
+def test_assembler_tolere_vigilance_absente(monkeypatch) -> None:
+    """DPVigilance KO → 48 h quand même produite (sans overlay orage), Vigilance None."""
+    import apps.veille.prevision_48h as p48
+
+    idx = pd.date_range("2026-06-15T00:00:00Z", periods=4, freq="h")
+    arome = pd.DataFrame(
+        {"cloud_cover": [0.5] * 4, "precipitation": [0.0] * 4, "temperature_2m": [290.0] * 4},
+        index=idx,
+    )
+    monkeypatch.setattr(p48.MeteoFranceArome, "obtenir_run", lambda self, *a, **k: arome)
+    monkeypatch.setattr(
+        p48.MeteoFranceProbaArome, "obtenir_proba", lambda self, *a, **k: pd.Series(dtype=float)
+    )
+
+    def _down(*a, **k):
+        raise p48.VigilanceDPIndisponibleError("down")
+
+    monkeypatch.setattr(p48, "recuperer_vigilance_dp", _down)
+    prev, vig = p48.assembler_prevision_48h(
+        pd.Timestamp("2026-06-15T00:00:00Z"), 48.5, -1.6, "35", {"name": "x", "timezone": "UTC"}
+    )
+    assert vig is None  # Vigilance tolérée
+    assert "weather_code" in prev.df.columns  # 48 h produite
+    assert (prev.df["weather_code"] != WMO_ORAGE).all()  # pas d'overlay (pas de tranches)
+
+
 def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
     """L'overlay orage pose 95 même là où le picto dérivé serait <NA> (ciel manquant)."""
     df_in = _arome_synthetique()

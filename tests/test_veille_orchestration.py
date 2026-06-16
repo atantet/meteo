@@ -152,6 +152,45 @@ def test_executer_veille_portail_api_flag() -> None:
     assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" not in sortie
 
 
+def test_executer_veille_portail_repli_run_precedent() -> None:
+    """Run le plus frais pas publié → repli sur le run précédent (pas d'omission)."""
+    from apps.veille import __main__ as veille_main
+    from apps.veille.prevision_48h import Prevision48h
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
+
+    config = _config_test()
+    config["source_meteo"] = {"veille_portail_api": True}
+    config["vigilance_mf"] = {"departement": "35"}
+    now = pd.Timestamp("2024-06-15 06:00:00+00:00")
+    df = _prevision_synthetique(12.0, debut="2024-06-15 00:00")
+    prev = Prevision48h(
+        df=df,
+        proba_bins=df["probabilite_pluie_pct"],
+        updated_on=pd.Timestamp("2024-06-15 00:00", tz="UTC"),
+        position={"name": "x", "timezone": "Europe/Paris"},
+    )
+    vig = VigilanceDepartementDP(departement="35", phenomenes=[])
+    # 1er run (frais) pas publié → 2e appel (run précédent) réussit.
+    asm = MagicMock(side_effect=[AromeIndisponibleError("run 404"), (prev, vig)])
+
+    buf = io.StringIO()
+    with (
+        patch.object(veille_main, "assembler_prevision_48h", asm),
+        patch.object(veille_main, "MeteoFranceOfficiel"),
+        patch("sys.stdout", buf),
+    ):
+        code = veille_main.executer_veille(
+            config, secrets=None, source=None, now_utc=now, inclure_semaine=False
+        )
+    assert code == 0
+    assert asm.call_count == 2  # repli effectué (1 échec + 1 succès)
+    # 2e appel sur un run AROME plus ancien que le 1er (1ᵉʳ arg positionnel).
+    run1 = asm.call_args_list[0].args[0]
+    run2 = asm.call_args_list[1].args[0]
+    assert run2 < run1
+
+
 def test_grille_couvre_plusieurs_periodes() -> None:
     """La grille du mail couvre plusieurs périodes 6 h (pictos depuis weather_code MF)."""
     from apps.veille.alertes import evaluer_alertes
