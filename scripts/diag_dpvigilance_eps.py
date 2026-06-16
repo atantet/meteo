@@ -30,8 +30,15 @@ DPVIGILANCE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/carte
 BASE = "https://public-api.meteofrance.fr/public"
 # Chemins exacts d'après le client MAIF/meteole (contexte + préfixe collection).
 EPS_CANDIDATS: list[str] = [
-    # PEARP différé (ADR-0021) ; on garde PE-AROME comme contrôle (quota MF/min).
-    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",
+    # Recherche de la proba ARPEGE-ensemble (N_PROBA, id 297 « Champs statistiques »).
+    # Contexte/collection inconnus → on tâtonne (403=publié non abonné, 404=contexte
+    # absent, 400=contexte ok collection inexistante, 200=trouvé → dump familles).
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP000-025-GLOBE-WCS",  # raw connu (re-dump)
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP001-025-GLOBE-WCS",
+    f"{BASE}/pearpege/1.0/wcs/MF-NWP-GLOBAL-PEARP000-01-EUROPE-WCS",
+    f"{BASE}/pe-arpege/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/arpege-pe/1.0/wcs/MF-NWP-GLOBAL-PEARP-025-GLOBE-WCS",
+    f"{BASE}/pearome/1.0/wcs/MF-NWP-HIGHRES-PEAROME-0025-FRANCE-WCS",  # contrôle (N_PROBA OK)
 ]
 _TIMEOUT = (10.0, 30.0)
 DEPT = "35"
