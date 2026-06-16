@@ -58,3 +58,16 @@ def test_sans_tranche_aucun_orage() -> None:
     df = assembler_df_48h(_arome_synthetique(), pd.Series(dtype=float), [])
     assert (df["weather_code"] != WMO_ORAGE).all()
     assert df["probabilite_pluie_pct"].isna().all()  # proba vide → NaN
+
+
+def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
+    """L'overlay orage pose 95 même là où le picto dérivé serait <NA> (ciel manquant)."""
+    df_in = _arome_synthetique()
+    df_in.loc["2026-06-15T15:00:00Z", "cloud_cover"] = float("nan")  # picto → <NA>
+    tranches = [
+        TrancheVigilance(
+            pd.Timestamp("2026-06-15T14:00:00Z"), pd.Timestamp("2026-06-15T16:00:00Z"), 2
+        )
+    ]
+    df = assembler_df_48h(df_in, pd.Series(dtype=float), tranches)
+    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == WMO_ORAGE

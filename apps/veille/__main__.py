@@ -413,9 +413,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--fallback-mf",
         action="store_true",
         help=(
-            "Si la prévi MF est injoignable, replie le 48 h sur ARPEGE Single Runs "
-            "(mode dégradé étiqueté) au lieu d'échouer. Réservé à la dernière "
-            "tentative du workflow (après re-runs MF)."
+            "Si la prévi 48 h reste injoignable, OMET la partie 48 h (mail « La "
+            "semaine » seule) au lieu d'échouer. Réservé à la dernière tentative du "
+            "workflow (après re-runs)."
         ),
     )
     return parser.parse_args(argv)
