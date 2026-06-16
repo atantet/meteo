@@ -66,9 +66,11 @@ _VARS_INSTANT: dict[str, tuple[str, int | None, str]] = {
     "humidite_relative": ("RELATIVE_HUMIDITY__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 2, "pct_frac"),
     "rafales_vent_10m": ("WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
     "cloud_cover": ("TOTAL_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
+    # Couches basse/moyenne : réduction « cirrus » du moteur picto (le couvert sans
+    # pluie mais low+mid dégagés → partiel). La couche HAUTE n'est PAS consommée → non
+    # fetchée (allègement : un fetch 48 h = ~1 requête WCS par variable × échéance).
     "cloud_cover_low": ("LOW_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
     "cloud_cover_mid": ("MEDIUM_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
-    "cloud_cover_high": ("HIGH_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
     # Champs picto diagnostiqués par MF (cf. ADR-0021 / temps_sensible).
     "type_precip": ("PRECIPITATION_TYPE_60_MIN__GROUND_OR_WATER_SURFACE", None, "code"),
     "visibilite_m": ("VISIBILITY_MINI_60MIN__GROUND_OR_WATER_SURFACE", None, "m"),
@@ -77,17 +79,14 @@ _VARS_INSTANT: dict[str, tuple[str, int | None, str]] = {
     "_v10": ("V_COMPONENT_OF_WIND__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
 }
 #: Variables accumulées (suffixe _PT{n}H selon le pas) : (préfixe, conversion).
+#: Set minimal pour la 48 h : neige (phase via ``type_precip``, montant non affiché)
+#: et rayonnement (pas d'ETP en 48 h) sont **exclus** — non consommés, donc non fetchés.
 _VARS_ACCUM: dict[str, tuple[str, str]] = {
     "precipitation": ("TOTAL_PRECIPITATION__GROUND_OR_WATER_SURFACE", "mm"),
-    "precipitation_neige": ("TOTAL_SNOW_PRECIPITATION__GROUND_OR_WATER_SURFACE", "mm"),
-    "rayonnement_global": (
-        "DOWNWARD_SHORT_WAVE_RADIATION_FLUX__GROUND_OR_WATER_SURFACE",
-        "J_par_h",
-    ),
 }
 
 #: Colonnes accumulées (réparties sur leur fenêtre lors du rééchantillonnage).
-_COLS_ACCUM = ("precipitation", "precipitation_neige", "rayonnement_global")
+_COLS_ACCUM = ("precipitation",)
 #: Champs « instantanés » sans valeur à l'analyse (+0 h) — sautés (NaN).
 _SANS_ANALYSE = ("rafales_vent_10m", "type_precip", "visibilite_m")
 

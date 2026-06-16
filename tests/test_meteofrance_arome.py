@@ -92,6 +92,10 @@ def test_accumulees_analyse_nulle(_run: pd.DataFrame) -> None:
 def test_cloud_cover_pas_pct_frac() -> None:
     # Régression : le mapping doit déclarer la nébulosité « frac », pas « pct_frac »
     # (sinon ÷100 → ciel toujours clair). Vérifie aussi les couches.
-    for col in ("cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"):
+    for col in ("cloud_cover", "cloud_cover_low", "cloud_cover_mid"):
         assert mfa._VARS_INSTANT[col][2] == "frac"
     assert mfa._VARS_INSTANT["humidite_relative"][2] == "pct_frac"
+    # Couche haute / neige / rayonnement non consommés en 48 h → non fetchés.
+    assert "cloud_cover_high" not in mfa._VARS_INSTANT
+    assert "precipitation_neige" not in mfa._VARS_ACCUM
+    assert "rayonnement_global" not in mfa._VARS_ACCUM
