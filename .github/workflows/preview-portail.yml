@@ -6,6 +6,12 @@ name: Preview Veille portail-api (validation ADR-0021)
 # bascule (cf. ADR-0021), comme diag-mf.yml.
 on:
   workflow_dispatch:
+    inputs:
+      moments:
+        description: "Moment(s) à générer (un fetch AROME ~22 min chacun) : matin OU apres-midi"
+        default: matin
+        type: choice
+        options: [matin, apres-midi]
 
 permissions:
   contents: read
@@ -36,8 +42,8 @@ jobs:
         env:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
           # Une seule preview par run (un fetch AROME 48 h ~22 min ; 2 dépassent le
-          # timeout). Pour l'après-midi : relancer avec PREVIEW_MOMENTS=apres-midi.
-          PREVIEW_MOMENTS: matin
+          # timeout) — choisie par l'input du dispatch.
+          PREVIEW_MOMENTS: ${{ inputs.moments }}
         run: python scripts/preview_veille_portail.py
 
       - name: Publier les previews en artefacts
