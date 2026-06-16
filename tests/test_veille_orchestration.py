@@ -146,6 +146,10 @@ def test_executer_veille_portail_api_flag() -> None:
     assert code == 0
     mock_asm.assert_called_once()  # chemin portail emprunté
     mock_ws.assert_not_called()  # webservice JAMAIS instancié quand le flag est ON
+    # Étiquetage honnête : modèle AROME (picto dérivé), pas « officielle » (ADR-0021).
+    sortie = buf.getvalue()
+    assert "MODÈLE AROME" in sortie
+    assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" not in sortie
 
 
 def test_grille_couvre_plusieurs_periodes() -> None:

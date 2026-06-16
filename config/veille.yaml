@@ -82,6 +82,9 @@ source_meteo:
   # orage via Vigilance horodatée). **OFF par défaut** : bascule live après
   # validation par previews (cf. ADR-0021, scripts/diag_assemblage_48h).
   veille_portail_api: false
+  # Cache parquet du run AROME 48 h (résilience aux re-runs ; fetch ~600 requêtes
+  # WCS cadencées). Persisté entre jobs par actions/cache (clé jour UTC), comme ARPEGE.
+  arome_cache_dir: .cache/arome
 
 # ----- Alertes seuils -----
 #

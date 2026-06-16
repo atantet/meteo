@@ -214,6 +214,9 @@ def executer_veille(
                 departement=departement,
                 position={"name": site.get("localisation", ""), "timezone": tz_locale},
                 run_proba_utc=_run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H),
+                # Cache parquet du run AROME (résilience aux re-runs du workflow ; le
+                # fetch 48 h horaire est ~600 requêtes WCS cadencées).
+                cache_dir=config.get("source_meteo", {}).get("arome_cache_dir"),
             )
         else:
             prevision = source.obtenir_prevision(
@@ -361,6 +364,9 @@ def executer_veille(
             cartes_longue=cartes_longue,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
+            # Portail-api : la 48 h est le modèle AROME (picto dérivé), pas la prévi
+            # officielle post-traitée → étiquetage honnête (ADR-0021).
+            prevision_officielle=not portail,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)

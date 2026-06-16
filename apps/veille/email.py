@@ -749,6 +749,7 @@ def composer_texte(
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
     bloc_semaine_texte: str = "",
+    prevision_officielle: bool = True,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile.
 
@@ -766,7 +767,11 @@ def composer_texte(
         lignes.append("PRÉVISION 48 h MÉTÉO-FRANCE INDISPONIBLE")
         lignes.append("  (partie omise — voir la tendance des prochains jours ci-dessous)")
     else:
-        lignes.append("PRÉVISION MÉTÉO-FRANCE OFFICIELLE")
+        lignes.append(
+            "PRÉVISION MÉTÉO-FRANCE OFFICIELLE"
+            if prevision_officielle
+            else "PRÉVISION MÉTÉO-FRANCE — MODÈLE AROME (picto dérivé)"
+        )
         if updated_on is not None:
             maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
             lignes.append(f"  Mise à jour {maj}")
@@ -827,6 +832,7 @@ def composer_html(
     cartes_longue: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
+    prevision_officielle: bool = True,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -889,10 +895,18 @@ def composer_html(
         section_mf = ""
         maj_html = ""
     else:
+        # Portail-api (ADR-0021) : c'est le **modèle AROME** au point, picto **dérivé**
+        # — pas la prévi officielle post-traitée. On l'étiquette honnêtement (le détail
+        # fin reste l'affaire du site officiel MF).
+        titre_mf = (
+            "Prévision Météo-France officielle"
+            if prevision_officielle
+            else "Prévision Météo-France — modèle AROME (picto dérivé)"
+        )
         section_mf = (
             '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
             'border-bottom:2px solid #eee;padding-bottom:4px;">'
-            "Prévision Météo-France officielle</h2>"
+            f"{titre_mf}</h2>"
         )
 
     return f"""<!DOCTYPE html>
@@ -934,6 +948,7 @@ def composer_email(
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
+    prevision_officielle: bool = True,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -976,6 +991,7 @@ def composer_email(
         prevision_horaire=prevision_horaire,
         updated_on=updated_on,
         bloc_semaine_texte=bloc_semaine_texte,
+        prevision_officielle=prevision_officielle,
     )
     alertes_config = config.get("alertes", {})
     html = composer_html(
@@ -996,6 +1012,7 @@ def composer_email(
         cartes_longue=cartes_longue,
         lieu=lieu,
         anomalies=anomalies,
+        prevision_officielle=prevision_officielle,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 

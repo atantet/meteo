@@ -73,6 +73,13 @@ jobs:
         with:
           path: .cache/ecmwf
           key: ecmwf-${{ steps.jour.outputs.val }}
+      # Cache du run AROME 48 h (sans effet si veille_portail_api=false) — résilience
+      # aux re-runs du fetch ~600 requêtes WCS (ADR-0021).
+      - name: Cache AROME 48 h
+        uses: actions/cache@v4
+        with:
+          path: .cache/arome
+          key: arome-${{ steps.jour.outputs.val }}
 
       - name: Exécuter la veille
         env:
