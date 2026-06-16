@@ -81,7 +81,9 @@ source_meteo:
   # (AROME HD + PE-AROME proba + DPVigilance, clé DP, joignable CI ; picto dérivé,
   # orage via Vigilance horodatée). **OFF par défaut** : bascule live après
   # validation par previews (cf. ADR-0021, scripts/diag_assemblage_48h).
-  veille_portail_api: false
+  # BASCULÉ true le 2026-06-16 après validation preview (eyeball Alexis) : la 48 h
+  # passe sur le portail-api direct. Réversible (false) si un envoi réel cloche.
+  veille_portail_api: true
   # Cache parquet du run AROME 48 h (résilience aux re-runs ; fetch ~600 requêtes
   # WCS cadencées). Persisté entre jobs par actions/cache (clé jour UTC), comme ARPEGE.
   arome_cache_dir: .cache/arome
