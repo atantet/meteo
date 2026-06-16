@@ -124,6 +124,9 @@ _VARS_INSTANT: dict[str, tuple[str, int | None, str]] = {
     "humidite_relative": ("RELATIVE_HUMIDITY__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 2, "pct_frac"),
     "rafales_vent_10m": ("WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
     "cloud_cover": ("TOTAL_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "pct_frac"),
+    # Type de précip MF (code GRIB 4.201 → phase) pour le picto semaine unifié
+    # (ADR-0021) ; absent à l'analyse (+0 h) → 404 toléré (NaN). « code » = identité.
+    "type_precip": ("PRECIPITATION_TYPE_60_MIN__GROUND_OR_WATER_SURFACE", None, "code"),
     # U/V à 10 m → vitesse + direction (MF n'expose pas WIND_DIRECTION directement).
     "_u10": ("U_COMPONENT_OF_WIND__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
     "_v10": ("V_COMPONENT_OF_WIND__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),

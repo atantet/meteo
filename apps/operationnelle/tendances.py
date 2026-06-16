@@ -85,6 +85,10 @@ class CelluleFenetre:
     direction_deg: float
     etp_mm: float  # cumul ETP socle FAO sur la fenêtre, NaN si non fourni
     nebulosite_pct: float  # nébulosité moyenne sur la fenêtre (%, NaN si absente)
+    # Code WMO dominant (sévérité max) de la fenêtre, si le df portait une colonne
+    # ``weather_code`` (picto diagnostic unifié, ADR-0021) ; sinon None → le rendu
+    # retombe sur le picto nébulosité+pluie historique.
+    weather_code: int | None = None
 
 
 def _direction_cardinal(deg: float) -> str:
@@ -215,6 +219,15 @@ def _agreger_cellule(
         float(neb.mean() * 100.0) if neb is not None and not neb.dropna().empty else float("nan")
     )
 
+    # Picto unifié (ADR-0021) : si le df porte un ``weather_code`` horaire (dérivé par
+    # le moteur diagnostic), on prend le code **dominant** (sévérité max) de la fenêtre
+    # — même agrégation que la grille 48 h. Sinon None (rendu nébulosité+pluie).
+    weather_code: int | None = None
+    if "weather_code" in group.columns:
+        from apps.shared.pictograms import code_dominant_fenetre
+
+        weather_code = code_dominant_fenetre(group["weather_code"])
+
     return CelluleFenetre(
         t_mean=t_mean,
         t_extreme=t_extreme,
@@ -226,6 +239,7 @@ def _agreger_cellule(
         direction_deg=direction_deg,
         etp_mm=etp_mm,
         nebulosite_pct=nebulosite_pct,
+        weather_code=weather_code,
     )
 
 

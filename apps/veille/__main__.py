@@ -309,6 +309,9 @@ def executer_veille(
                     proba_mf=prevision.proba_bins if prevision is not None else None,
                     # 48 h omise → l'intro semaine ne renvoie pas à une section absente.
                     avec_48h=not mf_indispo,
+                    # Picto semaine unifié (moteur diagnostic) en même temps que la 48 h
+                    # portail-api (ADR-0021) ; OFF → picto nébulosité+pluie historique.
+                    picto_diagnostic=portail,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)

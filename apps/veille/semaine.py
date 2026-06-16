@@ -167,7 +167,13 @@ def _fmt_ciel(cellule: CelluleFenetre, fenetre: str) -> str:
     slots latéraux de largeur égale pour que le ciel reste aligné entre les
     lignes ARPEGE et ECMWF.
     """
-    code = _code_wmo(cellule.nebulosite_pct, cellule.pluie_mm)
+    # Picto unifié (ADR-0021) : si la cellule porte un code dominant (moteur
+    # diagnostic, flag ON), on l'utilise ; sinon le picto historique nébulosité+pluie.
+    code = (
+        cellule.weather_code
+        if cellule.weather_code is not None
+        else _code_wmo(cellule.nebulosite_pct, cellule.pluie_mm)
+    )
     if code is None:
         return "—"
     nuit = fenetre == FENETRE_NUIT
@@ -773,6 +779,7 @@ def executer_semaine(
     source_ecmwf_opendata: Any = None,
     proba_mf: pd.Series | None = None,
     avec_48h: bool = True,
+    picto_diagnostic: bool = False,
 ) -> dict[str, Any] | None:
     """Construit les éléments de la section semaine, ou ``None`` en cas d'échec.
 
@@ -965,6 +972,17 @@ def executer_semaine(
         # proba s'affiche une seule fois par cellule et se lit comme la proba de
         # la période, pas celle d'un modèle. Absente (repli) → pas de proba.
         proba_fenetre = proba_max_par_fenetre(proba_mf, "UTC", horizon_long)
+
+        # Picto unifié (ADR-0021, flag ON) : dérive un ``weather_code`` horaire par le
+        # moteur diagnostic (phase ← type de précip MF, jamais d'orage) sur chaque df ;
+        # l'agrégation par fenêtre en prendra le code dominant (comme la grille 48 h).
+        # Requiert cloud_cover + precipitation ; sinon ignoré (rendu historique).
+        if picto_diagnostic:
+            from meteo_socle.indices.temps_sensible import serie_code_temps_mf
+
+            for df_m, ok in ((df_arpege, arpege_ok), (df_ecmwf, ecmwf_ok)):
+                if ok and {"cloud_cover", "precipitation"} <= set(df_m.columns):
+                    df_m["weather_code"] = serie_code_temps_mf(df_m)
 
         # Agrégations tendance — dict vide pour un modèle absent (bloc_tendance
         # gère nativement un modèle manquant : cellules de l'autre modèle seul).

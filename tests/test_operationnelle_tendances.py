@@ -247,6 +247,28 @@ def test_agreger_par_fenetre_cellules_valeurs() -> None:
     assert not hasattr(cell_jour, "code_picto")
 
 
+def test_cellule_weather_code_dominant_si_colonne_presente() -> None:
+    """Picto semaine unifié (ADR-0021) : weather_code dominant si le df le porte."""
+    from apps.operationnelle.tendances import _agreger_cellule
+
+    idx = pd.date_range("2026-06-15 06:00", periods=4, freq="h", tz="Europe/Paris")
+    group = pd.DataFrame(
+        {
+            "temperature_2m": [290.0] * 4,
+            "cloud_cover": [0.9] * 4,
+            "precipitation": [0.0, 1.0, 2.0, 0.0],
+            "weather_code": pd.array([3, 61, 95, 3], dtype="Int64"),  # orage = sévérité max
+        },
+        index=idx,
+    )
+    cell = _agreger_cellule(group, FENETRE_JOUR)
+    assert cell.weather_code == 95  # code dominant (orage) sur la fenêtre
+
+    # Sans colonne weather_code → None (rendu nébulosité+pluie historique).
+    cell_sans = _agreger_cellule(group.drop(columns=["weather_code"]), FENETRE_JOUR)
+    assert cell_sans.weather_code is None
+
+
 def test_agreger_par_fenetre_convertit_k_vers_celsius_exactement() -> None:
     """Entrée 288.15 K constante → sortie 15.00 °C exact (delta < 1e-6)."""
     idx = pd.date_range("2026-06-01 00:00", periods=24, freq="h", tz="UTC")
