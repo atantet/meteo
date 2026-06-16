@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -357,8 +357,10 @@ def test_executer_semaine_bandeau_si_double_coupure() -> None:
     assert len(res["anomalies"]) == 2  # ARPEGE + ECMWF
 
 
-def _prevision_mf_synthetique():
-    from meteo_socle.sources.meteofrance_officiel import PrevisionMF
+def _prev48h_synthetique():
+    """Tuple ``(Prevision48h, VigilanceDP)`` renvoyé par ``assembler_prevision_48h``."""
+    from apps.veille.prevision_48h import Prevision48h
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
 
     idx = pd.date_range("2026-06-15 00:00", periods=48, freq="h", tz="UTC")
     n = len(idx)
@@ -380,45 +382,45 @@ def _prevision_mf_synthetique():
     # remonter dans la section semaine (signal autonome, en tête de cellule).
     bins_idx = pd.date_range("2026-06-15 00:00", periods=10 * 4, freq="6h", tz="UTC")
     proba_bins = pd.Series(60.0, index=bins_idx, name="probabilite_pluie_pct")
-    return PrevisionMF(
+    prev = Prevision48h(
         df=df,
-        updated_on=pd.Timestamp("2026-06-15 05:30", tz="UTC"),
-        position={"name": "Sains", "timezone": "Europe/Paris"},
         proba_bins=proba_bins,
+        updated_on=pd.Timestamp("2026-06-15 03:00", tz="UTC"),
+        position={"name": "Sains", "timezone": "Europe/Paris"},
     )
+    vig = VigilanceDepartementDP(departement="35", phenomenes=[])
+    return prev, vig
 
 
 def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
-    """Mail matin complet (preview) : 48 h MF + semaine, ordre des sections correct."""
-    from apps.veille.__main__ import executer_veille
+    """Mail matin complet (preview) : 48 h AROME + semaine, ordre des sections correct."""
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
     now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.return_value = _prevision_mf_synthetique()
     out = tmp_path / "mail_matin.html"
 
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=now,
-        preview_path=out,
-        semaine_source=_StubSingleRuns(),
-        fetch_cartes_semaine=False,
-        source_arpege_mf=_StubArpegeMfDirect(),  # flag MF direct ON en config prod
-        source_ecmwf_opendata=_StubEcmwfOpendata(),  # flag ECMWF opendata ON en config prod
-    )
+    with patch.object(veille_main, "assembler_prevision_48h", return_value=_prev48h_synthetique()):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=now,
+            preview_path=out,
+            semaine_source=_StubSingleRuns(),
+            fetch_cartes_semaine=False,
+            source_arpege_mf=_StubArpegeMfDirect(),  # flag MF direct ON en config prod
+            source_ecmwf_opendata=_StubEcmwfOpendata(),  # flag ECMWF opendata ON en config prod
+        )
     assert code == 0
     html = out.read_text(encoding="utf-8")
 
     # Les deux parties sont présentes.
-    assert "Prévision Météo-France officielle" in html  # Partie 1
+    assert "modèle AROME" in html  # Partie 1 (48 h portail, picto dérivé)
     assert "La semaine" in html  # Partie 2
     # Ordre : 48 h → La semaine → Situation synoptique → Seuils (tout en bas).
-    i_mf = html.find("Prévision Météo-France officielle")
+    i_mf = html.find("modèle AROME")
     i_sem = html.find("La semaine")
     # Ancre du bloc seuils (juste après les sources, bas de mail).
     i_seuils = html.find("Seuils des guides de la semaine")
@@ -460,30 +462,28 @@ def test_regroupement_cartes_synoptiques() -> None:
 
 def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:
     """L'après-midi : 48 h actualisé + semaine du matin rappelée (« Pour rappel »)."""
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
     now = pd.Timestamp("2026-06-15 17:30", tz="UTC")  # après-midi
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.return_value = _prevision_mf_synthetique()
     out = tmp_path / "mail_apresmidi.html"
 
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=now,
-        preview_path=out,
-        semaine_source=_StubSingleRuns(),
-        fetch_cartes_semaine=False,
-        source_arpege_mf=_StubArpegeMfDirect(),
-        source_ecmwf_opendata=_StubEcmwfOpendata(),
-    )
+    with patch.object(veille_main, "assembler_prevision_48h", return_value=_prev48h_synthetique()):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=now,
+            preview_path=out,
+            semaine_source=_StubSingleRuns(),
+            fetch_cartes_semaine=False,
+            source_arpege_mf=_StubArpegeMfDirect(),
+            source_ecmwf_opendata=_StubEcmwfOpendata(),
+        )
     assert code == 0
     html = out.read_text(encoding="utf-8")
-    assert "Prévision Météo-France officielle" in html
+    assert "modèle AROME" in html
     # La semaine est désormais présente l'après-midi, étiquetée « pour rappel ».
     assert "La semaine" in html
     assert "Tendance jusqu'à 10 jours" in html
@@ -499,82 +499,76 @@ def test_executer_veille_mail_echec_si_mf_et_semaine_muets(tmp_path: Path) -> No
     sur les essais intermédiaires, cf. test_executer_veille_mf_muette_sans_repli_pas_de_mail) ;
     le HTML d'échec porte l'étape + le type + le message de l'exception pour le debug.
     """
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
-    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError(
-        "Prévision MF inaccessible : connect timeout"
-    )
     out = tmp_path / "echec.html"
     # Les deux modèles de la semaine muets aussi (flags directs ON en config prod) →
     # semaine vide → vrai échec total.
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-        preview_path=out,
-        source_arpege_mf=_StubArpegeMfMuet(),
-        source_ecmwf_opendata=_StubEcmwfMuet(),
-        fetch_cartes_semaine=False,
-        fallback_mf=True,
-    )
+    asm = MagicMock(side_effect=AromeIndisponibleError("AROME inaccessible : connect timeout"))
+    with patch.object(veille_main, "assembler_prevision_48h", asm):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+            preview_path=out,
+            source_arpege_mf=_StubArpegeMfMuet(),
+            source_ecmwf_opendata=_StubEcmwfMuet(),
+            fetch_cartes_semaine=False,
+            fallback_mf=True,
+        )
     assert code == 2
     html = out.read_text(encoding="utf-8")
     assert "échec" in html.lower()
-    assert "PrevisionIndisponibleError" in html  # type d'exception (debug)
+    assert "AromeIndisponibleError" in html  # type d'exception (debug)
     assert "connect timeout" in html  # message (debug)
     assert "semaine aussi indisponible" in html  # étape (debug)
 
 
 def test_executer_veille_mf_muette_sans_repli_pas_de_mail(tmp_path: Path) -> None:
     """Essai intermédiaire (sans fallback_mf) : MF muette → code 2 SANS écrire d'échec."""
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
-    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("connect timeout")
     out = tmp_path / "echec.html"
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-        preview_path=out,
-        fallback_mf=False,
-    )
+    asm = MagicMock(side_effect=AromeIndisponibleError("connect timeout"))
+    with patch.object(veille_main, "assembler_prevision_48h", asm):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+            preview_path=out,
+            fallback_mf=False,
+        )
     assert code == 2
     assert not out.exists()  # aucun mail d'échec écrit → pas de spam
 
 
 def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> None:
     """Mail matin complet : ARPEGE muet → repli ECMWF + rapport de bug en bas."""
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.return_value = _prevision_mf_synthetique()
     out = tmp_path / "matin_arpege_muet.html"
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-        preview_path=out,
-        semaine_source=_StubSingleRuns(),
-        source_arpege_mf=_StubArpegeMfMuet(),  # ARPEGE direct muet → cascade ECMWF
-        source_ecmwf_opendata=_StubEcmwfOpendata(),  # ECMWF dispo (le repli de la semaine)
-        fetch_cartes_semaine=False,
-    )
+    with patch.object(veille_main, "assembler_prevision_48h", return_value=_prev48h_synthetique()):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+            preview_path=out,
+            semaine_source=_StubSingleRuns(),
+            source_arpege_mf=_StubArpegeMfMuet(),  # ARPEGE direct muet → cascade ECMWF
+            source_ecmwf_opendata=_StubEcmwfOpendata(),  # ECMWF dispo (le repli de la semaine)
+            fetch_cartes_semaine=False,
+        )
     assert code == 0
     html = out.read_text(encoding="utf-8")
     assert "La semaine" in html  # section présente (repli ECMWF)
@@ -585,30 +579,29 @@ def test_executer_veille_matin_rapport_bug_si_arpege_muet(tmp_path: Path) -> Non
 def test_executer_veille_mf_indispo_omet_48h_envoie_semaine(tmp_path: Path) -> None:
     """MF injoignable + fallback_mf : la partie 48 h est OMISE (plus de repli ARPEGE),
     le mail part avec la seule section « La semaine » + rapport de bug l'expliquant."""
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
     from apps.veille.config import load_config
-    from meteo_socle.sources.meteofrance_officiel import PrevisionIndisponibleError
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
     config = load_config()
     config["diffusion"]["envoi_reel"] = False
-    mock_mf = MagicMock()
-    mock_mf.obtenir_prevision.side_effect = PrevisionIndisponibleError("MF connect timeout")
     out = tmp_path / "sans_48h.html"
-    code = executer_veille(
-        config,
-        secrets=None,
-        source=mock_mf,
-        now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
-        preview_path=out,
-        source_arpege_mf=_StubArpegeMfDirect(),  # ARPEGE direct dispo → semaine OK
-        source_ecmwf_opendata=_StubEcmwfOpendata(),
-        fetch_cartes_semaine=False,
-        fallback_mf=True,
-    )
-    assert code == 0  # mail envoyé malgré MF muette
+    asm = MagicMock(side_effect=AromeIndisponibleError("AROME connect timeout"))
+    with patch.object(veille_main, "assembler_prevision_48h", asm):
+        code = veille_main.executer_veille(
+            config,
+            secrets=None,
+            now_utc=pd.Timestamp("2026-06-15 06:00", tz="UTC"),
+            preview_path=out,
+            source_arpege_mf=_StubArpegeMfDirect(),  # ARPEGE direct dispo → semaine OK
+            source_ecmwf_opendata=_StubEcmwfOpendata(),
+            fetch_cartes_semaine=False,
+            fallback_mf=True,
+        )
+    assert code == 0  # mail envoyé malgré 48 h muette
     html = out.read_text(encoding="utf-8")
     # Plus aucune section / label de prévision MF 48 h, ni de « repli » inventé.
-    assert "Prévision Météo-France officielle" not in html
+    assert "modèle AROME" not in html
     assert "Prévision ARPEGE-Europe" not in html
     assert "repli" not in html.lower()
     # La semaine est bien là (porte l'essentiel) + rapport de bug expliquant l'omission.

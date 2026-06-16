@@ -40,12 +40,7 @@ from meteo_socle.sources.dpvigilance import (
     recuperer_vigilance_dp,
 )
 from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
-from meteo_socle.sources.meteofrance_officiel import (
-    MeteoFranceOfficiel,
-    PrevisionIndisponibleError,
-)
 from meteo_socle.sources.meteofrance_proba_arome import ProbaAromeIndisponibleError
-from meteo_socle.sources.meteofrance_vigilance import recuperer_vigilance
 
 from .alertes import evaluer_alertes
 from .anomalies import Anomalie
@@ -74,10 +69,9 @@ logger = logging.getLogger(__name__)
 LATENCE_MIN_PORTAIL_H = 3.5
 CYCLE_AROME_H, OFFSET_AROME_H = 3, 0
 CYCLE_PEAROME_H, OFFSET_PEAROME_H = 6, 3
-# Erreurs « 48 h indisponible » (webservice OU portail-api) → même repli (omission).
+# Erreurs « 48 h indisponible » (portail-api) → repli (omission de la 48 h).
 _ERREURS_48H = (
     requests.RequestException,
-    PrevisionIndisponibleError,
     AromeIndisponibleError,
     ProbaAromeIndisponibleError,
     VigilanceDPIndisponibleError,
@@ -135,7 +129,6 @@ def _envoyer_echec(
 def executer_veille(
     config: dict[str, Any],
     secrets: dict[str, Any] | None,
-    source: MeteoFranceOfficiel | None = None,
     now_utc: pd.Timestamp | None = None,
     preview_path: str | Path | None = None,
     inclure_semaine: bool = True,
@@ -153,9 +146,6 @@ def executer_veille(
         Configuration Veille (cf. ``config.load_config``).
     secrets :
         Secrets SMTP. Peut être ``None`` si dry-run ou preview.
-    source :
-        Source météo injectable (tests). Si ``None``, un
-        ``OpenMeteoForecast`` est créé avec le 1er modèle de la config.
     now_utc :
         Référence temporelle. Si ``None``, ``pd.Timestamp.now(tz='UTC')``.
     preview_path :
@@ -188,60 +178,47 @@ def executer_veille(
     site = config["site"]
     tz_locale = site.get("tz", "Europe/Paris")
     departement = str(config.get("vigilance_mf", {}).get("departement", "35"))
-    # Source 48 h : webservice MF (roulant, ADR-0014) OU portail-api direct (AROME +
-    # PE-AROME + DPVigilance, ADR-0021) selon le flag. ``source`` injectée (tests) →
-    # webservice. Flag OFF par défaut → bascule live progressive.
-    portail = source is None and bool(
-        config.get("source_meteo", {}).get("veille_portail_api", False)
-    )
-    if source is None and not portail:
-        source = MeteoFranceOfficiel()
+    # Source 48 h : portail-api direct (AROME + PE-AROME proba + DPVigilance, ADR-0021),
+    # joignable depuis les runners (le webservice MF y est bloqué — retiré post-bascule).
     logger.info(
-        "Fetch prévision 48 h (%s) lat=%.4f lon=%.4f",
-        "portail-api" if portail else "webservice MF",
+        "Fetch prévision 48 h (portail-api) lat=%.4f lon=%.4f",
         site["latitude"],
         site["longitude"],
     )
     mf_indispo = False
     mf_exc: BaseException | None = None
-    vigilance_pre = None  # Vigilance fetchée avec la 48 h (chemin portail) ou None.
+    vigilance_pre = None  # Vigilance fetchée avec la 48 h (DPVigilance) ou None.
     try:
-        if portail:
-            run_a = _run_recent(now_utc, CYCLE_AROME_H, OFFSET_AROME_H)
-            run_p = _run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H)
-            pos = {"name": site.get("localisation", ""), "timezone": tz_locale}
-            # Cache parquet du run AROME (le fetch 48 h horaire est ~500 requêtes WCS).
-            cache_arome = config.get("source_meteo", {}).get("arome_cache_dir")
-            # Repli run précédent : si le run le plus frais n'est pas ENCORE publié
-            # (404 rapide au matin, latence > estimée), on retente une fois sur le cycle
-            # d'avant plutôt que d'omettre la 48 h.
-            for essai in range(2):
-                try:
-                    prevision, vigilance_pre = assembler_prevision_48h(
-                        run_a,
-                        site["latitude"],
-                        site["longitude"],
-                        departement=departement,
-                        position=pos,
-                        run_proba_utc=run_p,
-                        cache_dir=cache_arome,
-                    )
-                    break
-                except (AromeIndisponibleError, ProbaAromeIndisponibleError) as e:
-                    if essai == 1:
-                        raise
-                    logger.warning(
-                        "Run portail (AROME %s) indisponible (%s) → repli run précédent.",
-                        f"{run_a:%Y-%m-%dT%HZ}",
-                        e,
-                    )
-                    run_a -= pd.Timedelta(hours=CYCLE_AROME_H)
-                    run_p -= pd.Timedelta(hours=CYCLE_PEAROME_H)
-        else:
-            prevision = source.obtenir_prevision(
-                latitude=site["latitude"],
-                longitude=site["longitude"],
-            )
+        run_a = _run_recent(now_utc, CYCLE_AROME_H, OFFSET_AROME_H)
+        run_p = _run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H)
+        pos = {"name": site.get("localisation", ""), "timezone": tz_locale}
+        # Cache parquet du run AROME (le fetch 48 h horaire est ~500 requêtes WCS).
+        cache_arome = config.get("source_meteo", {}).get("arome_cache_dir")
+        # Repli run précédent : si le run le plus frais n'est pas ENCORE publié (404
+        # rapide au matin, latence > estimée), on retente une fois sur le cycle d'avant
+        # plutôt que d'omettre la 48 h.
+        for essai in range(2):
+            try:
+                prevision, vigilance_pre = assembler_prevision_48h(
+                    run_a,
+                    site["latitude"],
+                    site["longitude"],
+                    departement=departement,
+                    position=pos,
+                    run_proba_utc=run_p,
+                    cache_dir=cache_arome,
+                )
+                break
+            except (AromeIndisponibleError, ProbaAromeIndisponibleError) as e:
+                if essai == 1:
+                    raise
+                logger.warning(
+                    "Run portail (AROME %s) indisponible (%s) → repli run précédent.",
+                    f"{run_a:%Y-%m-%dT%HZ}",
+                    e,
+                )
+                run_a -= pd.Timedelta(hours=CYCLE_AROME_H)
+                run_p -= pd.Timedelta(hours=CYCLE_PEAROME_H)
     except _ERREURS_48H as e:
         logger.error("Prévision 48 h indisponible : %s", e)
         if not fallback_mf:
@@ -288,18 +265,15 @@ def executer_veille(
         apres_midi = moment_envoi(now_utc, tz_locale) == "après-midi"
         cartes_grille = recuperer_cartes(now_utc=now_utc, apres_midi=apres_midi)
         # Vigilance MF (officielle d'État) — référence pour orages, vent, pluie,
-        # canicule, neige-verglas, grand froid sur 0-48 h. Chemin portail : déjà
-        # fetchée avec la 48 h (DPVigilance, horodatée) ; sinon webservice public.
-        # Injoignable → None et le bloc est skippé.
-        if portail:
-            vigilance = vigilance_pre
-            if vigilance is None:  # 48 h portail échouée → Vigilance seule, best-effort.
-                try:
-                    vigilance = recuperer_vigilance_dp(departement=departement)
-                except VigilanceDPIndisponibleError:
-                    vigilance = None
-        else:
-            vigilance = recuperer_vigilance(departement=departement)
+        # canicule, neige-verglas, grand froid sur 0-48 h. Déjà fetchée avec la 48 h
+        # (DPVigilance, horodatée) ; si la 48 h a échoué, on la retente seule (best-
+        # effort). Injoignable → None et le bloc est skippé.
+        vigilance = vigilance_pre
+        if vigilance is None:
+            try:
+                vigilance = recuperer_vigilance_dp(departement=departement)
+            except VigilanceDPIndisponibleError:
+                vigilance = None
 
         # Partie 2 « La semaine » — dans les DEUX créneaux. Le matin l'actualise ;
         # l'après-midi la rappelle à l'identique (``rappel=True`` → même run 00Z,
@@ -331,9 +305,9 @@ def executer_veille(
                     proba_mf=prevision.proba_bins if prevision is not None else None,
                     # 48 h omise → l'intro semaine ne renvoie pas à une section absente.
                     avec_48h=not mf_indispo,
-                    # Picto semaine unifié (moteur diagnostic) en même temps que la 48 h
-                    # portail-api (ADR-0021) ; OFF → picto nébulosité+pluie historique.
-                    picto_diagnostic=portail,
+                    # Picto semaine unifié sur le moteur diagnostic (ADR-0021), comme
+                    # la 48 h (même phase pluie/neige/verglas, jamais d'orage).
+                    picto_diagnostic=True,
                 )
             except Exception as e:  # noqa: BLE001 — la semaine ne casse jamais la 48 h
                 logger.warning("Section semaine ignorée (erreur) : %s", e)
@@ -383,9 +357,6 @@ def executer_veille(
             cartes_longue=cartes_longue,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
-            # Portail-api : la 48 h est le modèle AROME (picto dérivé), pas la prévi
-            # officielle post-traitée → étiquetage honnête (ADR-0021).
-            prevision_officielle=not portail,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)

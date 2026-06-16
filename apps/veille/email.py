@@ -45,11 +45,11 @@ from apps.shared.dates_fr import (
     format_horodatage_fr,
     format_t0_court,
 )
-from meteo_socle.sources.meteofrance_vigilance import (
+from meteo_socle.sources.dpvigilance import (
     NIVEAU_NOMS as VIGILANCE_NIVEAU_NOMS,
 )
-from meteo_socle.sources.meteofrance_vigilance import (
-    VigilanceDepartement,
+from meteo_socle.sources.dpvigilance import (
+    VigilanceDepartementDP,
 )
 
 from .alertes import Alerte, resume_alertes
@@ -155,7 +155,7 @@ VIGILANCE_AGE_MAX = pd.Timedelta(hours=12)
 
 
 def _bloc_vigilance_mf(
-    vigilance: VigilanceDepartement | None,
+    vigilance: VigilanceDepartementDP | None,
     tz_locale: str = "Europe/Paris",
     now: pd.Timestamp | None = None,
 ) -> str:
@@ -698,7 +698,7 @@ def _titre_mail(maintenant: datetime, moment: str = "", tz_locale: str = "Europe
     return f"Météo du {date_str}" + (f" {moment}" if moment else "")
 
 
-def resume_vigilance_mf(vigilance: VigilanceDepartement | None) -> str:
+def resume_vigilance_mf(vigilance: VigilanceDepartementDP | None) -> str:
     """Résumé court de la Vigilance MF d'État pour le sujet du mail.
 
     Ex. « Vigilance orange : Orages » (phénomènes au pire niveau) ; « RAS » si
@@ -717,7 +717,7 @@ def composer_sujet(
     template: str,
     moment: str = "",
     tz_locale: str = "Europe/Paris",
-    vigilance: VigilanceDepartement | None = None,
+    vigilance: VigilanceDepartementDP | None = None,
 ) -> str:
     """Formate le sujet selon template config.
 
@@ -749,7 +749,6 @@ def composer_texte(
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
     bloc_semaine_texte: str = "",
-    prevision_officielle: bool = True,
 ) -> str:
     """Corps email texte simple — fallback universel et lisible mobile.
 
@@ -767,11 +766,7 @@ def composer_texte(
         lignes.append("PRÉVISION 48 h MÉTÉO-FRANCE INDISPONIBLE")
         lignes.append("  (partie omise — voir la tendance des prochains jours ci-dessous)")
     else:
-        lignes.append(
-            "PRÉVISION MÉTÉO-FRANCE OFFICIELLE"
-            if prevision_officielle
-            else "PRÉVISION MÉTÉO-FRANCE — MODÈLE AROME (picto dérivé)"
-        )
+        lignes.append("PRÉVISION MÉTÉO-FRANCE — MODÈLE AROME (picto dérivé)")
         if updated_on is not None:
             maj = updated_on.tz_convert(tz_locale).strftime("%d/%m %Hh%M %Z")
             lignes.append(f"  Mise à jour {maj}")
@@ -820,7 +815,7 @@ def composer_html(
     maintenant: datetime,
     chart_48h_base64: str = "",
     cartes_grille: CartesGrille | None = None,
-    vigilance: VigilanceDepartement | None = None,
+    vigilance: VigilanceDepartementDP | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     seuils_config: dict[str, Any] | None = None,
     moment: str = "",
@@ -832,7 +827,6 @@ def composer_html(
     cartes_longue: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
-    prevision_officielle: bool = True,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -896,17 +890,12 @@ def composer_html(
         maj_html = ""
     else:
         # Portail-api (ADR-0021) : c'est le **modèle AROME** au point, picto **dérivé**
-        # — pas la prévi officielle post-traitée. On l'étiquette honnêtement (le détail
-        # fin reste l'affaire du site officiel MF).
-        titre_mf = (
-            "Prévision Météo-France officielle"
-            if prevision_officielle
-            else "Prévision Météo-France — modèle AROME (picto dérivé)"
-        )
+        # — pas la prévi officielle post-traitée. Étiquette honnête (le détail fin reste
+        # l'affaire du site officiel MF).
         section_mf = (
             '<h2 style="margin:18px 0 8px 0;font-size:17px;color:#2c3e50;'
             'border-bottom:2px solid #eee;padding-bottom:4px;">'
-            f"{titre_mf}</h2>"
+            "Prévision Météo-France — modèle AROME (picto dérivé)</h2>"
         )
 
     return f"""<!DOCTYPE html>
@@ -939,7 +928,7 @@ def composer_email(
     maintenant: datetime,
     chart_48h_base64: str = "",
     cartes_grille: CartesGrille | None = None,
-    vigilance: VigilanceDepartement | None = None,
+    vigilance: VigilanceDepartementDP | None = None,
     prevision_horaire: pd.DataFrame | None = None,
     updated_on: pd.Timestamp | None = None,
     position: dict[str, Any] | None = None,
@@ -948,7 +937,6 @@ def composer_email(
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
-    prevision_officielle: bool = True,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -991,7 +979,6 @@ def composer_email(
         prevision_horaire=prevision_horaire,
         updated_on=updated_on,
         bloc_semaine_texte=bloc_semaine_texte,
-        prevision_officielle=prevision_officielle,
     )
     alertes_config = config.get("alertes", {})
     html = composer_html(
@@ -1012,7 +999,6 @@ def composer_email(
         cartes_longue=cartes_longue,
         lieu=lieu,
         anomalies=anomalies,
-        prevision_officielle=prevision_officielle,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 

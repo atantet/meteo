@@ -57,39 +57,45 @@ def _prevision_synthetique(
     )
 
 
-def _prevision_mf(df: pd.DataFrame):
-    """Enrobe une prévision synthétique dans un ``PrevisionMF`` (source officielle)."""
-    from meteo_socle.sources.meteofrance_officiel import PrevisionMF
+def _prev48h(df: pd.DataFrame, vig=None):
+    """Tuple ``(Prevision48h, VigilanceDP)`` tel que renvoyé par ``assembler_prevision_48h``."""
+    from apps.veille.prevision_48h import Prevision48h
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
 
-    return PrevisionMF(
+    prev = Prevision48h(
         df=df,
-        updated_on=pd.Timestamp("2024-06-15 05:30", tz="UTC"),
+        proba_bins=df["probabilite_pluie_pct"],
+        updated_on=pd.Timestamp("2024-06-15 03:00", tz="UTC"),
         position={"name": "Sains", "timezone": "Europe/Paris"},
     )
+    if vig is None:
+        vig = VigilanceDepartementDP(departement="35", phenomenes=[])
+    return prev, vig
 
 
 def test_executer_veille_dry_run_capture_stdout() -> None:
-    """Pipeline complet : source MF mockée → indicateurs → alertes → email → dry-run."""
-    from apps.veille.__main__ import executer_veille
+    """Pipeline complet : assemblage 48 h mocké → indicateurs → alertes → email → dry-run."""
+    from apps.veille import __main__ as veille_main
 
     config = _config_test()
     now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-    mock_source = MagicMock()
     # 10 °C constant → ni gel (>4), ni maladies (<15), ni canicule (<25) → RAS.
-    mock_source.obtenir_prevision.return_value = _prevision_mf(_prevision_synthetique(10.0))
-
     buf = io.StringIO()
-    with patch("sys.stdout", buf):
-        code = executer_veille(
-            config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
-        )
+    with (
+        patch.object(
+            veille_main,
+            "assembler_prevision_48h",
+            return_value=_prev48h(_prevision_synthetique(10.0)),
+        ) as asm,
+        patch("sys.stdout", buf),
+    ):
+        code = veille_main.executer_veille(config, secrets=None, now_utc=now, inclure_semaine=False)
 
     assert code == 0
     output = buf.getvalue()
     assert "dry-run" in output
     assert "Veille 2024-06-15 — RAS" in output
-    # Source MF appelée au point (lat/lon), sans run ni horizon (ADR-0014).
-    mock_source.obtenir_prevision.assert_called_once_with(latitude=48.5, longitude=-1.6)
+    asm.assert_called_once()
 
 
 def test_run_recent_grilles_arome_pearome() -> None:
@@ -115,38 +121,24 @@ def test_run_recent_grilles_arome_pearome() -> None:
     assert _run_recent(nuit, CYCLE_AROME_H, OFFSET_AROME_H) == pd.Timestamp("2026-06-14 21:00Z")
 
 
-def test_executer_veille_portail_api_flag() -> None:
-    """Chemin portail-api (flag ON, ADR-0021) : assemblage mocké → mail composé."""
+def test_executer_veille_portail_etiquette_modele_arome() -> None:
+    """48 h portail-api : étiquetée « modèle AROME (picto dérivé) », pas « officielle »."""
     from apps.veille import __main__ as veille_main
-    from apps.veille.prevision_48h import Prevision48h
-    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
 
     config = _config_test()
-    config["source_meteo"] = {"veille_portail_api": True}
-    config["vigilance_mf"] = {"departement": "35"}
     now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-    df = _prevision_synthetique(12.0, debut="2024-06-15 00:00")
-    prev = Prevision48h(
-        df=df,
-        proba_bins=df["probabilite_pluie_pct"],
-        updated_on=pd.Timestamp("2024-06-15 03:00", tz="UTC"),
-        position={"name": "Pleine-Fougères", "timezone": "Europe/Paris"},
-    )
-    vig = VigilanceDepartementDP(departement="35", phenomenes=[])
-
     buf = io.StringIO()
     with (
-        patch.object(veille_main, "assembler_prevision_48h", return_value=(prev, vig)) as mock_asm,
-        patch.object(veille_main, "MeteoFranceOfficiel") as mock_ws,
+        patch.object(
+            veille_main,
+            "assembler_prevision_48h",
+            return_value=_prev48h(_prevision_synthetique(12.0)),
+        ) as asm,
         patch("sys.stdout", buf),
     ):
-        code = veille_main.executer_veille(
-            config, secrets=None, source=None, now_utc=now, inclure_semaine=False
-        )
+        code = veille_main.executer_veille(config, secrets=None, now_utc=now, inclure_semaine=False)
     assert code == 0
-    mock_asm.assert_called_once()  # chemin portail emprunté
-    mock_ws.assert_not_called()  # webservice JAMAIS instancié quand le flag est ON
-    # Étiquetage honnête : modèle AROME (picto dérivé), pas « officielle » (ADR-0021).
+    asm.assert_called_once()
     sortie = buf.getvalue()
     assert "MODÈLE AROME" in sortie
     assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" not in sortie
@@ -155,34 +147,21 @@ def test_executer_veille_portail_api_flag() -> None:
 def test_executer_veille_portail_repli_run_precedent() -> None:
     """Run le plus frais pas publié → repli sur le run précédent (pas d'omission)."""
     from apps.veille import __main__ as veille_main
-    from apps.veille.prevision_48h import Prevision48h
-    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP
     from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
     config = _config_test()
-    config["source_meteo"] = {"veille_portail_api": True}
-    config["vigilance_mf"] = {"departement": "35"}
     now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-    df = _prevision_synthetique(12.0, debut="2024-06-15 00:00")
-    prev = Prevision48h(
-        df=df,
-        proba_bins=df["probabilite_pluie_pct"],
-        updated_on=pd.Timestamp("2024-06-15 00:00", tz="UTC"),
-        position={"name": "x", "timezone": "Europe/Paris"},
-    )
-    vig = VigilanceDepartementDP(departement="35", phenomenes=[])
     # 1er run (frais) pas publié → 2e appel (run précédent) réussit.
-    asm = MagicMock(side_effect=[AromeIndisponibleError("run 404"), (prev, vig)])
+    asm = MagicMock(
+        side_effect=[
+            AromeIndisponibleError("run 404"),
+            _prev48h(_prevision_synthetique(12.0)),
+        ]
+    )
 
     buf = io.StringIO()
-    with (
-        patch.object(veille_main, "assembler_prevision_48h", asm),
-        patch.object(veille_main, "MeteoFranceOfficiel"),
-        patch("sys.stdout", buf),
-    ):
-        code = veille_main.executer_veille(
-            config, secrets=None, source=None, now_utc=now, inclure_semaine=False
-        )
+    with patch.object(veille_main, "assembler_prevision_48h", asm), patch("sys.stdout", buf):
+        code = veille_main.executer_veille(config, secrets=None, now_utc=now, inclure_semaine=False)
     assert code == 0
     assert asm.call_count == 2  # repli effectué (1 échec + 1 succès)
     # 2e appel sur un run AROME plus ancien que le 1er (1ᵉʳ arg positionnel).
@@ -214,18 +193,20 @@ def test_executer_veille_gel_plus_dans_le_corps_48h() -> None:
     sujet), mais le bloc « Vigilance exploitation » a disparu — le gel est désormais
     porté par le guide « purge + voiles » de la semaine.
     """
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
 
     config = _config_test()
     now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.return_value = _prevision_mf(_prevision_synthetique(-5.0))
-
     buf = io.StringIO()
-    with patch("sys.stdout", buf):
-        code = executer_veille(
-            config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
-        )
+    with (
+        patch.object(
+            veille_main,
+            "assembler_prevision_48h",
+            return_value=_prev48h(_prevision_synthetique(-5.0)),
+        ),
+        patch("sys.stdout", buf),
+    ):
+        code = veille_main.executer_veille(config, secrets=None, now_utc=now, inclure_semaine=False)
 
     assert code == 0
     out = buf.getvalue()
@@ -236,42 +217,38 @@ def test_executer_veille_gel_plus_dans_le_corps_48h() -> None:
     assert "purger" not in out.lower()
 
 
-def test_executer_veille_http_error_returns_2() -> None:
-    """HTTPError lors du fetch source → exit code 2."""
-    import requests
+def test_executer_veille_48h_down_returns_2() -> None:
+    """48 h portail injoignable (essai intermédiaire) → exit code 2."""
+    from apps.veille import __main__ as veille_main
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
-    from apps.veille.__main__ import executer_veille
-
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.side_effect = requests.HTTPError("500")
     config = _config_test()
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
-
-    code = executer_veille(
-        config, secrets=None, source=mock_source, now_utc=now, inclure_semaine=False
-    )
+    asm = MagicMock(side_effect=AromeIndisponibleError("500"))
+    with patch.object(veille_main, "assembler_prevision_48h", asm):
+        code = veille_main.executer_veille(config, secrets=None, now_utc=now, inclure_semaine=False)
     assert code == 2
 
 
-def test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec() -> None:
-    """Essai intermédiaire (fallback_mf=False) : MF down → code 2 SANS mail d'échec.
+def test_executer_veille_48h_down_sans_repli_nenvoie_pas_echec() -> None:
+    """Essai intermédiaire (fallback_mf=False) : 48 h down → code 2 SANS mail d'échec.
 
-    Le webservice MF est souvent injoignable depuis les runners ; le workflow
+    Le portail peut être momentanément injoignable depuis les runners ; le workflow
     retente puis, en dernier recours, omet la 48 h (mail « semaine seule »). Les
     essais intermédiaires ne doivent pas spammer de mails d'échec.
     """
-    import requests
+    from apps.veille import __main__ as veille_main
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
-    from apps.veille.__main__ import executer_veille
-
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.side_effect = requests.HTTPError("timeout")
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
-    with patch("apps.veille.__main__._envoyer_echec") as mock_echec:
-        code = executer_veille(
+    asm = MagicMock(side_effect=AromeIndisponibleError("timeout"))
+    with (
+        patch.object(veille_main, "assembler_prevision_48h", asm),
+        patch.object(veille_main, "_envoyer_echec") as mock_echec,
+    ):
+        code = veille_main.executer_veille(
             _config_test(),
             secrets=None,
-            source=mock_source,
             now_utc=now,
             inclure_semaine=False,
             fallback_mf=False,
@@ -280,25 +257,25 @@ def test_executer_veille_mf_down_sans_repli_nenvoie_pas_echec() -> None:
     mock_echec.assert_not_called()
 
 
-def test_executer_veille_mf_down_dernier_recours_sans_semaine_envoie_echec() -> None:
-    """Dernier recours (fallback_mf=True) sans semaine : MF down → mail d'échec.
+def test_executer_veille_48h_down_dernier_recours_sans_semaine_envoie_echec() -> None:
+    """Dernier recours (fallback_mf=True) sans semaine : 48 h down → mail d'échec.
 
-    Plus de repli ARPEGE 48 h : MF injoignable → on omet la 48 h. Mais ici la
-    section semaine est désactivée (``inclure_semaine=False``) → aucun contenu
-    exploitable → vrai échec notifié (on ne livre jamais un mail vide).
+    48 h injoignable → on omet la 48 h. Mais ici la section semaine est désactivée
+    (``inclure_semaine=False``) → aucun contenu exploitable → vrai échec notifié
+    (on ne livre jamais un mail vide).
     """
-    import requests
+    from apps.veille import __main__ as veille_main
+    from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 
-    from apps.veille.__main__ import executer_veille
-
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.side_effect = requests.HTTPError("timeout")
     now = pd.Timestamp("2024-06-15 04:30:00+00:00")
-    with patch("apps.veille.__main__._envoyer_echec") as mock_echec:
-        code = executer_veille(
+    asm = MagicMock(side_effect=AromeIndisponibleError("timeout"))
+    with (
+        patch.object(veille_main, "assembler_prevision_48h", asm),
+        patch.object(veille_main, "_envoyer_echec") as mock_echec,
+    ):
+        code = veille_main.executer_veille(
             _config_test(),
             secrets=None,
-            source=mock_source,
             now_utc=now,
             inclure_semaine=False,
             fallback_mf=True,
@@ -309,7 +286,7 @@ def test_executer_veille_mf_down_dernier_recours_sans_semaine_envoie_echec() -> 
 
 def test_executer_veille_envoi_reel_appelle_smtp() -> None:
     """En mode envoi_reel=True, vérifie que envoyer() invoque le SMTP."""
-    from apps.veille.__main__ import executer_veille
+    from apps.veille import __main__ as veille_main
 
     config = _config_test()
     config["diffusion"]["envoi_reel"] = True
@@ -322,77 +299,21 @@ def test_executer_veille_envoi_reel_appelle_smtp() -> None:
         "email_to": ["dest@example.com"],
     }
     now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-    mock_source = MagicMock()
-    mock_source.obtenir_prevision.return_value = _prevision_mf(_prevision_synthetique(15.0))
 
-    with patch("apps.veille.sender.smtplib.SMTP") as mock_smtp:
+    with (
+        patch.object(
+            veille_main,
+            "assembler_prevision_48h",
+            return_value=_prev48h(_prevision_synthetique(15.0)),
+        ),
+        patch("apps.veille.sender.smtplib.SMTP") as mock_smtp,
+    ):
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
-        code = executer_veille(
-            config, secrets=secrets, source=mock_source, now_utc=now, inclure_semaine=False
+        code = veille_main.executer_veille(
+            config, secrets=secrets, now_utc=now, inclure_semaine=False
         )
 
     assert code == 0
     mock_smtp.assert_called_once_with("smtp.example.com", 587)
     mock_server.send_message.assert_called_once()
-
-
-def _mf_payload(t_celsius: float = 12.0, n: int = 48, debut: str = "2024-06-15 04:00") -> dict:
-    """Payload JSON du webservice MF (unités natives : °C, %, m/s, mm)."""
-    idx = pd.date_range(debut, periods=n, freq="h", tz="UTC")
-    forecast = [
-        {
-            "dt": int(ts.timestamp()),
-            "T": {"value": t_celsius},
-            "humidity": 70,
-            "wind": {"speed": 5, "gust": 9, "direction": 270},
-            "rain": {"1h": 0.0},
-            "clouds": 50,
-            "weather": {"icon": "p1j", "desc": "Peu nuageux"},
-        }
-        for ts in idx
-    ]
-    prob = [{"dt": int(idx[0].timestamp()), "rain": {"3h": 10, "6h": None}}]
-    return {
-        "updated_on": int(idx[0].timestamp()),
-        "position": {"name": "Sains", "timezone": "Europe/Paris"},
-        "forecast": forecast,
-        "probability_forecast": prob,
-    }
-
-
-def test_executer_veille_pipeline_complet_mf_offline() -> None:
-    """Pipeline COMPLET offline : mock session → MeteoFranceOfficiel réel → dry-run.
-
-    Exerce le fetch + parsing/conversions socle + indicateurs + email, sans réseau.
-    Vérifie que le label « Source » reflète la prévision officielle MF (ADR-0014).
-    """
-    from apps.veille.__main__ import executer_veille
-    from meteo_socle.sources.meteofrance_officiel import MeteoFranceOfficiel
-
-    def _resp(payload: dict) -> MagicMock:
-        r = MagicMock()
-        r.status_code = 200
-        r.json.return_value = payload
-        r.raise_for_status = MagicMock()
-        return r
-
-    sess = MagicMock()
-    sess.get.side_effect = lambda url, params=None, timeout=None: _resp(_mf_payload())
-
-    source = MeteoFranceOfficiel(session=sess)
-    config = _config_test()
-    now = pd.Timestamp("2024-06-15 06:00:00+00:00")
-
-    buf = io.StringIO()
-    with patch("sys.stdout", buf):
-        code = executer_veille(
-            config, secrets=None, source=source, now_utc=now, inclure_semaine=False
-        )
-
-    assert code == 0
-    out = buf.getvalue()
-    # Un seul appel HTTP (JSON au point, pas de run).
-    assert sess.get.call_count == 1
-    # Section nommée (source par section, texte en capitales).
-    assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" in out

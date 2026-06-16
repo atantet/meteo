@@ -135,7 +135,7 @@ def test_composer_html_titre_moment_apres_midi_montre_12h() -> None:
         updated_on=maj,
     )
     assert "Météo du" in html and "après-midi" in html
-    assert "Prévision Météo-France officielle" in html
+    assert "modèle AROME" in html
     assert "Mise à jour" in html and "12h00" in html
 
 
@@ -148,8 +148,8 @@ def test_composer_texte_contient_alertes_et_indicateurs() -> None:
     assert "INDICATEURS" in txt
     # Valeurs présentes.
     assert "8.0" in txt or "8" in txt  # T° min
-    # Section MF officielle nommée (source par section, pas de footer).
-    assert "PRÉVISION MÉTÉO-FRANCE OFFICIELLE" in txt
+    # Section 48 h nommée (source par section, pas de footer).
+    assert "PRÉVISION MÉTÉO-FRANCE — MODÈLE AROME" in txt
     # Titre « Météo du … » en date courte (jour J/MM).
     assert "Météo du samedi 15/06" in txt
     # Direction du vent dominante.
@@ -334,18 +334,18 @@ def _vigilance_jaune_orages():
     """Fixture VigilanceDepartement avec Orages en jaune (niveau courant)."""
     import pandas as pd
 
-    from meteo_socle.sources.meteofrance_vigilance import (
+    from meteo_socle.sources.dpvigilance import (
         PHENOMENES_NOMS,
         PHENOMENES_PERTINENTS,
-        VigilanceDepartement,
-        VigilancePhenomene,
+        VigilanceDepartementDP,
+        VigilancePhenomeneDP,
     )
 
     phenomenes = [
-        VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau=2 if pid == 3 else 1)
+        VigilancePhenomeneDP(code=pid, nom=PHENOMENES_NOMS[pid], niveau_max=2 if pid == 3 else 1)
         for pid in PHENOMENES_PERTINENTS
     ]
-    return VigilanceDepartement(
+    return VigilanceDepartementDP(
         departement="35",
         update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
         fin_validite=pd.Timestamp("2026-06-01 04:00", tz="UTC"),
@@ -442,19 +442,19 @@ def test_composer_html_titres_vigilance_conserves_si_vide() -> None:
     import pandas as pd
 
     from apps.veille.email import composer_html
-    from meteo_socle.sources.meteofrance_vigilance import (
+    from meteo_socle.sources.dpvigilance import (
         PHENOMENES_NOMS,
         PHENOMENES_PERTINENTS,
-        VigilanceDepartement,
-        VigilancePhenomene,
+        VigilanceDepartementDP,
+        VigilancePhenomeneDP,
     )
 
-    vigilance_verte = VigilanceDepartement(
+    vigilance_verte = VigilanceDepartementDP(
         departement="35",
         update_time=pd.Timestamp("2026-05-31 16:00", tz="UTC"),
         fin_validite=pd.Timestamp("2026-06-01 04:00", tz="UTC"),
         phenomenes=[
-            VigilancePhenomene(code=pid, nom=PHENOMENES_NOMS[pid], niveau=1)
+            VigilancePhenomeneDP(code=pid, nom=PHENOMENES_NOMS[pid], niveau_max=1)
             for pid in PHENOMENES_PERTINENTS
         ],
     )

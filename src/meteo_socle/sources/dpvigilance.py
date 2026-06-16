@@ -26,15 +26,29 @@ import pandas as pd
 import requests
 
 from meteo_socle.sources.meteofrance_arpege import ENV_BASIC, _bearer
-from meteo_socle.sources.meteofrance_vigilance import (
-    PHENOMENES_NOMS,
-    PHENOMENES_PERTINENTS,
-)
 
 logger = logging.getLogger(__name__)
 
 DPVIGILANCE_URL = "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
 ORAGES_ID = 3
+
+# Codes officiels MF des phénomènes Vigilance.
+PHENOMENES_NOMS: dict[int, str] = {
+    1: "Vent violent",
+    2: "Pluie-inondation",
+    3: "Orages",
+    4: "Crues",
+    5: "Neige-verglas",
+    6: "Canicule",
+    7: "Grand froid",
+    8: "Avalanches",
+    9: "Vagues-submersion",
+}
+# Phénomènes pertinents pour Pleine-Fougères (35) maraîchage + blé (cf. doctrine
+# « une seule méthode par phénomène »). Crues/avalanches/vagues sans objet ici.
+PHENOMENES_PERTINENTS: tuple[int, ...] = (1, 2, 3, 5, 6, 7)
+# Couleurs Vigilance MF (1=vert .. 4=rouge).
+NIVEAU_NOMS: dict[int, str] = {1: "Vert", 2: "Jaune", 3: "Orange", 4: "Rouge"}
 
 
 class VigilanceDPIndisponibleError(RuntimeError):

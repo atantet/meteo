@@ -111,11 +111,11 @@ def assembler_prevision_48h(
     proba_6h = MeteoFranceProbaArome(basic=basic, session=session).obtenir_proba(
         run_proba_utc or run_utc, latitude, longitude, horizon_jours=2, fenetre_h=6, seuil_mm=1
     )
+    vigilance: VigilanceDepartementDP | None
     try:
-        vigilance: VigilanceDepartementDP | None = recuperer_vigilance_dp(
-            departement, basic=basic, session=session
-        )
-        tranches = vigilance.tranches_orages()
+        vig = recuperer_vigilance_dp(departement, basic=basic, session=session)
+        tranches = vig.tranches_orages()
+        vigilance = vig
     except VigilanceDPIndisponibleError as e:
         logger.warning("DPVigilance indisponible (%s) → 48 h sans overlay orage.", e)
         vigilance, tranches = None, []
