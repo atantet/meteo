@@ -32,9 +32,12 @@ jobs:
           auto-activate-base: false
           use-mamba: true
 
-      - name: Générer les previews flag-ON
+      - name: Générer la preview flag-ON (matin)
         env:
           METEOFRANCE_DP_BASIC: ${{ secrets.METEOFRANCE_DP_BASIC }}
+          # Une seule preview par run (un fetch AROME 48 h ~22 min ; 2 dépassent le
+          # timeout). Pour l'après-midi : relancer avec PREVIEW_MOMENTS=apres-midi.
+          PREVIEW_MOMENTS: matin
         run: python scripts/preview_veille_portail.py
 
       - name: Publier les previews en artefacts

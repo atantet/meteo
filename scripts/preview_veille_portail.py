@@ -64,9 +64,15 @@ def main() -> None:
     config = load_config()
     config.setdefault("source_meteo", {})["veille_portail_api"] = True
     config.setdefault("vigilance_mf", {}).setdefault("departement", "35")
-    print("Flag portail-api FORCÉ à true (preview).\n")
+    # Chaque preview = un fetch AROME 48 h complet (~22 min) → les générer une par
+    # une (2 en un run CI dépassent le timeout). PREVIEW_MOMENTS sélectionne (défaut
+    # « matin », suffisant pour l'eyeball ; « matin,apres-midi » pour les deux).
+    moments = os.environ.get("PREVIEW_MOMENTS", "matin").split(",")
+    print(f"Flag portail-api FORCÉ à true (preview). Moments : {moments}\n")
 
     for moment, heure in (("matin", 5), ("apres-midi", 15)):
+        if moment not in moments:
+            continue
         now_utc = _instant_passe(jour, heure, maintenant)
         chemin = OUT / f"veille_preview_{moment}.html"
         avant = chemin.stat().st_mtime if chemin.exists() else 0.0
