@@ -24,10 +24,11 @@ permissions:
 jobs:
   veille:
     runs-on: ubuntu-latest
-    # Marge pour les re-runs MF (2 × ~1 min + 120 s) + le fetch ARPEGE direct du
-    # matin (~500 requêtes WCS cadencées ; l'après-midi sert du cache). Filet à 40 min
-    # le temps d'observer l'effet du débit relevé (65/min) + retry throttle court (10 s).
-    timeout-minutes: 40
+    # Marge pour les re-runs MF + le fetch ARPEGE direct du matin (~500 requêtes WCS
+    # cadencées ; l'après-midi sert du cache). Porté à 45 min car, flag portail-api ON
+    # (ADR-0021), le matin fetche AUSSI AROME 48 h (~600 requêtes) — limiteur partagé
+    # 65/min → ~18 min de WCS cumulé. Sans effet tant que veille_portail_api=false.
+    timeout-minutes: 45
     # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless
     # à l'import de pyplot (charts.py) dans le pipeline du mail.
     env:
