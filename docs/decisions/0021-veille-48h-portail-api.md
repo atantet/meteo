@@ -132,3 +132,22 @@ Basculer **toute** la 48 h et la Vigilance d'App 1 sur `portail-api` (clé DP
 6. **Bascule** : flags `source_meteo.{arome_mf_direct, proba_pearome, vigilance_dp}`
    OFF par défaut → ON après passage live. Retrait du webservice (et du workflow de
    diagnostic `diag-mf.yml`) une fois la bascule validée.
+
+## Implémentation (2026-06-16)
+
+Faite et **mergée sur `main`**, derrière **un seul flag `source_meteo.veille_portail_api`
+(défaut OFF → prod inchangée)**. Modules socle : `meteofrance_arome.py`,
+`meteofrance_proba_arome.py` (`N_PROBA_PRECI`), `dpvigilance.py`, `ecmwf_opendata.py`
+(+`ptype`/`sf`), moteur picto `temps_sensible` ravivé (`code_wmo_diagnostic`/
+`serie_code_temps_mf`, sans orage). App : `apps/veille/prevision_48h.py` (assemblage
+48 h drop-in pipeline + overlay orage DPVigilance horodaté) ; `executer_veille` bascule
+48 h + Vigilance sous le flag, **sélection de run déterministe** (`_run_recent` : run le
+plus frais publié, grilles AROME 00/03/…, PE-AROME 03/09/15/21) ; **picto semaine
+unifié** sur le même moteur (gating par présence de `weather_code`). 48 h **étiquetée
+« modèle AROME (picto dérivé) »** quand portail (pas « officielle »). Cache `.cache/arome`.
+**~450 tests verts**, **smoke live OK** (chaîne complète au point, overlay orage depuis
+Vigilance), **preview CI flag-ON générée** (artefact). Deferrals levés : `PTYPE_60` (code
+GRIB 4.201, 0=sec), `N_PROBA` (%), unités (nébulosité AROME en fraction). **Reste** :
+eyeball preview par Alexis → bascule (`veille_portail_api: true`) → nettoyage (retrait
+webservice `meteofrance_officiel` + workflows/scripts diag jetables). Proba PE-ARPEGE
+J2-4,5 toujours **différée** (produit « Champs statistiques » à abonner).
