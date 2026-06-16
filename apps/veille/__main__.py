@@ -64,12 +64,16 @@ from .sender import envoyer
 
 logger = logging.getLogger(__name__)
 
-# Sélection de run portail-api (ADR-0021) : déterministe, constante corrigeable
-# (cf. principe runs-déterministes). Latence AROME ~4,5 h observée (run 15 Z dispo
-# à 19 h 30) → 5 h garantit un run publié. Cycles : AROME HD 3 h, PE-AROME 6 h.
-LATENCE_PORTAIL_H = 5
-CYCLE_AROME_H = 3
-CYCLE_PEAROME_H = 6
+# Sélection de run portail-api (ADR-0021) : déterministe (constantes corrigeables,
+# cf. principe runs-déterministes). On prend le **run le plus récent publié** (âge ≥
+# latence), sur la **grille horaire propre à chaque modèle** — pas un floor après
+# soustraction (qui saute un cycle). Heures de run UTC : AROME HD = 00/03/.../21
+# (cycle 3 h, offset 0) ; PE-AROME = 03/09/15/21 (cycle 6 h, **offset 3**, vérifié
+# 2026-06-16 : run 15 Z, pas 12 Z). Latence min ~3,5 h (run 15 Z dispo à 19 h 30 =
+# 4,5 h ; 18 Z absent à 1,5 h) — à affiner si un run choisi 404 (→ 48 h omise, retry).
+LATENCE_MIN_PORTAIL_H = 3.5
+CYCLE_AROME_H, OFFSET_AROME_H = 3, 0
+CYCLE_PEAROME_H, OFFSET_PEAROME_H = 6, 3
 # Erreurs « 48 h indisponible » (webservice OU portail-api) → même repli (omission).
 _ERREURS_48H = (
     requests.RequestException,
@@ -78,6 +82,27 @@ _ERREURS_48H = (
     ProbaAromeIndisponibleError,
     VigilanceDPIndisponibleError,
 )
+
+
+def _run_recent(
+    now_utc: pd.Timestamp,
+    cycle_h: int,
+    offset_h: int,
+    latence_min_h: float = LATENCE_MIN_PORTAIL_H,
+) -> pd.Timestamp:
+    """Run UTC le plus récent (heure ≡ ``offset`` mod ``cycle``) d'âge ≥ ``latence``.
+
+    Descend par pas de 1 h jusqu'à une heure de run valide du modèle, puis par pas de
+    ``cycle`` jusqu'à un run assez vieux pour être publié. Évite le ``floor`` après
+    soustraction, qui sautait un cycle (run inutilement vieux) — et respecte la grille
+    décalée de PE-AROME (03/09/15/21).
+    """
+    c = now_utc.floor("h")
+    while (c.hour - offset_h) % cycle_h != 0:
+        c -= pd.Timedelta(hours=1)
+    while now_utc - c < pd.Timedelta(hours=latence_min_h):
+        c -= pd.Timedelta(hours=cycle_h)
+    return c
 
 
 def _envoyer_echec(
@@ -182,14 +207,13 @@ def executer_veille(
     vigilance_pre = None  # Vigilance fetchée avec la 48 h (chemin portail) ou None.
     try:
         if portail:
-            base = now_utc - pd.Timedelta(hours=LATENCE_PORTAIL_H)
             prevision, vigilance_pre = assembler_prevision_48h(
-                base.floor(f"{CYCLE_AROME_H}h"),
+                _run_recent(now_utc, CYCLE_AROME_H, OFFSET_AROME_H),
                 site["latitude"],
                 site["longitude"],
                 departement=departement,
                 position={"name": site.get("localisation", ""), "timezone": tz_locale},
-                run_proba_utc=base.floor(f"{CYCLE_PEAROME_H}h"),
+                run_proba_utc=_run_recent(now_utc, CYCLE_PEAROME_H, OFFSET_PEAROME_H),
             )
         else:
             prevision = source.obtenir_prevision(

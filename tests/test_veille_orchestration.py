@@ -92,6 +92,29 @@ def test_executer_veille_dry_run_capture_stdout() -> None:
     mock_source.obtenir_prevision.assert_called_once_with(latitude=48.5, longitude=-1.6)
 
 
+def test_run_recent_grilles_arome_pearome() -> None:
+    """Sélection de run : grilles AROME (mult. de 3) et PE-AROME (03/09/15/21), fraîcheur."""
+    from apps.veille.__main__ import (
+        CYCLE_AROME_H,
+        CYCLE_PEAROME_H,
+        OFFSET_AROME_H,
+        OFFSET_PEAROME_H,
+        _run_recent,
+    )
+
+    now = pd.Timestamp("2026-06-15 19:30:00+00:00")
+    # AROME : 18 Z trop frais (1,5 h) → 15 Z (4,5 h ≥ 3,5).
+    assert _run_recent(now, CYCLE_AROME_H, OFFSET_AROME_H) == pd.Timestamp("2026-06-15 15:00Z")
+    # PE-AROME : grille 03/09/15/21 → 15 Z (pas 12 Z).
+    assert _run_recent(now, CYCLE_PEAROME_H, OFFSET_PEAROME_H) == pd.Timestamp("2026-06-15 15:00Z")
+    # PE-AROME début d'après-midi : 15 Z pas encore → 09 Z.
+    midi = pd.Timestamp("2026-06-15 13:00:00+00:00")
+    assert _run_recent(midi, CYCLE_PEAROME_H, OFFSET_PEAROME_H) == pd.Timestamp("2026-06-15 09:00Z")
+    # AROME en pleine nuit → run de la veille (21 Z).
+    nuit = pd.Timestamp("2026-06-15 01:00:00+00:00")
+    assert _run_recent(nuit, CYCLE_AROME_H, OFFSET_AROME_H) == pd.Timestamp("2026-06-14 21:00Z")
+
+
 def test_executer_veille_portail_api_flag() -> None:
     """Chemin portail-api (flag ON, ADR-0021) : assemblage mocké → mail composé."""
     from apps.veille import __main__ as veille_main
