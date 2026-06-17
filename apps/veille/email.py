@@ -563,6 +563,17 @@ def _bloc_grille_indicateurs_48h(
     if not periodes:
         return ""
 
+    # Horizon = soir de J+1 (demain local). On ne montre PAS J+2, même quand AROME
+    # le fournit (l'après-midi, le run atteint J+2 matin) : la Vigilance ne couvre que
+    # J/J+1 (DPVigilance, ADR-0021) → le picto orage y serait structurellement aveugle,
+    # et la section « La semaine » prend déjà le relais au-delà. Cap au RENDU seulement
+    # (les indicateurs gardent les 48 h pleines). Sans ``apres`` (tests) → pas de cap.
+    if apres is not None:
+        dernier_jour = apres.normalize() + pd.Timedelta(days=1)
+        periodes = [p for p in periodes if p[1].normalize() <= dernier_jour]
+        if not periodes:
+            return ""
+
     # Périodes pleines à afficher : clé (jour local normalisé, heure de début).
     pleins = {(debut.normalize(), debut.hour) for _, debut, _ in periodes}
     jours_uniques = sorted({debut.normalize() for _, debut, _ in periodes})

@@ -34,6 +34,30 @@ def _df_socle(periods: int = 48, debut: str = "2026-06-15 00:00", weather: int =
     )
 
 
+def test_grille_cap_au_soir_de_j1_apres_midi() -> None:
+    """Après-midi : la grille s'arrête au soir de J+1 (pas de J+2).
+
+    L'après-midi, le run AROME atteint J+2 matin — mais la Vigilance (DPVigilance)
+    ne couvre que J/J+1, donc le picto orage y serait aveugle. On cape donc le rendu
+    au soir de J+1 (la « semaine » prend le relais). Le cap ne s'applique qu'avec
+    l'heure d'envoi (``now_utc``) ; les indicateurs 24/48 h ne sont pas touchés.
+    """
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    # 56 h depuis mer. 17/06 00 h UTC → couvre la nuit de ven. 19/06 (J+2).
+    df = _df_socle(periods=56, debut="2026-06-17 00:00")
+    now = pd.Timestamp("2026-06-17 18:30", tz="UTC")  # envoi après-midi (créneau Soir)
+
+    # Sans heure d'envoi (pas de cap) : J+2 (Vendredi) apparaît, la donnée le couvre.
+    assert "Vendredi 19/06" in _bloc_grille_indicateurs_48h(df, tz_locale="UTC")
+
+    # Avec l'heure d'envoi : cap au soir de J+1 → Vendredi disparaît, Jeudi reste.
+    html = _bloc_grille_indicateurs_48h(df, now_utc=now, tz_locale="UTC")
+    assert "Mercredi 17/06" in html  # J (créneau Soir)
+    assert "Jeudi 18/06" in html  # J+1 (complet)
+    assert "Vendredi 19/06" not in html  # J+2 capé
+
+
 def test_grille_picto_nuit_pour_fenetre_0_6() -> None:
     """La grille utilise l'icône nuit (lune) pour la fenêtre [0, 6) seulement."""
     from apps.shared.pictograms import icone_base64
