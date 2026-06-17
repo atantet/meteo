@@ -28,6 +28,17 @@ Ce module est en partie issu de l'héritage `app-bilan-hydrique`
 classe Client et les fonctions pures testées ; les fonctions IO
 réseau (`demande`, `compiler_*`) seront enrichies au moment de leur
 intégration applicative.
+
+**Module DORMANT** (2026-06 : aucune app ne l'importe). Avant toute
+réactivation de l'ingestion Observations, deux évolutions MF à intégrer
+(courrier Données Publiques du 2026-06) :
+
+- **API Observations v2** : la v1 ferme le **2026-12-01**. DPObs/DPPaquetObs
+  doivent viser l'endpoint v2 (nouvelle nomenclature des paramètres rafales).
+  DPClim n'est pas concerné (FXI/FXI3s déjà présents en climato).
+- **Rafale FXI3s** : si on requête un jour la rafale (on ne demande
+  aujourd'hui que ``ff``, le vent moyen), utiliser **FXI3s** (rafale sur 3 s,
+  nouvelle référence OMM) plutôt que l'ancien FXI.
 """
 
 from __future__ import annotations
