@@ -353,6 +353,69 @@ def _vigilance_jaune_orages():
     )
 
 
+def test_bloc_vigilance_affiche_fenetres_horodatees() -> None:
+    """Un phénomène jaune horodaté (DPVigilance) affiche sa fenêtre locale sous le niveau.
+
+    Vérifie : conversion UTC→heure locale, fusion des tranches contiguës (MF découpe
+    parfois heure par heure), et que seules les fenêtres au niveau affiché remontent.
+    """
+    import pandas as pd
+
+    from apps.veille.email import _bloc_vigilance_mf
+    from meteo_socle.sources.dpvigilance import (
+        TrancheVigilance,
+        VigilanceDepartementDP,
+        VigilancePhenomeneDP,
+    )
+
+    # Orages jaune jeudi : deux tranches CONTIGUËS (12-18 puis 18-20 UTC) → fusionnées.
+    orages = VigilancePhenomeneDP(
+        code=3,
+        nom="Orages",
+        niveau_max=2,
+        tranches=[
+            TrancheVigilance(
+                pd.Timestamp("2026-06-18 12:00", tz="UTC"),
+                pd.Timestamp("2026-06-18 18:00", tz="UTC"),
+                2,
+            ),
+            TrancheVigilance(
+                pd.Timestamp("2026-06-18 18:00", tz="UTC"),
+                pd.Timestamp("2026-06-18 20:00", tz="UTC"),
+                2,
+            ),
+        ],
+    )
+    vig = VigilanceDepartementDP(
+        departement="35",
+        phenomenes=[orages],
+        fin_validite=pd.Timestamp("2026-06-19 00:00", tz="UTC"),
+    )
+    html = _bloc_vigilance_mf(vig, tz_locale="Europe/Paris")
+    assert "Orages" in html
+    # CEST = UTC+2 ; tranches fusionnées en une seule plage.
+    assert "jeu. 14h–22h" in html  # 12-20 UTC → 14-22 CEST, en-dash
+
+
+def test_bloc_vigilance_sans_tranches_ne_montre_que_le_niveau() -> None:
+    """Phénomène jaune sans tranche horodatée → niveau seul, pas de fenêtre (robuste)."""
+    import pandas as pd
+
+    from apps.veille.email import _bloc_vigilance_mf
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP, VigilancePhenomeneDP
+
+    canicule = VigilancePhenomeneDP(code=6, nom="Canicule", niveau_max=2, tranches=[])
+    vig = VigilanceDepartementDP(
+        departement="35",
+        phenomenes=[canicule],
+        fin_validite=pd.Timestamp("2026-06-19 00:00", tz="UTC"),
+    )
+    html = _bloc_vigilance_mf(vig, tz_locale="Europe/Paris")
+    assert "Canicule" in html and "Jaune" in html
+    # Pas de fenêtre rendue (aucune tranche) — bloc inchangé.
+    assert "–" not in html.split("Canicule")[1].split("</tr>")[0]
+
+
 def test_composer_html_avec_cartes_grille_contient_les_2_sections() -> None:
     """Le HTML doit contenir les sections Met Office + AROME, avec runs et cibles synchrones."""
     from apps.veille.email import composer_html
