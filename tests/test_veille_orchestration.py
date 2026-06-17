@@ -192,7 +192,11 @@ def test_executer_veille_portail_repli_run_precedent() -> None:
 
 
 def test_grille_couvre_plusieurs_periodes() -> None:
-    """La grille du mail couvre plusieurs périodes 6 h (pictos depuis weather_code MF)."""
+    """La grille du mail couvre plusieurs périodes 6 h (pictos depuis weather_code MF).
+
+    Envoi après-midi : la grille s'arrête au soir de J+1 (cap aligné sur l'horizon
+    Vigilance) → créneau Soir de J + 4 périodes de J+1 = au moins 5 pictos.
+    """
     from apps.veille.alertes import evaluer_alertes
     from apps.veille.email import composer_email
     from apps.veille.indicateurs import calculer_indicateurs
@@ -204,7 +208,7 @@ def test_grille_couvre_plusieurs_periodes() -> None:
     alertes = evaluer_alertes(ind, config)
     email = composer_email(ind, alertes, config, now.to_pydatetime(), prevision_horaire=prevision)
     assert "Tendance jusqu" in email.html
-    assert email.html.count("data:image") >= 6
+    assert email.html.count("data:image") >= 5
 
 
 def test_executer_veille_gel_plus_dans_le_corps_48h() -> None:
