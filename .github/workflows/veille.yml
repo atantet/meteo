@@ -126,6 +126,10 @@ jobs:
       # = ARPEGE direct KO → rien à publier, l'atelier retombera sur Open-Meteo).
       - name: Publier le run ARPEGE pour l'atelier
         if: always()
+        # Best-effort réel : une release/upload qui échoue (gh flapping, asset) ne
+        # doit JAMAIS faire échouer le job — le mail est déjà parti, l'atelier
+        # retombe sur Open-Meteo. (Vu 2026-06-17 : exit 2 a rougi tout le run.)
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
