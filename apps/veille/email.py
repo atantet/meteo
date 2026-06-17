@@ -154,6 +154,41 @@ VIGILANCE_URL_AFFICHEE = "https://vigilance.meteofrance.fr/fr"
 VIGILANCE_AGE_MAX = pd.Timedelta(hours=12)
 
 
+def _format_fenetre_vigilance(debut: pd.Timestamp, fin: pd.Timestamp, tz_locale: str) -> str:
+    """Fenêtre horodatée en heure locale : ``jeu. 14h–22h`` (``…–ven. 02h`` si à cheval)."""
+    d = debut.tz_convert(tz_locale)
+    f = fin.tz_convert(tz_locale)
+
+    def hh(x: pd.Timestamp) -> str:
+        return x.strftime("%Hh%M") if x.minute else x.strftime("%Hh")
+
+    jour_d = JOURS_FR[d.weekday()][:3] + "."
+    if d.date() == f.date():
+        return f"{jour_d} {hh(d)}–{hh(f)}"
+    jour_f = JOURS_FR[f.weekday()][:3] + "."
+    return f"{jour_d} {hh(d)}–{jour_f} {hh(f)}"
+
+
+def _periodes_vigilance(phenomene: object, tz_locale: str) -> str:
+    """Fenêtres horodatées (au niveau affiché) d'un phénomène, fusionnées et jointes.
+
+    Lit les ``tranches`` DPVigilance (``begin_time``/``end_time`` UTC). Fusionne les
+    segments contigus/chevauchants — MF découpe parfois heure par heure — avant le
+    rendu. Vide si aucune tranche (source sans découpage temporel) → le bloc retombe
+    sur le seul niveau, rétro-compatible.
+    """
+    tranches = getattr(phenomene, "tranches", None) or []
+    niveau = phenomene.niveau  # type: ignore[attr-defined]
+    pertinentes = sorted((t for t in tranches if t.niveau >= niveau), key=lambda t: t.debut)
+    fenetres: list[list[pd.Timestamp]] = []
+    for t in pertinentes:
+        if fenetres and t.debut <= fenetres[-1][1]:
+            fenetres[-1][1] = max(fenetres[-1][1], t.fin)
+        else:
+            fenetres.append([t.debut, t.fin])
+    return ", ".join(_format_fenetre_vigilance(d, f, tz_locale) for d, f in fenetres)
+
+
 def _bloc_vigilance_mf(
     vigilance: VigilanceDepartementDP | None,
     tz_locale: str = "Europe/Paris",
@@ -163,11 +198,13 @@ def _bloc_vigilance_mf(
 
     - ``None`` (fetch échoué) → bloc vide.
     - Tout vert → ligne compacte "rien à signaler".
-    - ≥ 1 phénomène ≥ jaune → mini-tableau des phénomènes non-verts + niveau.
+    - ≥ 1 phénomène ≥ jaune → mini-tableau des phénomènes non-verts + niveau, avec
+      la/les **fenêtre(s) horodatée(s)** sous le nom (DPVigilance est horodatée J/J+1).
 
-    Vigilance officielle d'État (servie par le webservice MF). Référence légale
-    pour les phénomènes dangereux (« une seule méthode par phénomène »). Niveau
-    **courant** (période de validité ~24 h), pas de découpage J/J+1.
+    Vigilance officielle d'État. Référence légale pour les phénomènes dangereux
+    (« une seule méthode par phénomène »). Source DPVigilance (ADR-0021) : niveau max
+    par phénomène + tranches ``begin_time``/``end_time`` (mêmes tranches que l'overlay
+    picto orage). Une source sans découpage (tranches absentes) n'affiche que le niveau.
     """
     if vigilance is None:
         return ""
@@ -224,13 +261,18 @@ def _bloc_vigilance_mf(
             "</td>"
         )
 
-    lignes_html = [
-        "<tr>"
-        f'<td style="padding:4px 8px;color:#555;font-size:12px;">{p.nom}</td>'
-        + cellule_niveau(p.niveau)
-        + "</tr>"
-        for p in actifs
-    ]
+    # Colonne Horizon : la/les fenêtre(s) horodatée(s) DPVigilance (J/J+1) — l'info
+    # qu'on utilise déjà pour le picto orage. « — » si la source n'est pas horodatée.
+    lignes_html = []
+    for p in actifs:
+        periodes = _periodes_vigilance(p, tz_locale) or "—"
+        lignes_html.append(
+            "<tr>"
+            f'<td style="padding:4px 8px;color:#555;font-size:12px;">{p.nom}</td>'
+            + cellule_niveau(p.niveau)
+            + '<td style="padding:4px 8px;color:#555;font-size:12px;'
+            f'text-align:right;white-space:nowrap;">{periodes}</td>' + "</tr>"
+        )
 
     return (
         '<div style="margin:12px 0 6px 0;">' + titre + '<table cellpadding="0" cellspacing="0" '
@@ -241,6 +283,8 @@ def _bloc_vigilance_mf(
         'font-weight:600;">Phénomène</th>'
         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
         'font-weight:600;">Niveau</th>'
+        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888;'
+        'font-weight:600;">Horizon</th>'
         "</tr>" + "".join(lignes_html) + "</table>"
         f'<p style="margin:4px 0 0 0;font-size:11px;color:#888;">{legende}</p>'
         "</div>"
@@ -518,6 +562,17 @@ def _bloc_grille_indicateurs_48h(
     periodes = periodes_pleines(horaire, apres=apres)
     if not periodes:
         return ""
+
+    # Horizon = soir de J+1 (demain local). On ne montre PAS J+2, même quand AROME
+    # le fournit (l'après-midi, le run atteint J+2 matin) : la Vigilance ne couvre que
+    # J/J+1 (DPVigilance, ADR-0021) → le picto orage y serait structurellement aveugle,
+    # et la section « La semaine » prend déjà le relais au-delà. Cap au RENDU seulement
+    # (les indicateurs gardent les 48 h pleines). Sans ``apres`` (tests) → pas de cap.
+    if apres is not None:
+        dernier_jour = apres.normalize() + pd.Timedelta(days=1)
+        periodes = [p for p in periodes if p[1].normalize() <= dernier_jour]
+        if not periodes:
+            return ""
 
     # Périodes pleines à afficher : clé (jour local normalisé, heure de début).
     pleins = {(debut.normalize(), debut.hour) for _, debut, _ in periodes}

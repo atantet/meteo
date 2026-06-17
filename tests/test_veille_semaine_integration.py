@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -108,6 +109,18 @@ class _StubArpegeMfMuet:
         from meteo_socle.sources.meteofrance_arpege import ArpegeIndisponibleError
 
         raise ArpegeIndisponibleError("stub muet")
+
+
+class _StubArpegeMfConnexionRefusee:
+    """Stub MeteoFranceArpege qui lève une erreur réseau BRUTE (Connection refused).
+
+    Reproduit la panne de prod 2026-06-17 : le gateway MF a refusé la connexion
+    (Errno 111) → ``requests.ConnectionError`` non enrobée en ``ArpegeIndisponibleError``.
+    Doit retomber sur la cascade (comme un run muet), pas perdre la semaine entière.
+    """
+
+    def obtenir_run(self, *args, **kwargs):
+        raise requests.ConnectionError("[Errno 111] Connection refused")
 
 
 class _StubEcmwfOpendata:
@@ -305,6 +318,33 @@ def test_executer_semaine_arpege_mf_direct() -> None:
     assert not any("ARPEGE indisponible" in a.resume for a in res["anomalies"])
     # Provenance correcte dans le pied (pas de fausse étiquette « Open-Meteo »).
     assert "MF Données Publiques" in res["sources_html"]
+
+
+def test_executer_semaine_arpege_mf_connexion_refusee_cascade() -> None:
+    """ARPEGE direct **Connection refused** (réseau brut) → cascade ECMWF, semaine gardée.
+
+    Régression prod 2026-06-17 : une ``requests.ConnectionError`` (Errno 111) non
+    enrobée s'échappait du ``except ArpegeIndisponibleError`` et faisait sauter TOUTE
+    la section semaine (bandeau « indisponible »), sans même essayer ECMWF. La semaine
+    doit survivre (tendance ECMWF) avec une anomalie ARPEGE — jamais disparaître.
+    """
+    from apps.veille.semaine import executer_semaine
+
+    cfg = _config_op()
+    cfg["source_meteo"]["arpege_mf_direct"] = True
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    res = executer_semaine(
+        cfg,
+        now,
+        source=_StubSingleRuns(),  # ECMWF (tendance longue) via Open-Meteo → repli
+        fetch_cartes=False,
+        source_arpege_mf=_StubArpegeMfConnexionRefusee(),  # gateway MF refuse (Errno 111)
+    )
+    assert res is not None, "La semaine ne doit pas être perdue sur une erreur réseau ARPEGE."
+    assert "La semaine" in res["guides_tendance_html"]
+    assert "Guides de décision de la semaine" in res["guides_tendance_html"]
+    # L'indisponibilité ARPEGE est signalée (rapport de bug), mais la semaine tient.
+    assert any("ARPEGE indisponible" in a.resume for a in res["anomalies"])
 
 
 def test_executer_semaine_ecmwf_opendata_direct() -> None:
