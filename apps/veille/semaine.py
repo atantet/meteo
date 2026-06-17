@@ -866,7 +866,10 @@ def executer_semaine(
                 df_arpege = src_mf.obtenir_run(
                     run_arpege, lat, lon, horizon_court, cache_dir=sm.get("arpege_cache_dir")
                 )
-            except ArpegeIndisponibleError as e:
+            except (ArpegeIndisponibleError, requests.RequestException) as e:
+                # Réseau aussi (Connection refused/timeout au gateway MF) : c'est une
+                # indisponibilité comme une autre → cascade ECMWF, jamais perdre la
+                # semaine entière (vu en prod 2026-06-17 : Errno 111 → semaine vide).
                 logger.warning("Semaine : ARPEGE direct MF indisponible (%s) → cascade.", e)
                 df_arpege = None
         else:
@@ -888,7 +891,8 @@ def executer_semaine(
                 df_ecmwf = src_ec.obtenir_run(
                     run_ecmwf, lat, lon, horizon_long, cache_dir=sm.get("ecmwf_cache_dir")
                 )
-            except EcmwfIndisponibleError as e:
+            except (EcmwfIndisponibleError, requests.RequestException) as e:
+                # Réseau aussi (cf. ARPEGE ci-dessus) → cascade, pas de semaine perdue.
                 logger.warning("Semaine : ECMWF Open Data indisponible (%s) → cascade.", e)
                 df_ecmwf = None
         else:
