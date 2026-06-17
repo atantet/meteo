@@ -393,12 +393,13 @@ def test_bloc_vigilance_affiche_fenetres_horodatees() -> None:
     )
     html = _bloc_vigilance_mf(vig, tz_locale="Europe/Paris")
     assert "Orages" in html
+    assert "Horizon" in html  # 3e colonne dédiée
     # CEST = UTC+2 ; tranches fusionnées en une seule plage.
     assert "jeu. 14h–22h" in html  # 12-20 UTC → 14-22 CEST, en-dash
 
 
-def test_bloc_vigilance_sans_tranches_ne_montre_que_le_niveau() -> None:
-    """Phénomène jaune sans tranche horodatée → niveau seul, pas de fenêtre (robuste)."""
+def test_bloc_vigilance_sans_tranches_horizon_tiret() -> None:
+    """Phénomène jaune sans tranche horodatée → colonne Horizon = « — » (robuste)."""
     import pandas as pd
 
     from apps.veille.email import _bloc_vigilance_mf
@@ -412,8 +413,10 @@ def test_bloc_vigilance_sans_tranches_ne_montre_que_le_niveau() -> None:
     )
     html = _bloc_vigilance_mf(vig, tz_locale="Europe/Paris")
     assert "Canicule" in html and "Jaune" in html
-    # Pas de fenêtre rendue (aucune tranche) — bloc inchangé.
-    assert "–" not in html.split("Canicule")[1].split("</tr>")[0]
+    ligne_canicule = html.split("Canicule")[1].split("</tr>")[0]
+    # Aucune fenêtre (en-dash) ; la cellule Horizon affiche le tiret cadratin.
+    assert "–" not in ligne_canicule  # pas de plage horaire
+    assert "—" in ligne_canicule  # cellule Horizon = « — »
 
 
 def test_composer_html_avec_cartes_grille_contient_les_2_sections() -> None:

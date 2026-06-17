@@ -261,21 +261,17 @@ def _bloc_vigilance_mf(
             "</td>"
         )
 
+    # Colonne Horizon : la/les fenêtre(s) horodatée(s) DPVigilance (J/J+1) — l'info
+    # qu'on utilise déjà pour le picto orage. « — » si la source n'est pas horodatée.
     lignes_html = []
     for p in actifs:
-        periodes = _periodes_vigilance(p, tz_locale)
-        # Fenêtre(s) horodatée(s) sous le nom du phénomène (gris, discret) — DPVigilance
-        # est horodatée (J/J+1) ; on rend l'info qu'on utilise déjà pour le picto orage.
-        sous_periode = (
-            f'<div style="font-size:11px;color:#888;margin-top:1px;">{periodes}</div>'
-            if periodes
-            else ""
-        )
+        periodes = _periodes_vigilance(p, tz_locale) or "—"
         lignes_html.append(
             "<tr>"
-            f'<td style="padding:4px 8px;color:#555;font-size:12px;">{p.nom}{sous_periode}</td>'
+            f'<td style="padding:4px 8px;color:#555;font-size:12px;">{p.nom}</td>'
             + cellule_niveau(p.niveau)
-            + "</tr>"
+            + '<td style="padding:4px 8px;color:#555;font-size:12px;'
+            f'text-align:right;white-space:nowrap;">{periodes}</td>' + "</tr>"
         )
 
     return (
@@ -287,6 +283,8 @@ def _bloc_vigilance_mf(
         'font-weight:600;">Phénomène</th>'
         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888;'
         'font-weight:600;">Niveau</th>'
+        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888;'
+        'font-weight:600;">Horizon</th>'
         "</tr>" + "".join(lignes_html) + "</table>"
         f'<p style="margin:4px 0 0 0;font-size:11px;color:#888;">{legende}</p>'
         "</div>"
