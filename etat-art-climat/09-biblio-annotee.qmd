@@ -63,6 +63,7 @@ Une fiche par **source principale** : **nature**, **robustesse** (voir la conven
 
 - **AoB PLANTS (2021)** [@aobpla2021] ; **Euphytica (2017)** [@euphytica2017] ; **bolting laitue (2022)** [@lettuce-bolting2022]. *Primaire (articles à comité de lecture).* **À en tirer** : seuils thermiques (nouaison dès 30 °C, pollen −50 % à 35 °C ; montée à graines de la laitue). Établis surtout sur tomate/conditions contrôlées → transposer avec prudence.
 - **INRS — travail à la chaleur : réglementation** [@inrs-chaleur-reglementation] et **ce qu'il faut retenir** [@inrs-chaleur-retenir]. *Officiel.* **À en tirer** : nouveau cadre 1ᵉʳ juillet 2025 (R. 4463-3), repères 28/30 °C, pénibilité C2P, prévention du coup de chaleur.
+- **Ombrage/blanchiment des abris** : essais Chambres d'agriculture (2020-2022) [@ca-ombrage-serre2022], fiche GRAB blanchiment (2020) [@grab-blanchiment2020], ADABio/*La Luciole* (2020) [@adabio-adaptation2020], flash Agrobio 35 (2026) [@agrobio35-ombrage2026]. *Technique (réseaux GAB/CA, retours de terrain).* **À en tirer** : leviers anti-chaleur sous abri (blanchiment commercial vs argile, filet modulable, bassinage, irrigation fractionnée) avec coûts ; **calage breton 30-40 % d'ombrage** (luminosité limitante). Données surtout Sud → recaler en humidité bretonne.
 
 ## Risques côtiers locaux
 
