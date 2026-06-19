@@ -16,6 +16,16 @@ L'objectif sous abri est de **réduire le rayonnement reçu** pour limiter la mo
 - **Leviers de conduite** (en plus de l'ombrage) : ouvrir au maximum (demi-lunes, faîtières) pour évacuer le dôme de chaleur ; au goutte-à-goutte, **fractionner** (2-3 apports de 20-30 min/jour plutôt qu'un gros) ; **bassinage** par séquences courtes (2-3 min entre 10 h et 16 h, jusqu'à 4 fois) pour abaisser ponctuellement la température et limiter les acariens — *à éviter si pression maladie/puceron forte* [@agrobio35-ombrage2026].
 - **Brumisation / fog** : piste étudiée par le CTIFL en complément de l'ombrage ; valeurs non disponibles dans les sources lues — *à compléter*.
 
+::: {.callout-note title="Arbitrage des solutions d'ombrage : coût, environnement, efficacité"}
+Les trois options ont une **efficacité thermique comparable** (~5 °C, jusqu'à 5-10 °C lors des pics) ; elles se départagent surtout sur le **coût sur durée de vie**, l'**innocuité** et la **modularité**.
+
+- **Argile / kaolin** — le moins cher au matériel, mais **lessivable** (3-4 passages/saison). Minéral **inerte** naturellement présent dans les sols, insoluble, autorisé en AB et évalué favorablement [@anses-kaolin2010] : le choix le plus **sûr pour le sol et l'eau** — déterminant en cas de **récupération d'eau de pluie** des serres.
+- **Peinture commerciale** (carbonate de calcium + **résine acrylique**) — tenue meilleure que l'argile, **protège la bâche** de la photodégradation, mais la résine est un polymère synthétique : les résidus de peinture sont une source reconnue de **microplastiques** persistants [@ti-microplastiques-peinture2022] (la « biodégradabilité » affichée est une auto-déclaration). À éviter si l'on récupère l'eau de pluie [@grab-blanchiment2020].
+- **Filet d'ombrage** — **plus cher sur la durée** (amortissement du filet sur ~5-10 ans selon la qualité du traitement UV, + pose/dépose annuelle), et il **ne protège pas la bâche**. Son intérêt n'est donc **pas le coût** mais la **modularité** (retirable les jours couverts → pas de pénalité de précocité, point critique sous la lumière limitante bretonne) et l'**absence de tout produit** sur la bâche, le sol et l'eau [@adabio-adaptation2020 ; @agrobio35-ombrage2026].
+
+En synthèse : **argile** si priorité au coût et à l'innocuité (et récupération d'eau de pluie) ; **filet** si priorité à la modularité/précocité, en acceptant un surcoût annuel ; **peinture commerciale** à réserver aux cas sans récupération d'eau de pluie.
+:::
+
 ## Gel tardif
 
 (Repères : Mémo gel en maraîchage, Chambres d'agriculture de Midi-Pyrénées — gel **radiatif** du Sud-Ouest, transposable avec prudence [@ca31-gel2026].)
