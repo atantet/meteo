@@ -6,9 +6,14 @@ Leviers pour les axes chaleur (@sec-chaleur) et phénologie/gel (@sec-phenologie
 
 ## Chaleur sur les cultures et sous abri
 
-- **Blanchiment de serre** : abaisse la température de **5 à 10 °C** en période estivale vs serre non blanchie [@ca-ombrage-serre2022]. *Limite* : ombrage permanent pénalisant hors pics.
-- **Écrans / produits d'ombrage** : baisse de **5 à 8,5 °C** dans la serre ombragée lors des pics, effet « d'autant plus important en période caniculaire » ; certains produits agissent dès 25-35 °C, avec une **meilleure nouaison** des tomates observée [@ca-ombrage-serre2022]. *Condition* : l'**aération reste indispensable** même avec ombrage.
-- **Filet d'ombrage pilotable** : un écran réduit la transmission lumineuse d'environ 35 % ; comme le rendement (tomate) dépend du rayonnement, l'intérêt est d'**ombrer seulement aux pics** plutôt qu'en permanence [@ca-ombrage-serre2022].
+L'objectif sous abri est de **réduire le rayonnement reçu** pour limiter la montée en température et les accidents physiologiques (coups de soleil sur fruits, nécroses apicales, collets jaunes sur tomate, brûlures de têtes sur concombre, baisse de nouaison) — tout en préservant le confort de travail [@agrobio35-ombrage2026]. Deux familles de solutions, complémentaires d'une **aération maximale** (jamais suffisante seule).
+
+- **Blanchiment de serre** : abaisse la température de **~5 °C** (jusqu'à 5-10 °C selon essais) vs serre non blanchie, réduit aussi les besoins en eau et le développement des acariens [@grab-blanchiment2020 ; @ca-ombrage-serre2022]. Deux options en AB :
+  - *Produits commerciaux* (Ombraflex, Climalux… base carbonate de calcium + résine) : ~**0,2 €/m²/saison**, application sans vent sur bâche sèche avec **≥ 24 h sans pluie**, 1 000-2 000 L/ha ; **déblanchiment automnal** souvent nécessaire (acide citrique 5 %) [@grab-blanchiment2020 ; @agrobio35-ombrage2026].
+  - *Argile blanche / kaolin* (Sokalciarbo…) : moins cher (~**0,03 €/m²/passage**) et composition plus simple, mais **moins persistant** (lessivé dès ~15 mm de pluie → 2-4 passages) et **abrasif** (pompe à piston-membrane) [@grab-blanchiment2020 ; @adabio-adaptation2020]. *Limite générale* : ombrage permanent pénalisant hors pics.
+- **Filet d'ombrage modulable** : solution **durable et stable** (ne se lessive pas), **retirable** en période couverte → on ombre seulement aux pics, ce qui préserve le rendement (lié au rayonnement) [@ca-ombrage-serre2022 ; @agrobio35-ombrage2026]. Efficacité comparable à une bonne peinture mais **moins d'entretien** ; coût ~**1,15-1,25 €/m²** (filet seul, amorti sur 5 ans), **~2,4 €/m²** accessoires compris (amarres, tendeurs, sardines tous les 4-5 m) [@adabio-adaptation2020 ; @agrobio35-ombrage2026]. *Calage breton* : viser **30-40 % d'ombrage** (et non 40-50 % comme dans le Sud) — la **luminosité plus limitante** en Bretagne fait qu'un ombrage trop fort pénalise croissance et précocité [@agrobio35-ombrage2026].
+- **Dépannage de pic** (faute de blanchiment ou de filet) : P17/P30, filet anti-insectes « cristal » sur barres ou arceaux — ponctuel, à retirer dès le pic passé, sous **surveillance forte de la température et de la ventilation**. **Proscrire** les bâches/toiles improvisées (effet « four ») surtout sur salades et jeunes plants [@agrobio35-ombrage2026].
+- **Leviers de conduite** (en plus de l'ombrage) : ouvrir au maximum (demi-lunes, faîtières) pour évacuer le dôme de chaleur ; au goutte-à-goutte, **fractionner** (2-3 apports de 20-30 min/jour plutôt qu'un gros) ; **bassinage** par séquences courtes (2-3 min entre 10 h et 16 h, jusqu'à 4 fois) pour abaisser ponctuellement la température et limiter les acariens — *à éviter si pression maladie/puceron forte* [@agrobio35-ombrage2026].
 - **Brumisation / fog** : piste étudiée par le CTIFL en complément de l'ombrage ; valeurs non disponibles dans les sources lues — *à compléter*.
 
 ## Gel tardif
@@ -35,7 +40,7 @@ Opportunité (démarrage plus précoce, étalement) mais **exposition accrue au 
 ## Priorisation à 30 ans
 
 ::: {.callout-tip title="Lecture pour l'exploitation"}
-- **Sous abri** : ombrage **pilotable** + aération = couple gagnant (la chaleur, pas seulement le froid, devient un sujet sous tunnel).
+- **Sous abri** : ombrage **pilotable** (filet modulable, 30-40 % en contexte breton pour ne pas brider la précocité) + aération = couple gagnant (la chaleur, pas seulement le froid, devient un sujet sous tunnel) ; le blanchiment reste l'option de secours rapide en l'absence de filet.
 - **Gel** : la protection (voiles, placement) reste payante car le risque ne disparaît pas (cf. @sec-phenologie) ; garder une capacité de couverture mobilisable.
 - **Travail** : ce n'est plus optionnel — obligation réglementaire depuis juillet 2025, à inscrire au document unique.
 :::
