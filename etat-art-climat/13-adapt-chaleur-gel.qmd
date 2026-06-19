@@ -16,14 +16,29 @@ L'objectif sous abri est de **réduire le rayonnement reçu** pour limiter la mo
 - **Leviers de conduite** (en plus de l'ombrage) : ouvrir au maximum (demi-lunes, faîtières) pour évacuer le dôme de chaleur ; au goutte-à-goutte, **fractionner** (2-3 apports de 20-30 min/jour plutôt qu'un gros) ; **bassinage** par séquences courtes (2-3 min entre 10 h et 16 h, jusqu'à 4 fois) pour abaisser ponctuellement la température et limiter les acariens — *à éviter si pression maladie/puceron forte* [@agrobio35-ombrage2026].
 - **Brumisation / fog** : piste étudiée par le CTIFL en complément de l'ombrage ; valeurs non disponibles dans les sources lues — *à compléter*.
 
+Le coût se raisonne sur le **cycle de vie**, ramené à l'**année** et au **m²** (l'argile et la peinture sont refaites chaque saison ; le filet et son chantier de pose sont amortis sur leur durée de vie) — @tbl-ombrage-cout. On isole la **première pose** du filet (vrai chantier de fixation : câbles, plaquettes, amarres) du **travail récurrent** (applications/déblanchiment annuels, ou pose/dépose saisonnière du filet).
+
+| Solution (€/m²/an) | Matériel | Chantier (1ʳᵉ pose) | Travail récurrent | **Sans travail** | **Avec travail** |
+|---|---:|---:|---:|---:|---:|
+| Argile / kaolin | 0,09-0,12 | — | 0,08-0,11 | **0,09-0,12** | **0,17-0,23** |
+| Peinture commerciale | ~0,20 | — | 0,08-0,11 | **~0,20** | **0,28-0,31** |
+| Filet d'ombrage | 0,20-0,32¹ | ~0,02 | 0,14-0,16 | **0,20-0,32** | **0,36-0,50** |
+
+: Coût des solutions d'ombrage en **€/m²/an** (cycle de vie amorti). Travail valorisé à **~13,3 €/h** — CDI au SMIC 2026 (12,02 €/h) majoré des charges patronales résiduelles après réduction générale dégressive (RGDU 2026) et des congés payés. Le « sans travail » = matériel seul (le chantier est du travail). {#tbl-ombrage-cout}
+
+*Hypothèses (temps estimés, non sourcés finement)* : argile relessivée → **3-4 passages/saison** ; peinture **2 applications + 1 déblanchiment/saison** ; filet **pose + dépose ~5-6 h pour 500 m²/saison** + **chantier de 1ʳᵉ pose ~10 h à deux pour 500 m²** amorti sur la durée de l'installation.
+¹ Chaque poste est amorti sur **sa propre durée de vie** : filet ~1,2 €/m² sur **5-10 ans** (selon le traitement UV) ; accessoires (câbles, amarres) ~1,2 €/m² et chantier de 1ʳᵉ pose sur **~15 ans**.
+
+Rapporté à l'**ensemble des abris** d'une exploitation maraîchère diversifiée (ici **~3 540 m²**), cela donne un **coût total annuel**, **travail compris**, de **~600-815 €/an** (argile), **~990-1 100 €/an** (peinture) et **~1 275-1 770 €/an** (filet) ; **hors travail** (matériel seul) : respectivement **~320-425 €/an**, **~710 €/an** et **~710-1 135 €/an**. L'écart filet ↔ argile — de l'ordre de **700-1 150 €/an** — est le **prix de la modularité et de l'innocuité** (cf. ci-dessous).
+
 ::: {.callout-note title="Arbitrage des solutions d'ombrage : coût, environnement, efficacité"}
-Les trois options ont une **efficacité thermique comparable** (~5 °C, jusqu'à 5-10 °C lors des pics) ; elles se départagent surtout sur le **coût sur durée de vie**, l'**innocuité** et la **modularité**.
+À **efficacité thermique comparable** (~5 °C, jusqu'à 5-10 °C lors des pics), les trois options se départagent sur le **coût complet** (@tbl-ombrage-cout), l'**innocuité** et la **modularité**.
 
 - **Argile / kaolin** — le moins cher au matériel, mais **lessivable** (3-4 passages/saison). Minéral **inerte** naturellement présent dans les sols, insoluble, autorisé en AB et évalué favorablement [@anses-kaolin2010] : le choix le plus **sûr pour le sol et l'eau** — déterminant en cas de **récupération d'eau de pluie** des serres.
 - **Peinture commerciale** (carbonate de calcium + **résine acrylique**) — tenue meilleure que l'argile, **protège la bâche** de la photodégradation, mais la résine est un polymère synthétique : les résidus de peinture sont une source reconnue de **microplastiques** persistants [@ti-microplastiques-peinture2022] (la « biodégradabilité » affichée est une auto-déclaration). À éviter si l'on récupère l'eau de pluie [@grab-blanchiment2020].
-- **Filet d'ombrage** — **plus cher sur la durée** (amortissement du filet sur ~5-10 ans selon la qualité du traitement UV, + pose/dépose annuelle), et il **ne protège pas la bâche**. Son intérêt n'est donc **pas le coût** mais la **modularité** (retirable les jours couverts → pas de pénalité de précocité, point critique sous la lumière limitante bretonne) et l'**absence de tout produit** sur la bâche, le sol et l'eau [@adabio-adaptation2020 ; @agrobio35-ombrage2026].
+- **Filet d'ombrage** — le **plus cher** (≈ 2× l'argile en €/m²/an, @tbl-ombrage-cout : chantier de première pose amorti, renouvellement du filet, pose/dépose chaque saison), et il **ne protège pas la bâche**. Son intérêt n'est donc **pas le coût** mais la **modularité** (retirable les jours couverts → pas de pénalité de précocité, point critique sous la lumière limitante bretonne) et l'**absence de tout produit** sur la bâche, le sol et l'eau [@adabio-adaptation2020 ; @agrobio35-ombrage2026].
 
-En synthèse : **argile** si priorité au coût et à l'innocuité (et récupération d'eau de pluie) ; **filet** si priorité à la modularité/précocité, en acceptant un surcoût annuel ; **peinture commerciale** à réserver aux cas sans récupération d'eau de pluie.
+En synthèse : **argile** si priorité au coût et à l'innocuité (et récupération d'eau de pluie) ; **filet** si priorité à la modularité/précocité, en acceptant un coût ~2× supérieur ; **peinture commerciale** à réserver aux cas sans récupération d'eau de pluie.
 :::
 
 ## Gel tardif
