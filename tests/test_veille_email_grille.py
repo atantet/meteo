@@ -34,6 +34,29 @@ def _df_socle(periods: int = 48, debut: str = "2026-06-15 00:00", weather: int =
     )
 
 
+def test_diagnostic_pictos_loggue_la_nebulosite(caplog) -> None:
+    """Calibration : une ligne PICTO-DIAG par tranche, avec nébulosité moy/max et codes.
+
+    C'est l'info (cloud_cover total/bas/moyen sous-jacent) qui manque pour départager
+    « agrégation max trop pessimiste » vs « AROME vraiment couvert » lors des
+    comparaisons à MF.com (cf. docs/calibration_pictos.md). Émise au log, pas au mail.
+    """
+    import logging
+
+    from apps.veille.email import _bloc_grille_indicateurs_48h
+
+    df = _df_socle(48, debut="2026-06-15 00:00")
+    df["cloud_cover"] = 0.9  # fraction → 90 %
+    df["cloud_cover_low"] = 0.8
+    df["cloud_cover_mid"] = 0.3
+    with caplog.at_level(logging.INFO, logger="apps.veille.email"):
+        _bloc_grille_indicateurs_48h(df, tz_locale="UTC")
+
+    diag = [r.getMessage() for r in caplog.records if "PICTO-DIAG" in r.getMessage()]
+    assert diag, "au moins une tranche doit être loggée"
+    assert any("nébul tot 90/90 bas 80/80 moy 30/30" in m for m in diag)
+
+
 def test_grille_cap_au_soir_de_j1_apres_midi() -> None:
     """Après-midi : la grille s'arrête au soir de J+1 (pas de J+2).
 
