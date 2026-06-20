@@ -25,6 +25,7 @@ hiérarchie visuelle ; les labels gauches restent en gris discret.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -67,6 +68,8 @@ from .indicateurs import (
     periodes_pleines,
     portion_horaire,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     # Re-exports pour rétro-compat (les tests historiques importaient
@@ -538,6 +541,56 @@ def _serie_fenetre(
     return horaire_loc.loc[_masque_fenetre(horaire_loc, jour, h_debut, h_fin), colonne].dropna()
 
 
+def _stat_pct(sub: pd.DataFrame, colonne: str) -> str:
+    """``moyenne/max`` en % d'une colonne fraction (0-1) sur une tranche (``n/d`` si absente)."""
+    if colonne not in sub.columns:
+        return "n/d"
+    s = sub[colonne].dropna()
+    return "n/d" if s.empty else f"{s.mean() * 100:.0f}/{s.max() * 100:.0f}"
+
+
+def _log_diagnostic_pictos(
+    horaire_loc: pd.DataFrame,
+    jours_uniques: list[pd.Timestamp],
+    pleins: set[tuple[pd.Timestamp, int]],
+) -> None:
+    """Log INFO par tranche affichée → calibration picto vs MF.com (``docs/calibration_pictos.md``).
+
+    Émet, par tranche 6 h, la **nébulosité** totale/basse/moyenne (moyenne **et** max
+    sur les heures de la tranche, en %), le cumul de pluie et les **codes OMM horaires**
+    — l'info qui manque pour départager « agrégation max trop pessimiste » vs « AROME
+    vraiment couvert ». Visible dans le log du workflow (jamais dans le mail).
+    """
+    if not logger.isEnabledFor(logging.INFO):
+        return
+    for jour in jours_uniques:
+        for nom, h_debut, h_fin in FENETRES_VEILLE:
+            if (jour, h_debut) not in pleins:
+                continue
+            sub = horaire_loc.loc[_masque_fenetre(horaire_loc, jour, h_debut, h_fin)]
+            if sub.empty:
+                continue
+            pr = sub["precipitation"] if "precipitation" in sub.columns else None
+            pluie = float(pr.sum()) if pr is not None else float("nan")
+            codes = (
+                sub["weather_code"].dropna().astype(int).tolist()
+                if "weather_code" in sub.columns
+                else []
+            )
+            jour_lbl = JOURS_FR[jour.weekday()][:3] + f". {jour.day:02d}/{jour.month:02d}"
+            logger.info(
+                "PICTO-DIAG %s %-11s | nébul tot %s bas %s moy %s (moy/max %%) "
+                "| pluie %.1f mm | codes %s",
+                jour_lbl,
+                nom,
+                _stat_pct(sub, "cloud_cover"),
+                _stat_pct(sub, "cloud_cover_low"),
+                _stat_pct(sub, "cloud_cover_mid"),
+                pluie,
+                codes,
+            )
+
+
 def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
     now_utc: pd.Timestamp | None = None,
@@ -577,6 +630,7 @@ def _bloc_grille_indicateurs_48h(
     # Périodes pleines à afficher : clé (jour local normalisé, heure de début).
     pleins = {(debut.normalize(), debut.hour) for _, debut, _ in periodes}
     jours_uniques = sorted({debut.normalize() for _, debut, _ in periodes})
+    _log_diagnostic_pictos(horaire, jours_uniques, pleins)  # calibration picto (log CI)
     tableaux: list[str] = []
 
     for jour in jours_uniques:
