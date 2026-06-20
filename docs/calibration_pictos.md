@@ -39,6 +39,25 @@ jamais sur un seul jour. Un écart isolé peut venir du run (AROME ~02 Z vs blen
 
 ## Journal des comparaisons
 
+### 2026-06-20 (après-midi) — BUG D'UNITÉ trouvé via PICTO-DIAG
+
+Le log `PICTO-DIAG` du run de l'après-midi montrait des nébulosités brutes de
+**35, 99, 16…** (échelle 0-100) — or une fraction ≤ 1. **AROME sert la nébulosité
+en % (0-100)**, mais la source la traitait en **fraction** (« frac » = identité),
+puis le moteur picto ×100 → **35 % → 3500 → « couvert »**. C'est **la** cause du
+biais « trop couvert ».
+
+Contre-preuve décisive : ARPEGE tire **le même coverage** `TOTAL_CLOUD_COVER` du
+**même WCS** et le déclare déjà `pct_frac` (÷100). Cause probable : héritage d'une
+source antérieure (Open-Meteo → webservice → API) jamais revérifié à la bascule
+ADR-0021 ; le fixture synthétique (0,5 → 0,5) ne pouvait pas l'attraper.
+
+**Correctif** : `cloud_cover` total/bas/moyen passés en `pct_frac` (÷100) dans
+`meteofrance_arome.py` ; fixture + test de régression inversés ; le ÷100 rend les
+codes corrects (35 % → peu nuageux). À **vérifier au prochain mail** : les pictos
+devraient coller bien mieux à MF.com (moins de « couvert » sur ciel partiel).
+
+
 ### 2026-06-20 — Pleine-Fougères (mail matin, run AROME ~02 Z ; MF.com relevé ~08 h)
 
 | Tranche | MF.com | Mail | Notre code | Écart |
