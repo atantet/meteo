@@ -126,8 +126,8 @@ WMO_VERS_LIBELLE: dict[int, str] = {
     99: "Orage avec grosse grêle",
 }
 
-# Hiérarchie de sévérité (utilisée pour l'agrégation "max severity"
-# par jour). Plus grand = plus sévère / impactant.
+# Hiérarchie de sévérité (utilisée pour la voie « événement » de l'agrégation :
+# signaler le code le plus impactant). Plus grand = plus sévère / impactant.
 WMO_SEVERITE: dict[int, int] = {
     0: 0,
     1: 1,
@@ -234,9 +234,9 @@ def codes_dominants_par_jour(
     """Agrège les codes WMO horaires en code dominant par jour local.
 
     Restreint la fenêtre aux heures diurnes (défaut 8h-20h locales) pour
-    refléter ce que perçoit l'utilisateur de jour. Choisit le code de
-    **sévérité maximale** par jour (privilégie la signalisation d'un
-    épisode pluvieux ponctuel sur la moyenne).
+    refléter ce que perçoit l'utilisateur de jour. Délègue à
+    ``code_dominant_fenetre`` (agrégation à deux voies : un événement pluie/orage
+    est signalé, sinon le ciel sec reflète les éclaircies).
 
     Parameters
     ----------
@@ -269,11 +269,18 @@ def codes_dominants_par_jour(
 
 
 def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
-    """Choisit le code représentatif d'une fenêtre horaire.
+    """Choisit le code représentatif d'une fenêtre horaire (agrégation à deux voies).
 
-    Heuristique : prend le code avec la **sévérité maximale**
-    (impacte plus l'utilisateur de signaler la pluie cachée que de
-    montrer un soleil moyen).
+    Un picto de tranche doit **refléter toutes les heures, éclaircies comprises** —
+    pas seulement la plus chargée. Deux voies :
+
+    - **Événement** (brouillard / précip / orage, code ≥ 45) : si une heure en porte un,
+      on le **signale** (sévérité max). Ne jamais cacher une averse ou un orage.
+    - **Ciel sec** (codes 0-3 : ensoleillé / peu nuageux / partiellement nuageux /
+      couvert) : on reflète la **variabilité**. Un ciel **mixte** (du soleil ET des
+      nuages dans la fenêtre) → **partiellement nuageux** (éclaircies) ; couvert plein
+      seulement si **toutes** les heures sont couvertes ; clair seulement si la fenêtre
+      reste dans le registre ensoleillé.
 
     Parameters
     ----------
@@ -290,6 +297,15 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     codes_valides = codes_horaires.dropna().astype(int)
     if codes_valides.empty:
         return None
-    severites = codes_valides.map(lambda c: WMO_SEVERITE.get(int(c), 0))
-    idx_max = severites.idxmax()
-    return int(codes_valides.loc[idx_max])
+    # Voie « événement » : brouillard/précip/orage (code ≥ 45) → sévérité max.
+    significatifs = codes_valides[codes_valides >= 45]
+    if not significatifs.empty:
+        severites = significatifs.map(lambda c: WMO_SEVERITE.get(int(c), 0))
+        return int(significatifs.loc[severites.idxmax()])
+    # Voie « ciel sec » : refléter les éclaircies.
+    lo, hi = int(codes_valides.min()), int(codes_valides.max())
+    if hi <= 1:
+        return hi  # tout dans le clair (ensoleillé / peu nuageux)
+    if lo >= 3:
+        return 3  # toutes les heures couvertes → couvert
+    return 2  # mixte (soleil + nuages) → partiellement nuageux (éclaircies)
