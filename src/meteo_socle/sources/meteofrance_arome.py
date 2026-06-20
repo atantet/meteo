@@ -12,8 +12,8 @@ Réutilise les primitives WCS d'``meteofrance_arpege`` (OAuth, limiteur/min,
 couches nuageuses, neige — tous diagnostiqués par MF (cf. moteur ``temps_sensible``).
 
 Unités vérifiées au point le 2026-06-15 (smoke ``diag_arome_getcoverage``) :
-T en **K**, HR en **%** (→ fraction), vent/rafales en **m/s**, **nébulosité déjà en
-fraction 0-1** (≠ ARPEGE qui est en %), pluie/neige en **mm**, visibilité en **m**,
+T en **K**, HR en **%** (→ fraction), vent/rafales en **m/s**, **nébulosité en %**
+(→ fraction, ÷100, comme ARPEGE — corrigé 2026-06-20), pluie/neige en **mm**, visibilité en **m**,
 ``PRECIPITATION_TYPE_60_MIN`` = **code GRIB 4.201** (0 = pas de précip), rayonnement
 en J/m² accumulés → J/m²/h. Sortie en **unités socle**, mêmes conventions que
 ``MeteoFranceArpege`` → branchable sans changer le pipeline.
@@ -57,7 +57,10 @@ class AromeIndisponibleError(RuntimeError):
 
 # ---------------------------------------------------------------------------
 # Mapping variable socle → coverage AROME (+ niveau, conversion).
-# « frac » = valeur déjà en fraction 0-1 (nébulosité AROME) → identité.
+# « pct_frac » = % (0-100) → fraction 0-1 (HR, nébulosité). Le WCS AROME sert la
+# nébulosité en % comme ARPEGE (même coverage TOTAL_CLOUD_COVER) — l'hypothèse
+# « déjà en fraction » était fausse (héritée d'une source antérieure), elle gonflait
+# d'un facteur 100 le moteur picto (35 % → « couvert ») [vérifié log PICTO-DIAG 2026-06-20].
 # « code » = code GRIB tel quel (type de précip). « m » = mètres (visibilité).
 # ---------------------------------------------------------------------------
 #: Variables instantanées : (préfixe coverage, hauteur ou None, conversion → socle).
@@ -65,12 +68,12 @@ _VARS_INSTANT: dict[str, tuple[str, int | None, str]] = {
     "temperature_2m": ("TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 2, "K"),
     "humidite_relative": ("RELATIVE_HUMIDITY__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 2, "pct_frac"),
     "rafales_vent_10m": ("WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND", 10, "ms"),
-    "cloud_cover": ("TOTAL_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
+    "cloud_cover": ("TOTAL_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "pct_frac"),
     # Couches basse/moyenne : réduction « cirrus » du moteur picto (le couvert sans
     # pluie mais low+mid dégagés → partiel). La couche HAUTE n'est PAS consommée → non
     # fetchée (allègement : un fetch 48 h = ~1 requête WCS par variable × échéance).
-    "cloud_cover_low": ("LOW_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
-    "cloud_cover_mid": ("MEDIUM_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "frac"),
+    "cloud_cover_low": ("LOW_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "pct_frac"),
+    "cloud_cover_mid": ("MEDIUM_CLOUD_COVER__GROUND_OR_WATER_SURFACE", None, "pct_frac"),
     # Champs picto diagnostiqués par MF (cf. ADR-0021 / temps_sensible).
     "type_precip": ("PRECIPITATION_TYPE_60_MIN__GROUND_OR_WATER_SURFACE", None, "code"),
     "visibilite_m": ("VISIBILITY_MINI_60MIN__GROUND_OR_WATER_SURFACE", None, "m"),

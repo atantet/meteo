@@ -4,8 +4,8 @@ Le fetch WCS (OAuth + GetCoverage + GRIB) nécessite réseau + clé DP : non tes
 en CI. On injecte ici une **prévision synthétique** (valeurs brutes en unités GRIB
 MF) en montant ``_valeur_point``/``_echeances``/``_bearer``, et on vérifie que
 ``obtenir_run`` sort des **unités socle** correctes — surtout les conversions
-fragiles (HR % → fraction, **nébulosité AROME déjà en fraction**, code de type de
-précip passé tel quel, vent U/V → vitesse).
+fragiles (HR % → fraction, **nébulosité AROME % → fraction** (÷100, comme ARPEGE),
+code de type de précip passé tel quel, vent U/V → vitesse).
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ _BRUT = {
     "TEMPERATURE__": 290.0,  # K
     "RELATIVE_HUMIDITY__": 80.0,  # %
     "WIND_SPEED_GUST__": 8.0,  # m/s
-    "TOTAL_CLOUD_COVER__": 0.5,  # fraction 0-1 (≠ ARPEGE en %)
-    "LOW_CLOUD_COVER__": 0.2,
-    "MEDIUM_CLOUD_COVER__": 0.3,
-    "HIGH_CLOUD_COVER__": 0.1,
+    "TOTAL_CLOUD_COVER__": 50.0,  # % 0-100 (comme ARPEGE, même coverage WCS)
+    "LOW_CLOUD_COVER__": 20.0,
+    "MEDIUM_CLOUD_COVER__": 30.0,
+    "HIGH_CLOUD_COVER__": 10.0,
     "PRECIPITATION_TYPE_60_MIN__": 1.0,  # code GRIB 4.201 (1 = pluie)
     "VISIBILITY_MINI_60MIN__": 5000.0,  # m
     "U_COMPONENT_OF_WIND__": 3.0,  # m/s
@@ -73,7 +73,8 @@ def test_conversions_unites(_run: pd.DataFrame) -> None:
     ligne = _run.iloc[-1]  # +3 h (échéance pleine, hors analyse)
     assert ligne["temperature_2m"] == pytest.approx(290.0)  # K, identité
     assert ligne["humidite_relative"] == pytest.approx(0.80)  # % → fraction
-    # Nébulosité AROME déjà en fraction → identité (PAS 0.005). Garde-fou clé.
+    # Nébulosité AROME en % → fraction (50 % → 0.5). Garde-fou clé : le WCS sert des
+    # %, pas des fractions ; sans ÷100 le moteur picto gonflait ×100 (« couvert »).
     assert ligne["cloud_cover"] == pytest.approx(0.5)
     assert 0.0 <= ligne["cloud_cover"] <= 1.0
     assert ligne["type_precip"] == pytest.approx(1.0)  # code passé tel quel
@@ -89,11 +90,13 @@ def test_accumulees_analyse_nulle(_run: pd.DataFrame) -> None:
     assert np.isnan(_run.iloc[0]["rafales_vent_10m"])
 
 
-def test_cloud_cover_pas_pct_frac() -> None:
-    # Régression : le mapping doit déclarer la nébulosité « frac », pas « pct_frac »
-    # (sinon ÷100 → ciel toujours clair). Vérifie aussi les couches.
+def test_cloud_cover_en_pct_frac() -> None:
+    # Régression (corrigée 2026-06-20) : le WCS AROME sert la nébulosité en % (même
+    # coverage que ARPEGE, qui la déclare déjà « pct_frac »). Le mapping doit donc
+    # déclarer « pct_frac » (÷100) ; « frac » (identité) gonflait ×100 le moteur picto
+    # (35 % → 3500 → « couvert »), d'où le biais « trop couvert » vs MF.com.
     for col in ("cloud_cover", "cloud_cover_low", "cloud_cover_mid"):
-        assert mfa._VARS_INSTANT[col][2] == "frac"
+        assert mfa._VARS_INSTANT[col][2] == "pct_frac"
     assert mfa._VARS_INSTANT["humidite_relative"][2] == "pct_frac"
     # Couche haute / neige / rayonnement non consommés en 48 h → non fetchés.
     assert "cloud_cover_high" not in mfa._VARS_INSTANT
