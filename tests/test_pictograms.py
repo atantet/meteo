@@ -116,6 +116,35 @@ def test_code_dominant_fenetre_orage_prioritaire() -> None:
     assert code_dominant_fenetre(serie) == 95
 
 
+def test_code_dominant_fenetre_ciel_mixte_montre_eclaircies() -> None:
+    """1 h ensoleillée + 5 h couvertes → éclaircies (2), pas couvert (3)."""
+    from apps.shared.pictograms import code_dominant_fenetre
+
+    # Le picto 6 h doit refléter qu'il y a eu du soleil, pas afficher un couvert plein.
+    assert code_dominant_fenetre(pd.Series([0, 3, 3, 3, 3, 3])) == 2
+    # Peu nuageux + couvert : idem, éclaircies.
+    assert code_dominant_fenetre(pd.Series([1, 3, 3, 3])) == 2
+    # Partiellement nuageux + couvert : il reste du soleil → éclaircies.
+    assert code_dominant_fenetre(pd.Series([2, 3, 3, 3])) == 2
+
+
+def test_code_dominant_fenetre_ciel_uniforme() -> None:
+    """Ciel uniforme : on garde le niveau (pas de fausse éclaircie ni faux couvert)."""
+    from apps.shared.pictograms import code_dominant_fenetre
+
+    assert code_dominant_fenetre(pd.Series([3, 3, 3, 3])) == 3  # tout couvert → couvert
+    assert code_dominant_fenetre(pd.Series([0, 0, 0])) == 0  # tout ensoleillé
+    assert code_dominant_fenetre(pd.Series([0, 0, 1, 0])) == 1  # registre clair → peu nuageux
+
+
+def test_code_dominant_fenetre_evenement_prime_sur_eclaircies() -> None:
+    """Une averse (≥ 45) est signalée même s'il y a du soleil dans la fenêtre."""
+    from apps.shared.pictograms import code_dominant_fenetre
+
+    # 0 = ensoleillé, 61 = pluie (sev 7) : on ne cache pas l'averse sous des éclaircies.
+    assert code_dominant_fenetre(pd.Series([0, 0, 61, 3])) == 61
+
+
 def test_code_dominant_fenetre_vide_renvoie_none() -> None:
     """Série vide ou tout NaN → None (modèle sans weather_code)."""
     from apps.shared.pictograms import code_dominant_fenetre

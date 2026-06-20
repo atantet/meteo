@@ -25,9 +25,17 @@ jamais sur un seul jour. Un écart isolé peut venir du run (AROME ~02 Z vs blen
 ## Synthèse des biais observés (à ce jour)
 
 - **Tendance « trop couvert »** sur les tranches que MF cure en « peu nuageux »
-  (1 cas : 2026-06-20). **À confirmer** sur d'autres jours avant tout ajustement.
-- Hypothèses à départager (manque les valeurs horaires sous-jacentes) :
-  agrégation max 6 h trop pessimiste **ou** AROME réellement plus couvert que MF.
+  (1 cas : 2026-06-20).
+- **Correctif appliqué (2026-06-20)** : agrégation 6 h passée de « sévérité max »
+  à **deux voies** — ciel sec mixte → éclaircies (partiellement nuageux), événement
+  pluie/orage toujours signalé (`code_dominant_fenetre`). Devrait corriger le biais
+  quand le ciel AROME était *mixte* sur la tranche ; à **vérifier** au prochain mail
+  via le log `PICTO-DIAG` (si la tranche était *uniformément* couverte, le picto
+  restera « couvert » — alors ce sera AROME plus pessimiste que MF, pas l'agrégation).
+
+### Leviers restants (si le biais persiste après correctif agrégation)
+- **Seuils** de nébulosité `(13, 38, 86)` — à rapprocher des octas MF seulement sur
+  biais *répété* et documenté par les valeurs `PICTO-DIAG`.
 
 ## Journal des comparaisons
 
