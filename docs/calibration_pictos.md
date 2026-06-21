@@ -43,6 +43,23 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-06-21 (après-midi/soir) — correctifs validés ; écarts = doctrine/modèle
+
+1er mail avec **tous** les correctifs (unité % + agrégation représentative).
+
+| Tranche | codes | nébul moy/max | Nous | MF.com | Verdict |
+|---|---|---|---|---|---|
+| Dim soir | [1,2,0,2,2,2] | 60/100 | ⛅ Partiel. | ☁️ Couvert | seuil ? (1 pt) |
+| Lun nuit | [2,2,0,0,0,0] | 28/100 | 🌤️ Peu nuageux | 🌤️ Peu nuageux | ✅ |
+| Lun matin | [0,0,2,0,0,2] | 26/99 | 🌤️ Peu nuageux | 🌤️ Peu nuageux | ✅ |
+| Lun a-m | [0,0,0,95,95,95] | 28/100 · 0 mm | ⛈️ Orage | 🌧️ Averse | doctrine |
+| Lun soir | [95,95,95,95,2,2] | — | ⛈️ Orage | ⛈️ Orage | ✅ |
+
+- **Raffinage validé** : Lun nuit/matin collent à MF (peu nuageux), plus de « ⛅ partout ».
+- **Orage = Vigilance** (overlay 95) : fenêtre plus large que MF (a-m + soir vs averse + orage). Doctrine assumée ; soir ✅. À arbitrer si on veut resserrer sur MF.
+- **Pluie Lun a-m** : AROME 0 mm vs averse MF → divergence de **modèle**, pas un seuil.
+- **Dim soir** : nous partiel (60 %), MF couvert → **seuil** partiel/couvert à surveiller (1 seul point, pas d'ajustement).
+
 ### 2026-06-21 (matin) — 1ᵉʳ mail avec les 2 correctifs ; raffinage agrégation
 
 `PICTO-DIAG` enfin en vraies fractions (ex. dim. matin tot moy/max **19/93 %**). Le
