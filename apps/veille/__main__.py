@@ -36,6 +36,9 @@ import pandas as pd
 import requests
 
 from meteo_socle.sources.dpvigilance import (
+    NIVEAU_NOMS as VIGILANCE_NIVEAU_NOMS,
+)
+from meteo_socle.sources.dpvigilance import (
     VigilanceDPIndisponibleError,
     recuperer_vigilance_dp,
 )
@@ -97,6 +100,36 @@ def _run_recent(
     while now_utc - c < pd.Timedelta(hours=latence_min_h):
         c -= pd.Timedelta(hours=cycle_h)
     return c
+
+
+def _log_diagnostic_vigilance(
+    vigilance: Any, departement: str, now_utc: pd.Timestamp, tz_locale: str
+) -> None:
+    """Log INFO de la Vigilance MF récupérée (audit niveau/horizon + fraîcheur).
+
+    Trace le **niveau max**, l'heure d'**émission** du bulletin (clé pour savoir si une
+    rouge du lendemain est déjà émise ou pas encore) et les phénomènes actifs (≥ jaune)
+    avec niveau. Visible au log du workflow (jamais dans le mail). Sécurité : une rouge
+    ne doit jamais passer inaperçue faute d'audit.
+    """
+    if vigilance is None:
+        logger.info("VIGIL-DIAG dept %s | aucune vigilance récupérée (None)", departement)
+        return
+    actifs = [p for p in vigilance.phenomenes if p.niveau > 1]
+    detail = (
+        ", ".join(f"{p.nom}:{VIGILANCE_NIVEAU_NOMS.get(p.niveau, p.niveau)}" for p in actifs)
+        or "tout vert"
+    )
+    maj = vigilance.update_time
+    fin = vigilance.fin_validite
+    logger.info(
+        "VIGIL-DIAG dept %s | max=%s | émission=%s fin=%s | %s",
+        departement,
+        VIGILANCE_NIVEAU_NOMS.get(vigilance.niveau_max_global, vigilance.niveau_max_global),
+        maj.strftime("%Y-%m-%dT%H:%MZ") if maj is not None else "n/d",
+        fin.strftime("%Y-%m-%dT%H:%MZ") if fin is not None else "n/d",
+        detail,
+    )
 
 
 def _envoyer_echec(
@@ -274,6 +307,7 @@ def executer_veille(
                 vigilance = recuperer_vigilance_dp(departement=departement)
             except VigilanceDPIndisponibleError:
                 vigilance = None
+        _log_diagnostic_vigilance(vigilance, departement, now_utc, tz_locale)
 
         # Partie 2 « La semaine » — dans les DEUX créneaux. Le matin l'actualise ;
         # l'après-midi la rappelle à l'identique (``rappel=True`` → même run 00Z,

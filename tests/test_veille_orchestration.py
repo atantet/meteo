@@ -14,6 +14,31 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 
+def test_log_diagnostic_vigilance_rouge(caplog) -> None:
+    """Une vigilance rouge est tracée au log (audit : ne jamais la rater)."""
+    import logging
+
+    from apps.veille.__main__ import _log_diagnostic_vigilance
+    from meteo_socle.sources.dpvigilance import VigilanceDepartementDP, VigilancePhenomeneDP
+
+    vig = VigilanceDepartementDP(
+        departement="35",
+        phenomenes=[
+            VigilancePhenomeneDP(code=6, nom="Canicule", niveau_max=4),  # rouge
+            VigilancePhenomeneDP(code=3, nom="Orages", niveau_max=2),  # jaune
+        ],
+        update_time=pd.Timestamp("2026-06-21 16:00", tz="UTC"),
+        fin_validite=pd.Timestamp("2026-06-23 00:00", tz="UTC"),
+    )
+    now = pd.Timestamp("2026-06-21 16:40", tz="UTC")
+    with caplog.at_level(logging.INFO, logger="apps.veille.__main__"):
+        _log_diagnostic_vigilance(vig, "35", now, "Europe/Paris")
+    msg = next(r.getMessage() for r in caplog.records if "VIGIL-DIAG" in r.getMessage())
+    assert "max=Rouge" in msg
+    assert "Canicule:Rouge" in msg
+    assert "émission=2026-06-21T16:00Z" in msg  # fraîcheur du bulletin tracée
+
+
 def _config_test() -> dict:
     return {
         "site": {"latitude": 48.5, "longitude": -1.6, "altitude": 30, "tz": "Europe/Paris"},
