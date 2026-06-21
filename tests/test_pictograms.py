@@ -116,25 +116,26 @@ def test_code_dominant_fenetre_orage_prioritaire() -> None:
     assert code_dominant_fenetre(serie) == 95
 
 
-def test_code_dominant_fenetre_ciel_mixte_montre_eclaircies() -> None:
-    """1 h ensoleillée + 5 h couvertes → éclaircies (2), pas couvert (3)."""
+def test_code_dominant_fenetre_garde_fou_eclaircies() -> None:
+    """Tranche majoritairement couverte mais avec une éclaircie → pas couvert plein."""
     from apps.shared.pictograms import code_dominant_fenetre
 
     # Le picto 6 h doit refléter qu'il y a eu du soleil, pas afficher un couvert plein.
-    assert code_dominant_fenetre(pd.Series([0, 3, 3, 3, 3, 3])) == 2
-    # Peu nuageux + couvert : idem, éclaircies.
-    assert code_dominant_fenetre(pd.Series([1, 3, 3, 3])) == 2
-    # Partiellement nuageux + couvert : il reste du soleil → éclaircies.
-    assert code_dominant_fenetre(pd.Series([2, 3, 3, 3])) == 2
+    assert code_dominant_fenetre(pd.Series([0, 3, 3, 3, 3, 3])) == 2  # 1 soleil + 5 couvert
+    assert code_dominant_fenetre(pd.Series([1, 3, 3, 3])) == 2  # peu nuageux + couvert
+    assert code_dominant_fenetre(pd.Series([2, 3, 3, 3])) == 2  # partiel + couvert
 
 
-def test_code_dominant_fenetre_ciel_uniforme() -> None:
-    """Ciel uniforme : on garde le niveau (pas de fausse éclaircie ni faux couvert)."""
+def test_code_dominant_fenetre_ciel_representatif() -> None:
+    """Ciel sec : niveau moyen représentatif — ne pas sur-couvrir une tranche ensoleillée."""
     from apps.shared.pictograms import code_dominant_fenetre
 
     assert code_dominant_fenetre(pd.Series([3, 3, 3, 3])) == 3  # tout couvert → couvert
     assert code_dominant_fenetre(pd.Series([0, 0, 0])) == 0  # tout ensoleillé
-    assert code_dominant_fenetre(pd.Series([0, 0, 1, 0])) == 1  # registre clair → peu nuageux
+    # Majoritairement clair + 1-2 h chargées → peu nuageux, PAS partiellement nuageux
+    # (régression du biais « tout en ⛅ » vu le 2026-06-21 : matinées à ~20-30 % nuages).
+    assert code_dominant_fenetre(pd.Series([0, 0, 0, 0, 2, 1])) == 1  # MF : peu nuageux
+    assert code_dominant_fenetre(pd.Series([0, 0, 2, 2, 0, 0])) == 1  # idem
 
 
 def test_code_dominant_fenetre_evenement_prime_sur_eclaircies() -> None:

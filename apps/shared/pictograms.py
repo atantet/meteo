@@ -277,10 +277,11 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     - **Événement** (brouillard / précip / orage, code ≥ 45) : si une heure en porte un,
       on le **signale** (sévérité max). Ne jamais cacher une averse ou un orage.
     - **Ciel sec** (codes 0-3 : ensoleillé / peu nuageux / partiellement nuageux /
-      couvert) : on reflète la **variabilité**. Un ciel **mixte** (du soleil ET des
-      nuages dans la fenêtre) → **partiellement nuageux** (éclaircies) ; couvert plein
-      seulement si **toutes** les heures sont couvertes ; clair seulement si la fenêtre
-      reste dans le registre ensoleillé.
+      couvert) : on prend le ciel **représentatif** (niveau moyen de la tranche,
+      arrondi) — refléter toutes les heures sans noircir sur une seule. **Garde-fou
+      éclaircies** : si le représentatif tombe sur « couvert » mais qu'il reste une
+      heure ensoleillée/peu/partiellement nuageuse, on rend **partiellement nuageux**
+      (éclaircies) — jamais couvert plein s'il y a du soleil dans la fenêtre.
 
     Parameters
     ----------
@@ -302,10 +303,9 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     if not significatifs.empty:
         severites = significatifs.map(lambda c: WMO_SEVERITE.get(int(c), 0))
         return int(significatifs.loc[severites.idxmax()])
-    # Voie « ciel sec » : refléter les éclaircies.
-    lo, hi = int(codes_valides.min()), int(codes_valides.max())
-    if hi <= 1:
-        return hi  # tout dans le clair (ensoleillé / peu nuageux)
-    if lo >= 3:
-        return 3  # toutes les heures couvertes → couvert
-    return 2  # mixte (soleil + nuages) → partiellement nuageux (éclaircies)
+    # Voie « ciel sec » : niveau représentatif (moyen) + garde-fou éclaircies.
+    niveaux = codes_valides.to_numpy()
+    rep = int(niveaux.mean() + 0.5)  # arrondi au plus proche
+    if rep >= 3 and int(niveaux.min()) <= 2:
+        rep = 2  # au moins une éclaircie → partiellement nuageux, pas couvert plein
+    return rep

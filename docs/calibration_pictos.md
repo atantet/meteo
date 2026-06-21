@@ -4,9 +4,13 @@ Registre **persistant** des comparaisons entre le picto de la grille 48 h du mai
 (dérivé d'AROME par `code_wmo_diagnostic`/`serie_code_temps_mf`) et le picto
 **officiel** de [MF.com](https://meteofrance.com/previsions-meteo-france/pleine-fougeres/35610).
 
-But : repérer les **biais systématiques** et ajuster **progressivement** les seuils —
-jamais sur un seul jour. Un écart isolé peut venir du run (AROME ~02 Z vs blend MF
-~08 h) ou de la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
+**Les pictogrammes MF.com font foi** (référence). On ajuste notre dérivation pour
+**coller à MF** ; les règles maison (ex. « éclaircies ») sont des **guides**, pas des
+absolus — quand un guide s'écarte de MF, MF gagne.
+
+But : repérer les **biais systématiques** et ajuster **progressivement** — jamais sur
+un seul jour. Un écart isolé peut venir du run (AROME ~02 Z vs blend MF ~08 h) ou de
+la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Rappel du moteur
 
@@ -38,6 +42,24 @@ jamais sur un seul jour. Un écart isolé peut venir du run (AROME ~02 Z vs blen
   biais *répété* et documenté par les valeurs `PICTO-DIAG`.
 
 ## Journal des comparaisons
+
+### 2026-06-21 (matin) — 1ᵉʳ mail avec les 2 correctifs ; raffinage agrégation
+
+`PICTO-DIAG` enfin en vraies fractions (ex. dim. matin tot moy/max **19/93 %**). Le
+fix d'unité a **supprimé les « couvert » abusifs** ✅. Mais l'agrégation « mixte → 2 »
+était trop brutale → on affichait **« partiellement nuageux » (⛅) partout**, 1 cran
+au-dessus de MF (peu nuageux/ensoleillé sur des matinées à 20-33 % de nuages).
+
+| Tranche | codes | nébul moy/max | Avant (mixte→2) | MF.com |
+|---|---|---|---|---|
+| Dim matin | [0,0,0,0,2,1] | 19/93 | ⛅ Partiel. | 🌤️ Peu nuageux |
+| Dim a-m | [2,2,0,0,1,2] | 46/89 | ⛅ Partiel. | 🌤️ Peu nuageux |
+| Lun matin | [0,0,2,2,0,0] | 33/99 | ⛅ Partiel. | ☀️ Ensoleillé |
+
+**Raffinage** : ciel sec = niveau **représentatif (moyen)** au lieu de « mixte→2 »,
++ garde-fou éclaircies (jamais couvert plein s'il reste du soleil). Résultat attendu :
+dim matin/a-m → **peu nuageux** (colle à MF), tout en gardant « 1 soleil + 5 couvert →
+éclaircies ». À vérifier au prochain mail.
 
 ### 2026-06-20 (après-midi) — BUG D'UNITÉ trouvé via PICTO-DIAG
 
