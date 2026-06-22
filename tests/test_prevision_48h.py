@@ -54,6 +54,37 @@ def test_overlay_orage_sur_tranche() -> None:
     assert df.loc["2026-06-15T15:00:00Z", "probabilite_pluie_pct"] == 60.0
 
 
+def test_orage_pas_peint_sur_ciel_degage() -> None:
+    """Garde-fou (2026-06-22) : ciel clair dans la fenêtre Vigilance orages → PAS d'orage.
+
+    On se cale sur le picto MF par créneau (MF affiche peu nuageux les heures dégagées
+    même Vigilance orages active) ; le risque reste porté par le tableau Vigilance.
+    Ciel inconnu (<NA>) → on garde l'orage par prudence.
+    """
+    idx = pd.date_range("2026-06-15T12:00:00Z", periods=4, freq="h")  # 12..15 UTC
+    df_in = pd.DataFrame(
+        {
+            "cloud_cover": [0.02, 0.02, 0.90, float("nan")],  # clair, clair, couvert, inconnu
+            "precipitation": [0.0] * 4,
+            "type_precip": [0.0] * 4,
+            "visibilite_m": [20000.0] * 4,
+            "temperature_2m": [290.0] * 4,
+        },
+        index=idx,
+    )
+    tranches = [  # Vigilance orages sur les 4 heures.
+        TrancheVigilance(
+            pd.Timestamp("2026-06-15T12:00:00Z"), pd.Timestamp("2026-06-15T16:00:00Z"), 2
+        )
+    ]
+    df = assembler_df_48h(df_in, pd.Series(dtype=float), tranches)
+
+    assert df.loc["2026-06-15T12:00:00Z", "weather_code"] != WMO_ORAGE  # clair → pas orage
+    assert df.loc["2026-06-15T13:00:00Z", "weather_code"] != WMO_ORAGE  # clair → pas orage
+    assert df.loc["2026-06-15T14:00:00Z", "weather_code"] == WMO_ORAGE  # couvert → orage
+    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == WMO_ORAGE  # inconnu → orage (prudence)
+
+
 def test_sans_tranche_aucun_orage() -> None:
     df = assembler_df_48h(_arome_synthetique(), pd.Series(dtype=float), [])
     assert (df["weather_code"] != WMO_ORAGE).all()

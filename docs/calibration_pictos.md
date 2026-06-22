@@ -43,6 +43,23 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-06-22 (après-midi/soir) — garde-fou orage (overlay gated par le ciel)
+
+Vigilance toujours rouge (`VIGIL-DIAG max=Rouge | émission=14:04Z | Canicule:Rouge`).
+Écart picto orage : Lun soir nous ⛈️ Orage vs MF 🌤️ Peu nuageux.
+
+**Vérification forecast (PAR HEURE MF)** : cette nuit MF = peu nuageux, « pas de
+précipitations », 32→24° ; notre AROME = quasi-dégagé (2 %), 0 mm. **Les deux prévis
+concordent (nuit calme)** → l'écart est une **différence de règle** (overlay Vigilance
+sur ciel clair), pas un décalage de prévi. NB : AROME est à **0 mm sur TOUS** les
+créneaux orage (Lun soir ET Mar a-m/soir) → drier que MF → **on ne peut pas brancher
+l'orage sur la précip AROME** (sinon on perdrait l'orage de mardi).
+
+**Correctif** : l'overlay orage Vigilance est désormais **gated par le ciel** — pas
+peint sur une heure au ciel confirmé dégagé (code 0/1) ; gardé sur nuageux (≥ 2),
+pluvieux (≥ 45) ou inconnu (`<NA>`, prudence). Effet : Lun soir (2 %) → plus d'orage
+(= MF) ; Mardi (37-99 %) → orage gardé (= MF). Le **risque** reste au tableau Vigilance.
+
 ### 2026-06-22 (matin) — 5/5 sur les pictos + vigilance ROUGE captée
 
 Pictos collent à MF.com sur toutes les tranches comparables :

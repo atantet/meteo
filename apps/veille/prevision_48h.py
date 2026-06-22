@@ -37,6 +37,11 @@ logger = logging.getLogger(__name__)
 
 #: Code OMM 4677 de l'orage (overlay Vigilance ; cf. temps_sensible.WMO_ORAGE).
 WMO_ORAGE = 95
+#: Codes ciel « dégagé » (OMM) qui SUPPRIMENT l'overlay orage : 0 ensoleillé, 1 peu
+#: nuageux. Au-dessus (≥ 2 partiellement nuageux, ou précip ≥ 45) **ou** ciel inconnu
+#: (``<NA>``), on peint l'orage Vigilance. Ciel dégagé → pas le moment du coup de
+#: tonnerre ; le risque orage reste porté par le tableau Vigilance.
+CODES_CIEL_DEGAGE = (0, 1)
 #: Tolérance d'appariement proba (échéances PE-AROME) ↔ heures AROME.
 _TOL_PROBA = pd.Timedelta(hours=3)
 
@@ -73,14 +78,22 @@ def assembler_df_48h(
 
     Le picto est dérivé **sans orage** (doctrine) ; on superpose ensuite le code
     orage (95) sur les heures couvertes par une **tranche de Vigilance orages**
-    (horodatée, dept). ``code_dominant_fenetre`` fera ressortir l'orage sur la
-    fenêtre 6 h chevauchée → compatibilité matin/après-midi.
+    (horodatée, dept) — **mais seulement si le ciel modèle n'est pas dégagé** à cette
+    heure (nébulosité ≥ partiellement nuageux). Une nuit étoilée dans la fenêtre
+    Vigilance ne porte pas l'orage à cet instant ; on se cale ainsi sur le picto MF
+    par créneau (vérifié 2026-06-22 : MF affiche peu nuageux les heures dégagées,
+    orage les heures nuageuses), le **risque** restant porté par le tableau Vigilance.
+    ``code_dominant_fenetre`` fait ressortir l'orage sur la fenêtre 6 h chevauchée.
     """
     df = arome_df.copy()
     df["weather_code"] = serie_code_temps_mf(df)
     df["probabilite_pluie_pct"] = _proba_horaire(proba_6h, df.index)
     for tr in tranches_orages:
-        masque = (df.index >= tr.debut) & (df.index < tr.fin)
+        dans_tranche = (df.index >= tr.debut) & (df.index < tr.fin)
+        # Garde-fou ciel : pas d'orage sur une heure au ciel CONFIRMÉ dégagé (0/1). Les
+        # heures nuageuses (≥ 2), pluvieuses (≥ 45) ou au ciel inconnu (<NA>) gardent
+        # l'overlay. ``isin`` renvoie False sur <NA> → masque booléen propre (pas de NA).
+        masque = dans_tranche & ~df["weather_code"].isin(CODES_CIEL_DEGAGE)
         df.loc[masque, "weather_code"] = WMO_ORAGE
     return df
 
