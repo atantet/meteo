@@ -43,6 +43,26 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-06-22 (matin) — 5/5 sur les pictos + vigilance ROUGE captée
+
+Pictos collent à MF.com sur toutes les tranches comparables :
+
+| Tranche | codes | Nous | MF.com | |
+|---|---|---|---|---|
+| Lun matin | [0,0,0,0,0,0] | ☀️ Ensoleillé | ☀️ Ensoleillé | ✅ |
+| Lun a-m | [0,0,0,95,95,95] | ⛈️ Orage (Vigi) | ⛈️ Orage | ✅ |
+| Lun soir | [95,95,95,2,2,1] | ⛈️ Orage | ⛈️ Orage | ✅ |
+| Mar matin | [0,0,2,2,2,1] | 🌤️ Peu nuageux | 🌤️ Peu nuageux | ✅ |
+| Mar a-m | [0,0,0,0,0,0] | ☀️ Ensoleillé | ☀️ Ensoleillé | ✅ |
+
+Les correctifs (unité % + agrégation représentative) éliminent les biais « trop
+couvert » et « ⛅ partout ». L'orage Vigilance tombe pile (a-m + soir = MF).
+
+**Vigilance rouge** : `VIGIL-DIAG dept 35 | max=Rouge | émission=2026-06-22T04:01Z |
+Orages:Jaune, Canicule:Rouge`. La rouge a été **émise à 04:01 UTC** → captée par le
+run de 04:40 UTC (sujet « Vigilance rouge : Canicule »). Le mail de la veille
+après-midi (fetch 16:40 UTC) la précédait légitimement. Pas de trou : timing confirmé.
+
 ### 2026-06-21 (après-midi/soir) — correctifs validés ; écarts = doctrine/modèle
 
 1er mail avec **tous** les correctifs (unité % + agrégation représentative).
