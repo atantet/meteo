@@ -71,6 +71,12 @@ jobs:
           quarto render apps/climato/report.qmd --to html
 
       - name: Installer TinyTeX (PDF de l'état de l'art)
+        # GH_TOKEN : quarto interroge l'API GitHub pour la dernière release TinyTeX ;
+        # sans token, rate-limit GitHub (60 req/h partagés entre runners) → erreur
+        # « Unable to determine latest release » (vu 2026-06-23). Le token authentifie
+        # l'appel (5000 req/h) → fiabilise l'install.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: quarto install tinytex
 
       - name: Render état de l'art → HTML + PDF (livre Quarto)
