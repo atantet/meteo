@@ -43,6 +43,18 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-06-23 (matin) — garde-fou orage validé ; biais cirrus corrigé
+
+Garde-fou orage **OK** : aucun orage peint sur mardi ensoleillé (les seuls `95` sont
+Mer soir sur les heures nuageuses ; l'heure claire en tête est gated). Vigilance
+rouge captée (`max=Rouge | Canicule:Rouge`).
+
+**Biais cirrus confirmé 3ᵉ jour → corrigé** : `tot 79-93 % / bas 0 / moy 0` = cirrus
+seul. On rendait « partiellement nuageux », MF rend « peu nuageux/ensoleillé ». La
+réduction « nuages hauts » ne visait que > 86 % (nébulosité 3) ; **élargie à ≥ 38 %**
+(nébulosité 2) et **descendue à peu nuageux** (1, pas 2). Un vrai nuage bas n'est pas
+touché. Effet : Mar matin (79 % cirrus) → peu nuageux (= MF), au lieu de partiel.
+
 ### 2026-06-22 (après-midi/soir) — garde-fou orage (overlay gated par le ciel)
 
 Vigilance toujours rouge (`VIGIL-DIAG max=Rouge | émission=14:04Z | Canicule:Rouge`).
