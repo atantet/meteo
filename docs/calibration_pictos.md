@@ -43,6 +43,18 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-06-23 (après-midi) — tous correctifs OK ; résidu cirrus fin (non actionné)
+
+Mail après-midi colle à MF : Mar soir/Mer nuit ☀️/🌙 (= MF), Mer soir peu nuageux
+(= MF voilé), **aucun orage** peint (codes sans 95 ; orage disparu chez MF aussi),
+canicule **rouge** captée. Cirrus fix OK (Mer matin 50 % cirrus → peu nuageux, plus
+« partiel »).
+
+**Résidu mineur (non actionné)** : sur **cirrus fin** (30-50 %), on rend « peu nuageux »
+là où MF va jusqu'à « ensoleillé » (Mer matin/a-m). MF gradue (cirrus fin → ensoleillé,
+épais → peu nuageux) ; nous = uniforme « peu nuageux ». 1 cran, sur J+1 → à surveiller
+si ça se répète sur des créneaux proches (sinon over-fit).
+
 ### 2026-06-23 (matin) — garde-fou orage validé ; biais cirrus corrigé
 
 Garde-fou orage **OK** : aucun orage peint sur mardi ensoleillé (les seuls `95` sont
