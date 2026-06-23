@@ -88,9 +88,13 @@ def test_metno_cloudy_heavy_rain() -> None:
 
 
 def test_metno_dominated_by_high_clouds() -> None:
-    # Couvert (100 %) mais couches basse/moyenne dégagées (12 % → indice 0)
-    # et pas de pluie → ramené à partiellement nuageux.
-    assert s(100, 0, low_cloud_pct=12, mid_cloud_pct=12) == "PartlyCloud"
+    # Cirrus seuls (couches basse/moyenne dégagées, ≤ 13 %) sans pluie → PEU NUAGEUX,
+    # que ce soit à 100 % (nébulosité 3) ou 79 % (nébulosité 2) — le soleil passe à
+    # travers le voile, comme MF rend ces ciels (biais cirrus corrigé 2026-06-23).
+    assert s(100, 0, low_cloud_pct=12, mid_cloud_pct=12) == "LightCloud"
+    assert s(79, 0, low_cloud_pct=0, mid_cloud_pct=0) == "LightCloud"
+    # Mais un VRAI nuage bas (60 % en couche basse) n'est PAS réduit → partiellement nuageux.
+    assert s(60, 0, low_cloud_pct=60, mid_cloud_pct=10) == "PartlyCloud"
 
 
 def test_metno_sun_but_maybe_rain() -> None:
@@ -275,5 +279,5 @@ def test_regression_vendredi_picto_coherent_avec_cumul() -> None:
     code = int(serie_code_temps(df, hours=1).iloc[0])
     # Codes « sans précipitation » uniquement (0-3 ciel, 45 brouillard).
     assert code in {0, 1, 2, 3, 45}
-    # Et précisément : couvert de cirrus seuls → ramené à partiellement nuageux.
-    assert code == 2
+    # Et précisément : couvert de cirrus seuls → ramené à PEU NUAGEUX (1).
+    assert code == 1
