@@ -22,7 +22,7 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 | > 86 % | `Cloud` ☁️ | Couvert |
 
 - Seuils : `_SEUILS_NEBULOSITE_PCT = (13, 38, 86)` (`temps_sensible.py`).
-- Réduction cirrus : `Cloud` → `PartlyCloud` si pluie nulle **et** couches basse + moyenne ≤ 13 %.
+- Réduction cirrus : si pluie nulle **et** couches basse + moyenne ≤ 13 % → **ensoleillé** (cirrus transparent, quel que soit le recouvrement total).
 - Agrégation 6 h : **sévérité max** (`code_dominant_fenetre`) — le pire des 6 créneaux.
 - Orage : **Vigilance seule** (jamais dérivé du modèle).
 
@@ -42,6 +42,26 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
   biais *répété* et documenté par les valeurs `PICTO-DIAG`.
 
 ## Journal des comparaisons
+
+### 2026-06-24 (après-midi) — cirrus → ensoleillé (corrigé) ; écart Jeu matin = modèle
+
+Run 16:30Z (fetch 16:40 UTC), MF.com capturé 16:50 CEST.
+
+| Tranche | Codes | Nous | MF.com | |
+|---|---|---|---|---|
+| Mer 24 Soir | [0,0,0,1,1,1] 50 % cirrus bas 0 moy 0 | 🌤️ Peu nuageux | 🌙 Dégagé | Résidu cirrus → **corrigé** |
+| Jeu 25 Nuit | [1,1,1,1,1,1] 95 % cirrus bas 0 moy 0 | 🌤️ Peu nuageux | 🌙 Dégagé | Résidu cirrus → **corrigé** |
+| Jeu 25 Matin | [1,3,3,3,1,1] 99 % tot, moy 43 % | ⛅ Partiel. | 🌤️ Peu nuageux | Écart modèle (voir ci-dessous) |
+| Jeu 25 Après-midi | [3,3,1,1,1,95] 0.3 mm | ⛈️ Orage | ⛈️ Orage | ✅ |
+| Jeu 25 Soir | [95,95,95,95,95,1] 5.9 mm | ⛈️ Orage | ⛈️ Orage | ✅ |
+
+**Biais cirrus confirmé 4ᵉ jour** (30, 50, 80, 95 % → MF dégagé, nous peu nuageux) →
+**correctif appliqué** : `nebulosite >= 1` + `nebulosite = 0` dans `symbole_metno`.
+Désormais tout ciel cirrus pur (bas ≤ 13 %, moy ≤ 13 %, pluie nulle) → **ensoleillé**.
+
+**Jeu 25 Matin** : AROME montre moy=43 % avg (altocumulus réel sur certaines heures :
+codes 3 → couvert), MF dit peu nuageux. Vraisemblablement **différence de run**
+(MF blende WWMF / run 12Z plus récent). 1 cas isolé, pas de levier règle à actionner.
 
 ### 2026-06-23 (après-midi) — tous correctifs OK ; résidu cirrus fin (non actionné)
 

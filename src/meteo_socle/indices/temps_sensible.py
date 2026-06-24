@@ -46,10 +46,10 @@ Algorithme MET Norway (porté fidèlement, cf. ``weather_symbol/src/Factory.cpp`
 2. **Précipitation** (mm cumulés sur ``hours`` → gouttes 0-3) : paliers
    interpolés linéairement entre la fenêtre 1 h ``{0.1, 0.25, 0.95}`` et la
    fenêtre 6 h ``{0.5, 0.95, 4.95}``.
-3. **Réduction « nuages hauts »** : un ciel couvert sans pluie ni brouillard
-   mais dont les couches basse et moyenne sont dégagées (couvert dû aux seuls
-   cirrus) est ramené à « peu nuageux » (le soleil passe à travers le voile,
-   comme le rend MF).
+3. **Réduction « nuages hauts »** : sans pluie ni brouillard, si les couches
+   basse et moyenne sont dégagées (≤ 13 %), le ciel est dominé par les seuls
+   cirrus → ramené à « ensoleillé » (cirrus transparent ; MF confirme sur 30,
+   50, 80 et 95 % de recouvrement total, 4 jours 2026-06-21→24).
 4. **Averse vs pluie continue** : sous un ciel couvert (indice 3) la
    précipitation est *continue* ; sous un ciel partiel elle est en *averses*
    (variantes « Sun » de MET Norway).
@@ -202,13 +202,12 @@ def symbole_metno(
     nebulosite = _nebulosite(cloud_cover_pct)
     gouttes = _gouttes(precipitation_mm, hours)
 
-    # Réduction « nuages hauts » : ciel nuageux/couvert (≥ partiellement nuageux) sans
-    # pluie ni brouillard mais couches basse + moyenne dégagées → ciel de **cirrus
-    # seuls** → ramené à **peu nuageux** (le soleil passe à travers le voile). MF rend
-    # ces ciels « peu nuageux/ensoleillé », pas « (partiellement) nuageux » — qu'ils
-    # soient à 79 % ou 99 % de cirrus (biais confirmé 3 j de suite, 2026-06-21→23).
+    # Réduction « nuages hauts » : sans pluie ni brouillard, si bas + moyen ≤ 13 %,
+    # le ciel est dominé par les seuls cirrus → **ensoleillé** (cirrus transparent).
+    # MF rend ces ciels « dégagé/ensoleillé » quel que soit le recouvrement total
+    # (30, 50, 80, 95 % → MF dégagé, biais confirmé 4 jours 2026-06-21→24).
     if (
-        nebulosite >= 2
+        nebulosite >= 1
         and gouttes == 0
         and not fog
         and low_cloud_pct is not None
@@ -216,7 +215,7 @@ def symbole_metno(
         and _nebulosite(low_cloud_pct) == 0
         and _nebulosite(mid_cloud_pct) == 0
     ):
-        nebulosite = 1
+        nebulosite = 0
 
     # Possibilité de pluie : remonte un ciel dégagé à partiellement nuageux.
     if max_precipitation_mm is not None and max_precipitation_mm > 0.1 and nebulosite < 2:
