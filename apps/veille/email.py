@@ -25,6 +25,7 @@ hiérarchie visuelle ; les labels gauches restent en gris discret.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -591,6 +592,70 @@ def _log_diagnostic_pictos(
             )
 
 
+def _val_frac_pct(row: pd.Series, col: str) -> float | None:
+    """Colonne fraction (0-1) → %, arrondie à 1 décimale ; None si absente/NaN."""
+    if col not in row.index or pd.isna(row[col]):
+        return None
+    return round(float(row[col]) * 100.0, 1)
+
+
+def _val_num(row: pd.Series, col: str, scale: float = 1.0) -> float | None:
+    """Colonne numérique → float×scale, arrondi à 2 déc. ; None si absente/NaN."""
+    if col not in row.index or pd.isna(row[col]):
+        return None
+    return round(float(row[col]) * scale, 2)
+
+
+def _log_hora_diag(
+    horaire_loc: pd.DataFrame,
+    jours_uniques: list[pd.Timestamp],
+    pleins: set[tuple[pd.Timestamp, int]],
+) -> None:
+    """Log horaire JSON pour le dataset ML (``HORA-DIAG``).
+
+    Une ligne structurée par heure de chaque tranche affichée — inputs AROME bruts
+    (cloud_cover %, précip mm, temp °C, ptype, visi m, HR) + code WMO dérivé.
+    Parsé par ``calibration/collect.py`` pour construire ``data/calibration/dataset.csv``.
+    Couvre tous les cas (hiver inclus) : temp/ptype/visi sont ``null`` si absents,
+    pas NaN, pour rester valides en JSON.
+    """
+    if not logger.isEnabledFor(logging.INFO):
+        return
+    for jour in jours_uniques:
+        jour_str = jour.strftime("%Y-%m-%d")
+        for nom, h_debut, h_fin in FENETRES_VEILLE:
+            if (jour, h_debut) not in pleins:
+                continue
+            sub = horaire_loc.loc[_masque_fenetre(horaire_loc, jour, h_debut, h_fin)]
+            if sub.empty:
+                continue
+            for ts_loc, row in sub.iterrows():
+                ts_utc = ts_loc.tz_convert("UTC").strftime("%Y-%m-%dT%H:%MZ")
+                temp_c: float | None = None
+                if "temperature_2m" in row.index and not pd.isna(row["temperature_2m"]):
+                    temp_c = round(float(row["temperature_2m"]) - 273.15, 1)
+                ptype: int | None = None
+                if "type_precip" in row.index and not pd.isna(row["type_precip"]):
+                    ptype = int(row["type_precip"])
+                wmo: int | None = None
+                if "weather_code" in row.index and not pd.isna(row["weather_code"]):
+                    wmo = int(row["weather_code"])
+                record = {
+                    "tranche": nom,
+                    "jour": jour_str,
+                    "cc": _val_frac_pct(row, "cloud_cover"),
+                    "cc_low": _val_frac_pct(row, "cloud_cover_low"),
+                    "cc_mid": _val_frac_pct(row, "cloud_cover_mid"),
+                    "precip": _val_num(row, "precipitation"),
+                    "temp_c": temp_c,
+                    "ptype": ptype,
+                    "visi_m": _val_num(row, "visibilite_m"),
+                    "humi": _val_num(row, "humidite_relative"),
+                    "wmo": wmo,
+                }
+                logger.info("HORA-DIAG %s %s", ts_utc, json.dumps(record, ensure_ascii=False))
+
+
 def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
     now_utc: pd.Timestamp | None = None,
@@ -631,6 +696,7 @@ def _bloc_grille_indicateurs_48h(
     pleins = {(debut.normalize(), debut.hour) for _, debut, _ in periodes}
     jours_uniques = sorted({debut.normalize() for _, debut, _ in periodes})
     _log_diagnostic_pictos(horaire, jours_uniques, pleins)  # calibration picto (log CI)
+    _log_hora_diag(horaire, jours_uniques, pleins)  # dataset ML (log CI)
     tableaux: list[str] = []
 
     for jour in jours_uniques:

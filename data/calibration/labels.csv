@@ -1,0 +1,26 @@
+run_id,jour_local,fenetre,mf_wmo,note
+27929695769,2026-06-22,Matin,0,ensoleillé — codes [0,0,0,0,0,0]
+27929695769,2026-06-22,Après-midi,95,orage Vigilance
+27929695769,2026-06-22,Soir,95,orage Vigilance
+27929695769,2026-06-23,Matin,1,peu nuageux
+27929695769,2026-06-23,Après-midi,0,ensoleillé
+27968033409,2026-06-23,Matin,1,peu nuageux
+27968033409,2026-06-23,Après-midi,95,orage Vigilance
+28002293154,2026-06-23,Matin,0,ensoleillé (79 % cirrus bas=0 moy=0)
+28040922208,2026-06-23,Soir,0,ensoleillé/dégagé — codes [0,0,0,0,0,0]
+28040922208,2026-06-24,Nuit,0,dégagé — codes [0,0,0,0,0,0]
+28040922208,2026-06-24,Matin,0,ensoleillé (50 % cirrus bas=0 moy=0)
+28040922208,2026-06-24,Après-midi,0,ensoleillé (30 % cirrus bas=0 moy=0)
+28040922208,2026-06-24,Soir,1,peu nuageux/voilé — codes [0,0,1,1,1,3]
+28075254493,2026-06-24,Matin,0,ensoleillé (57 % cirrus bas=0 moy=0)
+28075254493,2026-06-24,Après-midi,0,ensoleillé — codes [0,0,0,0,0,0]
+28075254493,2026-06-24,Soir,0,dégagé — codes [0,0,0,0,0,0]
+28075254493,2026-06-25,Nuit,0,dégagé (80 % cirrus bas=0 moy=0)
+28075254493,2026-06-25,Matin,1,peu nuageux (78 % cirrus bas=0 moy=0)
+28075254493,2026-06-25,Après-midi,95,orage Vigilance
+28075254493,2026-06-25,Soir,95,orage Vigilance
+28113733569,2026-06-24,Soir,0,dégagé (50 % cirrus bas=0 moy=0)
+28113733569,2026-06-25,Nuit,0,dégagé (95 % cirrus bas=0 moy=0)
+28113733569,2026-06-25,Matin,1,peu nuageux (99 % tot moy=43 % — écart modèle possible)
+28113733569,2026-06-25,Après-midi,95,orage Vigilance
+28113733569,2026-06-25,Soir,95,orage Vigilance
