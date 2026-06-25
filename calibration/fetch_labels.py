@@ -172,10 +172,8 @@ def _latest_run_id() -> int | None:
                 "gh",
                 "run",
                 "list",
-                "--workflow=veille.yaml",
-                "--limit=1",
-                "--json=databaseId",
-                "--jq=.[0].databaseId",
+                "--json=databaseId,workflowName",
+                '--jq=[.[] | select(.workflowName=="Veille email")][0].databaseId',
             ],
             text=True,
         )
