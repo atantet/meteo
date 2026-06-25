@@ -11,7 +11,7 @@
 # En dehors de la crontab, lancer manuellement :
 #   bash calibration/run_pipeline.sh
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(dirname "$(readlink -f "$0")")/.."
 
 PY=/home/atantet/.conda/envs/meteo/bin/python
 
