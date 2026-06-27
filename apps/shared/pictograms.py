@@ -6,19 +6,23 @@ yr** (Institut météorologique norvégien, MIT — cf. ``assets/yr/LICENSE``,
 de symbole temps de MET Norway porté dans le socle (cf. ADR-0013) : même
 service météo national pour le fond (classification) et la forme (icônes).
 
-Codes WMO 4677 résumés (cf. https://open-meteo.com/en/docs) :
+Codes WMO 4677 résumés (cf. https://open-meteo.com/en/docs) et extensions :
 
 - 0           : Ciel clair
 - 1, 2, 3     : Principalement clair / partiellement nuageux / couvert
+- 17          : Pluie légère et orage (non-averse) [extension]
 - 45, 48      : Brouillard / brouillard givrant
 - 51, 53, 55  : Bruine légère / modérée / forte
 - 56, 57      : Bruine verglaçante
 - 61, 63, 65  : Pluie légère / modérée / forte
 - 66, 67      : Pluie verglaçante
+- 68, 69, 70  : Averses de neige fondue légères / modérées / fortes [extension]
 - 71, 73, 75  : Neige légère / modérée / forte
 - 77          : Cristaux de neige
 - 80, 81, 82  : Averses légères / modérées / fortes
-- 85, 86      : Averses de neige
+- 85, 86      : Averses de neige légères / fortes
+- 91, 92, 93  : Averses orageuses légères / modérées / violentes (Vig. jaune/orange/rouge) [ext.]
+- 94, 97      : Neige légère et orage / Neige et orage [extension]
 - 95          : Orage
 - 96, 99      : Orage avec grêle
 
@@ -53,6 +57,7 @@ WMO_VERS_ICONE: dict[int, str] = {
     1: "fair_day",
     2: "partlycloudy_day",
     3: "cloudy",
+    17: "lightrainandthunder",
     45: "fog",
     48: "fog",
     51: "lightrain",
@@ -65,6 +70,9 @@ WMO_VERS_ICONE: dict[int, str] = {
     65: "heavyrain",
     66: "lightsleet",
     67: "heavysleet",
+    68: "lightsleetshowers_day",
+    69: "sleetshowers_day",
+    70: "heavysleetshowers_day",
     71: "lightsnow",
     73: "snow",
     75: "heavysnow",
@@ -74,8 +82,13 @@ WMO_VERS_ICONE: dict[int, str] = {
     82: "heavyrainshowers_day",
     85: "lightsnowshowers_day",
     86: "heavysnowshowers_day",
+    91: "lightrainshowersandthunder_day",
+    92: "rainshowersandthunder_day",
+    93: "heavyrainshowersandthunder_day",
+    94: "lightsnowandthunder",
     95: "rainandthunder",
     96: "heavyrainandthunder",
+    97: "snowandthunder",
     99: "heavyrainandthunder",
 }
 
@@ -87,11 +100,17 @@ WMO_VERS_ICONE_NUIT: dict[int, str] = {
     0: "clearsky_night",
     1: "fair_night",
     2: "partlycloudy_night",
+    68: "lightsleetshowers_night",
+    69: "sleetshowers_night",
+    70: "heavysleetshowers_night",
     80: "lightrainshowers_night",
     81: "rainshowers_night",
     82: "heavyrainshowers_night",
     85: "lightsnowshowers_night",
     86: "heavysnowshowers_night",
+    91: "lightrainshowersandthunder_night",
+    92: "rainshowersandthunder_night",
+    93: "heavyrainshowersandthunder_night",
 }
 
 # Libellés FR par code WMO (info-bulle / texte alt).
@@ -100,6 +119,7 @@ WMO_VERS_LIBELLE: dict[int, str] = {
     1: "Principalement clair",
     2: "Partiellement nuageux",
     3: "Couvert",
+    17: "Pluie légère et orage",
     45: "Brouillard",
     48: "Brouillard givrant",
     51: "Bruine légère",
@@ -112,6 +132,9 @@ WMO_VERS_LIBELLE: dict[int, str] = {
     65: "Pluie forte",
     66: "Pluie verglaçante légère",
     67: "Pluie verglaçante forte",
+    68: "Averses de neige fondue légères",
+    69: "Averses de neige fondue",
+    70: "Averses de neige fondue fortes",
     71: "Neige légère",
     73: "Neige modérée",
     75: "Neige forte",
@@ -121,8 +144,13 @@ WMO_VERS_LIBELLE: dict[int, str] = {
     82: "Averses violentes",
     85: "Averses de neige légères",
     86: "Averses de neige fortes",
+    91: "Risques d'orages (averses orageuses)",
+    92: "Averses orageuses",
+    93: "Averses orageuses violentes",
+    94: "Neige légère et orage",
     95: "Orage",
     96: "Orage avec petite grêle",
+    97: "Neige et orage",
     99: "Orage avec grosse grêle",
 }
 
@@ -133,6 +161,7 @@ WMO_SEVERITE: dict[int, int] = {
     1: 1,
     2: 2,
     3: 3,
+    17: 9,
     45: 4,
     48: 4,
     51: 5,
@@ -145,6 +174,9 @@ WMO_SEVERITE: dict[int, int] = {
     65: 9,
     66: 9,
     67: 9,
+    68: 7,
+    69: 8,
+    70: 9,
     71: 7,
     73: 8,
     75: 9,
@@ -154,8 +186,13 @@ WMO_SEVERITE: dict[int, int] = {
     82: 9,
     85: 8,
     86: 9,
+    91: 10,
+    92: 11,
+    93: 12,
+    94: 10,
     95: 10,
     96: 11,
+    97: 11,
     99: 11,
 }
 

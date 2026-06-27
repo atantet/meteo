@@ -301,8 +301,8 @@ _SYMBOLE_VERS_ORAGE = {
 
 # --- Projection vers la table OMM 4677 (ajout propre à ce dépôt) -------------
 # Choix : pluie continue → 61/63/65 ; averses → 80/81/82 ; neige → 71/73/75 ;
-# averses de neige → 85/86 ; neige fondue rendue comme neige (pas de code OMM
-# iconé) ; orage → 95 (sans distinction d'intensité ni grêle).
+# averses de neige → 85/86 ; neige fondue continue → neige (71/73/75) ;
+# averses de neige fondue → 68/69/70 (icônes yr dédiées) ; orage → 95.
 _SYMBOLE_VERS_WMO: dict[str, int] = {
     "Sun": 0,
     "LightCloud": 1,
@@ -325,13 +325,14 @@ _SYMBOLE_VERS_WMO: dict[str, int] = {
     "LightSnowSun": 85,
     "SnowSun": 86,
     "HeavySnowSun": 86,
-    # Neige fondue → rendue comme neige (pas d'icône OMM dédiée).
+    # Neige fondue continue → rendue comme neige (pas d'icône continue dédiée).
     "LightSleet": 71,
     "Sleet": 73,
     "HeavySleet": 75,
-    "LightSleetSun": 85,
-    "SleetSun": 86,
-    "HeavySleetSun": 86,
+    # Averses de neige fondue → codes 68/69/70 avec icônes yr jour/nuit.
+    "LightSleetSun": 68,
+    "SleetSun": 69,
+    "HeavySleetSun": 70,
 }
 
 #: Code OMM 4677 de l'orage (toutes variantes « …Thunder » y sont ramenées).

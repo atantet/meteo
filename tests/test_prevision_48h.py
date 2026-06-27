@@ -1,16 +1,18 @@
 """Test offline de l'assemblage 48 h (cœur pur, sans réseau).
 
 Vérifie : picto dérivé (weather_code), proba diffusée à l'heure, et **overlay
-orage** depuis une tranche de Vigilance horodatée (→ code 95 sur les heures
-couvertes, sinon picto dérivé sans orage).
+orage** depuis une tranche de Vigilance horodatée (code selon le niveau Vigilance :
+jaune→91, orange→92, rouge→93 ; 95 si niveau inconnu).
 """
 
 from __future__ import annotations
 
 import pandas as pd
 
-from apps.veille.prevision_48h import WMO_ORAGE, assembler_df_48h
+from apps.veille.prevision_48h import _WMO_ORAGE_PAR_NIVEAU, WMO_ORAGE, assembler_df_48h
 from meteo_socle.sources.dpvigilance import TrancheVigilance
+
+_CODES_ORAGE = frozenset(_WMO_ORAGE_PAR_NIVEAU.values()) | {WMO_ORAGE}
 
 
 def _arome_synthetique() -> pd.DataFrame:
@@ -43,13 +45,13 @@ def test_overlay_orage_sur_tranche() -> None:
     df = assembler_df_48h(df_in, proba, tranches)
 
     assert "weather_code" in df.columns and "probabilite_pluie_pct" in df.columns
-    # 14 h et 15 h dans la tranche orages → code 95.
-    assert df.loc["2026-06-15T14:00:00Z", "weather_code"] == WMO_ORAGE
-    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == WMO_ORAGE
+    # 14 h et 15 h dans la tranche orages jaune (niveau=2) → code 91.
+    assert df.loc["2026-06-15T14:00:00Z", "weather_code"] == _WMO_ORAGE_PAR_NIVEAU[2]
+    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == _WMO_ORAGE_PAR_NIVEAU[2]
     # 12 h (hors tranche, sec) → picto dérivé, jamais orage.
-    assert df.loc["2026-06-15T12:00:00Z", "weather_code"] != WMO_ORAGE
+    assert df.loc["2026-06-15T12:00:00Z", "weather_code"] not in _CODES_ORAGE
     # 16 h hors tranche (borne haute exclue), sec → pas orage.
-    assert df.loc["2026-06-15T16:00:00Z", "weather_code"] != WMO_ORAGE
+    assert df.loc["2026-06-15T16:00:00Z", "weather_code"] not in _CODES_ORAGE
     # Proba diffusée (plus proche) : 15 h proche de la valeur 60.
     assert df.loc["2026-06-15T15:00:00Z", "probabilite_pluie_pct"] == 60.0
 
@@ -79,15 +81,16 @@ def test_orage_pas_peint_sur_ciel_degage() -> None:
     ]
     df = assembler_df_48h(df_in, pd.Series(dtype=float), tranches)
 
-    assert df.loc["2026-06-15T12:00:00Z", "weather_code"] != WMO_ORAGE  # clair → pas orage
-    assert df.loc["2026-06-15T13:00:00Z", "weather_code"] != WMO_ORAGE  # clair → pas orage
-    assert df.loc["2026-06-15T14:00:00Z", "weather_code"] == WMO_ORAGE  # couvert → orage
-    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == WMO_ORAGE  # inconnu → orage (prudence)
+    assert df.loc["2026-06-15T12:00:00Z", "weather_code"] not in _CODES_ORAGE  # clair → pas orage
+    assert df.loc["2026-06-15T13:00:00Z", "weather_code"] not in _CODES_ORAGE  # clair → pas orage
+    wmo_jaune = _WMO_ORAGE_PAR_NIVEAU[2]
+    assert df.loc["2026-06-15T14:00:00Z", "weather_code"] == wmo_jaune  # couvert → orage jaune
+    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == wmo_jaune  # inconnu → orage jaune
 
 
 def test_sans_tranche_aucun_orage() -> None:
     df = assembler_df_48h(_arome_synthetique(), pd.Series(dtype=float), [])
-    assert (df["weather_code"] != WMO_ORAGE).all()
+    assert df["weather_code"].apply(lambda c: c not in _CODES_ORAGE).all()
     assert df["probabilite_pluie_pct"].isna().all()  # proba vide → NaN
 
 
@@ -114,7 +117,7 @@ def test_assembler_tolere_vigilance_absente(monkeypatch) -> None:
     )
     assert vig is None  # Vigilance tolérée
     assert "weather_code" in prev.df.columns  # 48 h produite
-    assert (prev.df["weather_code"] != WMO_ORAGE).all()  # pas d'overlay (pas de tranches)
+    assert prev.df["weather_code"].apply(lambda c: c not in _CODES_ORAGE).all()  # pas d'overlay
 
 
 def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
@@ -127,4 +130,4 @@ def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
         )
     ]
     df = assembler_df_48h(df_in, pd.Series(dtype=float), tranches)
-    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == WMO_ORAGE
+    assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == _WMO_ORAGE_PAR_NIVEAU[2]

@@ -35,8 +35,11 @@ from meteo_socle.sources.meteofrance_proba_arome import MeteoFranceProbaArome
 
 logger = logging.getLogger(__name__)
 
-#: Code OMM 4677 de l'orage (overlay Vigilance ; cf. temps_sensible.WMO_ORAGE).
+#: Code OMM 4677 de l'orage par défaut (overlay Vigilance, niveau inconnu).
 WMO_ORAGE = 95
+#: Code OMM par niveau de Vigilance orages (jaune→91, orange→92, rouge→93).
+#: Permite d'afficher l'icône la mieux adaptée (averses orageuses légères/fortes).
+_WMO_ORAGE_PAR_NIVEAU: dict[int, int] = {2: 91, 3: 92, 4: 93}
 #: Codes ciel « dégagé » (OMM) qui SUPPRIMENT l'overlay orage : 0 ensoleillé, 1 peu
 #: nuageux. Au-dessus (≥ 2 partiellement nuageux, ou précip ≥ 45) **ou** ciel inconnu
 #: (``<NA>``), on peint l'orage Vigilance. Ciel dégagé → pas le moment du coup de
@@ -89,12 +92,13 @@ def assembler_df_48h(
     df["weather_code"] = serie_code_temps_mf(df)
     df["probabilite_pluie_pct"] = _proba_horaire(proba_6h, df.index)
     for tr in tranches_orages:
+        wmo_tr = _WMO_ORAGE_PAR_NIVEAU.get(tr.niveau, WMO_ORAGE)
         dans_tranche = (df.index >= tr.debut) & (df.index < tr.fin)
         # Garde-fou ciel : pas d'orage sur une heure au ciel CONFIRMÉ dégagé (0/1). Les
         # heures nuageuses (≥ 2), pluvieuses (≥ 45) ou au ciel inconnu (<NA>) gardent
         # l'overlay. ``isin`` renvoie False sur <NA> → masque booléen propre (pas de NA).
         masque = dans_tranche & ~df["weather_code"].isin(CODES_CIEL_DEGAGE)
-        df.loc[masque, "weather_code"] = WMO_ORAGE
+        df.loc[masque, "weather_code"] = wmo_tr
     return df
 
 
