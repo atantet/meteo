@@ -480,12 +480,12 @@ FENETRES_VEILLE = (
     ("Soir", 18, 24),
 )
 
-# Choix du picto : la nuit (lune au lieu du soleil) est définie par la
-# période locale [0, 6) pour l'App 1 — c.-à-d. la seule fenêtre "Nuit".
-# (L'App 2 utilise sa propre convention [0, 7) ∪ [19, 24) ; les deux
-# apps gardent volontairement leur découpage.) Un créneau est "nuit"
-# si toutes ses heures tombent dans [0, FENETRE_NUIT_PICTO_FIN).
-FENETRE_NUIT_PICTO_FIN = 6
+# Choix du picto : la variante nuit (lune au lieu du soleil) est utilisée
+# pour les fenêtres "Nuit" [0, 6) et "Soir" [18, 24) — cohérent avec MF.com
+# qui affiche la lune dès la soirée. Les icônes yr sans variante nuit (orage,
+# couvert, pluie continue…) retombent sur l'icône jour/neutre, qui reste lisible.
+FENETRE_NUIT_PICTO_FIN = 6  # borne haute de la fenêtre "Nuit"
+FENETRE_SOIR_DEBUT = 18  # borne basse de la fenêtre "Soir"
 
 # Largeurs de colonnes FIXES pour la grille Tendance. Chaque jour est une
 # ``<table>`` distincte ; sans largeurs imposées, chacune cale ses colonnes
@@ -730,8 +730,8 @@ def _bloc_grille_indicateurs_48h(
                 if code is None:
                     cells.append('<td style="padding:1px 4px;text-align:center;color:#ccc;">—</td>')
                     continue
-                # Variante nuit (lune) pour la fenêtre [0, 6).
-                est_nuit = h_fin <= FENETRE_NUIT_PICTO_FIN
+                # Variante nuit (lune) pour Nuit [0, 6) et Soir [18, 24).
+                est_nuit = h_fin <= FENETRE_NUIT_PICTO_FIN or h_debut >= FENETRE_SOIR_DEBUT
                 uri = icone_base64(code, nuit=est_nuit)
                 alt = libelle(code)
                 cells.append(
