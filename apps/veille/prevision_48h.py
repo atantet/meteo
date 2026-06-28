@@ -31,6 +31,11 @@ from meteo_socle.sources.dpvigilance import (
     recuperer_vigilance_dp,
 )
 from meteo_socle.sources.meteofrance_arome import MeteoFranceArome
+from meteo_socle.sources.meteofrance_phealth import (
+    PheaithIndisponibleError,
+    UVJournalier,
+    obtenir_uv,
+)
 from meteo_socle.sources.meteofrance_proba_arome import MeteoFranceProbaArome
 
 logger = logging.getLogger(__name__)
@@ -55,12 +60,14 @@ class Prevision48h:
 
     ``df`` : horaire UTC, colonnes socle + ``weather_code`` + ``probabilite_pluie_pct``.
     ``proba_bins`` : proba PE-AROME (6 h) pour la semaine (``proba_max_par_fenetre``).
+    ``uv_journalier`` : UV max J0/J1 depuis PHEALTH (``None`` si indisponible).
     """
 
     df: pd.DataFrame
     proba_bins: pd.Series
     updated_on: pd.Timestamp
     position: dict  # {"name": commune, "timezone": tz} — forme attendue par composer_email
+    uv_journalier: UVJournalier | None = None
 
 
 def _proba_horaire(proba_fenetre: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
@@ -137,5 +144,15 @@ def assembler_prevision_48h(
         logger.warning("DPVigilance indisponible (%s) → 48 h sans overlay orage.", e)
         vigilance, tranches = None, []
     df = assembler_df_48h(arome, proba_6h, tranches)
-    prevision = Prevision48h(df=df, proba_bins=proba_6h, updated_on=run_utc, position=position)
+    uv: UVJournalier | None
+    try:
+        uv = obtenir_uv(
+            run_utc, latitude, longitude, basic=basic, session=session, cache_dir=cache_dir
+        )
+    except (PheaithIndisponibleError, requests.RequestException) as e:
+        logger.warning("PHEALTH indisponible (%s) → UV omis.", e)
+        uv = None
+    prevision = Prevision48h(
+        df=df, proba_bins=proba_6h, updated_on=run_utc, position=position, uv_journalier=uv
+    )
     return prevision, vigilance

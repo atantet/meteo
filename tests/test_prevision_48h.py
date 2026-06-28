@@ -11,6 +11,7 @@ import pandas as pd
 
 from apps.veille.prevision_48h import _WMO_ORAGE_PAR_NIVEAU, WMO_ORAGE, assembler_df_48h
 from meteo_socle.sources.dpvigilance import TrancheVigilance
+from meteo_socle.sources.meteofrance_phealth import UVJournalier, libelle_uv_oms
 
 _CODES_ORAGE = frozenset(_WMO_ORAGE_PAR_NIVEAU.values()) | {WMO_ORAGE}
 
@@ -131,3 +132,82 @@ def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
     ]
     df = assembler_df_48h(df_in, pd.Series(dtype=float), tranches)
     assert df.loc["2026-06-15T15:00:00Z", "weather_code"] == _WMO_ORAGE_PAR_NIVEAU[2]
+
+
+# ---------------------------------------------------------------------------
+# Tests PHEALTH UV
+# ---------------------------------------------------------------------------
+
+
+def test_libelle_uv_oms_seuils() -> None:
+    assert libelle_uv_oms(0.0) == ("Faible", "#57A032")
+    assert libelle_uv_oms(2.0) == ("Faible", "#57A032")
+    assert libelle_uv_oms(2.5) == ("Faible", "#57A032")  # round(2.5)=2 (arrondi bancaire)
+    assert libelle_uv_oms(2.6) == ("Modéré", "#D4B800")  # round(2.6)=3
+    assert libelle_uv_oms(3.0) == ("Modéré", "#D4B800")
+    assert libelle_uv_oms(5.0) == ("Modéré", "#D4B800")
+    assert libelle_uv_oms(6.0) == ("Élevé", "#E65B00")
+    assert libelle_uv_oms(7.0) == ("Élevé", "#E65B00")
+    assert libelle_uv_oms(7.5) == ("Très élevé", "#CC0000")  # round(7.5)=8
+    assert libelle_uv_oms(8.0) == ("Très élevé", "#CC0000")
+    assert libelle_uv_oms(10.0) == ("Très élevé", "#CC0000")
+    assert libelle_uv_oms(11.0) == ("Extrême", "#6B49C8")
+
+
+def test_assembler_tolere_phealth_absent(monkeypatch) -> None:
+    """PHEALTH KO → 48 h quand même produite, uv_journalier = None."""
+    import apps.veille.prevision_48h as p48
+
+    idx = pd.date_range("2026-06-15T00:00:00Z", periods=4, freq="h")
+    arome = pd.DataFrame(
+        {"cloud_cover": [0.5] * 4, "precipitation": [0.0] * 4, "temperature_2m": [290.0] * 4},
+        index=idx,
+    )
+    monkeypatch.setattr(p48.MeteoFranceArome, "obtenir_run", lambda self, *a, **k: arome)
+    monkeypatch.setattr(
+        p48.MeteoFranceProbaArome, "obtenir_proba", lambda self, *a, **k: pd.Series(dtype=float)
+    )
+
+    def _vig_down(*a, **k):
+        raise p48.VigilanceDPIndisponibleError("down")
+
+    def _uv_down(*a, **k):
+        raise p48.PheaithIndisponibleError("down")
+
+    monkeypatch.setattr(p48, "recuperer_vigilance_dp", _vig_down)
+    monkeypatch.setattr(p48, "obtenir_uv", _uv_down)
+
+    prev, _ = p48.assembler_prevision_48h(
+        pd.Timestamp("2026-06-15T00:00:00Z"), 48.5, -1.6, "35", {"name": "x", "timezone": "UTC"}
+    )
+    assert prev.uv_journalier is None
+    assert "weather_code" in prev.df.columns
+
+
+def test_assembler_uv_presente(monkeypatch) -> None:
+    """PHEALTH OK → uv_journalier attaché à Prevision48h."""
+    import apps.veille.prevision_48h as p48
+
+    idx = pd.date_range("2026-06-15T00:00:00Z", periods=4, freq="h")
+    arome = pd.DataFrame(
+        {"cloud_cover": [0.5] * 4, "precipitation": [0.0] * 4, "temperature_2m": [290.0] * 4},
+        index=idx,
+    )
+    monkeypatch.setattr(p48.MeteoFranceArome, "obtenir_run", lambda self, *a, **k: arome)
+    monkeypatch.setattr(
+        p48.MeteoFranceProbaArome, "obtenir_proba", lambda self, *a, **k: pd.Series(dtype=float)
+    )
+
+    def _vig_down2(*a, **k):
+        raise p48.VigilanceDPIndisponibleError("down")
+
+    uv_stub = UVJournalier(uvi_j0=6.0, uvi_j1=4.5, run_utc=pd.Timestamp("2026-06-15T00:00:00Z"))
+    monkeypatch.setattr(p48, "recuperer_vigilance_dp", _vig_down2)
+    monkeypatch.setattr(p48, "obtenir_uv", lambda *a, **k: uv_stub)
+
+    prev, _ = p48.assembler_prevision_48h(
+        pd.Timestamp("2026-06-15T00:00:00Z"), 48.5, -1.6, "35", {"name": "x", "timezone": "UTC"}
+    )
+    assert prev.uv_journalier is not None
+    assert prev.uv_journalier.uvi_j0 == 6.0
+    assert prev.uv_journalier.uvi_j1 == 4.5

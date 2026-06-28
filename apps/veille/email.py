@@ -53,6 +53,7 @@ from meteo_socle.sources.dpvigilance import (
 from meteo_socle.sources.dpvigilance import (
     VigilanceDepartementDP,
 )
+from meteo_socle.sources.meteofrance_phealth import UVJournalier, libelle_uv_oms
 
 from .alertes import Alerte, resume_alertes
 from .anomalies import Anomalie, bloc_rapport_bug
@@ -660,6 +661,7 @@ def _bloc_grille_indicateurs_48h(
     prevision_horaire: pd.DataFrame | None,
     now_utc: pd.Timestamp | None = None,
     tz_locale: str = "Europe/Paris",
+    uv_journalier: UVJournalier | None = None,
 ) -> str:
     """Grille par période de 6 h locale — pictos + T° + Pluie + Vent + HR (ADR-0014).
 
@@ -699,7 +701,7 @@ def _bloc_grille_indicateurs_48h(
     _log_hora_diag(horaire, jours_uniques, pleins)  # dataset ML (log CI)
     tableaux: list[str] = []
 
-    for jour in jours_uniques:
+    for jour_idx, jour in enumerate(jours_uniques):
         jour_label = JOURS_FR[jour.weekday()].capitalize() + f" {jour.day:02d}/{jour.month:02d}"
 
         en_tete = (
@@ -835,6 +837,25 @@ def _bloc_grille_indicateurs_48h(
                 f'<span style="color:#888;font-size:11px;">&nbsp;{cardinal}</span>'
             )
 
+        uvi_journee = float("nan")
+        if uv_journalier is not None:
+            uvi_journee = uv_journalier.uvi_j0 if jour_idx == 0 else uv_journalier.uvi_j1
+
+        import math
+
+        def _ligne_uv_jour(uvi: float) -> str:
+            if math.isnan(uvi):
+                return ""
+            label, couleur = libelle_uv_oms(uvi)
+            return (
+                '<tr><td style="padding:4px 8px;color:#555;font-size:13px;">Indice UV (jour)</td>'
+                '<td colspan="4" style="text-align:center;padding:4px;'
+                'font-size:13px;font-weight:700;">'
+                f'<span style="color:{couleur};">{uvi:.1f}</span>'
+                f'<span style="color:#888;"> ({label})</span>'
+                "</td></tr>"
+            )
+
         lignes = [
             en_tete,
             cellule_picto(jour),
@@ -844,6 +865,9 @@ def _bloc_grille_indicateurs_48h(
             ligne_indicateur("Vent direction", fmt_vent_direction),
             ligne_indicateur("HR moyenne", fmt_hr),
         ]
+        uv_html = _ligne_uv_jour(uvi_journee)
+        if uv_html:
+            lignes.append(uv_html)
 
         tableaux.append(
             '<table style="width:100%;border-collapse:collapse;table-layout:fixed;'
@@ -1002,6 +1026,7 @@ def composer_html(
     cartes_longue: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
+    uv_journalier: UVJournalier | None = None,
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -1030,6 +1055,7 @@ def composer_html(
         prevision_horaire,
         now_utc=now_utc_ts,
         tz_locale=tz_locale,
+        uv_journalier=uv_journalier,
     )
     bloc_carte = _bloc_cartes_synoptiques(
         cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
@@ -1112,6 +1138,7 @@ def composer_email(
     cartes_longue: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
+    uv_journalier: UVJournalier | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1174,6 +1201,7 @@ def composer_email(
         cartes_longue=cartes_longue,
         lieu=lieu,
         anomalies=anomalies,
+        uv_journalier=uv_journalier,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 

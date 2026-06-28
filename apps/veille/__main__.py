@@ -391,6 +391,7 @@ def executer_veille(
             cartes_longue=cartes_longue,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
+            uv_journalier=prevision.uv_journalier if prevision is not None else None,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)

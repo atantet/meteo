@@ -53,6 +53,9 @@ data/sig/*
 # Overrides locaux de config (cf. apps/veille/config.py)
 config/*.local.yaml
 
+# Previews locales générées (HTML mail)
+previews/
+
 # Quarto
 _site/
 .quarto/
