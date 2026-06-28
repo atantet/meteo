@@ -786,6 +786,37 @@ def _bloc_grille_indicateurs_48h(
                 f"{_unite('°C')}"
             )
 
+        def fmt_t_ressenti(jour_c, h_debut, h_fin) -> str:
+            from meteo_socle.indices.temperature_ressentie import temperature_ressentie_serie
+
+            serie_k = serie_fenetre(jour_c, "temperature_2m", h_debut, h_fin)
+            if serie_k.empty:
+                return "—"
+            serie_v = serie_fenetre(jour_c, "vitesse_vent_10m", h_debut, h_fin)
+            serie_hr = serie_fenetre(jour_c, "humidite_relative", h_debut, h_fin)
+            if serie_v.empty and serie_hr.empty:
+                return "—"
+            temp_c = serie_k - 273.15
+            v_ms = (
+                serie_v.reindex(temp_c.index)
+                if not serie_v.empty
+                else pd.Series(float("nan"), index=temp_c.index)
+            )
+            hr = (
+                serie_hr.reindex(temp_c.index)
+                if not serie_hr.empty
+                else pd.Series(float("nan"), index=temp_c.index)
+            )
+            ressenti = temperature_ressentie_serie(temp_c, v_ms, hr)
+            t_min = ressenti.min()
+            t_max = ressenti.max()
+            return (
+                f'<span style="color:#0072B2;">{t_min:.0f}</span>'
+                f'<span style="color:#aaa;">/</span>'
+                f'<span style="color:#D55E00;">{t_max:.0f}</span>'
+                f"{_unite('°C')}"
+            )
+
         def fmt_pluie(jour_c, h_debut, h_fin) -> str:
             serie = serie_fenetre(jour_c, "precipitation", h_debut, h_fin)
             if serie.empty:
@@ -846,6 +877,8 @@ def _bloc_grille_indicateurs_48h(
         def _ligne_uv_jour(uvi: float) -> str:
             if math.isnan(uvi):
                 return ""
+            if round(uvi) <= 2:  # Faible : pas de protection nécessaire → on n'affiche pas
+                return ""
             label, couleur = libelle_uv_oms(uvi)
             return (
                 '<tr><td style="padding:4px 8px;color:#555;font-size:13px;">Indice UV (jour)</td>'
@@ -860,6 +893,7 @@ def _bloc_grille_indicateurs_48h(
             en_tete,
             cellule_picto(jour),
             ligne_indicateur("T° min/max", fmt_t_min_max),
+            ligne_indicateur("T° ressentie min/max", fmt_t_ressenti),
             ligne_indicateur("Pluie / proba max", fmt_pluie),
             ligne_indicateur("Vent moy / rafales", fmt_vent),
             ligne_indicateur("Vent direction", fmt_vent_direction),
