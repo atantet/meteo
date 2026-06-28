@@ -508,13 +508,13 @@ def _unite(texte: str) -> str:
 # flèche pointe ↓. Le cardinal d'origine est rappelé en petit à côté.
 _FLECHE_DIRECTION_VENT = {
     "N": "↓",
-    "NE": "↙",
+    "NE": "↙︎",  # VS-15 : force rendu texte (sinon emoji fond bleu sur Android)
     "E": "←",
-    "SE": "↖",
+    "SE": "↖︎",
     "S": "↑",
-    "SO": "↗",
+    "SO": "↗︎",
     "O": "→",
-    "NO": "↘",
+    "NO": "↘︎",
 }
 
 
