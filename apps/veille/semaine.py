@@ -136,6 +136,13 @@ def _fmt_t(cellule: CelluleFenetre, fenetre: str) -> str:
     )
 
 
+def _fmt_t_ressenti(cellule: CelluleFenetre, fenetre: str) -> str:
+    if pd.isna(cellule.t_ressenti_extreme):
+        return "—"
+    couleur = _T_MAX if fenetre == FENETRE_JOUR else _T_MIN
+    return f'<span style="color:{couleur};">{cellule.t_ressenti_extreme:.0f}</span>{_unite("°C")}'
+
+
 def _code_wmo(nebulosite_pct: float, pluie_mm: float) -> int | None:
     """Code WMO dérivé d'ARPEGE (nébulosité octas + cumul pluie doctrine).
 
@@ -306,6 +313,7 @@ def _etp_arrow_html(etp: float) -> str:
 _LIGNES_TENDANCE = (
     ("Ciel", _fmt_ciel),
     ("T° moy/extr", _fmt_t),
+    ("T° ressentie", _fmt_t_ressenti),
     ("Vent · dir", _fmt_vent_combine),
 )
 

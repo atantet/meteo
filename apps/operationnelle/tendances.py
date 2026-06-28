@@ -89,6 +89,9 @@ class CelluleFenetre:
     # ``weather_code`` (picto diagnostic unifié, ADR-0021) ; sinon None → le rendu
     # retombe sur le picto nébulosité+pluie historique.
     weather_code: int | None = None
+    # T° ressentie extrême : windchill min (nuit) ou humidex max (jour).
+    # NaN si les colonnes vent / HR sont absentes du df.
+    t_ressenti_extreme: float = float("nan")
 
 
 def _direction_cardinal(deg: float) -> str:
@@ -228,6 +231,17 @@ def _agreger_cellule(
 
         weather_code = code_dominant_fenetre(group["weather_code"])
 
+    t_ressenti_extreme = float("nan")
+    if t_c is not None and not t_c.empty:
+        from meteo_socle.indices.temperature_ressentie import temperature_ressentie_serie
+
+        v_ser = group.get("vitesse_vent_10m")
+        hr_ser = group.get("humidite_relative")
+        v_input = v_ser if v_ser is not None else pd.Series(float("nan"), index=t_c.index)
+        hr_input = hr_ser if hr_ser is not None else pd.Series(float("nan"), index=t_c.index)
+        ressenti = temperature_ressentie_serie(t_c, v_input, hr_input)
+        t_ressenti_extreme = float(ressenti.max() if fenetre == FENETRE_JOUR else ressenti.min())
+
     return CelluleFenetre(
         t_mean=t_mean,
         t_extreme=t_extreme,
@@ -240,6 +254,7 @@ def _agreger_cellule(
         etp_mm=etp_mm,
         nebulosite_pct=nebulosite_pct,
         weather_code=weather_code,
+        t_ressenti_extreme=t_ressenti_extreme,
     )
 
 
