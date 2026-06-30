@@ -34,7 +34,7 @@ import pandas as pd  # noqa: E402
 from apps.veille.__main__ import executer_veille  # noqa: E402
 from apps.veille.config import load_config, load_dotenv_if_present  # noqa: E402
 
-OUT = Path("/tmp")
+OUT = _REPO_ROOT / "previews"
 
 
 def _instant_passe(jour: pd.Timestamp, heure: int, maintenant: pd.Timestamp) -> pd.Timestamp:

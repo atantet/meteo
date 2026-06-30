@@ -54,6 +54,7 @@ from meteo_socle.sources.dpvigilance import (
     VigilanceDepartementDP,
 )
 from meteo_socle.sources.meteofrance_phealth import UVJournalier, libelle_uv_oms
+from meteo_socle.sources.vigieau import LABELS_NIVEAU, NIVEAU_AUCUNE, RestrictionsEau
 
 from .alertes import Alerte, resume_alertes
 from .anomalies import Anomalie, bloc_rapport_bug
@@ -292,6 +293,110 @@ def _bloc_vigilance_mf(
         'font-weight:600;">Horizon</th>'
         "</tr>" + "".join(lignes_html) + "</table>"
         f'<p style="margin:4px 0 0 0;font-size:11px;color:#888;">{legende}</p>'
+        "</div>"
+    )
+
+
+_VIGIEAU_URL_BASE = "https://vigieau.gouv.fr/situation"
+_VIGIEAU_URL_FALLBACK = "https://vigieau.gouv.fr"
+
+# Couleurs par niveau VigiEau (cohérentes avec la palette Bang Wong).
+_VIGIEAU_COULEURS: dict[str, dict[str, str]] = {
+    "vigilance": {"bg": "#fff4d1", "fg": "#9a7000"},
+    "alerte": {"bg": "#ffd9b3", "fg": "#a04000"},
+    "alerte_renforcee": {"bg": "#ffcccc", "fg": "#a00000"},
+    "crise": {"bg": "#cc0000", "fg": "#ffffff"},
+}
+
+
+def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: str = "") -> str:
+    """Bloc HTML restrictions sécheresse VigiEau (conditionnel).
+
+    Affiché uniquement quand un niveau ≥ vigilance est actif sur la zone
+    souterraine (forage). Compact : niveau SOU + usage cultures spéciales
+    (maraîchage, annexe 3) + date arrêté + lien vigieau.gouv.fr.
+    """
+    if restrictions is None or restrictions.niveau_souterrain == NIVEAU_AUCUNE:
+        return ""
+
+    niveau = restrictions.niveau_souterrain
+    couleurs = _VIGIEAU_COULEURS.get(niveau, _VIGIEAU_COULEURS["alerte"])
+    label_niveau = LABELS_NIVEAU.get(niveau, niveau)
+
+    zones_sou = [z for z in restrictions.zones if z.type_ressource == "SOU"]
+
+    # Date de l'arrêté (première zone SOU qui en a une).
+    date_debut = next((z.date_debut_arrete for z in zones_sou if z.date_debut_arrete), None)
+    if date_debut:
+        try:
+            d = pd.Timestamp(date_debut)
+            date_str = f"depuis le {d.day:02d}/{d.month:02d}/{d.year}"
+        except Exception:
+            date_str = f"depuis le {date_debut}"
+    else:
+        date_str = ""
+
+    # Dédupliquer les usages de toutes les zones SOU.
+    all_usages: list = []
+    for z in zones_sou:
+        for u in z.usages_irrigation:
+            if u not in all_usages:
+                all_usages.append(u)
+
+    # Filtre : cultures spéciales (maraîchage, annexe 3) en priorité.
+    # Exclure les variantes "ressource autres" (eaux usées, eaux de pluie) et "serres".
+    usages_pertinents = [u for u in all_usages if "cultures spéciales" in u.nom.lower()]
+    if not usages_pertinents:
+        usages_pertinents = [
+            u for u in all_usages if "autres types" in u.nom.lower() and "(ressource" not in u.nom
+        ]
+
+    lignes_usages = ""
+    for u in usages_pertinents:
+        desc = u.description.split("\n")[0].strip()
+        if len(desc) > 120:
+            desc = desc[:117] + "…"
+        lignes_usages += f'<li style="margin:2px 0;font-size:12px;color:#555;">{escape(desc)}</li>'
+
+    usages_html = (
+        f'<ul style="margin:6px 0 0 0;padding-left:16px;">{lignes_usages}</ul>'
+        if lignes_usages
+        else ""
+    )
+
+    sous_titre = (
+        f' <span style="font-size:11px;font-weight:400;">{escape(date_str)}</span>'
+        if date_str
+        else ""
+    )
+
+    if adresse_site:
+        from urllib.parse import urlencode
+
+        url_vigieau = (
+            _VIGIEAU_URL_BASE
+            + "?"
+            + urlencode({"profil": "entreprise", "typeEau": "SOU", "adresse": adresse_site})
+        )
+    else:
+        url_vigieau = _VIGIEAU_URL_FALLBACK
+    legende = (
+        f'<a href="{url_vigieau}" '
+        'style="color:#888;text-decoration:underline;">VigiEau</a>'
+        f" · irrigation cultures spéciales (maraîchage) · forage"
+    )
+
+    return (
+        '<div style="margin:12px 0 6px 0;">'
+        '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
+        "Restrictions sécheresse</h3>"
+        '<div style="padding:8px 12px;border-radius:4px;'
+        f'background:{couleurs["bg"]};border-left:4px solid {couleurs["fg"]};">'
+        '<span style="font-size:13px;font-weight:700;'
+        f'color:{couleurs["fg"]};">{escape(label_niveau)}</span>{sous_titre}'
+        f"{usages_html}"
+        f'<div style="font-size:11px;color:#888;margin-top:6px;">{legende}</div>'
+        "</div>"
         "</div>"
     )
 
@@ -1061,6 +1166,8 @@ def composer_html(
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
     uv_journalier: UVJournalier | None = None,
+    restrictions_eau: RestrictionsEau | None = None,
+    adresse_site: str = "",
 ) -> str:
     """Corps email HTML mobile-first (table inline, pas de framework).
 
@@ -1095,6 +1202,7 @@ def composer_html(
         cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
     )
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
+    bloc_restrictions = _bloc_restrictions_eau(restrictions_eau, adresse_site=adresse_site)
 
     # Titre neutre : le mail agrège 3 sources (prévi MF, Vigilance MF, cartes
     # synoptiques tierces) → pas de « prévision MF » dans le titre. La source est
@@ -1147,6 +1255,7 @@ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   {section_mf}
   {maj_html}
   {bloc_vigilance}
+  {bloc_restrictions}
   {bloc_grille}
   {bloc_guides_tendance}
   {bloc_carte}
@@ -1173,6 +1282,7 @@ def composer_email(
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
     uv_journalier: UVJournalier | None = None,
+    restrictions_eau: RestrictionsEau | None = None,
 ) -> EmailComposed:
     """Compose sujet + texte + HTML à partir des indicateurs et de la config.
 
@@ -1192,6 +1302,7 @@ def composer_email(
     # titre principal car valable pour tout le mail (48 h + semaine).
     commune = (position or {}).get("name")
     lieu = config.get("site", {}).get("lieu")
+    adresse_site = config.get("site", {}).get("adresse", "")
     now_utc_ts = pd.Timestamp(maintenant)
     now_utc_ts = (
         now_utc_ts.tz_localize("UTC") if now_utc_ts.tzinfo is None else now_utc_ts.tz_convert("UTC")
@@ -1236,6 +1347,8 @@ def composer_email(
         lieu=lieu,
         anomalies=anomalies,
         uv_journalier=uv_journalier,
+        restrictions_eau=restrictions_eau,
+        adresse_site=adresse_site,
     )
     return EmailComposed(sujet=sujet, texte=texte, html=html)
 

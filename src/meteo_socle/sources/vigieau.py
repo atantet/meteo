@@ -29,10 +29,10 @@ from ._http_retry import get_avec_retry
 
 logger = logging.getLogger(__name__)
 
-ZONES_URL = "https://api.vigieau.beta.gouv.fr/api/zones"
+ZONES_URL = "https://api.vigieau.gouv.fr/api/zones"
 
-# Pleine-Fougères (Ille-et-Vilaine).
-COMMUNE_INSEE_PLEINE_FOUGERES = "35216"
+# Pleine-Fougères (Ille-et-Vilaine) — code INSEE officiel.
+COMMUNE_INSEE_PLEINE_FOUGERES = "35225"
 PROFIL_DEFAUT = "exploitation"
 
 # Niveaux de gravité VigiEau, du moins au plus sévère (sert au tri / au max).
@@ -62,12 +62,23 @@ LABELS_TYPE: dict[str, str] = {
 
 
 @dataclass(frozen=True)
+class UsageRestriction:
+    """Un usage soumis à restriction (thématique Irriguer, pour exploitant)."""
+
+    nom: str
+    thematique: str
+    description: str
+
+
+@dataclass(frozen=True)
 class ZoneRestriction:
     """Une zone d'alerte VigiEau applicable (par type de ressource)."""
 
     type_ressource: str  # "SOU" | "SUP" | "AEP"
     niveau: str  # clé de ORDRE_GRAVITE
     nom_zone: str
+    usages_irrigation: tuple[UsageRestriction, ...] = field(default_factory=tuple)
+    date_debut_arrete: str | None = None  # "YYYY-MM-DD" (dateDebutValidite arrêté)
 
 
 @dataclass(frozen=True)
@@ -149,11 +160,32 @@ def parser_restrictions(
         niveau = _normaliser_niveau(item.get("niveauGravite"))
         if niveau is None:
             continue
+        usages_bruts = item.get("usages") or []
+        usages_irrigation: list[UsageRestriction] = []
+        for u in usages_bruts:
+            if not isinstance(u, dict):
+                continue
+            if not u.get("concerneExploitation"):
+                continue
+            thematique = str(u.get("thematique", ""))
+            if thematique != "Irriguer":
+                continue
+            usages_irrigation.append(
+                UsageRestriction(
+                    nom=str(u.get("nom", "")),
+                    thematique=thematique,
+                    description=str(u.get("description", "")).strip(),
+                )
+            )
+        arrete = item.get("arrete") or {}
+        date_debut = arrete.get("dateDebutValidite") if isinstance(arrete, dict) else None
         zones.append(
             ZoneRestriction(
                 type_ressource=str(item.get("type", "")).upper(),
                 niveau=niveau,
                 nom_zone=str(item.get("nom", "")),
+                usages_irrigation=tuple(usages_irrigation),
+                date_debut_arrete=str(date_debut) if date_debut else None,
             )
         )
     return RestrictionsEau(commune_insee=commune_insee, profil=profil, zones=zones)

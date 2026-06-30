@@ -44,6 +44,10 @@ from meteo_socle.sources.dpvigilance import (
 )
 from meteo_socle.sources.meteofrance_arome import AromeIndisponibleError
 from meteo_socle.sources.meteofrance_proba_arome import ProbaAromeIndisponibleError
+from meteo_socle.sources.vigieau import (
+    COMMUNE_INSEE_PLEINE_FOUGERES,
+    recuperer_restrictions,
+)
 
 from .alertes import evaluer_alertes
 from .anomalies import Anomalie
@@ -309,6 +313,18 @@ def executer_veille(
                 vigilance = None
         _log_diagnostic_vigilance(vigilance, departement, now_utc, tz_locale)
 
+        # Restrictions sécheresse VigiEau (best-effort : None si API injoignable).
+        restrictions_eau = recuperer_restrictions(commune_insee=COMMUNE_INSEE_PLEINE_FOUGERES)
+        if restrictions_eau is not None:
+            logger.info(
+                "VigiEau : niveau max=%s (SOU=%s) — %d zone(s)",
+                restrictions_eau.niveau_max,
+                restrictions_eau.niveau_souterrain,
+                len(restrictions_eau.zones),
+            )
+        else:
+            logger.warning("VigiEau : restrictions non disponibles (fetch échoué).")
+
         # Partie 2 « La semaine » — dans les DEUX créneaux. Le matin l'actualise ;
         # l'après-midi la rappelle à l'identique (``rappel=True`` → même run 00Z,
         # cohérent avec l'atelier qui fait une maj/jour). Cascade ARPEGE→ECMWF +
@@ -392,6 +408,7 @@ def executer_veille(
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
             uv_journalier=prevision.uv_journalier if prevision is not None else None,
+            restrictions_eau=restrictions_eau,
         )
     except Exception as e:  # noqa: BLE001 — toujours notifier (mail d'échec + trace)
         logger.error("Composition du mail échouée : %s", e)
