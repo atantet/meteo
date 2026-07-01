@@ -607,18 +607,20 @@ def _unite(texte: str) -> str:
     return f'<span style="color:#aaa;font-weight:400;font-size:11px;">&nbsp;{texte}</span>'
 
 
-# Flèche pointant dans la direction où va le vent (convention scientifique,
-# wind barbs). N (vent venant du nord) => air se déplace vers le sud =>
-# flèche pointe ↓. Le cardinal d'origine est rappelé en petit à côté.
-_FLECHE_DIRECTION_VENT = {
-    "N": "↓",
-    "NE": "↙︎",  # VS-15 : force rendu texte (sinon emoji fond bleu sur Android)
-    "E": "←",
-    "SE": "↖︎",
-    "S": "↑",
-    "SO": "↗︎",
-    "O": "→",
-    "NO": "↘︎",
+# Rotation (degrés, sens horaire) de → pour pointer dans la direction où
+# va le vent (convention wind-barb : N = air va vers le sud = flèche ↓ = 90°).
+# Approche CSS rotate plutôt que caractères Unicode diagonaux : les ↗↘↙↖ ont
+# une présentation emoji par défaut sur iOS/Android (fond coloré), ignorant le
+# VS-15. Une seule → tournée est toujours rendue en texte.
+_ROTATION_FLECHE_VENT: dict[str, int] = {
+    "N": 90,
+    "NE": 135,
+    "E": 180,
+    "SE": 225,
+    "S": 270,
+    "SO": 315,
+    "O": 0,
+    "NO": 45,
 }
 
 
@@ -965,9 +967,10 @@ def _bloc_grille_indicateurs_48h(
             if pd.isna(deg):
                 return "—"
             cardinal = degrees_to_cardinal(deg)
-            fleche = _FLECHE_DIRECTION_VENT.get(cardinal, "·")
+            rot = _ROTATION_FLECHE_VENT.get(cardinal, 0)
             return (
-                f'<span style="font-size:20px;color:#34495e;line-height:1;">{fleche}</span>'
+                f'<span style="font-size:20px;color:#34495e;line-height:1;'
+                f'display:inline-block;transform:rotate({rot}deg);">→</span>'
                 f'<span style="color:#888;font-size:11px;">&nbsp;{cardinal}</span>'
             )
 
