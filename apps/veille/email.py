@@ -353,8 +353,8 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
 
     lignes_usages = ""
     for u in usages_pertinents:
-        desc = u.description.split("\n")[0].strip()
-        lignes_usages += f'<li style="margin:2px 0;font-size:12px;color:#555;">{escape(desc)}</li>'
+        desc = escape(u.description.strip()).replace("\n", "<br>")
+        lignes_usages += f'<li style="margin:2px 0;font-size:12px;color:#555;">{desc}</li>'
 
     usages_html = (
         f'<ul style="margin:6px 0 0 0;padding-left:16px;">{lignes_usages}</ul>'
