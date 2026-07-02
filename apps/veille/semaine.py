@@ -91,16 +91,19 @@ _VENT = "#009E73"
 _RAFALES = "#E69F00"
 _LABEL = "#34495e"
 
-# Flèche pointant là où VA le vent (convention wind barbs, comme le mail 48 h).
-_FLECHE_DIRECTION_VENT = {
-    "N": "↓",
-    "NE": "↙",
-    "E": "←",
-    "SE": "↖",
-    "S": "↑",
-    "SO": "↗",
-    "O": "→",
-    "NO": "↘",
+# Rotation CSS (degrés horaires) de → pour pointer où VA le vent.
+# Même convention que email.py : N = air va vers le sud = ↓ = rotate(90°).
+# CSS rotate plutôt que caractères diagonaux : ↗↘↙↖ s'affichent en emoji
+# sur iOS/Android (fond coloré) même avec VS-15.
+_ROTATION_VENT: dict[str, int] = {
+    "N": 90,
+    "NE": 135,
+    "E": 180,
+    "SE": 225,
+    "S": 270,
+    "SO": 315,
+    "O": 0,
+    "NO": 45,
 }
 
 # Largeurs fixes pour les tables tendance par jour (1 libellé + Nuit + Jour).
@@ -225,10 +228,12 @@ def _fmt_vent_combine(cellule: CelluleFenetre, _fenetre: str) -> str:
     )
     if not cellule.direction_cardinal:
         return vent
-    fleche = _FLECHE_DIRECTION_VENT.get(cellule.direction_cardinal, "·")
+    rot = _ROTATION_VENT.get(cellule.direction_cardinal)
+    if rot is None:
+        return vent
     return vent + (
-        f'<span style="color:{_LABEL};font-size:19px;font-weight:700;'
-        f'line-height:1;">&nbsp;{fleche}</span>'
+        f'<span style="color:{_LABEL};font-size:19px;font-weight:700;line-height:1;'
+        f'display:inline-block;transform:rotate({rot}deg);">&nbsp;→</span>'
     )
 
 
