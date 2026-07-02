@@ -48,7 +48,9 @@
       "Bash(for *)",
       "Write(/home/atantet/projets/meteo/**)",
       "Write(/tmp/**)",
-      "Edit(/home/atantet/projets/meteo/**)"
+      "Edit(/home/atantet/projets/meteo/**)",
+      "WebSearch",
+      "WebFetch"
     ]
   }
 }

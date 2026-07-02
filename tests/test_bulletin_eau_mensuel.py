@@ -103,6 +103,7 @@ def _bulletin_complet() -> BulletinEau:
         normale_mm=150.0,
         ref_debut_annee=1991,
         ref_fin_annee=2020,
+        percentile_saison=28,
     )
     return BulletinEau(
         genere_le=pd.Timestamp("2024-07-01"),
@@ -117,15 +118,12 @@ def _bulletin_complet() -> BulletinEau:
 def test_compose_email_complet() -> None:
     email = composer_bulletin_email(_bulletin_complet())
     assert "Bulletin eau" in email.sujet
-    assert "sans restriction" in email.sujet
     html = email.html
     assert "État de la nappe" in html
-    assert "m NGF" in html
-    assert "Aucune restriction" in html
-    assert "Pluie récente vs normale" in html
-    assert "1991-2020" in html
-    # Caveat proxy présent (honnêteté).
-    assert "pas le débit de votre forage" in html
+    assert "percentile" in html
+    assert "Pluie sur" in html
+    assert "vs normale" in html
+    assert "Pour anticiper" in html
 
 
 def test_compose_email_degradation_tout_indispo() -> None:

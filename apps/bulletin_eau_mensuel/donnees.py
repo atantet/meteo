@@ -39,6 +39,7 @@ class AnomaliePluie:
     normale_mm: float
     ref_debut_annee: int
     ref_fin_annee: int
+    percentile_saison: int  # rang du cumul dans la distribution de référence (0-100)
 
     @property
     def ecart_mm(self) -> float:
@@ -129,6 +130,7 @@ def calcul_anomalie_pluie(
         return None
 
     normale = sum(sommes) / len(sommes)
+    percentile = round(100 * sum(c <= cumul for c in sommes) / len(sommes))
     return AnomaliePluie(
         debut=debut,
         fin=fin,
@@ -137,6 +139,7 @@ def calcul_anomalie_pluie(
         normale_mm=round(normale, 1),
         ref_debut_annee=min(annees_utiles),
         ref_fin_annee=max(annees_utiles),
+        percentile_saison=percentile,
     )
 
 

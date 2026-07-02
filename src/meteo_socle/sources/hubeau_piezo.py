@@ -59,14 +59,17 @@ class EtatNappe:
     mois: int
     percentile_saison: int  # 0-100
     mediane_saison_ngf: float
+    ecart_type_saison_ngf: float
     min_saison_ngf: float
     max_saison_ngf: float
     n_annees_saison: int
     # Tendance récente (variation sur ~30 jours), None si historique court.
     delta_30j_m: float | None
-    # Plus-bas absolu de tout l'historique (référence d'étiage sévère).
+    # Extrêmes absolus de tout l'historique.
     plus_bas_date: pd.Timestamp
     plus_bas_ngf: float
+    plus_haut_date: pd.Timestamp
+    plus_haut_ngf: float
 
     @property
     def classe_saison(self) -> str:
@@ -155,6 +158,7 @@ def parser_etat_nappe(
             delta_30j = round(niveau - float(ref["niveau_nappe_eau"]), 2)
 
     bas = df.iloc[int(df["niveau_nappe_eau"].to_numpy().argmin())]
+    haut = df.iloc[int(df["niveau_nappe_eau"].to_numpy().argmax())]
 
     return EtatNappe(
         code_bss=code_bss,
@@ -165,12 +169,15 @@ def parser_etat_nappe(
         mois=mois,
         percentile_saison=percentile,
         mediane_saison_ngf=round(float(pd.Series(meme_mois).median()), 2),
+        ecart_type_saison_ngf=round(float(pd.Series(meme_mois).std()), 3),
         min_saison_ngf=round(float(meme_mois.min()), 2),
         max_saison_ngf=round(float(meme_mois.max()), 2),
         n_annees_saison=n_annees,
         delta_30j_m=delta_30j,
         plus_bas_date=pd.Timestamp(bas["date_mesure"]).normalize(),
         plus_bas_ngf=round(float(bas["niveau_nappe_eau"]), 2),
+        plus_haut_date=pd.Timestamp(haut["date_mesure"]).normalize(),
+        plus_haut_ngf=round(float(haut["niveau_nappe_eau"]), 2),
     )
 
 
