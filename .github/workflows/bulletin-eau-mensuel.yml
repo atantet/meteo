@@ -38,6 +38,13 @@ jobs:
           auto-activate-base: false
           use-mamba: true
 
+      - name: Cache ERA5 CDS (années historiques)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/meteo_socle/era5
+          key: era5-precip-${{ hashFiles('config/bulletin_eau_mensuel.yaml') }}
+          restore-keys: era5-precip-
+
       - name: Exécuter le bulletin eau
         env:
           # Mêmes secrets SMTP que la Veille (même boîte mail). Aucun
@@ -49,4 +56,7 @@ jobs:
           VEILLE_SMTP_PASSWORD: ${{ secrets.VEILLE_SMTP_PASSWORD }}
           VEILLE_EMAIL_FROM: ${{ secrets.VEILLE_EMAIL_FROM }}
           VEILLE_EMAIL_TO: ${{ secrets.VEILLE_EMAIL_TO }}
+          # ERA5 historique via CDS ECMWF (réanalyse pluie bulletin eau).
+          CDSAPI_URL: ${{ secrets.CDSAPI_URL }}
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
         run: python -m apps.bulletin_eau_mensuel

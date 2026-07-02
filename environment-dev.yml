@@ -48,6 +48,11 @@ dependencies:
   # les GRIB multi-échéances, le client ecmwf-opendata (pip) les télécharge.
   - cfgrib
   # Note: climetlab pour SAFRAN à ajouter quand on attaque l'app climato (cf. ADR-0002).
+  # Lecture netCDF (ERA5 CDS) + dépendances xarray.
+  - xarray
+  - netcdf4
   - pip:
       # Client de téléchargement ECMWF Open Data (PyPI uniquement).
       - ecmwf-opendata
+      # Client API Copernicus CDS — ERA5 historique pour bulletin eau.
+      - cdsapi

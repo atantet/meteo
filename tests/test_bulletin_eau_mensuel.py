@@ -5,7 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -20,8 +22,31 @@ from apps.bulletin_eau_mensuel.email import (  # noqa: E402
     composer_bulletin_email,
     composer_html,
 )
+from meteo_socle.sources.era5_cds import Era5Cds  # noqa: E402
 from meteo_socle.sources.hubeau_piezo import parser_etat_nappe  # noqa: E402
 from meteo_socle.sources.vigieau import parser_restrictions  # noqa: E402
+
+# ----- Era5Cds._parse_nc (offline) -----
+
+
+def test_era5_cds_parse_nc(tmp_path: Path) -> None:
+    """_parse_nc : netCDF synthétique → série quotidienne en mm correcte."""
+    xr = pytest.importorskip("xarray")
+    lat, lon = 48.5, -1.5
+    # 3 jours × 24 h = 72 valeurs à 0.001 m/h = 1 mm/h → 24 mm/j attendus.
+    times = pd.date_range("2024-06-01", periods=72, freq="h")  # tz-naïf comme ERA5 natif
+    tp_vals = np.full(len(times), 0.001, dtype="float32")
+    ds = xr.Dataset(
+        {"tp": (["time", "latitude", "longitude"], tp_vals[:, np.newaxis, np.newaxis])},
+        coords={"time": times, "latitude": [lat], "longitude": [lon]},
+    )
+    nc_path = str(tmp_path / "era5_test.nc")
+    ds.to_netcdf(nc_path)
+
+    s = Era5Cds()._parse_nc(nc_path, lat, lon)
+    assert len(s) == 3
+    assert abs(s.iloc[0] - 24.0) < 0.5  # 24 h × 1 mm/h = 24 mm
+
 
 # ----- Anomalie pluie -----
 

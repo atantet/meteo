@@ -17,8 +17,8 @@ from typing import Any
 
 import pandas as pd
 
+from meteo_socle.sources.era5_cds import Era5Cds
 from meteo_socle.sources.hubeau_piezo import EtatNappe, etat_nappe
-from meteo_socle.sources.openmeteo_archive import OpenMeteoArchive
 from meteo_socle.sources.vigieau import RestrictionsEau, recuperer_restrictions
 
 logger = logging.getLogger(__name__)
@@ -143,19 +143,15 @@ def calcul_anomalie_pluie(
 def _collecter_pluie(
     config: dict[str, Any],
     now_utc: pd.Timestamp,
-    archive: OpenMeteoArchive | None = None,
+    archive: Era5Cds | None = None,
 ) -> AnomaliePluie | None:
-    """Récupère obs récente + normale de réf et calcule l'écart.
-
-    Utilise ``era5_seamless`` (ERA5 + ERA5T, ~5 j de latence) : ERA5-Land,
-    plus fin mais bien plus latent, ne couvre pas la fenêtre récente.
-    """
+    """Récupère obs récente + normale de réf et calcule l'écart (ERA5 CDS)."""
     site = config["site"]
     pcfg = config.get("pluie", {})
     fenetre = int(pcfg.get("fenetre_jours", 90))
     an0 = int(pcfg.get("reference_debut_annee", 1991))
     an1 = int(pcfg.get("reference_fin_annee", 2020))
-    arch = archive or OpenMeteoArchive(modele=pcfg.get("modele", "era5_seamless"))
+    arch = archive or Era5Cds()
 
     # Dernier jour complet = hier (la réanalyse a quelques jours de latence,
     # mais on borne à hier et on laisse la couverture réelle décider).
@@ -169,7 +165,10 @@ def _collecter_pluie(
             fin.strftime("%Y-%m-%d"),
         )
         ref = arch.obtenir_precip_quotidien(
-            site["latitude"], site["longitude"], f"{an0}-01-01", f"{an1}-12-31"
+            site["latitude"],
+            site["longitude"],
+            f"{an0}-01-01",
+            f"{an1}-12-31",
         )
     except Exception as e:  # noqa: BLE001 — dégradation gracieuse
         logger.warning("Bulletin eau : pluie indisponible (%s)", e)
@@ -183,7 +182,7 @@ def _collecter_pluie(
 def collecter_bulletin(
     config: dict[str, Any],
     now_utc: pd.Timestamp | None = None,
-    archive: OpenMeteoArchive | None = None,
+    archive: Era5Cds | None = None,
 ) -> BulletinEau:
     """Assemble le ``BulletinEau`` via les trois sources (live).
 

@@ -198,7 +198,7 @@ def composer_html(b: BulletinEau) -> str:
         'border-top:1px solid #eee;padding-top:10px;line-height:1.5;">'
         f"Généré le {d.strftime('%d/%m/%Y')}. État de la ressource — observation, "
         "sans prévision saisonnière. Sources : Hub'Eau (piézométrie ADES), "
-        "VigiEau (restrictions sécheresse), Open-Meteo / ERA5 (pluie)."
+        "VigiEau (restrictions sécheresse), ERA5 via CDS ECMWF (pluie)."
         "</div>"
     )
     return (

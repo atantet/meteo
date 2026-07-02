@@ -21,14 +21,13 @@ nappe:
 restrictions:
   profil: "exploitation"
 
-# Anomalie de pluie : cumul récent vs normale (réanalyse ERA5+ERA5T).
-# era5_seamless = faible latence (~5 j), couvre la fenêtre récente ET la
-# période de référence ; ERA5-Land (climato) serait trop latent ici.
+# Anomalie de pluie : cumul récent vs normale (ERA5/ERA5T via CDS ECMWF).
+# Cache par année dans ~/.cache/meteo_socle/era5/ ; première exécution lente
+# (1 requête CDS par année de référence). GH Actions : activer cache action.
 pluie:
   fenetre_jours: 90
   reference_debut_annee: 1991
   reference_fin_annee: 2020
-  modele: "era5_seamless"
 
 diffusion:
   # False = dry-run (imprime, n'envoie pas). True = envoi SMTP réel.
