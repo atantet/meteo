@@ -17,7 +17,7 @@ permissions:
 jobs:
   bulletin:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     # Backend matplotlib non-interactif (cf. ci.yml) : évite le hang qtagg headless.
     env:
       MPLBACKEND: Agg
