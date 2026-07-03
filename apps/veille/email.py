@@ -351,16 +351,30 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
             u for u in all_usages if "autres types" in u.nom.lower() and "(ressource" not in u.nom
         ]
 
-    lignes_usages = ""
-    for u in usages_pertinents:
-        desc = escape(u.description.strip()).replace("\n", "<br>")
-        lignes_usages += f'<li style="margin:2px 0;font-size:12px;color:#555;">{desc}</li>'
+    def _desc_html(description: str) -> str:
+        # \n simple = retour typographique dans la phrase → espace.
+        # \n\n = séparation de paragraphes → <br><br>.
+        paragraphes = [
+            escape(p.strip().replace("\n", " "))
+            for p in description.strip().split("\n\n")
+            if p.strip()
+        ]
+        return "<br><br>".join(paragraphes)
 
-    usages_html = (
-        f'<ul style="margin:6px 0 0 0;padding-left:16px;">{lignes_usages}</ul>'
-        if lignes_usages
-        else ""
-    )
+    if len(usages_pertinents) == 1:
+        usages_html = (
+            '<div style="margin:6px 0 0 0;font-size:12px;color:#555;">'
+            + _desc_html(usages_pertinents[0].description)
+            + "</div>"
+        )
+    elif usages_pertinents:
+        items = "".join(
+            f'<li style="margin:2px 0;font-size:12px;color:#555;">{_desc_html(u.description)}</li>'
+            for u in usages_pertinents
+        )
+        usages_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;">{items}</ul>'
+    else:
+        usages_html = ""
 
     sous_titre = (
         f' <span style="font-size:11px;font-weight:400;">{escape(date_str)}</span>'
