@@ -124,7 +124,7 @@ def test_compose_email_complet() -> None:
     assert "État de la nappe" in html
     assert "data:image/png" in html  # graphes embarqués
     assert "Pluie sur" in html
-    assert "vs normale" in html
+    assert "/ normale" in html
     assert "Pour anticiper" in html
 
 
