@@ -40,6 +40,8 @@ class AnomaliePluie:
     ref_debut_annee: int
     ref_fin_annee: int
     percentile_saison: int  # rang du cumul dans la distribution de référence (0-100)
+    sommes_ref: list[float]  # cumuls 90 j même fenêtre calendaire (pour KDE saisonnière)
+    sommes_ref_annee: list[float]  # cumuls 90 j à chaque fin de mois (pour KDE annuelle)
 
     @property
     def ecart_mm(self) -> float:
@@ -131,6 +133,13 @@ def calcul_anomalie_pluie(
 
     normale = sum(sommes) / len(sommes)
     percentile = round(100 * sum(c <= cumul for c in sommes) / len(sommes))
+
+    # Cumuls 90 j à chaque fin de mois sur toute la période de référence (KDE annuelle).
+    rolling = ref.rolling(window=fenetre_jours, min_periods=int(seuil_jours)).sum()
+    sommes_annee = [
+        round(float(v), 1) for d, v in rolling.items() if d.is_month_end and pd.notna(v)
+    ]
+
     return AnomaliePluie(
         debut=debut,
         fin=fin,
@@ -140,6 +149,8 @@ def calcul_anomalie_pluie(
         ref_debut_annee=min(annees_utiles),
         ref_fin_annee=max(annees_utiles),
         percentile_saison=percentile,
+        sommes_ref=[round(s, 1) for s in sommes],
+        sommes_ref_annee=sommes_annee,
     )
 
 

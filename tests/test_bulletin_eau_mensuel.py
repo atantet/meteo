@@ -104,6 +104,8 @@ def _bulletin_complet() -> BulletinEau:
         ref_debut_annee=1991,
         ref_fin_annee=2020,
         percentile_saison=28,
+        sommes_ref=[100.0, 120.0, 130.0, 140.0, 150.0, 155.0, 160.0, 170.0, 180.0, 200.0],
+        sommes_ref_annee=[80.0 + i * 10.0 for i in range(36)],
     )
     return BulletinEau(
         genere_le=pd.Timestamp("2024-07-01"),
@@ -120,7 +122,7 @@ def test_compose_email_complet() -> None:
     assert "Bulletin eau" in email.sujet
     html = email.html
     assert "État de la nappe" in html
-    assert "percentile" in html
+    assert "data:image/png" in html  # graphes embarqués
     assert "Pluie sur" in html
     assert "vs normale" in html
     assert "Pour anticiper" in html

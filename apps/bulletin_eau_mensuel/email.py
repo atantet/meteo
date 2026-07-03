@@ -10,6 +10,8 @@ rester compatible avec ``apps.veille.sender``.
 
 from __future__ import annotations
 
+import base64
+
 import pandas as pd
 
 from apps.shared.dates_fr import MOIS_FR
@@ -21,6 +23,7 @@ from apps.shared.style import (
 from apps.veille.email import EmailComposed
 
 from .donnees import BulletinEau
+from .graphes import graphe_nappe, graphe_pluie
 from .vocabulaire import couleur_classe_nappe
 
 # ----- Construction de blocs HTML -----
@@ -47,17 +50,6 @@ def _bloc_nappe(b: BulletinEau) -> str:
     if n is None:
         return ""
     couleur = couleur_classe_nappe(n.classe_saison)
-    prof_txt = (
-        f'<span style="color:#888">{n.profondeur_m:.1f} m sous le sol</span>'
-        if n.profondeur_m is not None
-        else ""
-    )
-    if n.percentile_saison < 33:
-        couleur_pct = COULEUR_CHAUD
-    elif n.percentile_saison > 67:
-        couleur_pct = COULEUR_PLUIE
-    else:
-        couleur_pct = COULEUR_NEUTRE
     if n.delta_30j_m is None:
         couleur_tend = COULEUR_NEUTRE
         tendance = "tendance indisponible"
@@ -75,20 +67,19 @@ def _bloc_nappe(b: BulletinEau) -> str:
         round((n.niveau_ngf - n.mediane_saison_ngf) / amplitude * 100) if amplitude else 0
     )
     signe_niveau = "+" if ecart_pct_niveau >= 0 else ""
+    img_b64 = base64.b64encode(graphe_nappe(n)).decode()
+    img_html = (
+        f'<img src="data:image/png;base64,{img_b64}" '
+        'style="width:100%;max-width:500px;display:block;margin:6px 0 4px;" alt="">'
+    )
     corps = (
         f'<div style="font-size:18px;font-weight:700;color:{couleur};margin-bottom:4px;">'
-        f"{n.classe_saison.capitalize()} ({signe_niveau}{ecart_pct_niveau} %)</div>"
-        f"<div>{n.niveau_ngf:.2f} m</div>"
-        f"<div>{prof_txt}"
-        f'<span style="color:{couleur_pct}"> ({n.percentile_saison}'
-        f"<sup>e</sup> percentile)</span></div>"
-        f'<div><span style="color:{couleur_tend}">{tendance}</span></div>'
+        f"{n.classe_saison.capitalize()} ({signe_niveau}{ecart_pct_niveau} %)"
+        f'<span style="color:#2c3e50;font-weight:400;"> · </span>'
+        f'<span style="color:{couleur_tend};font-weight:400;">{tendance}</span></div>'
+        f"{img_html}"
         f'<div style="color:#888;font-size:12px;margin-top:4px;">'
-        f"% = (niveau − médiane) / (max − min) × 100<br>"
-        f"min = {n.plus_bas_ngf:.2f} m ({n.plus_bas_date.strftime('%d/%m/%Y')})<br>"
-        f"médiane = {n.mediane_saison_ngf:.2f} m"
-        f" sur {n.n_annees_saison} ans de {MOIS_FR[n.mois - 1]}<br>"
-        f"max = {n.plus_haut_ngf:.2f} m ({n.plus_haut_date.strftime('%d/%m/%Y')})</div>"
+        f"% = (niveau − médiane) / (max − min) × 100</div>"
     )
     titre = f"État de la nappe au {n.date_mesure.strftime('%d/%m/%Y')} — {b.nom_station_nappe}"
     return _carte(titre, couleur, corps)
@@ -104,28 +95,22 @@ def _bloc_pluie(b: BulletinEau) -> str:
         couleur = COULEUR_PLUIE
     else:
         couleur = COULEUR_NEUTRE
-    if p.percentile_saison < 33:
-        couleur_pct_pluie = COULEUR_CHAUD
-    elif p.percentile_saison > 67:
-        couleur_pct_pluie = COULEUR_PLUIE
-    else:
-        couleur_pct_pluie = COULEUR_NEUTRE
     signe = "+" if p.ecart_pct >= 0 else ""
-    abs_ecart = abs(round(p.ecart_mm))
-    sens = "sous" if p.ecart_mm < 0 else "au-dessus de"
     titre = (
         f"Pluie sur {p.debut.strftime('%d/%m')}–{p.fin.strftime('%d/%m/%Y')}"
-        f" vs normale — Pleine-Fougères"
+        f" / normale — Pleine-Fougères"
+    )
+    img_b64 = base64.b64encode(graphe_pluie(p)).decode()
+    img_html = (
+        f'<img src="data:image/png;base64,{img_b64}" '
+        'style="width:100%;max-width:500px;display:block;margin:6px 0 4px;" alt="">'
     )
     corps = (
         f'<div style="font-size:18px;font-weight:700;color:{couleur};margin-bottom:4px;">'
         f"{p.classe.capitalize()} ({signe}{p.ecart_pct} %)</div>"
-        f"<div>{p.cumul_mm:.0f} mm</div>"
-        f'<div style="color:{couleur_pct_pluie}">{abs_ecart} mm {sens} la normale'
-        f" ({p.percentile_saison}<sup>e</sup> percentile)</div>"
+        f"{img_html}"
         f'<div style="color:#888;font-size:12px;margin-top:4px;">'
-        f"% = (cumul − normale) / normale × 100<br>"
-        f"normale = {p.normale_mm:.0f} mm ({p.ref_debut_annee}–{p.ref_fin_annee})</div>"
+        f"% = (cumul − normale) / normale × 100</div>"
     )
     return _carte(titre, couleur, corps)
 

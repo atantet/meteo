@@ -70,6 +70,10 @@ class EtatNappe:
     plus_bas_ngf: float
     plus_haut_date: pd.Timestamp
     plus_haut_ngf: float
+    # Distribution brute du mois (pour KDE non-paramétrique).
+    valeurs_historiques_mois: list[float]
+    # Distribution brute toutes saisons (pour KDE annuelle de référence).
+    valeurs_historiques_annee: list[float]
 
     @property
     def classe_saison(self) -> str:
@@ -178,6 +182,8 @@ def parser_etat_nappe(
         plus_bas_ngf=round(float(bas["niveau_nappe_eau"]), 2),
         plus_haut_date=pd.Timestamp(haut["date_mesure"]).normalize(),
         plus_haut_ngf=round(float(haut["niveau_nappe_eau"]), 2),
+        valeurs_historiques_mois=[round(float(v), 2) for v in meme_mois],
+        valeurs_historiques_annee=[round(float(v), 2) for v in df["niveau_nappe_eau"].to_numpy()],
     )
 
 
