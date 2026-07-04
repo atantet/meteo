@@ -9,6 +9,11 @@ Conventions GRIB2 (vérifiées 2026-06-28) :
 La ``valid_time`` GRIB2 est la **fin** de la fenêtre d'accumulation (J0+1 jour,
 J1+1 jour) — ne pas confondre avec le jour prévu.
 
+PHEALTH publie une fois par jour (run 00Z) avec une latence de quelques heures.
+Le run du jour n'est donc pas disponible à 04h30 UTC : ``obtenir_uv`` essaie d'abord
+le run 00Z du jour, puis J-1 en repli. Sur J-1, le J1 du run précédent = UV du jour
+courant (→ ``uvi_j0``) ; ``uvi_j1`` est inconnu (NaN, ligne omise dans le mail).
+
 Auth : même OAuth Basic DP que AROME/ARPEGE (``METEOFRANCE_DP_BASIC``).
 """
 
@@ -91,6 +96,61 @@ def _extraire_uv(grib_path: Path, latitude: float, longitude: float) -> tuple[fl
     return uvi_j0, uvi_j1
 
 
+def _fetch_et_extraire(
+    run_00z: pd.Timestamp,
+    latitude: float,
+    longitude: float,
+    basic: str,
+    session: requests.Session,
+    cache_dir: str | Path | None,
+) -> tuple[float, float]:
+    """Télécharge (ou charge du cache) le GRIB2 PHEALTH pour ``run_00z`` et extrait uvi.
+
+    Lève ``requests.HTTPError`` sur 404 (run non disponible) et
+    ``PheaithIndisponibleError`` sur toute autre erreur réseau ou de parsing.
+    """
+    if cache_dir:
+        cp = _cache_path(run_00z, cache_dir)
+        if cp.exists():
+            logger.debug("PHEALTH cache hit : %s", cp)
+            return _extraire_uv(cp, latitude, longitude)
+
+    params = {
+        "referencetime": run_00z.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "time": _PHEALTH_TIME,
+        "format": "grib2",
+    }
+    try:
+        token = _bearer(session, basic)
+        resp = session.get(
+            PHEALTH_URL,
+            params=params,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=60,
+        )
+        resp.raise_for_status()  # HTTPError 404 → propagée telle quelle pour repli J-1
+    except requests.HTTPError:
+        raise
+    except requests.RequestException as exc:
+        raise PheaithIndisponibleError(
+            f"Fetch PHEALTH échoué ({run_00z:%Y-%m-%dT%HZ}) : {exc}"
+        ) from exc
+
+    if cache_dir:
+        cp = _cache_path(run_00z, cache_dir)
+        cp.parent.mkdir(parents=True, exist_ok=True)
+        cp.write_bytes(resp.content)
+        return _extraire_uv(cp, latitude, longitude)
+
+    with tempfile.NamedTemporaryFile(suffix=".grib2", delete=False) as tmp:
+        tmp.write(resp.content)
+        tmp_path = Path(tmp.name)
+    try:
+        return _extraire_uv(tmp_path, latitude, longitude)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 def obtenir_uv(
     run_utc: pd.Timestamp,
     latitude: float,
@@ -101,52 +161,38 @@ def obtenir_uv(
 ) -> UVJournalier:
     """Télécharge (ou charge depuis cache) le GRIB2 PHEALTH et extrait uvi J0/J1 au point.
 
-    Lève ``PheaithIndisponibleError`` ou ``requests.RequestException`` en cas d'échec —
-    les deux sont attrapés par l'appelant comme erreur non bloquante.
+    Essaie le run 00Z du jour, puis J-1 en repli (le run 00Z n'est pas disponible
+    avant ~06h30 UTC). Sur J-1 : J1 du run précédent → uvi_j0 (UV du jour courant) ;
+    uvi_j1 = NaN (demain inconnu, ligne omise dans le mail).
+
+    Lève ``PheaithIndisponibleError`` si aucun run n'est disponible —
+    attrapé par l'appelant comme erreur non bloquante.
     """
     session = session or requests.Session()
     _basic = basic or os.environ.get(ENV_BASIC, "")
     if not _basic:
         raise PheaithIndisponibleError(f"Identifiant {ENV_BASIC} absent.")
 
-    if cache_dir:
-        cp = _cache_path(run_utc, cache_dir)
-        if cp.exists():
-            logger.debug("PHEALTH cache hit : %s", cp)
-            j0, j1 = _extraire_uv(cp, latitude, longitude)
-            return UVJournalier(uvi_j0=j0, uvi_j1=j1, run_utc=run_utc)
+    run_00z = run_utc.normalize()  # 00:00:00 UTC du jour
+    candidats = [run_00z, run_00z - pd.Timedelta(days=1)]
 
-    params = {
-        "referencetime": run_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "time": _PHEALTH_TIME,
-        "format": "grib2",
-    }
-    try:
-        token = _bearer(session, _basic)
-        resp = session.get(
-            PHEALTH_URL,
-            params=params,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=60,
-        )
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        raise PheaithIndisponibleError(
-            f"Fetch PHEALTH échoué ({run_utc:%Y-%m-%dT%HZ}) : {exc}"
-        ) from exc
-
-    if cache_dir:
-        cp = _cache_path(run_utc, cache_dir)
-        cp.parent.mkdir(parents=True, exist_ok=True)
-        cp.write_bytes(resp.content)
-        j0, j1 = _extraire_uv(cp, latitude, longitude)
-    else:
-        with tempfile.NamedTemporaryFile(suffix=".grib2", delete=False) as tmp:
-            tmp.write(resp.content)
-            tmp_path = Path(tmp.name)
+    for days_back, candidate in enumerate(candidats):
         try:
-            j0, j1 = _extraire_uv(tmp_path, latitude, longitude)
-        finally:
-            tmp_path.unlink(missing_ok=True)
+            j0, j1 = _fetch_et_extraire(candidate, latitude, longitude, _basic, session, cache_dir)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                logger.debug("PHEALTH run %s non disponible (404), repli J-1.", candidate)
+                continue
+            raise PheaithIndisponibleError(
+                f"Fetch PHEALTH échoué ({candidate:%Y-%m-%dT%HZ}) : {exc}"
+            ) from exc
 
-    return UVJournalier(uvi_j0=j0, uvi_j1=j1, run_utc=run_utc)
+        if days_back == 0:
+            return UVJournalier(uvi_j0=j0, uvi_j1=j1, run_utc=candidate)
+        # J-1 : J1 du run précédent = UV du jour courant ; demain inconnu
+        logger.info("PHEALTH : run J-1 utilisé (%s), J1 → uvi_j0.", candidate)
+        return UVJournalier(uvi_j0=j1, uvi_j1=float("nan"), run_utc=candidate)
+
+    raise PheaithIndisponibleError(
+        f"PHEALTH : aucun run disponible pour {run_00z:%Y-%m-%dT%HZ} ni J-1."
+    )
