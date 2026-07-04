@@ -62,6 +62,7 @@ _site/
 
 # Claude Code per-user
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 apps/climato/report.html
 apps/climato/report_files/
 apps/climato/.quarto/
