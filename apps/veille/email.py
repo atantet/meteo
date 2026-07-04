@@ -353,10 +353,11 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
 
     # Aplatir toutes les descriptions en paragraphes (\n\n = séparation sémantique ;
     # \n simple = retour typographique API → espace dans la phrase).
+    # L'API VigiEau renvoie des fins de ligne \r\n (Windows) → normaliser d'abord.
     paragraphes = [
         escape(p.strip().replace("\n", " "))
         for u in usages_pertinents
-        for p in u.description.strip().split("\n\n")
+        for p in u.description.strip().replace("\r\n", "\n").replace("\r", "\n").split("\n\n")
         if p.strip()
     ]
     if len(paragraphes) == 1:
