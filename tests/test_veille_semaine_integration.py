@@ -166,6 +166,42 @@ def _config_op() -> dict:
     return cfg
 
 
+def test_executer_semaine_synchronise_cibles_ecmwf_sur_arpege() -> None:
+    """Bug corrigé : les cartes ECMWF doivent viser les mêmes cibles UTC que
+    les cartes ARPEGE déjà récupérées, pas les mêmes échéances relatives
+    (runs différents → décalage de jour calendaire sinon, cf. retour terrain).
+    """
+    from apps.operationnelle.cartes_geo import CarteGeo, CartesGeoSerie
+    from apps.veille.semaine import executer_semaine
+
+    now = pd.Timestamp("2026-06-15 06:00", tz="UTC")
+    run_arpege = pd.Timestamp("2026-06-15 00:00", tz="UTC")
+    cibles_arpege = (
+        run_arpege + pd.Timedelta(hours=72),
+        run_arpege + pd.Timedelta(hours=96),
+    )
+    cartes_geo_injectee = CartesGeoSerie(
+        cartes=[
+            CarteGeo(run_arpege, c, int((c - run_arpege).total_seconds() // 3600), "")
+            for c in cibles_arpege
+        ]
+    )
+
+    with patch("apps.veille.semaine.recuperer_cartes_geo_ecmwf") as mock_ecmwf:
+        mock_ecmwf.return_value = CartesGeoSerie(cartes=[])
+        executer_semaine(
+            _config_op(),
+            now,
+            source=_StubSingleRuns(),
+            fetch_cartes=True,
+            cartes_geo=cartes_geo_injectee,
+        )
+
+    assert mock_ecmwf.called, "recuperer_cartes_geo_ecmwf doit être appelé (ARPEGE dispo, ecmwf_ok)"
+    cibles_passees = mock_ecmwf.call_args.args[0]
+    assert tuple(cibles_passees) == cibles_arpege
+
+
 def test_executer_semaine_produit_les_blocs_attendus() -> None:
     from apps.veille.semaine import executer_semaine
 
@@ -180,6 +216,7 @@ def test_executer_semaine_produit_les_blocs_attendus() -> None:
     assert "ARPEGE" in html and "ECMWF" in html
     # Cartes désactivées (offline) → pas de série, mais clé présente.
     assert res["cartes_geo"] is None
+    assert res["cartes_geo_ecmwf"] is None
     assert "Sources" in res["sources_html"]
     assert "GUIDES DE DÉCISION" in res["texte"]
 
@@ -476,10 +513,10 @@ def test_executer_veille_matin_fusionne_48h_et_semaine(tmp_path: Path) -> None:
 
 
 def test_regroupement_cartes_synoptiques() -> None:
-    """Toutes les cartes regroupées (offline) : Met Office -> AROME -> ARPEGE J+3/J+4."""
+    """Toutes les cartes regroupées (offline) : Met Office -> AROME -> ARPEGE -> ECMWF J+3/J+4."""
     from apps.operationnelle.cartes_geo import CarteGeo, CartesGeoSerie
     from apps.veille.cartes_synoptiques import CartesGrille, CarteSynoptique
-    from apps.veille.email import _bloc_cartes_synoptiques
+    from apps.veille.email import ECMWF_ENSEMBLE_PANEL_URL, _bloc_cartes_synoptiques
 
     run = pd.Timestamp("2026-06-15 00:00", tz="UTC")
     uri = "data:image/jpeg;base64,AAAA"
@@ -489,15 +526,29 @@ def test_regroupement_cartes_synoptiques() -> None:
         ],
         arome=[CarteSynoptique("arome", run, run + pd.Timedelta(hours=h), uri) for h in (6, 18)],
     )
-    serie = CartesGeoSerie(
+    serie_arpege = CartesGeoSerie(
         cartes=[CarteGeo(run, run + pd.Timedelta(hours=h), h, uri) for h in (72, 96)]
     )
-    html = _bloc_cartes_synoptiques(grille, cartes_longue=serie)
+    serie_ecmwf = CartesGeoSerie(
+        cartes=[CarteGeo(run, run + pd.Timedelta(hours=h), h, uri) for h in (72, 96)]
+    )
+    html = _bloc_cartes_synoptiques(
+        grille, cartes_longue=serie_arpege, cartes_longue_ecmwf=serie_ecmwf
+    )
     assert "Situation synoptique" in html
     i_mo = html.find("Met Office")
     i_ar = html.find("AROME 1.3")
     i_arp = html.find("ARPEGE-Europe")
-    assert -1 < i_mo < i_ar < i_arp, f"Ordre cartes : mo={i_mo} arome={i_ar} arpege={i_arp}"
+    i_ecmwf = html.find("ECMWF 0.25")
+    i_panel = html.find(ECMWF_ENSEMBLE_PANEL_URL)
+    assert -1 < i_mo < i_ar < i_arp < i_ecmwf < i_panel, (
+        f"Ordre cartes : mo={i_mo} arome={i_ar} arpege={i_arp} ecmwf={i_ecmwf} panel={i_panel}"
+    )
+    # Chaque carte ECMWF porte un lien direct vers ecmwf_ctrl.php avec son échéance.
+    assert "ech=72&mode=36&carte=0&" in html
+    assert "ech=96&mode=36&carte=0&" in html
+    # Jamais un indice de confiance calculé : seulement des liens de consultation.
+    assert "indice de confiance" not in html.lower()
 
 
 def test_executer_veille_apres_midi_avec_semaine_rappel(tmp_path: Path) -> None:

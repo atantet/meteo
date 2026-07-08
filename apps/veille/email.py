@@ -36,6 +36,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from apps.operationnelle.cartes_geo import (
+    ECMWF_PAGE_AFFICHEE,
+    lien_ecmwf_ctrl,
+)
+from apps.operationnelle.cartes_geo import (
     METEOCIEL_PAGE_AFFICHEE as ARPEGE_EUR_PAGE_AFFICHEE,
 )
 
@@ -73,6 +77,11 @@ from .indicateurs import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Panel Météociel des membres d'ensemble ECMWF (GENS) — lien de consultation
+# manuelle, jamais un indice de confiance calculé (demande explicite : la
+# comparaison entre modèles/membres reste à l'appréciation du lecteur).
+ECMWF_ENSEMBLE_PANEL_URL = "https://www.meteociel.fr/cartes_obs/gens_panel.php?modele=15"
 
 __all__ = [
     # Re-exports pour rétro-compat (les tests historiques importaient
@@ -419,6 +428,7 @@ def _bloc_cartes_synoptiques(
     grille: CartesGrille | None,
     tz_locale: str = "Europe/Paris",
     cartes_longue: Any = None,
+    cartes_longue_ecmwf: Any = None,
 ) -> str:
     """Bloc HTML 2 sections empilées — Met Office puis AROME, 1 colonne.
 
@@ -430,6 +440,10 @@ def _bloc_cartes_synoptiques(
     Vide si ``grille`` est ``None`` ou si aucune carte n'a été
     récupérée avec succès. Les cartes individuelles manquantes sont
     silencieusement sautées.
+
+    ``cartes_longue_ecmwf`` ajoute une section ECMWF juste après ARPEGE, aux
+    mêmes échéances (J+3/J+4) : comparaison visuelle côte à côte laissée au
+    lecteur, jamais un indice de confiance calculé (demande explicite).
 
     Layout :
 
@@ -456,8 +470,13 @@ def _bloc_cartes_synoptiques(
     cartes_longue_dispo = [
         c for c in (getattr(cartes_longue, "cartes", None) or []) if getattr(c, "data_uri", "")
     ]
+    cartes_longue_ecmwf_dispo = [
+        c
+        for c in (getattr(cartes_longue_ecmwf, "cartes", None) or [])
+        if getattr(c, "data_uri", "")
+    ]
     nb_synoptique = grille.nb_disponibles if grille is not None else 0
-    if nb_synoptique == 0 and not cartes_longue_dispo:
+    if nb_synoptique == 0 and not cartes_longue_dispo and not cartes_longue_ecmwf_dispo:
         return ""
 
     def cartes_section(
@@ -466,6 +485,7 @@ def _bloc_cartes_synoptiques(
         source_url: str,
         alt_prefix: str,
         run_suffixe: str = "",
+        lien_par_carte=None,
     ) -> str:
         if not cartes:
             return ""
@@ -493,6 +513,13 @@ def _bloc_cartes_synoptiques(
                     f'margin:6px 0;">{cible_label} — carte indisponible ({motif})</p>'
                 )
                 continue
+            lien_direct = (
+                f'<div style="text-align:center;margin-top:2px;">'
+                f'<a href="{lien_par_carte(c)}" style="font-size:11px;color:#888;">'
+                "Voir en direct (Météociel)</a></div>"
+                if lien_par_carte is not None
+                else ""
+            )
             lignes.append(
                 '<div style="text-align:center;margin:6px 0 10px 0;">'
                 # Échéance bien visible (la cible de la carte) : plus grande, grasse,
@@ -503,6 +530,7 @@ def _bloc_cartes_synoptiques(
                 f'<img src="{c.data_uri}" alt="{alt_prefix} — {cible_label}" '
                 'style="max-width:100%;height:auto;border-radius:4px;'
                 'border:1px solid #eee;">'
+                f"{lien_direct}"
                 "</div>"
             )
         return "".join(lignes)
@@ -528,6 +556,23 @@ def _bloc_cartes_synoptiques(
         source_url=ARPEGE_EUR_PAGE_AFFICHEE,
         alt_prefix="ARPEGE-Europe résumé",
     )
+    # ECMWF aux mêmes échéances qu'ARPEGE, juste après : comparaison visuelle
+    # côte à côte laissée au lecteur (jamais un indice de confiance calculé —
+    # demande explicite, cf. lien vers le panel d'ensemble ci-dessous).
+    section_ecmwf = cartes_section(
+        cartes_longue_ecmwf_dispo,
+        titre="Météociel ECMWF 0.25° — moyen terme (J+3 / J+4)",
+        source_url=ECMWF_PAGE_AFFICHEE,
+        alt_prefix="ECMWF résumé",
+        lien_par_carte=lambda c: lien_ecmwf_ctrl(c.echeance_h),
+    )
+    lien_ensemble = (
+        '<div style="margin:8px 0 0 0;font-size:12px;">'
+        f'<a href="{ECMWF_ENSEMBLE_PANEL_URL}" style="color:#34495e;">'
+        "Cartes d'ensemble ECMWF (Météociel) — comparer les membres</a></div>"
+        if section_arpege or section_ecmwf
+        else ""
+    )
 
     return (
         '<div style="margin:18px 0 6px 0;">'
@@ -537,6 +582,8 @@ def _bloc_cartes_synoptiques(
         f"{section_metoffice}"
         f"{section_arome}"
         f"{section_arpege}"
+        f"{section_ecmwf}"
+        f"{lien_ensemble}"
         "</div>"
     )
 
@@ -1174,6 +1221,7 @@ def composer_html(
     bloc_guides_tendance: str = "",
     bloc_sources_semaine: str = "",
     cartes_longue: Any = None,
+    cartes_longue_ecmwf: Any = None,
     lieu: str | None = None,
     anomalies: list[Anomalie] | None = None,
     uv_journalier: UVJournalier | None = None,
@@ -1185,8 +1233,9 @@ def composer_html(
     Ordre : titre (avec ``lieu`` général) · prévision MF (``commune`` = point de
     grille MF, spécifique à la section) · Vigilances · grille 48 h · détail
     horaire · **La semaine** (``bloc_guides_tendance``) · **Situation synoptique**
-    (Met Office + AROME + ARPEGE ``cartes_longue``, toutes les cartes regroupées)
-    · sources semaine · seuils exploitation (bas, valables 48 h + semaine).
+    (Met Office + AROME + ARPEGE ``cartes_longue`` + ECMWF ``cartes_longue_ecmwf``,
+    toutes les cartes regroupées) · sources semaine · seuils exploitation
+    (bas, valables 48 h + semaine).
 
     Les blocs semaine sont vides l'après-midi → mail 48 h seul. À l'inverse, si
     ``prevision_horaire`` est ``None`` (webservice MF injoignable au dernier essai)
@@ -1210,7 +1259,10 @@ def composer_html(
         uv_journalier=uv_journalier,
     )
     bloc_carte = _bloc_cartes_synoptiques(
-        cartes_grille, tz_locale=tz_locale, cartes_longue=cartes_longue
+        cartes_grille,
+        tz_locale=tz_locale,
+        cartes_longue=cartes_longue,
+        cartes_longue_ecmwf=cartes_longue_ecmwf,
     )
     bloc_vigilance = _bloc_vigilance_mf(vigilance, tz_locale=tz_locale, now=now_utc_ts)
     bloc_restrictions = _bloc_restrictions_eau(restrictions_eau, adresse_site=adresse_site)
@@ -1290,6 +1342,7 @@ def composer_email(
     bloc_guides_tendance: str = "",
     bloc_sources_semaine: str = "",
     cartes_longue: Any = None,
+    cartes_longue_ecmwf: Any = None,
     bloc_semaine_texte: str = "",
     anomalies: list[Anomalie] | None = None,
     uv_journalier: UVJournalier | None = None,
@@ -1355,6 +1408,7 @@ def composer_email(
         bloc_guides_tendance=bloc_guides_tendance,
         bloc_sources_semaine=bloc_sources_semaine,
         cartes_longue=cartes_longue,
+        cartes_longue_ecmwf=cartes_longue_ecmwf,
         lieu=lieu,
         anomalies=anomalies,
         uv_journalier=uv_journalier,

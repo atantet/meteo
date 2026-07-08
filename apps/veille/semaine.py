@@ -48,6 +48,7 @@ from matplotlib.figure import Figure  # API sans pyplot/backend GUI (sûr en hea
 
 from apps.operationnelle.cartes_geo import CartesGeoSerie
 from apps.operationnelle.cartes_geo import recuperer_cartes as recuperer_cartes_geo
+from apps.operationnelle.cartes_geo import recuperer_cartes_ecmwf as recuperer_cartes_geo_ecmwf
 from apps.operationnelle.decisions import (
     THEMES_LIBELLES,
     GuideDecision,
@@ -785,6 +786,7 @@ def executer_semaine(
     source: OpenMeteoSingleRuns | None = None,
     exploitation: dict[str, Any] | None = None,
     cartes_geo: CartesGeoSerie | None = None,
+    cartes_geo_ecmwf: CartesGeoSerie | None = None,
     fetch_cartes: bool = True,
     atelier_url: str = "",
     rappel: bool = False,
@@ -801,6 +803,9 @@ def executer_semaine(
     - ``guides_tendance_html`` : bloc « La semaine » (guides + tendance) ;
     - ``cartes_geo`` : ``CartesGeoSerie`` ARPEGE J+3/J+4 (regroupée avec le bloc
       synoptique 48 h par ``email.py``), ou ``None`` ;
+    - ``cartes_geo_ecmwf`` : ``CartesGeoSerie`` ECMWF sur les mêmes CIBLES UTC
+      que ``cartes_geo`` (ARPEGE), pour comparaison visuelle côte à côte —
+      ``None`` si ARPEGE lui-même absent (rien à synchroniser) ;
     - ``sources_html`` : pied « Sources — semaine » (placé en bas du mail) ;
     - ``texte`` : équivalent texte (fallback) ;
     - ``vide`` : ``True`` si la section n'a AUCUN contenu exploitable (les deux
@@ -828,8 +833,11 @@ def executer_semaine(
     exploitation :
         Config exploitation (guides). Défaut : ``load_exploitation()``.
     cartes_geo :
-        Série de cartes injectable (tests). Si ``None`` et ``fetch_cartes``,
-        récupérée en ligne ; sinon omise.
+        Série de cartes ARPEGE injectable (tests). Si ``None`` et
+        ``fetch_cartes``, récupérée en ligne ; sinon omise.
+    cartes_geo_ecmwf :
+        Série de cartes ECMWF injectable (tests), même principe que
+        ``cartes_geo``.
     fetch_cartes :
         Mettre ``False`` pour ne pas tenter le fetch réseau des cartes.
     rappel :
@@ -975,6 +983,7 @@ def executer_semaine(
             return {
                 "guides_tendance_html": _bandeau_semaine_indisponible(),
                 "cartes_geo": None,
+                "cartes_geo_ecmwf": None,
                 "sources_html": "",
                 "texte": "GUIDES DE DÉCISION : section indisponible (runs modèles non publiés).",
                 "anomalies": anomalies,
@@ -1042,6 +1051,20 @@ def executer_semaine(
                 logger.warning("Semaine : cartes ARPEGE-Europe indisponibles (omises) : %s", e)
                 cartes_geo = None
 
+        # Cartes ECMWF : mêmes CIBLES UTC que ARPEGE (pas les mêmes échéances
+        # relatives — run ECMWF différent, latence propre) pour rester
+        # comparables côte à côte (jamais un indice de confiance calculé —
+        # décision explicite). Nécessite les cartes ARPEGE déjà récupérées.
+        if cartes_geo_ecmwf is None and fetch_cartes and ecmwf_ok and cartes_geo is not None:
+            try:
+                cibles_arpege = tuple(c.cible_utc for c in cartes_geo.cartes)
+                cartes_geo_ecmwf = recuperer_cartes_geo_ecmwf(
+                    cibles_arpege, now_utc=now_utc, largeur_max_px=520
+                )
+            except (requests.RequestException, OSError) as e:
+                logger.warning("Semaine : cartes ECMWF indisponibles (omises) : %s", e)
+                cartes_geo_ecmwf = None
+
         note = note_inline(" ; ".join(a.resume for a in anomalies)) if anomalies else ""
         return {
             "guides_tendance_html": composer_guides_tendance(
@@ -1056,6 +1079,7 @@ def executer_semaine(
                 avec_48h=avec_48h,
             ),
             "cartes_geo": cartes_geo,
+            "cartes_geo_ecmwf": cartes_geo_ecmwf,
             "sources_html": bloc_sources_semaine(
                 horizon_court,
                 horizon_long,
@@ -1083,6 +1107,7 @@ def executer_semaine(
         return {
             "guides_tendance_html": _bandeau_semaine_indisponible(),
             "cartes_geo": None,
+            "cartes_geo_ecmwf": None,
             "sources_html": "",
             "texte": "GUIDES DE DÉCISION : section indisponible (erreur de composition).",
             "anomalies": [

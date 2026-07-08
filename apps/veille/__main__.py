@@ -332,6 +332,7 @@ def executer_veille(
         bloc_guides_tendance = ""
         bloc_sources_semaine = ""
         cartes_longue = None
+        cartes_longue_ecmwf = None
         bloc_semaine_texte = ""
         resultat_semaine: dict[str, Any] | None = None
         if inclure_semaine:
@@ -373,6 +374,7 @@ def executer_veille(
                 bloc_guides_tendance = resultat_semaine["guides_tendance_html"]
                 bloc_sources_semaine = resultat_semaine["sources_html"]
                 cartes_longue = resultat_semaine["cartes_geo"]
+                cartes_longue_ecmwf = resultat_semaine["cartes_geo_ecmwf"]
                 bloc_semaine_texte = resultat_semaine["texte"]
                 anomalies.extend(resultat_semaine.get("anomalies", []))
                 logger.info("Section semaine ajoutée au mail matinal.")
@@ -405,6 +407,7 @@ def executer_veille(
             bloc_guides_tendance=bloc_guides_tendance,
             bloc_sources_semaine=bloc_sources_semaine,
             cartes_longue=cartes_longue,
+            cartes_longue_ecmwf=cartes_longue_ecmwf,
             bloc_semaine_texte=bloc_semaine_texte,
             anomalies=anomalies,
             uv_journalier=prevision.uv_journalier if prevision is not None else None,
