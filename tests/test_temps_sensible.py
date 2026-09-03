@@ -2,9 +2,15 @@
 
 Le bloc ``test_metno_*`` reproduit **à l'identique** les cas de
 ``weather_symbol/test/SimpleWeatherSymbolTest.cpp`` (met.no, GPL) avec une
-``Factory(6)`` → ``hours=6``. Il prouve la fidélité du portage. Les autres
-tests couvrent la projection WMO 4677, la dérivation orage/brouillard propre
-au dépôt, et la non-régression du cas « vendredi » (picto pluie / cumul nul).
+``Factory(6)`` → ``hours=6``. Il prouve la fidélité de la *structure* du
+portage (paliers de pluie, phase, orage, brouillard). Seule exception : les
+bornes de nébulosité (``_SEUILS_NEBULOSITE_PCT``) ont été recalibrées depuis
+les valeurs MET Norway d'origine (13/38/86 → 13,8/54,3/65,8, cf.
+``temps_sensible.py`` et ``docs/calibration_pictos.md``), ce qui déplace le
+cas d'entrée 50 % d'une classe (voir ``test_metno_partly_cloud_no_rain``).
+Les autres tests couvrent la projection WMO 4677, la dérivation
+orage/brouillard propre au dépôt, et la non-régression du cas « vendredi »
+(picto pluie / cumul nul).
 """
 
 from __future__ import annotations
@@ -60,7 +66,9 @@ def test_metno_light_cloud_rain() -> None:
 
 
 def test_metno_partly_cloud_no_rain() -> None:
-    assert s(50, 0.1) == "PartlyCloud"
+    # Sous seuils MET Norway d'origine (38/86) : 50 % → PartlyCloud. Sous les
+    # seuils recalibrés (54,3/65,8) : 50 % reste dans la bande « peu nuageux ».
+    assert s(50, 0.1) == "LightCloud"
 
 
 def test_metno_partly_cloud_little_rain() -> None:

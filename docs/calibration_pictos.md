@@ -16,13 +16,15 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 | Nébulosité totale | Icône | Libellé |
 |---|---|---|
-| ≤ 13 % | `Sun` ☀️ | Ensoleillé |
-| ≤ 38 % | `LightCloud` 🌤️ | Peu nuageux |
-| ≤ 86 % | `PartlyCloud` ⛅ | Partiellement nuageux |
-| > 86 % | `Cloud` ☁️ | Couvert |
+| ≤ 13,8 % | `Sun` ☀️ | Ensoleillé |
+| ≤ 54,3 % | `LightCloud` 🌤️ | Peu nuageux |
+| ≤ 65,8 % | `PartlyCloud` ⛅ | Partiellement nuageux |
+| > 65,8 % | `Cloud` ☁️ | Couvert |
 
-- Seuils : `_SEUILS_NEBULOSITE_PCT = (13, 38, 86)` (`temps_sensible.py`).
-- Réduction cirrus : si pluie nulle **et** couches basse + moyenne ≤ 13 % → **ensoleillé** (cirrus transparent, quel que soit le recouvrement total).
+- Seuils : `_SEUILS_NEBULOSITE_PCT = (13.8, 54.3, 65.8)` (`temps_sensible.py`) —
+  recalibrés le **2026-09-03** depuis les bornes MET Norway d'origine
+  `(13, 38, 86)` (voir entrée de journal correspondante).
+- Réduction cirrus : si pluie nulle **et** couches basse + moyenne ≤ 13,8 % → **ensoleillé** (cirrus transparent, quel que soit le recouvrement total).
 - Agrégation 6 h : **sévérité max** (`code_dominant_fenetre`) — le pire des 6 créneaux.
 - Orage : **Vigilance seule** (jamais dérivé du modèle).
 
@@ -36,12 +38,51 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
   quand le ciel AROME était *mixte* sur la tranche ; à **vérifier** au prochain mail
   via le log `PICTO-DIAG` (si la tranche était *uniformément* couverte, le picto
   restera « couvert » — alors ce sera AROME plus pessimiste que MF, pas l'agrégation).
+- **Seuils de nébulosité recalibrés (2026-09-03)** — le biais résiduel
+  « trop couvert » (+0,59 en moyenne sur 252 tranches, réparti juin→sept.,
+  toutes fenêtres horaires) venait des bornes `(13, 38, 86)` elles-mêmes, pas de
+  l'agrégation. Passées à `(13,8, 54,3, 65,8)` par Differential Evolution
+  (`calibration/optimize.py`). **À vérifier au prochain mail.**
 
-### Leviers restants (si le biais persiste après correctif agrégation)
-- **Seuils** de nébulosité `(13, 38, 86)` — à rapprocher des octas MF seulement sur
-  biais *répété* et documenté par les valeurs `PICTO-DIAG`.
+### Leviers restants
+- Seuils de nébulosité recalibrés le 2026-09-03 (levier utilisé, voir ci-dessus)
+  — ré-ouvrir seulement si un biais *répété* réapparaît sur les valeurs
+  `PICTO-DIAG`/`HORA-DIAG` post-recalibration.
 
 ## Journal des comparaisons
+
+### 2026-09-03 — Rattrapage du pipeline ML (252 tranches) ; recalibration des seuils
+
+Le registre manuel ci-dessous s'était arrêté au 22/06, mais `calibration/run_pipeline.sh`
+a continué d'accumuler des tranches labellisées MF automatiquement (24/06 → 02/09,
+crontab locale, ~39 % d'exécution effective — poste souvent éteint). Rattrapage :
+`optimize.py` rejoué sur les 252 tranches disponibles (hors orage, filtré Vigilance).
+
+**Confusion (seuils d'alors, 13/38/86) :**
+
+| MF \\ nous | Clair | Peu nuageux | Partiel | Couvert |
+|---|---|---|---|---|
+| Clair (0) | 77 | 33 | 24 | 5 |
+| Peu nuageux (1) | 6 | 7 | 28 | 5 |
+| Partiel (2) | 0 | 1 | 19 | 28 |
+| Couvert (3) | 0 | 0 | 6 | 13 |
+
+Biais moyen **+0,59** (sur-classement systématique vers plus couvert que MF) ;
+46 % d'accord exact seulement. Vérifié **non lié** à un artefact ponctuel :
+- par source de log : hora_diag (n=217) +0,56, picto_diag (n=35, ancien format) +0,77
+  → présent dans les deux formats, pas introduit par la bascule HORA-DIAG (24/06).
+- par mois : juin +0,73, juillet +0,49, août +0,61, sept. +0,55 → jamais nul.
+- par fenêtre : après-midi +0,43, matin/nuit +0,65, soir +0,62 → présent partout.
+
+Biais **répété et généralisé** → seuils recalibrés (Differential Evolution) :
+`(13, 38, 86)` → `(13,8, 54,3, 65,8)`. MAE ordinale 0,476 → 0,444 sur les 252 tranches.
+Random Forest (OOB 0,71) confirme `cc_avg`/`cc_low_avg` comme prédicteurs dominants
+(66 % d'importance cumulée) — pas de feature manquante suggérant une autre cause.
+
+Appliqué dans `temps_sensible.py` (`_SEUILS_NEBULOSITE_PCT`), tests mis à jour
+(1 cas de fidélité MET Norway, entrée 50 %, change de classe : `PartlyCloud` →
+`LightCloud`), ADR-0013 amendé. **À vérifier au prochain mail** (comparaison
+visuelle vs MF.com par Alexis, cf. discipline « pas d'eyeball automatisé »).
 
 ### 2026-06-24 (après-midi) — cirrus → ensoleillé (corrigé) ; écart Jeu matin = modèle
 

@@ -13,6 +13,17 @@ Accepté — 2026-06-05. Application de [ADR-0011](0011-single-runs-api-runs-exp
 > utilisé en primaire** par aucune des deux apps — il est **conservé dans le socle
 > comme repli** (App 1 si MF muet, et queue) et utilitaire.
 
+> **Seuils de nébulosité recalibrés — 2026-09-03** : les bornes MET Norway
+> d'origine (13/38/86, § Décision ci-dessous) sur-classaient systématiquement
+> la couverture nuageuse par rapport à Météo-France (biais +0,59 en moyenne,
+> mesuré sur 252 tranches labellisées accumulées par le pipeline
+> `calibration/`, réparti sur juin-septembre, toutes fenêtres horaires). Seuils
+> recalibrés à 13,8/54,3/65,8 par Differential Evolution — voir
+> `docs/calibration_pictos.md` et `_SEUILS_NEBULOSITE_PCT` dans
+> `temps_sensible.py`. La structure de la règle (4 paliers) reste le portage
+> MET Norway ; seuls ses points d'ancrage numériques sont désormais propres
+> à ce dépôt.
+
 ## Contexte
 
 Bug observé le 2026-06-05 (Veille du matin) : pour **vendredi après-midi**, le

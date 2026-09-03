@@ -29,8 +29,11 @@ Filtres appliqués
 
 Seuils actuels (référence)
 ---------------------------
-    s1=13, s2=38, s3=86   (_SEUILS_NEBULOSITE_PCT dans temps_sensible.py)
-    s_circ=13             (seuil bas+moy pour la réduction cirrus)
+    s1=13.8, s2=54.3, s3=65.8   (_SEUILS_NEBULOSITE_PCT dans temps_sensible.py,
+                                 recalibrés 2026-09-03 depuis les bornes MET
+                                 Norway d'origine 13/38/86)
+    s_circ=13.8                 (seuil bas+moy pour la réduction cirrus, = s1
+                                 dans le code — pas une constante séparée)
 """
 
 from __future__ import annotations
@@ -48,7 +51,7 @@ from sklearn.tree import DecisionTreeClassifier, export_text
 _DATASET_DEFAULT = Path("data/calibration/dataset.csv")
 
 # Seuils actuels → référence et point de départ pour DE
-_S1_CUR, _S2_CUR, _S3_CUR, _S_CIRC_CUR = 13.0, 38.0, 86.0, 13.0
+_S1_CUR, _S2_CUR, _S3_CUR, _S_CIRC_CUR = 13.8, 54.3, 65.8, 13.8
 
 
 # ---------------------------------------------------------------------------

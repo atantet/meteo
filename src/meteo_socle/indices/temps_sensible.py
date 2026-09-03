@@ -41,8 +41,13 @@ Algorithme MET Norway (porté fidèlement, cf. ``weather_symbol/src/Factory.cpp`
 -------------------------------------------------------------------------------
 
 1. **Nébulosité** (% → indice 0-3) :
-   ``≤13`` → 0 (clair) · ``≤38`` → 1 (peu nuageux) · ``≤86`` → 2 (partiellement
-   nuageux) · ``>86`` → 3 (couvert).
+   ``≤13,8`` → 0 (clair) · ``≤54,3`` → 1 (peu nuageux) · ``≤65,8`` → 2 (partiellement
+   nuageux) · ``>65,8`` → 3 (couvert). Bornes MET Norway d'origine (13/38/86)
+   **recalibrées** sur 252 tranches labellisées MF (biais mesuré : sur-classement
+   systématique de la couverture, +0,59 en moyenne — cf. `calibration/optimize.py`
+   et `docs/calibration_pictos.md`, entrée 2026-09-03). La structure de la règle
+   (4 paliers, portage MET Norway) est inchangée ; seuls ses points d'ancrage
+   numériques sont désormais propres à ce dépôt.
 2. **Précipitation** (mm cumulés sur ``hours`` → gouttes 0-3) : paliers
    interpolés linéairement entre la fenêtre 1 h ``{0.1, 0.25, 0.95}`` et la
    fenêtre 6 h ``{0.5, 0.95, 4.95}``.
@@ -89,7 +94,9 @@ import pandas as pd
 # --- Seuils MET Norway (portés depuis Factory.cpp) ---------------------------
 
 # Nébulosité (% de couverture) → indice 0 (clair) … 3 (couvert).
-_SEUILS_NEBULOSITE_PCT = (13.0, 38.0, 86.0)
+# Recalibré depuis les bornes MET Norway d'origine (13.0, 38.0, 86.0) — voir
+# docstring du module et docs/calibration_pictos.md (entrée 2026-09-03).
+_SEUILS_NEBULOSITE_PCT = (13.8, 54.3, 65.8)
 
 # Paliers de précipitation aux fenêtres 1 h et 6 h (mm). Pour une fenêtre de
 # ``hours`` heures, chaque palier est interpolé linéairement entre les deux.
@@ -202,7 +209,7 @@ def symbole_metno(
     nebulosite = _nebulosite(cloud_cover_pct)
     gouttes = _gouttes(precipitation_mm, hours)
 
-    # Réduction « nuages hauts » : sans pluie ni brouillard, si bas + moyen ≤ 13 %,
+    # Réduction « nuages hauts » : sans pluie ni brouillard, si bas + moyen ≤ 13,8 %,
     # le ciel est dominé par les seuls cirrus → **ensoleillé** (cirrus transparent).
     # MF rend ces ciels « dégagé/ensoleillé » quel que soit le recouvrement total
     # (30, 50, 80, 95 % → MF dégagé, biais confirmé 4 jours 2026-06-21→24).
