@@ -17,6 +17,10 @@ Outils d'aide à la décision météo-climatique pour l'exploitation maraîchèr
 > - Climato — rapport Quarto publié sur <https://atantet.github.io/meteo/>.
 >   Régime thermique, pluviométrique, ETP, mildiou, calendrier annuel
 >   des conditions météo, etc. (cache parquet 30 ans ERA5 versionné).
+> - Bulletin eau mensuel — mail 1×/mois sur l'état de la ressource en eau
+>   (nappe Bonnemain, restrictions VigiEau, écart de pluie à la normale).
+>   ⚠️ en panne depuis août 2026 (timeout CDS), voir
+>   [issue #56](https://github.com/atantet/meteo/issues/56).
 
 ## Périmètre
 
@@ -25,7 +29,7 @@ pour transformation en pain et la pépinière interne sont hors périmètre v0.
 
 ## Architecture
 
-Un **socle Python** partagé + trois apps utilisateur :
+Un **socle Python** partagé + quatre apps utilisateur :
 
 | Brique | Horizon | Hébergement |
 |---|---|---|
@@ -33,6 +37,7 @@ Un **socle Python** partagé + trois apps utilisateur :
 | App **veille & alertes** | 0-48 h + semaine 10 j (mail du matin) | GitHub Actions + email |
 | **Atelier irrigation** (bilan hydrique) | prévision courte | Streamlit Community Cloud |
 | App **climato & stratégie** | saison → projections | Quarto + GitHub Pages |
+| **Bulletin eau mensuel** | mois (nappe/restrictions observés) | GitHub Actions + email |
 
 ## Principes de conception
 
@@ -193,6 +198,28 @@ sinon exporter manuellement :
 publie sur <https://atantet.github.io/meteo/> à chaque modif du code
 climato + tous les 1ers du mois. (Pages activé via
 `gh api -X POST /repos/atantet/meteo/pages -f build_type=workflow`.)
+
+### Bulletin eau mensuel (mail)
+
+```bash
+# Mode preview — écrit le HTML dans /tmp sans toucher au SMTP :
+python -m apps.bulletin_eau_mensuel --preview /tmp/bulletin_eau.html
+xdg-open /tmp/bulletin_eau.html
+
+# Envoi réel via SMTP configuré dans .env (mêmes secrets VEILLE_SMTP_*) :
+python -m apps.bulletin_eau_mensuel
+```
+
+Le workflow `.github/workflows/bulletin-eau-mensuel.yml` exécute le pipeline
+en cron mensuel (1er du mois, 06:00 UTC). Requiert en plus des secrets
+`VEILLE_SMTP_*` un secret `CDSAPI_URL` / `CDSAPI_KEY` (compte CDS ECMWF, pour
+la pluie ERA5).
+
+> ⚠️ **En panne depuis 2026-08** : le job dépasse le timeout de 35 min car le
+> cache ERA5 (`actions/cache`) est systématiquement expiré entre deux
+> exécutions mensuelles (éviction GitHub à 7 jours d'inactivité), forçant un
+> refetch complet de 30 ans à chaque run. Voir
+> [issue #56](https://github.com/atantet/meteo/issues/56).
 
 ## Tests
 
