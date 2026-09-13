@@ -19,7 +19,8 @@ Outils d'aide à la décision météo-climatique pour l'exploitation maraîchèr
 >   des conditions météo, etc. (cache parquet 30 ans ERA5 versionné).
 > - Bulletin eau mensuel — mail 1×/mois sur l'état de la ressource en eau
 >   (nappe Bonnemain, restrictions VigiEau, écart de pluie à la normale).
->   ⚠️ en panne depuis août 2026 (timeout CDS), voir
+>   Panne d'août-septembre 2026 (timeout CDS) corrigée le 2026-09-13 (cache
+>   climatologique committé), en attente de confirmation prod — voir
 >   [issue #56](https://github.com/atantet/meteo/issues/56).
 
 ## Périmètre
@@ -215,11 +216,15 @@ en cron mensuel (1er du mois, 06:00 UTC). Requiert en plus des secrets
 `VEILLE_SMTP_*` un secret `CDSAPI_URL` / `CDSAPI_KEY` (compte CDS ECMWF, pour
 la pluie ERA5).
 
-> ⚠️ **En panne depuis 2026-08** : le job dépasse le timeout de 35 min car le
-> cache ERA5 (`actions/cache`) est systématiquement expiré entre deux
-> exécutions mensuelles (éviction GitHub à 7 jours d'inactivité), forçant un
-> refetch complet de 30 ans à chaque run. Voir
-> [issue #56](https://github.com/atantet/meteo/issues/56).
+> **Panne d'août-septembre 2026 corrigée le 2026-09-13** : le job dépassait
+> le timeout de 35 min car le cache ERA5 (`actions/cache`) était
+> systématiquement expiré entre deux exécutions mensuelles (éviction GitHub
+> à 7 jours d'inactivité), forçant un refetch complet de 30 ans à chaque
+> run. La climatologie de référence 1991-2020 est désormais **committée**
+> dans `data/bulletin_eau_mensuel/era5_cache/` (peuplée une fois par
+> `scripts/seed_cache_era5_bulletin_eau.py`) ; seule l'année en cours est
+> encore refetchée à chaque run. Correctif en attente de confirmation en
+> production — voir [issue #56](https://github.com/atantet/meteo/issues/56).
 
 ## Tests
 
