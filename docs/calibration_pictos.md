@@ -46,10 +46,34 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ### Leviers restants
 - Seuils de nébulosité recalibrés le 2026-09-03 (levier utilisé, voir ci-dessus)
-  — ré-ouvrir seulement si un biais *répété* réapparaît sur les valeurs
-  `PICTO-DIAG`/`HORA-DIAG` post-recalibration.
+  — **confirmés tenir** sur les 17 tranches post-recalibration (06→13/09,
+  voir entrée du 2026-09-13) ; ré-ouvrir seulement si un biais *répété*
+  réapparaît sur un échantillon plus large.
 
 ## Journal des comparaisons
+
+### 2026-09-13 — Rattrapage post-recalibration (269 tranches ciel) ; seuils confirmés
+
+Suite au recalibrage du 09-03, la crontab locale (~39 % d'exécution, poste souvent
+éteint) n'a accumulé que **17 nouvelles tranches ciel** en 10 jours (06/09 → 13/09).
+Rejoué `optimize.py` sur l'ensemble (269 tranches, dataset complet 323 lignes).
+
+**MAE actuelle stable** : 0,45 (vs 0,444 annoncée au 09-03 sur 252 tranches — cohérent,
+léger bruit d'échantillon). Differential Evolution ne trouve **aucun gain** :
+`s1=14,4 s2=54,6 s3=65,2 s_circ=15,0` vs seuils en place `(13,8 / 54,3 / 65,8 / 13,8)`,
+gain +0,000 (marginal, < 0,01) → **seuils actuels OK, aucun changement reporté**.
+
+Random Forest (OOB 0,714, n=269) confirme `cc_avg`/`cc_low_avg` toujours prédicteurs
+dominants (65 % d'importance cumulée) — structure de règle inchangée, cohérent avec
+l'analyse du 09-03 (OOB 0,71/66 %).
+
+**Biais signé sur les 17 tranches post-recalibration seules** : -0,294 (dispersé :
++2, -1, -2, -1, reste à 0 ; 65 % d'accord exact) — **pas** de retour du biais
+« trop couvert » (+0,59) d'avant recalibration, et les écarts vont dans les deux sens
+→ pas de biais répété unidirectionnel identifiable sur cet échantillon. Trop petit
+(17 pts, doctrine « jamais sur un seul jour ») pour trancher, mais **aucun signal
+d'alerte** ; rien à actionner. À revoir quand le dataset post-recalibration atteindra
+une taille comparable au lot initial (252 tranches).
 
 ### 2026-09-03 — Rattrapage du pipeline ML (252 tranches) ; recalibration des seuils
 
