@@ -17,6 +17,7 @@ from typing import Any
 
 import pandas as pd
 
+from apps.veille.config import REPO_ROOT
 from meteo_socle.sources.era5_cds import Era5Cds
 from meteo_socle.sources.hubeau_piezo import EtatNappe, etat_nappe
 from meteo_socle.sources.vigieau import RestrictionsEau, recuperer_restrictions
@@ -165,7 +166,9 @@ def _collecter_pluie(
     fenetre = int(pcfg.get("fenetre_jours", 90))
     an0 = int(pcfg.get("reference_debut_annee", 1991))
     an1 = int(pcfg.get("reference_fin_annee", 2020))
-    arch = archive or Era5Cds()
+    cache_dir_cfg = pcfg.get("cache_dir")
+    cache_dir = (REPO_ROOT / cache_dir_cfg) if cache_dir_cfg else None
+    arch = archive or Era5Cds(cache_dir=cache_dir)
 
     # Dernier jour complet = hier (la réanalyse a quelques jours de latence,
     # mais on borne à hier et on laisse la couverture réelle décider).

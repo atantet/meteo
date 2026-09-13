@@ -12,9 +12,14 @@ Cache par année : {cache_dir}/era5_precip_{lat:.4f}_{lon:.4f}_{YYYY}.parquet.
 Les années terminées (avant l'année courante) sont mises en cache
 indéfiniment. L'année en cours est toujours rechargée (ERA5T incomplet).
 
-Première exécution avec cache froid : chaque année = 1 requête CDS
-(~1-5 min/an). Pour GH Actions, activer le cache
-~/.cache/meteo_socle/era5/ via l'action actions/cache.
+Chaque année à fetcher = 1 requête CDS (observé : 1-13 min/an selon la file
+d'attente CDS). Pour un usage périodique peu fréquent (mensuel ou moins), ne
+pas compter sur un cache volatile de type `actions/cache` : GitHub évince un
+cache non accédé depuis 7 j, donc un cron mensuel repart toujours d'un cache
+froid et doit tout refetcher (cf. issue #56). Pointer `cache_dir` vers un
+répertoire **committé dans le repo** pour les années de référence fixes
+(ex. climatologie 1991-2020) : elles ne sont fetchées qu'une fois pour
+toutes, la journalière/année courante restant seule à être refetchée.
 """
 
 from __future__ import annotations

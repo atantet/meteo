@@ -22,12 +22,17 @@ restrictions:
   profil: "exploitation"
 
 # Anomalie de pluie : cumul récent vs normale (ERA5/ERA5T via CDS ECMWF).
-# Cache par année dans ~/.cache/meteo_socle/era5/ ; première exécution lente
-# (1 requête CDS par année de référence). GH Actions : activer cache action.
+# `cache_dir` (relatif à la racine du repo) contient les années de référence
+# 1991-2020 déjà fetchées et **committées en dur** (issue #56 : un
+# `actions/cache` GitHub s'évince entre deux runs mensuels, donc un cache
+# volatile ne survit jamais à ce cron). Seule l'année en cours (ERA5T,
+# incomplète) est refetchée à chaque run — cf. scripts/seed_cache_era5_bulletin_eau.py
+# pour repeupler ce cache si la fenêtre de référence change.
 pluie:
   fenetre_jours: 90
   reference_debut_annee: 1991
   reference_fin_annee: 2020
+  cache_dir: "data/bulletin_eau_mensuel/era5_cache"
 
 diffusion:
   # False = dry-run (imprime, n'envoie pas). True = envoi SMTP réel.

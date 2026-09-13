@@ -5,6 +5,16 @@ name: Bulletin eau mensuel
 # (quotidienne, sensible au lag), un bulletin mensuel se moque du lag
 # 2-4 h de GitHub Actions → on garde un `schedule` natif ici (pas besoin
 # de cron-job.org). Le 1er du mois à 06:00 UTC + déclenchement manuel.
+#
+# Cache ERA5 : pas de `actions/cache` ici (issue #56) — un cache GitHub
+# s'évince après 7 j d'inactivité, or ce workflow tourne 1×/mois : chaque
+# run repartait d'un cache froid et devait refetcher ~30 ans de climatologie
+# CDS, dépassant systématiquement le timeout. La climatologie de référence
+# (1991-2020, fixe) est désormais committée dans
+# data/bulletin_eau_mensuel/era5_cache/ (cf. pluie.cache_dir dans
+# config/bulletin_eau_mensuel.yaml, peuplée par
+# scripts/seed_cache_era5_bulletin_eau.py) ; seule l'année en cours
+# (ERA5T, incomplète) est encore fetchée à chaque run.
 on:
   schedule:
     - cron: "0 6 1 * *"
@@ -37,13 +47,6 @@ jobs:
           environment-file: environment-dev.yml
           auto-activate-base: false
           use-mamba: true
-
-      - name: Cache ERA5 CDS (années historiques)
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/meteo_socle/era5
-          key: era5-precip-${{ hashFiles('config/bulletin_eau_mensuel.yaml') }}
-          restore-keys: era5-precip-
 
       - name: Exécuter le bulletin eau
         env:
