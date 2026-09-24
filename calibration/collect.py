@@ -158,6 +158,22 @@ def _hora_to_tranche(hours: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 
+_KEY = ["run_id", "jour_local", "fenetre"]
+
+
+def _merge_with_existing(new: pd.DataFrame, output_csv: Path) -> pd.DataFrame:
+    """Conserve les lignes déjà collectées : les logs GH expirent (~90 j) et un
+    dataset régénéré uniquement depuis les logs perdrait les anciennes tranches.
+    Une ligne fraîchement parsée l'emporte sur l'ancienne de même clé."""
+    if not output_csv.exists():
+        return new
+    old = pd.read_csv(output_csv)
+    if new.empty:
+        return old
+    merged = pd.concat([old, new], ignore_index=True)
+    return merged.drop_duplicates(subset=_KEY, keep="last").reset_index(drop=True)
+
+
 def build_dataset(labels_csv: Path, output_csv: Path) -> pd.DataFrame:
     labels = pd.read_csv(labels_csv, dtype={"run_id": int, "mf_wmo": int})
     rows: list[dict] = []
@@ -226,7 +242,7 @@ def build_dataset(labels_csv: Path, output_csv: Path) -> pd.DataFrame:
                     }
                 )
 
-    df = pd.DataFrame(rows)
+    df = _merge_with_existing(pd.DataFrame(rows), output_csv)
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_csv, index=False)
     print(f"Dataset: {len(df)} lignes → {output_csv}", file=sys.stderr)
