@@ -61,6 +61,23 @@ Algorithme MET Norway (porté fidèlement, cf. ``weather_symbol/src/Factory.cpp`
 5. **Phase** (pluie / neige fondue / neige) selon la température :
    ``≤0.5 °C`` → neige · ``≤1.5 °C`` → neige fondue · sinon pluie.
 
+Nébulosité par Random Forest (remplace le seuillage pour la tranche 6 h)
+--------------------------------------------------------------------------
+
+Le seuillage à 3 paliers plafonne à une MAE de 0,514 en validation temporelle
+(train juin-août / test septembre — cf. ``docs/calibration_pictos.md``, entrée
+2026-09-30), quels que soient les seuils : la dérive saisonnière n'est pas un
+problème de calibration mais de structure de règle. Un Random Forest à 7
+features (nébulosité totale/basse/moyenne, précipitation, température,
+visibilité, humidité) réduit cette erreur de 24 % (0,392). Entraîné et
+sérialisé par ``calibration/train_nebulosite_rf.py`` depuis
+``data/calibration/dataset.csv`` ; chargé par ``nebulosite_rf()``. N'intervient
+qu'à l'**agrégation par tranche 6 h** (``apps.shared.pictograms.
+code_dominant_fenetre``), jamais heure par heure, et seulement en l'absence
+d'événement (pluie/orage/brouillard) dans la tranche — hors du périmètre
+validé. Le seuillage (`_nebulosite`, ci-dessus) reste le chemin horaire et le
+repli si les 7 features ne sont pas toutes disponibles.
+
 Ajouts propres à ce dépôt (signalés, à valider terrain — cf. principe
 « vérifier les substitutions »)
 -----------------------------------------------------------------------
@@ -87,6 +104,9 @@ Références
 """
 
 from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -434,6 +454,115 @@ def serie_code_temps(df: pd.DataFrame, hours: int = 1) -> pd.Series:
             )
         )
     return pd.Series(codes, index=df.index, dtype="Int64", name="weather_code")
+
+
+# ===========================================================================
+# Nébulosité par Random Forest (tranche 6 h) — cf. docstring du module.
+# ===========================================================================
+
+#: Ordre des features — DOIT rester identique à ``calibration/train_nebulosite_rf.py``
+#: et ``calibration/optimize.py`` (RF de diagnostic).
+_FEATURES_NEBULOSITE_RF = (
+    "cc_avg",
+    "cc_low_avg",
+    "cc_mid_avg",
+    "precip_sum",
+    "temp_c_avg",
+    "visi_m_min",
+    "humi_avg",
+)
+
+_MODELE_NEBULOSITE_RF = Path(__file__).parent / "data" / "nebulosite_rf.joblib"
+
+
+@lru_cache(maxsize=1)
+def _charger_modele_nebulosite_rf():
+    """Charge le Random Forest de nébulosité (mis en cache, une seule fois par process).
+
+    ``None`` si l'artefact est absent — l'appelant retombe alors sur le
+    seuillage (jamais d'exception : le modèle est un raffinement, pas un
+    prérequis).
+    """
+    if not _MODELE_NEBULOSITE_RF.exists():
+        return None
+    import joblib
+
+    return joblib.load(_MODELE_NEBULOSITE_RF)
+
+
+def nebulosite_rf(
+    cc_pct: float | None,
+    cc_low_pct: float | None,
+    cc_mid_pct: float | None,
+    precipitation_mm: float | None,
+    temperature_c: float | None,
+    visibilite_m: float | None,
+    humidite_relative_frac: float | None,
+) -> int | None:
+    """Indice de nébulosité 0-3 par Random Forest (tranche 6 h, cf. docstring module).
+
+    Toutes les entrées sont des **agrégats sur la fenêtre** (moyenne, sauf
+    ``visibilite_m`` = minimum) : ``cc_pct``/``cc_low_pct``/``cc_mid_pct`` en
+    **pourcentage** (0-100), ``precipitation_mm`` = moyenne horaire (mm),
+    ``temperature_c`` en °C, ``visibilite_m`` en mètres, ``humidite_relative_frac``
+    en fraction (0-1). Renvoie ``None`` si une entrée manque (NaN/None) ou si
+    le modèle n'est pas disponible — l'appelant retombe alors sur le seuillage.
+    """
+    valeurs = (
+        cc_pct,
+        cc_low_pct,
+        cc_mid_pct,
+        precipitation_mm,
+        temperature_c,
+        visibilite_m,
+        humidite_relative_frac,
+    )
+    if any(v is None or (isinstance(v, float) and np.isnan(v)) for v in valeurs):
+        return None
+    modele = _charger_modele_nebulosite_rf()
+    if modele is None:
+        return None
+    x = np.array([valeurs], dtype=float)
+    return int(modele.predict(x)[0])
+
+
+#: Colonnes socle requises pour l'agrégat 6 h alimentant ``nebulosite_rf``.
+_COLS_NEBULOSITE_RF = (
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "precipitation",
+    "temperature_2m",
+    "visibilite_m",
+    "humidite_relative",
+)
+
+
+def nebulosite_rf_depuis_fenetre(sub: pd.DataFrame) -> int | None:
+    """Agrège les colonnes socle d'une fenêtre 6 h puis appelle ``nebulosite_rf``.
+
+    ``sub`` : lignes horaires de la fenêtre (colonnes socle brutes, comme le
+    ``df`` AROME). Renvoie ``None`` si une colonne manque entièrement ou si
+    la fenêtre est vide — l'appelant retombe alors sur le seuillage.
+    """
+    if sub.empty or any(c not in sub.columns for c in _COLS_NEBULOSITE_RF):
+        return None
+    cc = sub["cloud_cover"].mean()
+    cc_low = sub["cloud_cover_low"].mean()
+    cc_mid = sub["cloud_cover_mid"].mean()
+    precip = sub["precipitation"].mean()
+    temp_c = sub["temperature_2m"].mean() - 273.15
+    visi_min = sub["visibilite_m"].min()
+    humi = sub["humidite_relative"].mean()
+    return nebulosite_rf(
+        None if pd.isna(cc) else float(cc) * 100.0,
+        None if pd.isna(cc_low) else float(cc_low) * 100.0,
+        None if pd.isna(cc_mid) else float(cc_mid) * 100.0,
+        None if pd.isna(precip) else float(precip),
+        None if pd.isna(temp_c) else float(temp_c),
+        None if pd.isna(visi_min) else float(visi_min),
+        None if pd.isna(humi) else float(humi),
+    )
 
 
 def code_temps_fenetre(df: pd.DataFrame, hours: int | None = None) -> int | None:

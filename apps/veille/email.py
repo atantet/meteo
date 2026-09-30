@@ -601,6 +601,7 @@ def _tendance_texte_48h(
         return []
 
     from apps.shared.pictograms import code_dominant_fenetre, libelle
+    from meteo_socle.indices.temps_sensible import nebulosite_rf_depuis_fenetre
 
     horaire_loc = prevision_horaire.copy()
     horaire_loc.index = pd.DatetimeIndex(horaire_loc.index).tz_convert(tz_locale)
@@ -618,7 +619,10 @@ def _tendance_texte_48h(
             masque = (horaire_48h.index.normalize() == jour) & (
                 (horaire_48h.index.hour >= h_debut) & (horaire_48h.index.hour < h_fin)
             )
-            code = code_dominant_fenetre(horaire_48h.loc[masque, "weather_code"])
+            sub = horaire_48h.loc[masque]
+            code = code_dominant_fenetre(
+                sub["weather_code"], nebulosite_rf=nebulosite_rf_depuis_fenetre(sub)
+            )
             # Fenêtre non couverte (bord de fenêtre : l'après-midi, la prévision
             # démarre à 12Z → la « matin » du 1er jour est vide) → on la saute.
             if code is None:
@@ -836,6 +840,7 @@ def _bloc_grille_indicateurs_48h(
         return ""
 
     from apps.shared.pictograms import code_dominant_fenetre, icone_base64, libelle
+    from meteo_socle.indices.temps_sensible import nebulosite_rf_depuis_fenetre
 
     horaire = prevision_horaire.copy()
     horaire.index = pd.DatetimeIndex(horaire.index).tz_convert(tz_locale)
@@ -890,7 +895,13 @@ def _bloc_grille_indicateurs_48h(
                     cells.append('<td style="padding:1px 4px;text-align:center;color:#ccc;">—</td>')
                     continue
                 codes = serie_fenetre(jour_courant, "weather_code", h_debut, h_fin)
-                code = code_dominant_fenetre(codes) if not codes.empty else None
+                if codes.empty:
+                    code = None
+                else:
+                    sub = horaire.loc[_masque_fenetre(horaire, jour_courant, h_debut, h_fin)]
+                    code = code_dominant_fenetre(
+                        codes, nebulosite_rf=nebulosite_rf_depuis_fenetre(sub)
+                    )
                 if code is None:
                     cells.append('<td style="padding:1px 4px;text-align:center;color:#ccc;">—</td>')
                     continue

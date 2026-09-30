@@ -26,6 +26,9 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
   `(13, 38, 86)` (voir entrée de journal correspondante).
 - Réduction cirrus : si pluie nulle **et** couches basse + moyenne ≤ 13,8 % → **ensoleillé** (cirrus transparent, quel que soit le recouvrement total).
 - Agrégation 6 h : **sévérité max** (`code_dominant_fenetre`) — le pire des 6 créneaux.
+  Ciel sec (pas d'événement dans la tranche) : **Random Forest** si les 7 features
+  sont disponibles (**2026-09-30**, voir entrée de journal) ; à défaut, seuillage +
+  garde-fou éclaircies.
 - Orage : **Vigilance seule** (jamais dérivé du modèle).
 
 ## Synthèse des biais observés (à ce jour)
@@ -51,6 +54,68 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
   réapparaît sur un échantillon plus large.
 
 ## Journal des comparaisons
+
+### 2026-09-30 — Décision : Random Forest adopté pour la tranche « ciel sec »
+
+Suite à l'entrée précédente (biais émergent, DE bloquée sur ses bornes),
+comparaison en **validation temporelle** (train juin-août, n=223 / test
+septembre, n=74 — le régime le plus récent) :
+
+| Candidat | MAE test |
+|---|---|
+| Seuils actuels (13,8/54,3/65,8), non refit | 0,514 |
+| DE refit sur train, bornes actuelles | 0,514 (seuils quasi identiques) |
+| DE refit sur train, bornes élargies | 0,514 (seuils différents, même score) |
+| + override brouillard (visibilité, seuil optimisé) | 0,608 — **pire** |
+| Random Forest (7 features AROME) | **0,392** |
+
+Deux conclusions : (1) **ce n'est pas un problème de seuils** — aucun jeu de
+seuils, même sur des bornes très larges, ne fait mieux que 0,514 ; la règle à
+3 paliers plafonne structurellement sur ce régime. (2) L'hypothèse brouillard
+(entrée du 2026-09-30 précédente) ne tient pas à l'épreuve : l'override
+dégrade la MAE. Seul un Random Forest à 7 features (`cc_avg`, `cc_low_avg`,
+`cc_mid_avg`, `precip_sum`, `temp_c_avg`, `visi_m_min`, `humi_avg`) réduit
+vraiment l'erreur (-24 %).
+
+**Décision (Alexis, 2026-09-30)** : « Il faut faire en sorte que le modèle
+soit plus performant, c'est ça qui guide les décisions. » Le RF est adopté en
+production. Clarification actée sur le principe n°6 (« pas de boîte noire ») :
+il porte sur la **transparence de la méthodologie** (script d'entraînement
+publié, donnée de calibration publique, validation reproductible), pas sur le
+type de modèle — un Random Forest documenté n'est pas plus « boîte noire »
+qu'un seuillage si sa donnée d'entraînement et sa procédure de validation
+sont ouvertes.
+
+**Intégration** (scope volontairement étroit, cf. `temps_sensible.py` et
+`apps/shared/pictograms.py`) :
+- Entraîné par `calibration/train_nebulosite_rf.py` sur les 280 tranches
+  ciel à 7 features complètes (source `hora_diag`), sérialisé dans
+  `src/meteo_socle/indices/data/nebulosite_rf.joblib` (committé, reproductible
+  depuis `data/calibration/dataset.csv`).
+- N'intervient **qu'à l'agrégation 6 h** (`code_dominant_fenetre`), pas
+  heure par heure (le RF a été entraîné et validé sur des agrégats de
+  fenêtre, pas des instantanés horaires — les utiliser à l'échelle horaire
+  serait hors du périmètre validé).
+- N'intervient **que si aucun événement** (pluie/orage/brouillard, code ≥ 45)
+  n'est présent dans la fenêtre — la voie « événement » (sévérité max) reste
+  inchangée, jamais masquée par le RF.
+- **Repli automatique** sur le seuillage + garde-fou éclaircies si une des 7
+  features manque (ex. anciennes lignes `PICTO-DIAG` sans visibilité/humidité) —
+  jamais d'exception, le RF est un raffinement, pas un prérequis.
+- Seuls les 2 points d'agrégation AROME 48 h calibrés dans ce registre
+  (`_bloc_grille_indicateurs_48h`, `_tendance_texte_48h`) sont branchés.
+  `codes_dominants_par_jour` (fenêtre journalière 8h-20h, jamais validée à
+  cette granularité) et `apps/veille/semaine.py` (ARPEGE/ECMWF, modèle et
+  features différents, jamais calibrés ici) sont **volontairement exclus** —
+  substitution non vérifiée sur ces chemins, cf. doctrine.
+
+**À vérifier au prochain mail** (comparaison visuelle vs MF.com) et à
+surveiller sur la suite du pipeline de calibration : le RF est figé au
+30/09 (280 tranches) — le pipeline continue d'accumuler des tranches
+(`calibration/run_pipeline.sh`), mais **ne le réentraîne pas automatiquement**
+— un ré-entraînement est un geste explicite (`train_nebulosite_rf.py`), à
+reprendre après un volume significatif de nouvelles tranches ou si un biais
+réapparaît.
 
 ### 2026-09-30 — Biais émergent (sous-classement, sens inverse) ; pas d'action
 

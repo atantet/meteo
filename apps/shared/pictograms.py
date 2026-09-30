@@ -305,7 +305,11 @@ def codes_dominants_par_jour(
     return sorted(par_jour.items())
 
 
-def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
+def code_dominant_fenetre(
+    codes_horaires: pd.Series,
+    *,
+    nebulosite_rf: int | None = None,
+) -> int | None:
     """Choisit le code représentatif d'une fenêtre horaire (agrégation à deux voies).
 
     Un picto de tranche doit **refléter toutes les heures, éclaircies comprises** —
@@ -314,16 +318,25 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     - **Événement** (brouillard / précip / orage, code ≥ 45) : si une heure en porte un,
       on le **signale** (sévérité max). Ne jamais cacher une averse ou un orage.
     - **Ciel sec** (codes 0-3 : ensoleillé / peu nuageux / partiellement nuageux /
-      couvert) : on prend le ciel **représentatif** (niveau moyen de la tranche,
-      arrondi) — refléter toutes les heures sans noircir sur une seule. **Garde-fou
-      éclaircies** : si le représentatif tombe sur « couvert » mais qu'il reste une
-      heure ensoleillée/peu/partiellement nuageuse, on rend **partiellement nuageux**
-      (éclaircies) — jamais couvert plein s'il y a du soleil dans la fenêtre.
+      couvert) : si ``nebulosite_rf`` est fourni (Random Forest, validé sur cette
+      fenêtre précisément — cf. ``docs/calibration_pictos.md``, entrée 2026-09-30),
+      on le retient directement. Sinon on prend le ciel **représentatif** (niveau
+      moyen de la tranche, arrondi) — refléter toutes les heures sans noircir sur
+      une seule. **Garde-fou éclaircies** (seuillage seul) : si le représentatif
+      tombe sur « couvert » mais qu'il reste une heure ensoleillée/peu/partiellement
+      nuageuse, on rend **partiellement nuageux** — jamais couvert plein s'il y a du
+      soleil dans la fenêtre.
 
     Parameters
     ----------
     codes_horaires :
         Série de codes WMO sur la fenêtre (peut contenir des NaN).
+    nebulosite_rf :
+        Indice de nébulosité 0-3 déjà prédit par ``temps_sensible.
+        nebulosite_rf_depuis_fenetre`` pour cette même fenêtre, ou ``None``
+        (features manquantes → repli automatique sur le seuillage). Ignoré dès
+        qu'un événement (pluie/orage/brouillard) est présent : jamais de
+        substitution sur un cas hors du périmètre validé.
 
     Returns
     -------
@@ -340,7 +353,10 @@ def code_dominant_fenetre(codes_horaires: pd.Series) -> int | None:
     if not significatifs.empty:
         severites = significatifs.map(lambda c: WMO_SEVERITE.get(int(c), 0))
         return int(significatifs.loc[severites.idxmax()])
-    # Voie « ciel sec » : niveau représentatif (moyen) + garde-fou éclaircies.
+    # Voie « ciel sec » : Random Forest si disponible, sinon niveau représentatif
+    # (moyen) + garde-fou éclaircies.
+    if nebulosite_rf is not None:
+        return nebulosite_rf
     niveaux = codes_valides.to_numpy()
     rep = int(niveaux.mean() + 0.5)  # arrondi au plus proche
     if rep >= 3 and int(niveaux.min()) <= 2:
