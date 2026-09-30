@@ -52,6 +52,38 @@ la curation MF (WWMF, absent du portail-api), pas forcément d'un seuil.
 
 ## Journal des comparaisons
 
+### 2026-09-30 — Biais émergent (sous-classement, sens inverse) ; pas d'action
+
+Depuis la recalibration du 09-03, la MAE dérive doucement à seuils constants :
+0,44 (09-23) → 0,447 → 0,45 → 0,455 → 0,46 → 0,466 → **0,468** (09-30, 297 tranches
+ciel). Biais signé (`pred - mf_wmo`) par mois : juin +0,03 (n=38), juillet -0,01
+(n=86), août **-0,15** (n=99), septembre **-0,19** (n=74). Depuis le 09-03
+seul : **-0,217** (n=46). **Sens inverse** du biais « trop couvert » (+0,59)
+d'avant recalibration : on sous-classe maintenant par rapport à MF (on dit
+moins nuageux qu'eux), et ça se creuse mois après mois.
+
+**Pas d'action appliquée.** La Differential Evolution converge vers
+`s1=1,9 / s2=54,2 / s3=94,8` (gain +0,010) — mais `s1` et `s3` collent aux
+bornes de recherche (1,0 / 95,0), signe que ce n'est **pas un vrai optimum**
+mais la règle à 3 seuils qui ne peut plus absorber le nouveau régime. Même
+symptôme observé le 20/09 et le 24/09 (avant le fix perte-de-données) — donc
+pas un artefact du bug de dataset, un vrai signal qui dure.
+
+**Piste non confirmée** : `humi_avg` (0,071) et `visi_m_min` (0,057) montent
+légèrement dans les feature importances RF (OOB 0,731, cc_avg/cc_low_avg
+toujours dominants à 68 %). Hypothèse : brouillard/grisaille d'automne que la
+nébulosité AROME seule ne capte pas mais que MF classe « couvert ». **Pas
+vérifiée** — nécessite de regarder des cas concrets (heure par heure,
+visibilité vs code MF) avant de conclure.
+
+**Décision** : biais répété et généralisé (3 mois, direction constante) →
+condition de réouverture du levier remplie. Mais pas de recalibration DE tant
+qu'elle bute sur les bornes — élargir les bornes changerait la nature de la
+règle (ex. s3=95 revient à ne plus jamais dire « couvert » sauf ciel
+quasi-total). À trancher avec Alexis : soit élargir les bornes DE et
+accepter une règle plus permissive sur "couvert", soit ajouter une feature
+brouillard (visibilité) plutôt que de forcer la règle nébulosité seule.
+
 ### 2026-09-13 — Rattrapage post-recalibration (269 tranches ciel) ; seuils confirmés
 
 Suite au recalibrage du 09-03, la crontab locale (~39 % d'exécution, poste souvent
