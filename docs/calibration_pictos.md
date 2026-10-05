@@ -109,6 +109,14 @@ sont ouvertes.
   features différents, jamais calibrés ici) sont **volontairement exclus** —
   substitution non vérifiée sur ces chemins, cf. doctrine.
 
+**Suivi post-déploiement — 2026-10-05** : premières tranches **réellement**
+hors échantillon (postérieures à l'entraînement du 30/09), n=12 (02→04/10).
+RF : 16,7 % d'erreur (2/12) ; seuillage : 41,7 % (5/12). Cohérent avec la
+validation de septembre — pas de signal défavorable, mais échantillon encore
+trop petit pour conclure (doctrine « jamais sur un seul jour »). À
+recalculer régulièrement à mesure que le pipeline accumule des tranches
+post-30/09.
+
 **À vérifier au prochain mail** (comparaison visuelle vs MF.com) et à
 surveiller sur la suite du pipeline de calibration : le RF est figé au
 30/09 (280 tranches) — le pipeline continue d'accumuler des tranches
