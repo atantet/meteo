@@ -77,6 +77,11 @@ LATENCE_MIN_PORTAIL_H = 3.5
 CYCLE_AROME_H, OFFSET_AROME_H = 3, 0
 CYCLE_PEAROME_H, OFFSET_PEAROME_H = 6, 3
 # Erreurs « 48 h indisponible » (portail-api) → repli (omission de la 48 h).
+# ProbaAromeIndisponibleError et VigilanceDPIndisponibleError sont désormais tolérées
+# DANS assembler_prevision_48h (issue #57 : 429 PE-AROME par collision de quota avec
+# le fetch AROME qui précède) — elles restent ici par défense (ex. si l'appelant
+# change), mais ne devraient plus jamais atteindre ce niveau pour PE-AROME/Vigilance
+# seules.
 _ERREURS_48H = (
     requests.RequestException,
     AromeIndisponibleError,

@@ -121,6 +121,33 @@ def test_assembler_tolere_vigilance_absente(monkeypatch) -> None:
     assert prev.df["weather_code"].apply(lambda c: c not in _CODES_ORAGE).all()  # pas d'overlay
 
 
+def test_assembler_tolere_proba_absente(monkeypatch) -> None:
+    """PE-AROME KO (429 quota, issue #57) → 48 h quand même produite, proba vide/NaN."""
+    import apps.veille.prevision_48h as p48
+
+    idx = pd.date_range("2026-06-15T00:00:00Z", periods=4, freq="h")
+    arome = pd.DataFrame(
+        {"cloud_cover": [0.5] * 4, "precipitation": [0.0] * 4, "temperature_2m": [290.0] * 4},
+        index=idx,
+    )
+    monkeypatch.setattr(p48.MeteoFranceArome, "obtenir_run", lambda self, *a, **k: arome)
+
+    def _proba_down(self, *a, **k):
+        raise p48.ProbaAromeIndisponibleError("429 Too Many Requests")
+
+    monkeypatch.setattr(p48.MeteoFranceProbaArome, "obtenir_proba", _proba_down)
+
+    def _vig_down(*a, **k):
+        raise p48.VigilanceDPIndisponibleError("down")
+
+    monkeypatch.setattr(p48, "recuperer_vigilance_dp", _vig_down)
+    prev, _ = p48.assembler_prevision_48h(
+        pd.Timestamp("2026-06-15T00:00:00Z"), 48.5, -1.6, "35", {"name": "x", "timezone": "UTC"}
+    )
+    assert "weather_code" in prev.df.columns  # 48 h produite malgré tout
+    assert prev.df["probabilite_pluie_pct"].isna().all()  # proba vide/NaN
+
+
 def test_overlay_orage_l_emporte_sur_picto_absent() -> None:
     """L'overlay orage pose 95 même là où le picto dérivé serait <NA> (ciel manquant)."""
     df_in = _arome_synthetique()

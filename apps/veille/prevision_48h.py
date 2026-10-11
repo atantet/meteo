@@ -36,7 +36,10 @@ from meteo_socle.sources.meteofrance_phealth import (
     UVJournalier,
     obtenir_uv,
 )
-from meteo_socle.sources.meteofrance_proba_arome import MeteoFranceProbaArome
+from meteo_socle.sources.meteofrance_proba_arome import (
+    MeteoFranceProbaArome,
+    ProbaAromeIndisponibleError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,19 +125,26 @@ def assembler_prevision_48h(
 ) -> tuple[Prevision48h, VigilanceDepartementDP | None]:
     """Fetch AROME + PE-AROME + DPVigilance et assemble la 48 h + la Vigilance.
 
-    ``run_proba_utc`` : run PE-AROME (cycle propre) ; défaut = ``run_utc``. AROME et
-    PE-AROME lèvent leurs ``*IndisponibleError`` (cascade gérée par l'appelant, qui
-    peut replier sur un run plus ancien). **DPVigilance est tolérée** : si elle échoue,
-    la 48 h est quand même produite (sans overlay orage), Vigilance à ``None`` — un
-    bandeau Vigilance manquant ne doit pas faire sauter toute la 48 h.
+    ``run_proba_utc`` : run PE-AROME (cycle propre) ; défaut = ``run_utc``. **AROME
+    lève** ``AromeIndisponibleError`` (cascade gérée par l'appelant, qui peut replier
+    sur un run plus ancien). **PE-AROME et DPVigilance sont tolérées** : si l'une
+    échoue, la 48 h est quand même produite — sans proba (série vide) ou sans overlay
+    orage, Vigilance à ``None``. PE-AROME échoue en pratique par collision de quota
+    MF/minute avec les ~500 requêtes du fetch AROME qui précède (429, cf. issue #57) ;
+    un bandeau Vigilance manquant ou une proba absente ne doit pas faire sauter toute
+    la 48 h alors qu'AROME, lui, a réussi.
     """
     session = session or requests.Session()
     arome = MeteoFranceArome(basic=basic, session=session).obtenir_run(
         run_utc, latitude, longitude, horizon_jours=2, cache_dir=cache_dir
     )
-    proba_6h = MeteoFranceProbaArome(basic=basic, session=session).obtenir_proba(
-        run_proba_utc or run_utc, latitude, longitude, horizon_jours=2, fenetre_h=6, seuil_mm=1
-    )
+    try:
+        proba_6h = MeteoFranceProbaArome(basic=basic, session=session).obtenir_proba(
+            run_proba_utc or run_utc, latitude, longitude, horizon_jours=2, fenetre_h=6, seuil_mm=1
+        )
+    except ProbaAromeIndisponibleError as e:
+        logger.warning("PE-AROME indisponible (%s) → 48 h sans proba.", e)
+        proba_6h = pd.Series(dtype=float)
     vigilance: VigilanceDepartementDP | None
     try:
         vig = recuperer_vigilance_dp(departement, basic=basic, session=session)
