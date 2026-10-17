@@ -32,3 +32,10 @@ else
     git commit -m "chore(calibration): pipeline auto $(date -u +%Y-%m-%dT%H:%MZ)"
     echo "Commit créé."
 fi
+
+# Push (y compris un commit laissé en local par un run précédent sans réseau)
+if git push; then
+    echo "Push OK."
+else
+    echo "Push échoué — à rattraper manuellement."
+fi
