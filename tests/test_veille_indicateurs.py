@@ -199,6 +199,40 @@ def test_periodes_pleines_et_portion_horaire() -> None:
     assert "Nuit" not in labels[:1]
 
 
+@pytest.mark.parametrize(
+    ("debut_utc", "duree_nuit_h"),
+    [
+        # Passage à l'heure d'hiver (dim. 25/10/2026, 3 h CEST → 2 h CET) : nuit de 7 h.
+        ("2026-10-23 16:00", 7),
+        # Passage à l'heure d'été (dim. 29/03/2026, 2 h CET → 3 h CEST) : nuit de 5 h.
+        ("2026-03-27 16:00", 5),
+    ],
+)
+def test_periodes_pleines_changement_heure(debut_utc: str, duree_nuit_h: int) -> None:
+    """Régression prod 2026-10-23 : ``KeyError: 5`` si l'horizon franchit le changement d'heure."""
+    from apps.veille.indicateurs import LABEL_PAR_DEBUT, periodes_pleines
+
+    # 72 h horaires depuis un instant UTC, ré-indexées en local (comme le pipeline).
+    idx = pd.date_range(debut_utc, periods=72, freq="h", tz="UTC").tz_convert("Europe/Paris")
+    df = pd.DataFrame({"x": 1.0}, index=idx)
+    periodes = periodes_pleines(df)
+
+    assert periodes, "aucune période pleine"
+    for label, debut, fin in periodes:
+        assert debut.hour in LABEL_PAR_DEBUT and LABEL_PAR_DEBUT[debut.hour] == label
+        assert fin.hour in (0, 6, 12, 18)  # bornes toujours en heure murale ronde
+    # Périodes contiguës, sans trou ni recouvrement.
+    for (_, _, fin_prec), (_, debut, _) in zip(periodes, periodes[1:], strict=False):
+        assert debut == fin_prec
+    # La nuit du dimanche contient le changement d'heure : durée réelle ≠ 6 h.
+    dimanche = idx[0].normalize() + pd.Timedelta(days=2)
+    nuits = [(d, f) for lab, d, f in periodes if lab == "Nuit" and d.day == dimanche.day]
+    assert len(nuits) == 1
+    debut, fin = nuits[0]
+    assert fin - debut == pd.Timedelta(hours=duree_nuit_h)
+    assert len(df.loc[(df.index >= debut) & (df.index < fin)]) == duree_nuit_h
+
+
 def test_calculer_indicateurs_aucune_periode_pleine_raise() -> None:
     from apps.veille.indicateurs import calculer_indicateurs
 

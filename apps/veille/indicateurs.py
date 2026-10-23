@@ -123,18 +123,24 @@ def periodes_pleines(
     if df_horaire_local.empty:
         return []
     heures_presentes = set(df_horaire_local.index)
-    debut_jour = df_horaire_local.index.min().normalize()
+    tz = df_horaire_local.index.tz
     fin = df_horaire_local.index.max()
+    # Bornes construites en heure MURALE (0/6/12/18 locale) puis localisées : un
+    # ``p + 6 h`` tz-aware est absolu et décale les bornes au changement d'heure
+    # (00:00 CEST + 6 h = 05:00 CET le dimanche d'octobre → KeyError, prod 2026-10-23).
+    # La période qui contient le changement dure donc 7 h (octobre) ou 5 h (mars) réelles.
+    jour = df_horaire_local.index.min().normalize().tz_localize(None)
     out: list[tuple[str, pd.Timestamp, pd.Timestamp]] = []
-    p = debut_jour
-    pas = pd.Timedelta(hours=PERIODE_H)
-    while p <= fin:
-        fin_p = p + pas
-        heures = [p + pd.Timedelta(hours=k) for k in range(PERIODE_H)]
-        if all(h in heures_presentes for h in heures) and (apres is None or fin_p > apres):
-            out.append((LABEL_PAR_DEBUT[p.hour], p, fin_p))
-        p = fin_p
-    return out
+    while True:
+        for h_debut in sorted(LABEL_PAR_DEBUT):
+            p = (jour + pd.Timedelta(hours=h_debut)).tz_localize(tz)
+            if p > fin:
+                return out
+            fin_p = (jour + pd.Timedelta(hours=h_debut + PERIODE_H)).tz_localize(tz)
+            heures = pd.date_range(p, fin_p, freq="h", inclusive="left")
+            if all(h in heures_presentes for h in heures) and (apres is None or fin_p > apres):
+                out.append((LABEL_PAR_DEBUT[h_debut], p, fin_p))
+        jour += pd.Timedelta(days=1)
 
 
 @dataclass
