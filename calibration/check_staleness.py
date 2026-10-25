@@ -38,8 +38,11 @@ _SEUIL_H_DEFAUT = 30  # > 1 créneau raté (12 h), < 2 jours : pas d'alerte sur 
 
 
 def _dernier_commit_epoch() -> int | None:
+    # On regarde ce qui est arrivé sur GitHub (origin/main, mis à jour à chaque
+    # push réussi), pas le commit local : un push en échec ou un commit sur une
+    # autre branche passaient sinon inaperçus (octobre 2026).
     out = subprocess.run(
-        ["git", "log", "-1", "--format=%ct", "--", "data/calibration/"],
+        ["git", "log", "-1", "--format=%ct", "origin/main", "--", "data/calibration/"],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
@@ -61,9 +64,10 @@ def main(seuil_h: int = _SEUIL_H_DEFAUT, dry_run: bool = False) -> None:
 
     sujet = f"[Calibration pictos] Pipeline en retard — {ecart_h:.0f} h sans commit"
     texte = (
-        f"Aucun commit sur data/calibration/ depuis {ecart_h:.0f} h (seuil {seuil_h} h).\n\n"
-        "Le crontab local (07:10/19:10) a probablement raté un ou plusieurs créneaux "
-        "(machine éteinte/en veille).\n\n"
+        f"Aucun commit sur data/calibration/ poussé sur origin/main depuis {ecart_h:.0f} h "
+        f"(seuil {seuil_h} h).\n\n"
+        "Causes possibles : crontab local (07:10/19:10) raté (machine éteinte/en veille), "
+        "push en échec, ou branche courante ≠ main. Voir /tmp/calib.log.\n\n"
         "Rattraper dès que possible pour limiter la perte de points :\n"
         "    bash calibration/run_pipeline.sh\n\n"
         "Au-delà d'un run Veille supplémentaire passé sans rattrapage, le label MF de ce "
