@@ -309,13 +309,17 @@ def _bloc_vigilance_mf(
 _VIGIEAU_URL_BASE = "https://vigieau.gouv.fr/situation"
 _VIGIEAU_URL_FALLBACK = "https://vigieau.gouv.fr"
 
-# Couleurs par niveau VigiEau (cohérentes avec la palette Bang Wong).
+# Couleurs par niveau VigiEau. Fond toujours clair (texte foncé lisible à tous
+# les niveaux) ; la gravité est portée par la pastille pleine du libellé et la
+# bordure gauche, de couleur ``fg``. Contraste ≥ 4,5:1 (WCAG AA) vérifié en test.
 _VIGIEAU_COULEURS: dict[str, dict[str, str]] = {
-    "vigilance": {"bg": "#fff4d1", "fg": "#9a7000"},
-    "alerte": {"bg": "#ffd9b3", "fg": "#a04000"},
-    "alerte_renforcee": {"bg": "#ffcccc", "fg": "#a00000"},
-    "crise": {"bg": "#cc0000", "fg": "#ffffff"},
+    "vigilance": {"bg": "#fff8e1", "fg": "#7a5c00"},
+    "alerte": {"bg": "#fff0e3", "fg": "#a84300"},
+    "alerte_renforcee": {"bg": "#fde8e8", "fg": "#b3261e"},
+    "crise": {"bg": "#fbdcdc", "fg": "#7a0000"},
 }
+_VIGIEAU_TEXTE = "#222222"
+_VIGIEAU_LEGENDE = "#555555"
 
 
 def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: str = "") -> str:
@@ -371,18 +375,21 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
     ]
     if len(paragraphes) == 1:
         usages_html = (
-            f'<div style="margin:6px 0 0 0;font-size:12px;color:#555;">{paragraphes[0]}</div>'
+            f'<div style="margin:6px 0 0 0;font-size:12px;color:{_VIGIEAU_TEXTE};">'
+            f"{paragraphes[0]}</div>"
         )
     elif paragraphes:
         items = "".join(
-            f'<li style="margin:2px 0;font-size:12px;color:#555;">{p}</li>' for p in paragraphes
+            f'<li style="margin:2px 0;font-size:12px;color:{_VIGIEAU_TEXTE};">{p}</li>'
+            for p in paragraphes
         )
         usages_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;">{items}</ul>'
     else:
         usages_html = ""
 
     sous_titre = (
-        f' <span style="font-size:11px;font-weight:400;">{escape(date_str)}</span>'
+        '<span style="font-size:12px;font-weight:400;color:#333333;margin-left:6px;">'
+        f"{escape(date_str)}</span>"
         if date_str
         else ""
     )
@@ -399,7 +406,7 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
         url_vigieau = _VIGIEAU_URL_FALLBACK
     legende = (
         f'<a href="{url_vigieau}" '
-        'style="color:#888;text-decoration:underline;">VigiEau</a>'
+        f'style="color:{_VIGIEAU_LEGENDE};text-decoration:underline;">VigiEau</a>'
         f" · irrigation cultures spéciales (maraîchage) · forage"
     )
 
@@ -408,11 +415,12 @@ def _bloc_restrictions_eau(restrictions: RestrictionsEau | None, adresse_site: s
         '<h3 style="margin:0 0 6px 0;font-size:15px;color:#34495e;">'
         "Restrictions sécheresse</h3>"
         '<div style="padding:8px 12px;border-radius:4px;'
-        f'background:{couleurs["bg"]};border-left:4px solid {couleurs["fg"]};">'
-        '<span style="font-size:13px;font-weight:700;'
-        f'color:{couleurs["fg"]};">{escape(label_niveau)}</span>{sous_titre}'
+        f'background:{couleurs["bg"]};border-left:6px solid {couleurs["fg"]};">'
+        '<span style="display:inline-block;font-size:13px;font-weight:700;'
+        f'padding:2px 8px;border-radius:3px;background:{couleurs["fg"]};color:#ffffff;">'
+        f"{escape(label_niveau)}</span>{sous_titre}"
         f"{usages_html}"
-        f'<div style="font-size:11px;color:#888;margin-top:6px;">{legende}</div>'
+        f'<div style="font-size:11px;color:{_VIGIEAU_LEGENDE};margin-top:6px;">{legende}</div>'
         "</div>"
         "</div>"
     )
